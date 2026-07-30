@@ -1,2 +1,68 @@
-skills/
+# dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+build/
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dev.log
+*.log
+
+# env files
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# prisma
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
+# ide
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# tool results
+tool-results/
+spec_full.txt
+
+# uploads
+upload/
+
+# test
+coverage/
+
+# skills (not part of product)
+skills/
+
+# z-scripts (sandbox infra)
+.zscripts/
+
+# examples
+examples/
+
+# database files
+db/*.db
+
+# lock files (use bun.lock)
+package-lock.json
+yarn.lock

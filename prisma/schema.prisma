@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  displayName   String
+  cnpj          String?
+  segment       String   @default("geral")
+  timezone      String   @default("America/Sao_Paulo")
+  currency      String   @default("BRL")
+  status        String   @default("active")
+  logoUrl       String?
+  website       String?
+  phone         String?
+  adminEmail    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  connections   WhatsAppConnection[]
+  agents        Agent[]
+  conversations Conversation[]
+  alerts        Alert[]
+  recoveryItems RecoveryItem[]
+  reports       ReportRun[]
+}
+
+model WhatsAppConnection {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  provider       String   @default("baileys")
+  phoneNumber    String
+  phoneLast4     String
+  status         String   @default("pending")
+  statusReason   String?
+  lastSeenAt     DateTime?
+  lastEventAt    DateTime?
+  lastSyncAt     DateTime?
+  pairedAt       DateTime?
+  disabledAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  conversations  Conversation[]
+}
+
+model Agent {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String
+  role           String   @default("atendente")
+  team           String?
+  externalRef    String?
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  conversations  Conversation[]
+  recoveryItems  RecoveryItem[]
+}
+
+model Contact {
+  id             String   @id @default(cuid())
+  organizationId String
+  connectionId   String?
+  displayName    String?
+  phoneHash      String?
+  phoneEncrypted String?
+  phoneLast4     String?
+  isGroup        Boolean  @default(false)
+  excluded       Boolean  @default(false)
+  firstSeenAt    DateTime @default(now())
+  lastSeenAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  conversations  Conversation[]
+}
+
+model Conversation {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  connectionId    String?
+  connection      WhatsAppConnection? @relation(fields: [connectionId], references: [id])
+  contactId       String?
+  contact         Contact? @relation(fields: [contactId], references: [id])
+  agentId         String?
+  agent           Agent? @relation(fields: [agentId], references: [id])
+  operationalStatus String @default("new")
+  inferredStage   String   @default("discovery")
+  primaryIntent   String?
+  urgency         String   @default("normal")
+  sentiment       String   @default("neutral")
+  score           Float    @default(0)
+  riskScore       Float    @default(0)
+  potentialValue  Float    @default(0)
+  confidence      Float    @default(0)
+  lastInboundAt   DateTime?
+  lastOutboundAt  DateTime?
+  waitingSince    DateTime?
+  openedAt        DateTime @default(now())
+  closedAt        DateTime?
+  reviewedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  messages        Message[]
+  classifications ConversationClassification[]
+  findings        AuditFinding[]
+  opportunities   RevenueOpportunity[]
+  alerts          Alert[]
+  tags           String   @default("[]")
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction       String
+  senderType      String   @default("customer")
+  messageType     String   @default("text")
+  text            String?
+  occurredAt      DateTime @default(now())
+  isAutomatic     Boolean  @default(false)
+  deliveryStatus  String   @default("delivered")
+  createdAt       DateTime @default(now())
+}
+
+model ConversationClassification {
+  id                String   @id @default(cuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  classificationType String
+  label             String
+  confidence        Float    @default(0)
+  evidenceMessageId String?
+  rationale         String?
+  source            String   @default("ai")
+  reviewedStatus    String   @default("pending")
+  createdAt         DateTime @default(now())
+}
+
+model AuditFinding {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  type            String
+  severity        String   @default("medium")
+  status          String   @default("new")
+  detectedAt      DateTime @default(now())
+  dueAt           DateTime?
+  resolvedAt      DateTime?
+  evidence        String?
+  confidence      Float    @default(0)
+  assignedTo      String?
+  resolutionReason String?
+  falsePositive   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model RevenueOpportunity {
+  id                  String   @id @default(cuid())
+  conversationId      String
+  conversation        Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  status              String   @default("active")
+  intentFactor        Float    @default(0.5)
+  urgencyFactor       Float    @default(0.5)
+  lossFactor          Float    @default(0.5)
+  baseTicket          Float    @default(0)
+  ticketSource        String   @default("global_average")
+  probability         Float    @default(0.18)
+  probabilitySource   String   @default("default_conservative")
+  expectedValue       Float    @default(0)
+  rangeLow            Float    @default(0)
+  rangeHigh           Float    @default(0)
+  confidence          Float    @default(0)
+  confirmedSaleValue  Float?
+  confirmedRecovered  Float?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  recoveryItems       RecoveryItem[]
+}
+
+model Alert {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  conversationId  String?
+  conversation    Conversation? @relation(fields: [conversationId], references: [id])
+  findingId       String?
+  ruleName        String?
+  severity        String   @default("medium")
+  title           String
+  description     String?
+  customerName    String?
+  agentName       String?
+  status          String   @default("new")
+  potentialValue  Float?
+  confidence      Float?
+  assignedTo      String?
+  dismissedReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RecoveryItem {
+  id                String   @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  opportunityId     String?
+  opportunity       RevenueOpportunity? @relation(fields: [opportunityId], references: [id])
+  conversationId    String?
+  agentId           String?
+  agent             Agent? @relation(fields: [agentId], references: [id])
+  reason            String?
+  priorityScore     Float    @default(0)
+  assignedTo        String?
+  dueAt             DateTime?
+  status            String   @default("new")
+  attempts          Int      @default(0)
+  outcome           String?
+  recoveredValue    Float?
+  completedAt       DateTime?
+  customerName      String?
+  originalAgentName String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model ReportRun {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  reportType      String
+  status          String   @default("pending")
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  recipientEmails String   @default("[]")
+  filePath        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
