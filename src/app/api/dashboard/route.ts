@@ -240,7 +240,7 @@ export async function GET() {
       // Count critical failures (findings with severity=critical for this agent's conversations)
       // We'll approximate from today's agent metric
       return {
-        name: a.name,
+        id: a.id,
         team: a.team || 'Sem equipe',
         score: latest ? Math.round(latest.score) : 0,
         avgResponseTime: latest ? +(latest.avgResponseTime).toFixed(1) : 0,
