@@ -25,8 +25,6 @@ import {
   ChevronDown,
 } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
-
 import {
   Card,
   CardContent,
@@ -82,7 +80,8 @@ import {
   formatCurrency,
   timeAgo,
   getSeverityColor,
-} from '@/lib/mock-data'
+  cn,
+} from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -212,6 +211,7 @@ export default function AlertsView() {
   const [alertsData, setAlertsData] = useState<AlertItem[]>([])
   const [rulesData, setRulesData] = useState<AlertRuleItem[]>([])
   const [apiCounts, setApiCounts] = useState<Record<string, number>>({})
+  const [agents, setAgents] = useState<{id: string; name: string; team: string}[]>([])
 
   const fetchAlerts = useCallback(async () => {
     setIsLoading(true)
@@ -226,9 +226,10 @@ export default function AlertsView() {
       if (filterTeam !== 'all') params.set('team', filterTeam)
       params.set('limit', '100')
 
-      const [alertsRes, rulesRes] = await Promise.all([
+      const [alertsRes, rulesRes, agentsRes] = await Promise.all([
         fetch(`/api/alerts?${params.toString()}`),
         fetch('/api/alert-rules'),
+        fetch('/api/team'),
       ])
 
       if (!alertsRes.ok) throw new Error('Erro ao carregar alertas')
@@ -243,6 +244,11 @@ export default function AlertsView() {
       if (rulesRes.ok) {
         const rulesJson = await rulesRes.json()
         setRulesData(rulesJson.rules || [])
+      }
+
+      if (agentsRes.ok) {
+        const agentsJson = await agentsRes.json()
+        setAgents((agentsJson.agents || []).map((a: {id: string; name: string; team: string}) => a))
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido')

@@ -21,7 +21,7 @@ import {
   FileJson, FileDown, RefreshCw, AlertCircle, CheckCircle2, Loader2, Hourglass,
   LayoutGrid, History, ChevronDown,
 } from 'lucide-react'
-import { timeAgo } from '@/lib/mock-data'
+import { timeAgo } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const reportIcons: Record<string, React.ReactNode> = {

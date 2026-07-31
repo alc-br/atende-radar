@@ -1,7 +1,7 @@
 'use client'
 import { create } from 'zustand'
 
-type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'notifications'
+type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'notifications' | 'admin' | 'landing' | 'login'
 
 interface CurrentOrganization {
   id: string
@@ -25,6 +25,10 @@ interface AppState {
   period: string
   refreshTrigger: number
   currentOrganization: CurrentOrganization | null
+  showLanding: boolean
+  showLogin: boolean
+  setShowLanding: (show: boolean) => void
+  setShowLogin: (show: boolean) => void
   setView: (view: View) => void
   selectConversation: (id: string | null) => void
   selectAgent: (id: string | null) => void
@@ -42,6 +46,8 @@ export const useAppStore = create<AppState>((set) => ({
   period: '7d',
   refreshTrigger: 0,
   currentOrganization: null,
+  showLanding: true,
+  showLogin: false,
   setView: (view) => set({ currentView: view }),
   selectConversation: (id) => set({ selectedConversationId: id, currentView: id ? 'conversation-detail' : 'conversations' }),
   selectAgent: (id) => set({ selectedAgentId: id, currentView: id ? 'agent-profile' : 'team' }),
@@ -49,4 +55,6 @@ export const useAppStore = create<AppState>((set) => ({
   setPeriod: (period) => set({ period }),
   incrementRefresh: () => set((s) => ({ refreshTrigger: s.refreshTrigger + 1 })),
   setCurrentOrganization: (org) => set({ currentOrganization: org }),
+  setShowLanding: (show) => set({ showLanding: show }),
+  setShowLogin: (show) => set({ showLogin: show }),
 }))

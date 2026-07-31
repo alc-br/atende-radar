@@ -4,7 +4,7 @@ import { useAppStore } from '@/lib/store'
 import {
   LayoutDashboard, AlertTriangle, MessageSquare, RotateCcw, Users,
   FileBarChart, Wifi, Settings, ChevronLeft, ChevronRight, Radar,
-  UserCog, CreditCard,
+  UserCog, CreditCard, ShieldCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -25,6 +25,7 @@ const secondaryNavItems: { view: View; icon: React.ElementType; label: string; b
   { view: 'settings', icon: Settings, label: 'Configurações' },
   { view: 'members', icon: UserCog, label: 'Membros' },
   { view: 'plans', icon: CreditCard, label: 'Planos' },
+  { view: 'admin', icon: ShieldCheck, label: 'Admin' },
 ]
 
 export function AppSidebar() {

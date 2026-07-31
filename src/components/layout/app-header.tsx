@@ -2,7 +2,7 @@
 
 import { useAppStore } from '@/lib/store'
 import { useSession, signOut } from 'next-auth/react'
-import { Moon, Sun, Menu, Search, ChevronDown, User, LogOut, HelpCircle } from 'lucide-react'
+import { Moon, Sun, Menu, Search, ChevronDown, User, LogOut, HelpCircle, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -13,7 +13,7 @@ import {
 import { useTheme } from 'next-themes'
 
 export function AppHeader() {
-  const { sidebarOpen, setSidebarOpen, currentOrganization, setView } = useAppStore()
+  const { sidebarOpen, setSidebarOpen, currentOrganization, setView, setShowLanding } = useAppStore()
   const { data: session } = useSession()
   const orgName = currentOrganization?.displayName || 'AtendeRadar'
   const { theme, setTheme } = useTheme()
@@ -76,6 +76,15 @@ export function AppHeader() {
         <Button variant='ghost' size='icon' className='relative' onClick={() => setView('notifications')}>
           <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className='w-4 h-4'><path d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/><path d='M10.3 21a1.94 1.94 0 0 0 3.4 0'/></svg>
           <span className='absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive' />
+        </Button>
+        <Button
+          variant='ghost'
+          size='icon'
+          className='text-muted-foreground hover:text-foreground'
+          title='Voltar para início'
+          onClick={() => setShowLanding(true)}
+        >
+          <ArrowLeft className='w-4 h-4' />
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

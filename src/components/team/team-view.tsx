@@ -13,8 +13,7 @@ import {
   Minus,
 } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
-import { formatPhone } from '@/lib/mock-data'
+import { cn, formatPhone } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
 

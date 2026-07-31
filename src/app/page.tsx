@@ -19,9 +19,12 @@ import MembersView from '@/components/members/members-view'
 import TeamsView from '@/components/teams/teams-view'
 import PlansView from '@/components/plans/plans-view'
 import NotificationsView from '@/components/notifications/notifications-view'
+import LandingPage from '@/components/landing/landing-page'
+import LoginPage from '@/components/login/login-page'
+import AdminView from '@/components/admin/admin-view'
 
 function MainContent() {
-  const { currentView, selectedConversationId, selectedAgentId, sidebarOpen } = useAppStore()
+  const { currentView, selectedConversationId, selectedAgentId, sidebarOpen, showLanding, showLogin } = useAppStore()
 
   const renderView = () => {
     switch (currentView) {
@@ -55,9 +58,23 @@ function MainContent() {
         return <PlansView />
       case 'notifications':
         return <NotificationsView />
+      case 'admin':
+        return <AdminView />
+      case 'landing':
+        return <LandingPage />
+      case 'login':
+        return <LoginPage />
       default:
         return <DashboardView />
     }
+  }
+
+  if (showLogin) {
+    return <LoginPage />
+  }
+
+  if (showLanding) {
+    return <LandingPage />
   }
 
   return (

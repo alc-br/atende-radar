@@ -20,7 +20,7 @@ import {
   Pause, Play, TestTube, Pencil, Stethoscope, Unplug, Trash2, ChevronDown, ChevronUp,
   Activity, Clock, HardDrive, Zap, Shield, Server, CheckCircle2, XCircle, Info,
 } from 'lucide-react'
-import { timeAgo } from '@/lib/mock-data'
+import { timeAgo } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const statusConfig: Record<string, { label: string; color: string; dotColor: string }> = {

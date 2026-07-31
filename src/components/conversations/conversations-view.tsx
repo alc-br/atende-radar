@@ -21,7 +21,6 @@ import {
   X,
 } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
 import {
   formatCurrency,
   timeAgo,
@@ -30,7 +29,8 @@ import {
   getIntentLabel,
   getUrgencyLabel,
   getSentimentLabel,
-} from '@/lib/mock-data'
+  cn,
+} from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
 

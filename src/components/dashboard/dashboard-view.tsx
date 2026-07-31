@@ -73,9 +73,9 @@ import {
   timeAgo,
   getSeverityColor,
   getIntentLabel,
-} from '@/lib/mock-data'
+  cn,
+} from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
-import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // ─── Types ───────────────────────────────────────────────────────────

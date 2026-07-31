@@ -23,11 +23,11 @@ import {
   PackageOpen,
 } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
 import {
+  cn,
   formatCurrency,
   timeAgo,
-} from '@/lib/mock-data'
+} from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
 

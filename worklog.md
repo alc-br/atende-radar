@@ -1117,3 +1117,199 @@ Set up basic NextAuth v4 credentials authentication for the AtendeRadar applicat
 - No middleware protection — the app is accessible without login (demo mode)
 - Login page is at `/login` for when auth is needed
 - Lint passes cleanly
+
+## Task landing-page: Landing Page Component
+
+**Date**: 2025-06-06  
+**Files**:
+- `src/components/landing/landing-page.tsx` (new)
+- `src/lib/store.ts` (modified)
+- `src/app/page.tsx` (modified)
+- `src/components/layout/app-header.tsx` (modified)
+**Status**: ✅ Complete
+
+### What was done
+
+Created a professional landing page for AtendeRadar and integrated it into the SPA dashboard.
+
+1. **`src/components/landing/landing-page.tsx`** — Full landing page component with 8 sections:
+   - **Hero Section**: AtendeRadar logo/name with emerald accent, tagline "Auditoria Inteligente de Receita e Qualidade no WhatsApp", subtitle, CTA "Começar Agora" (triggers `setView('dashboard')` + `setShowLanding(false)`), secondary CTA "Ver Demonstração". Background with emerald gradient blobs, dot pattern overlay, and responsive navigation bar.
+   - **Social Proof / Trust Bar**: 4 stats in a grid — +500 empresas, +2M conversas auditadas, R$15M+ receita recuperada, 4.9★ satisfação.
+   - **Problem Section**: "Você sabe quanto dinheiro seu time perde no WhatsApp?" — 4 pain point cards (Falta de visibilidade, Receita escorrendo, Tempo de resposta lento, Sem métricas de qualidade) with destructive-colored icons.
+   - **Features Grid**: "Como o AtendeRadar funciona" — 6 feature cards in responsive 3×2 grid (Análise Automática IA, Notas de Qualidade, Alertas Inteligentes, Recuperação de Receita, Relatórios Automáticos, Conexões Multi-WhatsApp) with emerald icons and hover effects.
+   - **How It Works**: 3 steps (Conecte → Analisa → Aja) with gradient icon containers, numbered badges, and dashed connector lines.
+   - **Pricing Preview**: 3 plan cards (Starter R$297/mês, Profissional R$697/mês highlighted as "Mais Popular", Enterprise sob consulta) with feature checklists and CTA buttons.
+   - **CTA Final**: Emerald-to-teal gradient card with "Pronto para parar de perder receita?" headline and white CTA button.
+   - **Footer**: Logo, links (Termos de Uso, Política de Privacidade, Suporte), copyright.
+
+   Design: emerald/teal color palette, shadcn/ui components (Button, Card, Badge, Separator), Lucide icons, CSS variable-based dark mode support, mobile-first responsive layout, subtle gradient backgrounds.
+
+2. **`src/lib/store.ts`** — Store updates:
+   - Added `'landing'` to the `View` type union
+   - Added `showLanding: boolean` state (default: `true`)
+   - Added `setShowLanding(show: boolean)` action
+
+3. **`src/app/page.tsx`** — Integration:
+   - Imported `LandingPage` component
+   - Added `'landing'` case in `renderView` switch
+   - Added `showLanding` check in `MainContent`: if `showLanding` is true, renders `<LandingPage />` instead of sidebar+header layout
+
+4. **`src/components/layout/app-header.tsx`** — Added back-to-landing button:
+   - Imported `ArrowLeft` icon from lucide-react
+   - Added `setShowLanding` from `useAppStore`
+   - Added ArrowLeft ghost button before user dropdown that calls `setShowLanding(true)` with tooltip "Voltar para início"
+
+### Quality Checks
+- `bun run lint` — passed with zero errors (fixed initial `Play` icon import issue by replacing with `MessageSquare`)
+- Dev server compiled successfully, landing page loads as default view
+- All CTA buttons correctly navigate to dashboard view
+- Back-to-landing button in header correctly returns to landing page
+- Dark mode fully supported via CSS variables
+
+### Notes
+- Landing page is shown by default (`showLanding: true` in store)
+- No new routes created — uses SPA view switching via Zustand store
+- All text in Brazilian Portuguese (pt-BR)
+- No indigo/blue colors used — strict emerald/teal palette
+
+---
+
+## Task ID: login-page — Login Page Component
+
+**Date**: 2025-06-20  
+**Files**: 
+- `src/components/login/login-page.tsx` (new)
+- `src/lib/store.ts` (modified)
+- `src/app/page.tsx` (modified)
+- `src/components/landing/landing-page.tsx` (modified)
+
+**Status**: ✅ Complete
+
+### What was done
+
+Created a full-screen login page component integrated with the SPA navigation system:
+
+1. **LoginPage component** (`src/components/login/login-page.tsx`):
+   - Full-screen centered layout with subtle emerald gradient background (matching landing page aesthetic)
+   - AtendeRadar branding with Shield icon in emerald at top
+   - "Bem-vindo de volta" heading with "Entre na sua conta para acessar o painel" subtext
+   - Email input with Mail icon (left-aligned)
+   - Password input with Lock icon + Eye/EyeOff toggle for show/hide
+   - "Esqueceu sua senha?" link → triggers info toast: "Funcionalidade em desenvolvimento"
+   - "Entrar" button (emerald, full-width) with Loader2 spinner during authentication
+   - Divider with "ou" text
+   - "Entrar como demonstração" button (outline, dashed border, Shield icon) → auto-fills demo@atenderadar.com / demo123 and submits
+   - "Não tem uma conta? Comece grátis" footer link → navigates back to landing page
+   - Error toasts via sonner on auth failure; success toast on login
+   - On success: calls `setShowLanding(false)` and `setView('dashboard')`
+   - Dark mode fully supported via CSS variables
+
+2. **Store update** (`src/lib/store.ts`):
+   - Added `'login'` to the `View` union type
+   - Added `showLogin: boolean` state (default: `false`)
+   - Added `setShowLogin(show: boolean)` action
+
+3. **Page routing** (`src/app/page.tsx`):
+   - Imported `LoginPage`
+   - Added `case 'login'` to the `renderView` switch
+   - Added `showLogin` guard in `MainContent` — renders `LoginPage` instead of landing/dashboard when `showLogin` is true
+
+4. **Landing page update** (`src/components/landing/landing-page.tsx`):
+   - "Começar Agora" button (hero, nav, CTA section, pricing plans) now calls `setShowLogin(true)` → routes to login
+   - "Ver Demonstração" button directly enters dashboard via `setShowLanding(false)` + `setView('dashboard')`
+   - Nav "Entrar" buttons also route to login
+
+### Notes
+- Uses `signIn` from `next-auth/react` with `redirect: false` for SPA-style login
+- No indigo/blue colors — strict emerald/teal palette
+- All text in pt-BR
+- Lint passes cleanly
+
+---
+
+## Task admin-panel: Painel Administrativo (Admin Panel)
+
+**Date**: 2025-01-15  
+**File**: `src/components/admin/admin-view.tsx`  
+**Status**: ✅ Complete
+
+### What was done
+
+Created a consolidated Admin Panel component with 4 tabbed screens:
+
+1. **Visão Geral (Platform Overview)**:
+   - 6 KPI cards in responsive grid (1→2→3→6 columns): Organizações Ativas, Conexões WhatsApp, Usuários Cadastrados, Conversas Hoje, Receita Mensal (R$ format), Alertas Ativos
+   - Each card shows value, icon with emerald/teal/amber color coding
+   - Recent organizations table (5 rows) with name, plan, connections, status, created date
+   - Click row opens detail dialog
+
+2. **Organizações**:
+   - Full table with columns: Nome, CNPJ, Segmento, Plano, Conexões, Agentes, Status (badge), Criado em
+   - Search input to filter by name (real-time)
+   - Status filter dropdown (Todas, Ativa, Suspensa, Inativa)
+   - Click row opens detail dialog with org info (CNPJ, segment, plan, status, connections, agents, created date)
+   - "Nova Organização" button with toast feedback
+
+3. **Usuários Globais**:
+   - Table with columns: Nome, Email, Organização, Papel, Status, Último acesso
+   - Search by name or email
+   - Role filter (Todos, Administrador, Gestor, Membro, Atendente)
+   - Role badges: admin=destructive, gestor=emerald, membro=default, atendente=default
+   - Status badges: Ativo=emerald, Inativo=secondary
+
+4. **Sistema**:
+   - 3 system health cards: Banco de Dados (green dot + "Operacional"), Autenticação (green dot + "Operacional"), Armazenamento (usage bar 2.3 GB / 10 GB = 23%)
+   - Activity log table with timestamp, action, user, details
+   - Configuration section: platform name input, support email input, maintenance mode toggle with Switch component
+   - Save button with toast feedback
+
+### Files Modified
+
+1. **Store** (`src/lib/store.ts`):
+   - Added `'admin'` to the `View` union type
+
+2. **Page routing** (`src/app/page.tsx`):
+   - Imported `AdminView` from `@/components/admin/admin-view`
+   - Added `case 'admin'` to the `renderView` switch
+
+3. **Sidebar** (`src/components/layout/app-sidebar.tsx`):
+   - Added `ShieldCheck` icon import from lucide-react
+   - Added `{ view: 'admin', icon: ShieldCheck, label: 'Admin' }` to `secondaryNavItems` array (appears at bottom under "Administração" section)
+
+### Technical Details
+- Uses shadcn/ui components: Tabs, Card, Badge, Button, Input, Table, Dialog, Separator, Progress, Switch, Select, Tooltip, Label
+- Uses Lucide icons: Building2, Users, MessageSquare, DollarSign, AlertTriangle, Database, Shield, Server, HardDrive, Activity, Search, Plus, RefreshCw, Settings, Globe
+- Mock data defined inline (mockOrganizations, mockGlobalUsers, mockActivityLog, mockKpis)
+- Date formatting with `toLocaleDateString('pt-BR')` and `toLocaleString('pt-BR')`
+- Currency formatting with `Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })`
+- Responsive design: works on mobile with hidden columns on smaller breakpoints
+- Dark mode compatible using CSS variables
+- All text in pt-BR
+- Lint passes cleanly
+
+## Task refactor-utils: Move utility functions from mock-data.ts to utils.ts
+
+**Date**: 2025-01-15  
+**Files**: `src/lib/utils.ts`, `src/components/dashboard/dashboard-view.tsx`, `src/components/conversations/conversations-view.tsx`, `src/components/conversations/conversation-detail.tsx`, `src/components/alerts/alerts-view.tsx`, `src/components/team/team-view.tsx`, `src/components/recovery/recovery-view.tsx`, `src/components/reports/reports-view.tsx`, `src/components/connections/connections-view.tsx`  
+**Status**: ✅ Complete  
+
+### What was done
+
+Extracted 9 pure utility functions from `src/lib/mock-data.ts` into `src/lib/utils.ts` to improve separation of concerns (data vs. utilities):
+
+- `formatCurrency`
+- `formatPhone`
+- `timeAgo`
+- `getSeverityColor`
+- `getStageLabel`
+- `getIntentLabel`
+- `getUrgencyLabel`
+- `getSentimentLabel`
+- `getStatusLabel`
+
+Updated all 8 component files to import these functions from `@/lib/utils` instead of `@/lib/mock-data`. For files that already imported `cn` from `@/lib/utils`, the utility imports were merged into a single import statement. `mock-data.ts` was left unchanged (data arrays and `getConversationMessages` remain).
+
+### Verification
+
+- `bun run lint` passes with zero errors
+- No remaining `@/lib/mock-data` imports in any component
