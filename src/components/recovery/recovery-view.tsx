@@ -188,7 +188,7 @@ export default function RecoveryView() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [recoveryItems, setRecoveryItems] = useState<any[]>([])
-  const [agentList, setAgentList] = useState<{id:string,name:string}[]>([])
+  const [agentList, setAgentList] = useState<{id:string,name:string,team?:string}[]>([])
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -488,7 +488,7 @@ export default function RecoveryView() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {agents.map((a) => (
+                    {agentList.map((a) => (
                       <SelectItem key={a.id} value={a.name}>
                         {a.name}
                       </SelectItem>
@@ -758,7 +758,7 @@ export default function RecoveryView() {
                   <SelectValue placeholder="Selecione um agente" />
                 </SelectTrigger>
                 <SelectContent>
-                  {agents.map((a) => (
+                  {agentList.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.name} — {a.team}
                     </SelectItem>
