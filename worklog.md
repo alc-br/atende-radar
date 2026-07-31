@@ -542,3 +542,373 @@ Moved inner `SortIcon` component definitions outside the parent component functi
 
 `bun run lint` passes with 0 errors.
 
+---
+Task ID: audit-1
+Agent: auditor
+Task: Comprehensive project audit against specification
+Work Log:
+- Read worklog for context (545 lines, Tasks 3-9 + lint-fix documented)
+- Inventoried all files in src/ recursively (67 files total)
+- Read and cataloged prisma/schema.prisma (10 models)
+- Read src/app/page.tsx (10 views, main entry point)
+- Read src/lib/store.ts (Zustand store, 10 views, 6 state fields)
+- Read src/lib/mock-data.ts (332 lines, 15+ exports, 8 utility functions)
+- Read all 4 API routes (/, /api/dashboard, /api/conversations, /api/alerts)
+- Read all 10 application component files (dashboard, alerts, conversationsx2, recovery, teamx2, reports, connections, settings) + 2 layout components (app-header, app-sidebar)
+- Read src/app/layout.tsx (ThemeProvider + TooltipProvider + Toaster)
+- Read package.json (33 deps, 8 devDeps)
+- Checked for: tests (NONE), auth setup (NONE functional), env files (1: .env with only DATABASE_URL), onboarding wizard (NONE), billing/plans screens (NONE), LGPD features (UI-only in settings tab), email templates (NONE), Baileys/WhatsApp gateway code (NONE), org management/members/teams (NONE), admin/internal screens (NONE)
+- Read spec-full.txt (4671 lines) to compare requirements
+
+Stage Summary:
+
+## 1. ALL FILES IN src/ (67 files)
+
+### Root
+- `src/app/layout.tsx` — Root layout
+- `src/app/page.tsx` — Main SPA entry point
+- `src/app/globals.css` — Global styles
+
+### Hooks (2)
+- `src/hooks/use-toast.ts` — Toast hook
+- `src/hooks/use-mobile.ts` — Mobile detection hook
+
+### Lib (4)
+- `src/lib/db.ts` — Prisma client singleton
+- `src/lib/store.ts` — Zustand global state
+- `src/lib/mock-data.ts` — All mock data & utility functions
+- `src/lib/utils.ts` — cn() utility
+
+### API Routes (4)
+- `src/app/api/route.ts` — GET /api (hello world)
+- `src/app/api/dashboard/route.ts` — GET /api/dashboard (mock summary, funnel, failures, evolution, priorities, team)
+- `src/app/api/conversations/route.ts` — GET /api/conversations (mock paginated list, 50 items)
+- `src/app/api/alerts/route.ts` — GET /api/alerts (mock filtered list), PATCH /api/alerts (stub)
+
+### Layout Components (2)
+- `src/components/layout/app-sidebar.tsx` — Sidebar navigation with 8 nav items, brand, collapse toggle
+- `src/components/layout/app-header.tsx` — Top header with org selector, search, theme toggle, notifications dropdown, user menu
+
+### Application Components (10)
+- `src/components/dashboard/dashboard-view.tsx` (~730 lines)
+- `src/components/alerts/alerts-view.tsx` (~990 lines)
+- `src/components/conversations/conversations-view.tsx` (~430 lines)
+- `src/components/conversations/conversation-detail.tsx` (~755 lines)
+- `src/components/recovery/recovery-view.tsx` (~480 lines)
+- `src/components/team/team-view.tsx` (~195 lines)
+- `src/components/team/agent-profile.tsx` (~569 lines)
+- `src/components/reports/reports-view.tsx` (~200 lines)
+- `src/components/connections/connections-view.tsx` (~310 lines)
+- `src/components/settings/settings-view.tsx` (~480 lines)
+
+### UI Components (shadcn/ui — 43 files)
+accordion, alert, alert-dialog, aspect-ratio, avatar, badge, breadcrumb, button, calendar, card, carousel, checkbox, collapsible, command, context-menu, dialog, drawer, dropdown-menu, form, hover-card, input, input-otp, label, menubar, navigation-menu, pagination, popover, progress, radio-group, resizable, scroll-area, select, separator, sheet, sidebar, skeleton, slider, sonner, table, tabs, textarea, toaster, toggle, toggle-group, tooltip, chart
+
+## 2. PRISMA SCHEMA MODELS (10)
+
+### Organization
+- id (cuid), name, displayName, cnpj?, segment, timezone, currency, status, logoUrl?, website?, phone?, adminEmail?, createdAt, updatedAt
+- Relations: connections[], agents[], conversations[], alerts[], recoveryItems[], reports[]
+
+### WhatsAppConnection
+- id, organizationId, name, provider(default "baileys"), phoneNumber, phoneLast4, status, statusReason?, lastSeenAt?, lastEventAt?, lastSyncAt?, pairedAt?, disabledAt?, createdAt, updatedAt
+- Relations: conversations[]
+
+### Agent
+- id, organizationId, name, email, role(default "atendente"), team?, externalRef?, status(default "active"), createdAt, updatedAt
+- Relations: conversations[], recoveryItems[]
+
+### Contact
+- id, organizationId, connectionId?, displayName?, phoneHash?, phoneEncrypted?, phoneLast4?, isGroup(default false), excluded(default false), firstSeenAt, lastSeenAt, createdAt, updatedAt
+- Relations: conversations[]
+
+### Conversation
+- id, organizationId, connectionId?, contactId?, agentId?, operationalStatus(default "new"), inferredStage(default "discovery"), primaryIntent?, urgency(default "normal"), sentiment(default "neutral"), score(default 0), riskScore(default 0), potentialValue(default 0), confidence(default 0), lastInboundAt?, lastOutboundAt?, waitingSince?, openedAt, closedAt?, reviewedAt?, createdAt, updatedAt, tags(default "[]")
+- Relations: messages[], classifications[], findings[], opportunities[], alerts[]
+
+### Message
+- id, conversationId, direction, senderType(default "customer"), messageType(default "text"), text?, occurredAt, isAutomatic(default false), deliveryStatus(default "delivered"), createdAt
+
+### ConversationClassification
+- id, conversationId, classificationType, label, confidence(default 0), evidenceMessageId?, rationale?, source(default "ai"), reviewedStatus(default "pending"), createdAt
+
+### AuditFinding
+- id, conversationId, type, severity(default "medium"), status(default "new"), detectedAt, dueAt?, resolvedAt?, evidence?, confidence(default 0), assignedTo?, resolutionReason?, falsePositive(default false), createdAt
+
+### RevenueOpportunity
+- id, conversationId, status(default "active"), intentFactor(0.5), urgencyFactor(0.5), lossFactor(0.5), baseTicket(0), ticketSource, probability(0.18), probabilitySource, expectedValue(0), rangeLow(0), rangeHigh(0), confidence(0), confirmedSaleValue?, confirmedRecovered?, createdAt, updatedAt
+- Relations: recoveryItems[]
+
+### Alert
+- id, organizationId, conversationId?, findingId?, ruleName?, severity(default "medium"), title, description?, customerName?, agentName?, status(default "new"), potentialValue?, confidence?, assignedTo?, dismissedReason?, createdAt, updatedAt
+
+### RecoveryItem
+- id, organizationId, opportunityId?, conversationId?, agentId?, reason?, priorityScore(0), assignedTo?, dueAt?, status(default "new"), attempts(0), outcome?, recoveredValue?, completedAt?, customerName?, originalAgentName?, createdAt, updatedAt
+
+### ReportRun
+- id, organizationId, reportType, status(default "pending"), periodStart?, periodEnd?, recipientEmails(default "[]"), filePath?, createdAt, updatedAt
+
+## 3. VIEWS / NAVIGATION (page.tsx + store.ts)
+
+### Zustand Store Views (10 total)
+`type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings'`
+
+### State Fields (6)
+- currentView (View, default 'dashboard')
+- selectedConversationId (string | null)
+- selectedAgentId (string | null)
+- sidebarOpen (boolean, default true)
+- period (string, default '7d')
+- Actions: setView, selectConversation, selectAgent, setSidebarOpen, setPeriod
+
+### Sidebar Navigation Items (8)
+1. Visao Geral (LayoutDashboard icon)
+2. Alertas (AlertTriangle icon, badge '5')
+3. Conversas (MessageSquare icon)
+4. Recuperacao (RotateCcw icon, badge '8')
+5. Equipe (Users icon)
+6. Relatorios (FileBarChart icon)
+7. Conexoes (Wifi icon)
+8. Configuracoes (Settings icon)
+
+## 4. MOCK DATA (src/lib/mock-data.ts — 332 lines)
+
+### Data Exports
+- `organization` — Single org object (OdontoVida Clinicas)
+- `connections` — 6 WhatsApp connections (2 connected, 1 disconnected, 1 syncing, 1 qr_required, 1 degraded)
+- `connectionDiagnostics` — Diagnostic data per connection (socket, heartbeat, errors, recommendations)
+- `agents` — 5 agents (Ana Silva, Carlos Mendes, Juliana Costa, Roberto Alves, Fernanda Lima)
+- `conversations` — 15 dynamically generated conversations from customerNames array
+- `getConversationMessages(convId)` — Function returning 4-9 mock messages per conversation
+- `alerts` — Derived from conversations with alertCount > 0, 8 alert types
+- `recoveryItems` — Derived from conversations with opportunities/lost/frustrated status
+- `dashboardSummary` — 8 KPI values with change percentages
+- `auditFunnel` — 7 stages (Conversas->Sem desfecho)
+- `failuresByType` — 7 failure types with severity
+- `evolutionData` — 14 days of score, responseTime, abandonment, valueAtRisk
+- `alertRules` — 8 alert rules with type, severity, cooldown, channels
+- `reportTypes` — 8 report types (daily, weekly, agent, lost_opportunities, promises, recovery, data_quality, connections)
+- `reportHistory` — 10 report run entries (6 completed, 1 processing, 1 failed, 1 pending, 1 no date)
+
+### Utility Functions (8)
+- `formatCurrency(value: number): string` — BRL formatting
+- `formatPhone(last4: string): string` — Phone masking
+- `timeAgo(dateStr: string): string` — Relative time (agora, Xmin, Xh, Xd)
+- `getSeverityColor(severity: string)` — Tailwind classes by severity
+- `getStageLabel(stage: string)` — pt-BR stage labels
+- `getIntentLabel(intent: string)` — pt-BR intent labels
+- `getUrgencyLabel(urgency: string)` — pt-BR urgency labels
+- `getSentimentLabel(sentiment: string)` — pt-BR sentiment labels
+- `getStatusLabel(status: string)` — pt-BR status labels
+
+## 5. API ROUTES (4 endpoints)
+
+| Method | Path | Purpose | Status |
+|--------|------|---------|--------|
+| GET | /api | Hello world | Stub |
+| GET | /api/dashboard | Dashboard data (summary, funnel, failures, evolution, priorities, team) | Mock, no DB |
+| GET | /api/conversations | Paginated conversations (page, limit params) | Mock, 50 items |
+| GET | /api/alerts | Filtered alerts (status, severity params) | Mock, 20 items |
+| PATCH | /api/alerts | Alert action (alertId, action, reason) | Stub, returns success |
+
+**Note**: No API routes use the Prisma database. All return hardcoded/mock data. Components import directly from mock-data.ts, not from API routes.
+
+## 6. COMPONENTS INVENTORY
+
+### Dashboard (dashboard-view.tsx ~730 lines)
+- Period filter (Select: Hoje, Ontem, 7d, 30d, Personalizado)
+- 8 KPI cards (conversations, waiting, response time, opportunities, at risk, overdue promises, value at risk, score)
+- Prioridades Agora table (top 10, sortable)
+- Funil Auditado horizontal bar chart (7 stages)
+- Falhas por Tipo horizontal bar chart (7 types)
+- Desempenho da Equipe table (5 agents)
+- Evolucao dual-axis line chart (14 days, score + response time + abandonment + value at risk)
+
+### Alerts (alerts-view.tsx ~990 lines)
+- 5 tabs (Ativos, Em acompanhamento, Resolvidos, Ignorados, Regras)
+- Filter bar (8 filters: search, severity, type, agent, team, value, confidence)
+- Alert cards with severity badge, evidence, value, confidence
+- 7 action buttons per alert (open, assign, follow-up, resolve, dismiss, false positive, recovery)
+- Resolve dropdown (8 reasons), Dismiss dropdown (6 reasons)
+- Rules tab with switch toggle, new rule button
+
+### Conversations List (conversations-view.tsx ~430 lines)
+- Search bar
+- 9 filter columns (period, agent, intent, urgency, sentiment, stage, failures, value, unread)
+- Sortable table (13 columns)
+- Batch actions toolbar (assign, tag, recovery, export, mark reviewed)
+- Pagination (15/page)
+
+### Conversation Detail (conversation-detail.tsx ~755 lines)
+- Header (customer info, agent, status, value, score, tags, sensitive data indicator)
+- 3-panel layout (60/40 split, ResizablePanelGroup)
+- Message Timeline (left): chat bubbles (inbound/outbound) + audit event markers (intent, price, question, promise, alert, sentiment)
+- Audit Panel (right): Resumo, Classificacao, Perguntas em aberto, Promessas, Falhas encontradas, Recomendacao, Score breakdown (5 dimensions), Valor potencial calculation
+- 10 correction action buttons
+
+### Recovery (recovery-view.tsx ~480 lines)
+- 4 metrics cards (items, worked, contact rate, recovered revenue)
+- 4 filters (status, assignee, priority, value)
+- Table (9 sortable columns, priority badge with tooltip formula)
+- 7 action buttons per row (assign, change deadline, copy context, register attempt, register outcome, inform recovered value, return to original)
+
+### Team (team-view.tsx ~195 lines)
+- 3 summary cards (total agents, avg score, avg response time)
+- Sortable table (11 columns): name, team, WhatsApp identity, status, conversations, score, response time, opportunities, lost, promises, trend
+- Row click -> agent profile
+
+### Agent Profile (agent-profile.tsx ~569 lines)
+- Back button
+- Header (avatar, name, role badge, team, status, email, trend)
+- 6 summary cards (score, conversations, response time, opportunities, critical failures, promises)
+- Evolution mini chart (14 days, LineChart)
+- Score breakdown (5 dimensions with progress bars)
+- Strengths list, recurring failures
+- Exemplary conversations, conversations to review
+- Promises section, Opportunities section
+
+### Reports (reports-view.tsx ~200 lines)
+- 4 export buttons (CSV, XLSX, PDF, JSON)
+- 2 tabs: Report Types grid (8 cards), Report History table
+- Report cards: icon, name, description, schedule, last run, recipients, generate/configure buttons
+- History table: type, period, recipients, status badge, date/size, download/retry actions
+
+### Connections (connections-view.tsx ~310 lines)
+- Header with "Nova conexao" button
+- 4 status summary cards (connected, disconnected, problems, 24h messages)
+- 6 connection cards (not table): avatar, name, phone, quality indicator, status badge (11 states), provider, events, actions
+- 8 action buttons per card (reconnect, QR, pause/resume, test, rename, diagnostic, disconnect, delete)
+- Nova conexao dialog (name, warning, checkbox, QR placeholder)
+- Expandable diagnostic section (socket, heartbeat, queues, errors, recommendations)
+
+### Settings (settings-view.tsx ~480 lines)
+- 7 tabs:
+  1. Empresa: 10 fields + logo upload placeholder
+  2. Horarios: 7-day business hours table + holidays + tolerance + after-hours rule
+  3. Atendimento: 5 SLA/time inputs
+  4. Financeiro: 3 cards (parameters, products/services table, intention probability table)
+  5. IA: language, segment, terms/abbreviations, min confidence slider, audio processing, pre-provider masking
+  6. Notificacoes: 4 cards (scheduled reports, alerts, recipients, silence hours)
+  7. Privacidade: retention periods (3), auto-masking, subject export, excluded numbers, legal basis, DPO contact
+
+## 7. LAYOUT & PROVIDERS
+
+### Root Layout (layout.tsx)
+- html lang="pt-BR"
+- Fonts: Geist Sans + Geist Mono
+- Providers: ThemeProvider (next-themes, default light, enableSystem), TooltipProvider (delay 300ms), Toaster (sonner, top-right)
+- No auth provider, no session provider
+
+### App Header
+- Organization selector dropdown (hardcoded 1 org + "Criar organizacao...")
+- Global search input (decorative, non-functional)
+- Theme toggle (light/dark)
+- Notifications dropdown (3 hardcoded items)
+- User menu (Avatar "AS" = Ana Silva, profile, help, logout — all decorative)
+
+### App Sidebar
+- Fixed left sidebar, 64px collapsed / 256px expanded
+- Brand: Radar icon + "AtendeRadar" / "Auditor de WhatsApp"
+- 8 nav items with icons, active state, badges
+- Collapse toggle button
+
+## 8. PACKAGE.JSON DEPENDENCIES
+
+### Runtime (33)
+- **Framework**: next@^16.1.1, react@^19, react-dom@^19
+- **UI**: lucide-react, recharts, class-variance-authority, clsx, tailwind-merge, tailwindcss-animate, sonner, framer-motion, cmdk, vaul, embla-carousel-react, react-day-picker, date-fns, input-otp, @dnd-kit/core+sortable+utilities, @hookform/resolvers, react-hook-form, @reactuses/core, @tanstack/react-query, @tanstack/react-table
+- **Primitives**: 16 @radix-ui/* packages
+- **DB**: @prisma/client@^6.11.1, prisma@^6.11.1
+- **State**: zustand@^5.0.6
+- **Auth**: next-auth@^4.24.11 (installed but NOT configured/used)
+- **i18n**: next-intl@^4.3.4 (installed but NOT configured/used)
+- **Markdown**: react-markdown, react-syntax-highlighter, @mdxeditor/editor
+- **Other**: sharp, uuid, zod@^4.0.2, z-ai-web-dev-sdk
+
+### Dev (8)
+- @tailwindcss/postcss, @types/react, @types/react-dom, bun-types, eslint, eslint-config-next, tailwindcss, tw-animate-css, typescript
+
+## 9. ITEMS CHECKED — NOT PRESENT
+
+### Tests: NONE
+- No `*.test.ts`, `*.spec.ts`, `__tests__/` directories
+- `tests/` dir has only 3 shell scripts (python-runtime-container.sh, python-runtime-build.sh, database-runtime-build.sh) — infrastructure tests, not application tests
+- No test runner config (jest, vitest, etc.)
+- No test commands in package.json scripts
+
+### Authentication: NONE FUNCTIONAL
+- next-auth is installed as dependency but: no `src/app/api/auth/[...nextauth]/route.ts`, no `auth.ts` config, no middleware, no SessionProvider
+- Header has decorative user avatar ("Ana Silva") and "Sair" (logout) menu item — not wired
+- No login page, no signup page, no password reset
+- No session/user context anywhere in the app
+
+### Environment Variables: MINIMAL
+- `.env` contains only: `DATABASE_URL=file:/home/z/my-project/db/custom.db`
+- No NEXTAUTH_SECRET, no NEXTAUTH_URL, no AI provider keys, no email credentials, no Stripe keys, no storage keys
+
+### Onboarding/Setup Wizard: NONE
+- Spec requires: 7-step wizard (Empresa, Horario comercial, Meta e ticket, Conectar WhatsApp, Identificar equipe, Preferencias de relatorio, Revisao e ativacao)
+- Project has: nothing. Settings page exists with individual tabs but no guided wizard flow
+
+### Billing/Plans Screens: NONE
+- Spec requires: Plan catalog, subscriptions, coupons, entitlements screens (Section 23)
+- Project has: nothing. No Stripe integration, no plan selection, no trial management
+
+### LGPD/Privacy Features: UI-ONLY
+- Settings > Privacidade tab has UI form fields (retention periods, auto-masking, subject export, excluded numbers, legal basis, DPO contact)
+- All fields are local state with `onSubmit={e => e.preventDefault()}` — not connected to any backend
+- No actual data subject request handling, no data export endpoint, no anonymization pipeline
+- No privacy policy page, no terms acceptance
+- Conversation detail has a "sensitive data" indicator (Lock icon) but no actual access control
+
+### Email Templates: NONE
+- Spec requires 17 email templates (verification, invite, welcome, connection events, alerts, digests, reports, quota, trial, billing, LGPD)
+- Project has: nothing. No email sending code, no templates, no email service integration
+
+### Baileys/WhatsApp Gateway: NONE
+- Spec requires: Separate Node.js/TypeScript Gateway service with session management, QR pairing, sockets, reconnection, ingestion
+- Project has: nothing. No `@whiskeysockets/baileys` dependency, no gateway code, no WebSocket management
+- Connections screen is purely UI with mock data — no real pairing, no real status updates
+- Prisma schema has `WhatsAppConnection` model but no service code to manage connections
+
+### Organization Management: NONE
+- Spec requires: Members screen, Teams/Units screens, Roles/Permissions screen, Organization data screen (Sections 11.5.2-11.5.5)
+- Project has: Header has decorative org selector with "Criar organizacao..." option. Settings > Empresa tab has form fields but no actual CRUD
+- No member invitation, no team creation, no role management, no RBAC
+
+### Admin/Internal Platform Screens: NONE
+- Spec requires (Section 23): Organizations list, Subscriptions, Plan catalog, Coupons, Entitlements, Invoices, Gateway health, Sessions, Processing, AI consumption, Queues, Failures, Templates, Models, Feature flags, LGPD requests, Support access, Incidents
+- Project has: nothing. No admin panel, no admin routes, no platform management
+
+## 10. ARCHITECTURAL OBSERVATIONS vs SPEC
+
+### Spec says:
+- Must be built on Company Core (Django/Python + Node.js/TypeScript) cloned from https://github.com/alc-br/company-core.git
+- PostgreSQL + Redis as data stores
+- Baileys Gateway as separate Node.js service
+- Celery for async tasks
+
+### Project actually is:
+- Standalone Next.js 16 + TypeScript project (NOT cloned from Company Core)
+- SQLite (file:/home/z/my-project/db/custom.db) — NOT PostgreSQL
+- No Redis, no Celery, no separate gateway service
+- All data is client-side mock data — API routes exist but return hardcoded data, not connected to Prisma DB
+- Single-page SPA using Zustand for client-side navigation (no Next.js routing between pages)
+- No middleware, no authentication, no RBAC, no tenant isolation
+
+### What IS working (frontend-only demo):
+- All 8 main screens rendered with mock data
+- Navigation between views via sidebar
+- Responsive design with emerald/teal color palette
+- Dark/light theme toggle
+- Charts (recharts) for dashboard and agent profile
+- Comprehensive filter/search systems
+- Interactive tables with sorting, pagination, batch actions
+- Conversation detail with message timeline and audit panel
+- Settings with 7 configuration tabs
+- All UI text in pt-BR
+- Currency formatting in BRL
+- Phone masking for privacy
+- Prisma schema defines the data model (10 models)
+- ESLint passes with 0 errors
+
