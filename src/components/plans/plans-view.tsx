@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,130 +14,133 @@ import {
   CreditCard, ArrowRight, Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatCurrency } from '@/lib/utils'
 
-interface UsageMetric {
-  label: string
-  used: number
-  limit: number
-  icon: React.ElementType
-  color: string
+interface PlanLimits {
+  maxConnections: number
+  maxAgents: number
+  maxConversationsMonthly: number
+  maxMessagesMonthly: number
+  maxAudioMinutes: number
+  retentionDays: number
+  maxExports: number
+  maxAlertRules: number
 }
 
-interface Plan {
+interface ApiPlan {
   id: string
+  code: string
   name: string
-  price: number
-  cycle: string
-  features: string[]
-  highlight?: boolean
-  current?: boolean
+  description: string | null
+  monthlyPrice: number
+  annualPrice: number
+  currency: string
+  trialDays: number
+  limits: PlanLimits
+  features: Record<string, boolean | string | number>
+  highlight: boolean
 }
 
-const CURRENT_PLAN = {
-  name: 'Gestão',
-  price: 299,
-  cycle: 'mensal',
-  status: 'Ativa',
-  nextBilling: '15/02/2025',
+interface UsageEntry {
+  current: number
+  limit: number
+  percentage: number
 }
 
-const USAGE_METRICS: UsageMetric[] = [
-  { label: 'Conversas', used: 847, limit: 2000, icon: MessageSquare, color: 'text-primary' },
-  { label: 'Mensagens', used: 12340, limit: 30000, icon: MessageSquare, color: 'text-emerald-500' },
-  { label: 'Agentes', used: 5, limit: 10, icon: Users, color: 'text-amber-500' },
-  { label: 'Conexões', used: 2, limit: 5, icon: Wifi, color: 'text-purple-500' },
-]
+interface SubscriptionData {
+  id: string
+  status: string
+  plan: { id: string; code: string; name: string; monthlyPrice: number; annualPrice: number }
+  currentPeriodStart: string
+  currentPeriodEnd: string
+  trialEnd: string | null
+  cancelAtPeriodEnd: boolean
+}
 
-const PLANS: Plan[] = [
-  {
-    id: 'essencial',
-    name: 'Essencial',
-    price: 149,
-    cycle: 'mensal',
-    features: [
-      'Até 500 conversas/mês',
-      '2 agentes',
-      '1 conexão WhatsApp',
-      'Relatórios diários',
-      'Alertas básicos',
-      'Funil auditado',
-      'Suporte por e-mail',
-    ],
-  },
-  {
-    id: 'gestao',
-    name: 'Gestão',
-    price: 299,
-    cycle: 'mensal',
-    features: [
-      'Até 2.000 conversas/mês',
-      '10 agentes',
-      '5 conexões WhatsApp',
-      'Relatórios diários e semanais',
-      'Alertas avançados com IA',
-      'Funil auditado + métricas',
-      'Gestão de equipes',
-      'Suporte prioritário',
-      'API de integração',
-    ],
-    current: true,
-  },
-  {
-    id: 'performance',
-    name: 'Performance',
-    price: 599,
-    cycle: 'mensal',
-    features: [
-      'Conversas ilimitadas',
-      'Agentes ilimitados',
-      'Conexões ilimitadas',
-      'Relatórios personalizados',
-      'IA preditiva de risco',
-      'Dashboard executivo',
-      'Multi-unidades',
-      'SLA garantido',
-      'Gerente de sucesso dedicado',
-      'API completa + Webhooks',
-    ],
-    highlight: true,
-  },
-]
+const PLAN_ICONS: Record<string, React.ElementType> = {
+  essencial: Zap,
+  gestao: Crown,
+  performance: Rocket,
+}
 
-const COMPARISON_FEATURES = [
-  { name: 'Conversas/mês', essencial: '500', gestao: '2.000', performance: 'Ilimitado' },
-  { name: 'Agentes', essencial: '2', gestao: '10', performance: 'Ilimitado' },
-  { name: 'Conexões WhatsApp', essencial: '1', gestao: '5', performance: 'Ilimitado' },
-  { name: 'Relatórios diários', essencial: true, gestao: true, performance: true },
-  { name: 'Relatórios semanais', essencial: false, gestao: true, performance: true },
-  { name: 'Alertas com IA', essencial: false, gestao: true, performance: true },
-  { name: 'Gestão de equipes', essencial: false, gestao: true, performance: true },
-  { name: 'IA preditiva', essencial: false, gestao: false, performance: true },
-  { name: 'Dashboard executivo', essencial: false, gestao: false, performance: true },
-  { name: 'Multi-unidades', essencial: false, gestao: false, performance: true },
-  { name: 'API + Webhooks', essencial: false, gestao: true, performance: true },
-  { name: 'Suporte prioritário', essencial: false, gestao: true, performance: true },
-  { name: 'Gerente de sucesso', essencial: false, gestao: false, performance: true },
+const STATUS_LABELS: Record<string, string> = {
+  active: 'Ativa',
+  trialing: 'Em teste',
+  past_due: 'Pagamento pendente',
+  canceled: 'Cancelada',
+  unpaid: 'Não paga',
+}
+
+const FEATURE_LABELS: Record<string, string> = {
+  basic_dashboard: 'Dashboard básico',
+  conversation_audit: 'Auditoria de conversas',
+  daily_report: 'Relatórios diários',
+  alert_rules: 'Alertas configuráveis',
+  team_management: 'Gestão de equipes',
+  advanced_dashboard: 'Dashboard avançado',
+  custom_reports: 'Relatórios personalizados',
+  api_access: 'Acesso à API',
+}
+
+const USAGE_METRICS: { key: 'conversations' | 'messages' | 'agents' | 'connections'; label: string; icon: React.ElementType; color: string }[] = [
+  { key: 'conversations', label: 'Conversas', icon: MessageSquare, color: 'text-primary' },
+  { key: 'messages', label: 'Mensagens', icon: MessageSquare, color: 'text-emerald-500' },
+  { key: 'agents', label: 'Agentes', icon: Users, color: 'text-amber-500' },
+  { key: 'connections', label: 'Conexões', icon: Wifi, color: 'text-purple-500' },
 ]
 
 export default function PlansView() {
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [plans, setPlans] = useState<ApiPlan[]>([])
+  const [featureKeys, setFeatureKeys] = useState<string[]>([])
+  const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
+  const [usage, setUsage] = useState<Record<string, UsageEntry> | null>(null)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 600)
-    return () => clearTimeout(timer)
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [plansRes, subRes] = await Promise.all([
+        fetch('/api/plans'),
+        fetch('/api/subscription'),
+      ])
+      if (!plansRes.ok || !subRes.ok) throw new Error('Erro ao carregar planos')
+      const plansData = await plansRes.json()
+      const subData = await subRes.json()
+      setPlans(plansData.plans || [])
+      setFeatureKeys(plansData.featureKeys || [])
+      setSubscription(subData.subscription || null)
+      setUsage(subData.usage || null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   const handleUpgrade = (planName: string) => {
     toast.success(`Solicitação de upgrade para o plano ${planName} enviada!`)
   }
 
-  const renderCell = (value: boolean | string) => {
+  const renderCell = (value: boolean | string | number) => {
     if (typeof value === 'boolean') {
       return value
         ? <Check className="w-4 h-4 text-emerald-500 mx-auto" />
         : <X className="w-4 h-4 text-muted-foreground/30 mx-auto" />
     }
     return <span className="text-sm font-medium">{value}</span>
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-destructive font-medium">{error}</p>
+        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
+      </div>
+    )
   }
 
   return (
@@ -164,31 +167,42 @@ export default function PlansView() {
                     <CreditCard className="w-5 h-5" />
                     Plano atual
                   </CardTitle>
-                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                    {CURRENT_PLAN.status}
-                  </Badge>
+                  {subscription && (
+                    <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                      {STATUS_LABELS[subscription.status] || subscription.status}
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <p className="text-3xl font-bold">
-                    R$ {CURRENT_PLAN.price}<span className="text-base font-normal text-muted-foreground">/{CURRENT_PLAN.cycle}</span>
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">Plano {CURRENT_PLAN.name}</p>
-                </div>
-                <div className="border-t pt-3 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Próxima cobrança</span>
-                    <span className="font-medium">{CURRENT_PLAN.nextBilling}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Ciclo</span>
-                    <span className="font-medium capitalize">{CURRENT_PLAN.cycle}</span>
-                  </div>
-                </div>
-                <Button variant="outline" className="w-full" size="sm">
-                  Gerenciar assinatura
-                </Button>
+                {subscription ? (
+                  <>
+                    <div>
+                      <p className="text-3xl font-bold">
+                        {formatCurrency(subscription.plan.monthlyPrice)}
+                        <span className="text-base font-normal text-muted-foreground">/mês</span>
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">Plano {subscription.plan.name}</p>
+                    </div>
+                    <div className="border-t pt-3 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Próxima cobrança</span>
+                        <span className="font-medium">
+                          {new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Ciclo</span>
+                        <span className="font-medium">Mensal</span>
+                      </div>
+                    </div>
+                    <Button variant="outline" className="w-full" size="sm">
+                      Gerenciar assinatura
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhuma assinatura ativa encontrada.</p>
+                )}
               </CardContent>
             </Card>
 
@@ -201,19 +215,21 @@ export default function PlansView() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                {USAGE_METRICS.map((metric) => {
-                  const pct = Math.round((metric.used / metric.limit) * 100)
+                {usage && USAGE_METRICS.map((metric) => {
+                  const entry = usage[metric.key]
+                  if (!entry) return null
+                  const pct = Math.min(100, entry.percentage)
                   const Icon = metric.icon
                   const isNear = pct > 80
                   return (
-                    <div key={metric.label} className="space-y-1.5">
+                    <div key={metric.key} className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Icon className={`w-4 h-4 ${metric.color}`} />
                           <span className="text-sm font-medium">{metric.label}</span>
                         </div>
                         <span className={`text-xs font-medium ${isNear ? 'text-amber-500' : 'text-muted-foreground'}`}>
-                          {metric.used.toLocaleString('pt-BR')} / {metric.limit.toLocaleString('pt-BR')}
+                          {entry.current.toLocaleString('pt-BR')} / {entry.limit.toLocaleString('pt-BR')}
                         </span>
                       </div>
                       <Progress value={pct} className="h-2" />
@@ -228,9 +244,13 @@ export default function PlansView() {
           <div>
             <h2 className="text-lg font-semibold mb-4">Compare os planos</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {PLANS.map((plan) => {
-                const isCurrent = plan.current
+              {plans.map((plan) => {
+                const isCurrent = subscription?.plan.id === plan.id
                 const isHighlight = plan.highlight
+                const Icon = PLAN_ICONS[plan.code] || Zap
+                const includedFeatures = Object.entries(plan.features)
+                  .filter(([, v]) => v === true)
+                  .map(([key]) => FEATURE_LABELS[key] || key)
                 return (
                   <Card
                     key={plan.id}
@@ -245,19 +265,32 @@ export default function PlansView() {
                     )}
                     <CardHeader className="text-center pt-6">
                       <div className="mx-auto w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-2">
-                        {plan.id === 'essencial' ? <Zap className="w-5 h-5" />
-                          : plan.id === 'gestao' ? <Crown className="w-5 h-5" />
-                            : <Rocket className="w-5 h-5" />}
+                        <Icon className="w-5 h-5" />
                       </div>
                       <CardTitle className="text-lg">{plan.name}</CardTitle>
+                      {plan.description && (
+                        <CardDescription>{plan.description}</CardDescription>
+                      )}
                       <div className="mt-2">
-                        <span className="text-3xl font-bold">R$ {plan.price}</span>
-                        <span className="text-muted-foreground">/{plan.cycle}</span>
+                        <span className="text-3xl font-bold">{formatCurrency(plan.monthlyPrice)}</span>
+                        <span className="text-muted-foreground">/mês</span>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <ul className="space-y-2">
-                        {plan.features.map((f) => (
+                        <li className="flex items-start gap-2 text-sm">
+                          <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>Até {plan.limits.maxConversationsMonthly.toLocaleString('pt-BR')} conversas/mês</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm">
+                          <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>{plan.limits.maxAgents} agentes</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm">
+                          <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>{plan.limits.maxConnections} conexão(ões) WhatsApp</span>
+                        </li>
+                        {includedFeatures.map((f) => (
                           <li key={f} className="flex items-start gap-2 text-sm">
                             <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                             <span>{f}</span>
@@ -276,8 +309,8 @@ export default function PlansView() {
                           variant={isHighlight ? 'default' : 'outline'}
                           onClick={() => handleUpgrade(plan.name)}
                         >
-                          {isCurrent ? 'Plano atual' : 'Fazer upgrade'}
-                          {!isCurrent && <ArrowRight className="w-4 h-4 ml-2" />}
+                          Fazer upgrade
+                          <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
                       )}
                     </CardFooter>
@@ -299,25 +332,53 @@ export default function PlansView() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-1/3">Recurso</TableHead>
-                      <TableHead className="text-center">Essencial</TableHead>
-                      <TableHead className="text-center">Gestão</TableHead>
-                      <TableHead className="text-center">Performance</TableHead>
+                      {plans.map((plan) => (
+                        <TableHead key={plan.id} className="text-center">{plan.name}</TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {COMPARISON_FEATURES.map((f) => (
-                      <TableRow key={f.name}>
-                        <TableCell className="font-medium text-sm">{f.name}</TableCell>
-                        <TableCell className="text-center">{renderCell(f.essencial)}</TableCell>
-                        <TableCell className="text-center bg-primary/5">{renderCell(f.gestao)}</TableCell>
-                        <TableCell className="text-center">{renderCell(f.performance)}</TableCell>
+                    <TableRow>
+                      <TableCell className="font-medium text-sm">Conversas/mês</TableCell>
+                      {plans.map((plan) => (
+                        <TableCell key={plan.id} className="text-center">
+                          {renderCell(plan.limits.maxConversationsMonthly.toLocaleString('pt-BR'))}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium text-sm">Agentes</TableCell>
+                      {plans.map((plan) => (
+                        <TableCell key={plan.id} className="text-center">
+                          {renderCell(plan.limits.maxAgents)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium text-sm">Conexões WhatsApp</TableCell>
+                      {plans.map((plan) => (
+                        <TableCell key={plan.id} className="text-center">
+                          {renderCell(plan.limits.maxConnections)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    {featureKeys.map((key) => (
+                      <TableRow key={key}>
+                        <TableCell className="font-medium text-sm">{FEATURE_LABELS[key] || key}</TableCell>
+                        {plans.map((plan) => (
+                          <TableCell key={plan.id} className="text-center">
+                            {renderCell(Boolean(plan.features[key]))}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/30">
                       <TableCell className="font-bold">Preço</TableCell>
-                      <TableCell className="text-center font-bold">R$ 149/mês</TableCell>
-                      <TableCell className="text-center font-bold bg-primary/5">R$ 299/mês</TableCell>
-                      <TableCell className="text-center font-bold">R$ 599/mês</TableCell>
+                      {plans.map((plan) => (
+                        <TableCell key={plan.id} className="text-center font-bold">
+                          {formatCurrency(plan.monthlyPrice)}/mês
+                        </TableCell>
+                      ))}
                     </TableRow>
                   </TableBody>
                 </Table>
