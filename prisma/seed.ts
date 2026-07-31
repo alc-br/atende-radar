@@ -431,7 +431,19 @@ async function main() {
   for (const dm of dailyMetrics) {
     await prisma.dailyMetric.upsert({
       where: { id: dm.id },
-      update: { overallScore: dm.overallScore },
+      update: {
+        date: dm.date,
+        conversationsStarted: dm.conversationsStarted,
+        customersWaiting: dm.customersWaiting,
+        medianFirstResponse: dm.medianFirstResponse,
+        opportunitiesDetected: dm.opportunitiesDetected,
+        opportunitiesAtRisk: dm.opportunitiesAtRisk,
+        overduePromises: dm.overduePromises,
+        potentialValueAtRisk: dm.potentialValueAtRisk,
+        overallScore: dm.overallScore,
+        messagesReceived: dm.messagesReceived,
+        messagesSent: dm.messagesSent,
+      },
       create: {
         id: dm.id,
         organizationId: dm.organizationId,
@@ -459,7 +471,18 @@ async function main() {
   for (const am of agentMetrics) {
     await prisma.agentMetric.upsert({
       where: { id: am.id },
-      update: { score: am.score, conversations: am.conversations },
+      update: {
+        date: am.date,
+        conversations: am.conversations,
+        avgResponseTime: am.avgResponseTime,
+        score: am.score,
+        opportunitiesHandled: am.opportunitiesHandled,
+        opportunitiesLost: am.opportunitiesLost,
+        promisesKept: am.promisesKept,
+        promisesTotal: am.promisesTotal,
+        questionsAnswered: am.questionsAnswered,
+        questionsTotal: am.questionsTotal,
+      },
       create: {
         id: am.id,
         organizationId: am.organizationId,
