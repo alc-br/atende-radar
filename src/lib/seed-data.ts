@@ -3,10 +3,10 @@
 
 // ─── Helpers ────────────────────────────────────────────────────────
 const now = new Date()
-const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
 function daysAgo(d: number): Date { return new Date(today.getTime() - d * 86400000) }
 function hoursAgo(h: number): Date { return new Date(now.getTime() - h * 3600000) }
-function daysFromNow(d: number): Date { return new Date(today.getTime() + d * 8640000) }
+function daysFromNow(d: number): Date { return new Date(today.getTime() + d * 86400000) }
 function dateStr(d: Date): string { return d.toISOString().split('T')[0] }
 function iso(d: Date): string { return d.toISOString() }
 
