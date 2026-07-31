@@ -112,7 +112,7 @@ export const conversations = convConfigs.map((cfg, i) => ({
   lastOutboundAt: hoursAgo(cfg.hours - 2),
   waitingSince: cfg.status === 'waiting_company' ? hoursAgo(cfg.hours) : null,
   openedAt: hoursAgo(cfg.hours + 2),
-  tags: i % 3 === 0 ? 'prioritario' : i % 5 === 0 ? 'vip,retorno' : '',
+  tags: i % 3 === 0 ? JSON.stringify(['prioritario']) : i % 5 === 0 ? JSON.stringify(['vip', 'retorno']) : '[]',
   // extra fields for seed logic
   _hasOpportunity: cfg.hasOpportunity,
   _hasFinding: cfg.hasFinding,

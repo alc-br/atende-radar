@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
+  try {
+    return value ? (JSON.parse(value) as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -49,7 +57,7 @@ export async function GET(
 
     const latestScore = conversation.scores[0]
     const componentScores = latestScore
-      ? (JSON.parse(latestScore.componentScores || '{}') as Record<string, number>)
+      ? safeJsonParse<Record<string, number>>(latestScore.componentScores, {})
       : {}
 
     const waitingMs = conversation.waitingSince
@@ -68,7 +76,7 @@ export async function GET(
       riskScore: Math.round(conversation.riskScore * 100) / 100,
       potentialValue: Math.round(conversation.potentialValue),
       confidence: +conversation.confidence.toFixed(2),
-      tags: JSON.parse(conversation.tags || '[]') as string[],
+      tags: safeJsonParse<string[]>(conversation.tags, []),
       waitingMinutes: Math.floor(waitingMs / 60000),
       openedAt: conversation.openedAt.toISOString(),
       closedAt: conversation.closedAt?.toISOString(),
