@@ -82,7 +82,7 @@ export default function NotificationsView() {
           <h1 className="text-2xl font-bold tracking-tight">Notificações</h1>
           <p className="text-muted-foreground mt-1">
             {unreadCount > 0
-              ? `Você tem ${unreadCount} notificação${unreadCount > 1 ? 'ões' : ''} não lida${unreadCount > 1 ? 's' : ''}.`
+              ? `Você tem ${unreadCount} ${unreadCount > 1 ? 'notificações não lidas' : 'notificação não lida'}.`
               : 'Todas as notificações foram lidas.'}
           </p>
         </div>
