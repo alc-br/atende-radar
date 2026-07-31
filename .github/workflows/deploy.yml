@@ -1,0 +1,39 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, atende-radar]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync source to deploy directory
+        run: rsync -a --delete --exclude '.env' --exclude 'node_modules' --exclude '.next' ./ /opt/atende-radar/current/
+
+      - name: Install dependencies
+        working-directory: /opt/atende-radar/current
+        run: /usr/local/bin/bun install
+
+      - name: Prisma generate & sync schema
+        working-directory: /opt/atende-radar/current
+        run: |
+          /usr/local/bin/bun run db:generate
+          /usr/local/bin/bun run db:push
+
+      - name: Build
+        working-directory: /opt/atende-radar/current
+        env:
+          NODE_OPTIONS: --max-old-space-size=1536
+        run: /usr/local/bin/bun run build
+
+      - name: Restart service
+        run: sudo systemctl restart atende-radar.service
+
+      - name: Health check
+        run: |
+          sleep 3
+          curl -sf http://127.0.0.1:3200 > /dev/null
