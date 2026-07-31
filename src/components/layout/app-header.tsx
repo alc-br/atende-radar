@@ -1,8 +1,8 @@
 'use client'
 
 import { useAppStore } from '@/lib/store'
-import { organization } from '@/lib/mock-data'
-import { Bell, Moon, Sun, Menu, Search, ChevronDown, User, LogOut, HelpCircle } from 'lucide-react'
+import { useSession, signOut } from 'next-auth/react'
+import { Moon, Sun, Menu, Search, ChevronDown, User, LogOut, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -10,12 +10,21 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Badge } from '@/components/ui/badge'
 import { useTheme } from 'next-themes'
 
 export function AppHeader() {
-  const { sidebarOpen, setSidebarOpen } = useAppStore()
+  const { sidebarOpen, setSidebarOpen, currentOrganization, setView } = useAppStore()
+  const { data: session } = useSession()
+  const orgName = currentOrganization?.displayName || 'AtendeRadar'
   const { theme, setTheme } = useTheme()
+
+  const userName = (session?.user as any)?.name || 'Demo User'
+  const userInitials = userName
+    .split(' ')
+    .map((n: string) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 
   return (
     <header className='sticky top-0 z-30 h-16 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-6'>
@@ -32,7 +41,7 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant='ghost' className='gap-2 font-medium'>
               <div className='w-2 h-2 rounded-full bg-emerald-500' />
-              {organization.displayName}
+              {orgName}
               <ChevronDown className='w-4 h-4 text-muted-foreground' />
             </Button>
           </DropdownMenuTrigger>
@@ -40,7 +49,7 @@ export function AppHeader() {
             <DropdownMenuLabel>Organizações</DropdownMenuLabel>
             <DropdownMenuItem className='font-medium'>
               <div className='w-2 h-2 rounded-full bg-emerald-500 mr-2' />
-              {organization.displayName}
+              {orgName}
             </DropdownMenuItem>
             <DropdownMenuItem>
               <div className='w-2 h-2 rounded-full bg-muted-foreground/40 mr-2' />
@@ -64,40 +73,17 @@ export function AppHeader() {
         <Button variant='ghost' size='icon' onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'dark' ? <Sun className='w-4 h-4' /> : <Moon className='w-4 h-4' />}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant='ghost' size='icon' className='relative'>
-              <Bell className='w-4 h-4' />
-              <span className='absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive' />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align='end' className='w-80'>
-            <DropdownMenuLabel className='flex items-center justify-between'>
-              Notificações
-              <Badge variant='secondary' className='text-[10px]'>5 novas</Badge>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className='flex flex-col items-start gap-1 py-3'>
-              <span className='font-medium text-sm'>Alerta crítico: Cliente irritado</span>
-              <span className='text-xs text-muted-foreground'>Maria Santos - há 12 min</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className='flex flex-col items-start gap-1 py-3'>
-              <span className='font-medium text-sm'>Conexão desconectada</span>
-              <span className='text-xs text-muted-foreground'>Unidade Centro - há 45 min</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className='flex flex-col items-start gap-1 py-3'>
-              <span className='font-medium text-sm'>Relatório diário disponível</span>
-              <span className='text-xs text-muted-foreground'>Hoje às 18:00</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button variant='ghost' size='icon' className='relative' onClick={() => setView('notifications')}>
+          <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className='w-4 h-4'><path d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/><path d='M10.3 21a1.94 1.94 0 0 0 3.4 0'/></svg>
+          <span className='absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive' />
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant='ghost' className='gap-2 h-9'>
               <Avatar className='h-7 w-7'>
-                <AvatarFallback className='bg-primary text-primary-foreground text-xs'>AS</AvatarFallback>
+                <AvatarFallback className='bg-primary text-primary-foreground text-xs'>{userInitials}</AvatarFallback>
               </Avatar>
-              <span className='hidden lg:inline text-sm font-medium'>Ana Silva</span>
+              <span className='hidden lg:inline text-sm font-medium'>{userName}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align='end'>
@@ -106,7 +92,9 @@ export function AppHeader() {
             <DropdownMenuItem><User className='mr-2 h-4 w-4' />Perfil</DropdownMenuItem>
             <DropdownMenuItem><HelpCircle className='mr-2 h-4 w-4' />Ajuda</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className='text-destructive'><LogOut className='mr-2 h-4 w-4' />Sair</DropdownMenuItem>
+            <DropdownMenuItem className='text-destructive' onClick={() => signOut({ callbackUrl: '/login' })}>
+              <LogOut className='mr-2 h-4 w-4' />Sair
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

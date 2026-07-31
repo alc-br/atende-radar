@@ -1,7 +1,21 @@
 'use client'
 import { create } from 'zustand'
 
-type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings'
+type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'notifications'
+
+interface CurrentOrganization {
+  id: string
+  name: string
+  displayName: string
+  segment: string
+  timezone: string
+  currency: string
+  status: string
+  phone: string
+  adminEmail: string
+  logoUrl: string | null
+  website: string | null
+}
 
 interface AppState {
   currentView: View
@@ -9,11 +23,15 @@ interface AppState {
   selectedAgentId: string | null
   sidebarOpen: boolean
   period: string
+  refreshTrigger: number
+  currentOrganization: CurrentOrganization | null
   setView: (view: View) => void
   selectConversation: (id: string | null) => void
   selectAgent: (id: string | null) => void
   setSidebarOpen: (open: boolean) => void
   setPeriod: (period: string) => void
+  incrementRefresh: () => void
+  setCurrentOrganization: (org: CurrentOrganization | null) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -22,9 +40,13 @@ export const useAppStore = create<AppState>((set) => ({
   selectedAgentId: null,
   sidebarOpen: true,
   period: '7d',
+  refreshTrigger: 0,
+  currentOrganization: null,
   setView: (view) => set({ currentView: view }),
   selectConversation: (id) => set({ selectedConversationId: id, currentView: id ? 'conversation-detail' : 'conversations' }),
   selectAgent: (id) => set({ selectedAgentId: id, currentView: id ? 'agent-profile' : 'team' }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setPeriod: (period) => set({ period }),
+  incrementRefresh: () => set((s) => ({ refreshTrigger: s.refreshTrigger + 1 })),
+  setCurrentOrganization: (org) => set({ currentOrganization: org }),
 }))

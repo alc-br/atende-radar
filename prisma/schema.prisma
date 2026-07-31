@@ -28,6 +28,15 @@ model Organization {
   alerts        Alert[]
   recoveryItems RecoveryItem[]
   reports       ReportRun[]
+  alertRules    AlertRule[]
+  dailyMetrics  DailyMetric[]
+  agentMetrics  AgentMetric[]
+  reportDefinitions ReportDefinition[]
+  members       OrganizationMember[]
+  teams         Team[]
+  subscription  Subscription?
+  notifications Notification[]
+  classificationFeedbacks ClassificationFeedback[]
 }
 
 model WhatsAppConnection {
@@ -48,6 +57,9 @@ model WhatsAppConnection {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   conversations  Conversation[]
+  sessionEvents  ConnectionSessionEvent[]
+  rawEvents      RawChannelEvent[]
+  agentIdentities AgentIdentity[]
 }
 
 model Agent {
@@ -64,6 +76,8 @@ model Agent {
   updatedAt      DateTime @updatedAt
   conversations  Conversation[]
   recoveryItems  RecoveryItem[]
+  identities     AgentIdentity[]
+  metrics        AgentMetric[]
 }
 
 model Contact {
@@ -116,6 +130,9 @@ model Conversation {
   opportunities   RevenueOpportunity[]
   alerts          Alert[]
   tags           String   @default("[]")
+  openQuestions   OpenQuestion[]
+  promises        Promise[]
+  scores          ConversationScore[]
 }
 
 model Message {
@@ -245,4 +262,261 @@ model ReportRun {
   filePath        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ============================================================
+// NEW MODELS
+// ============================================================
+
+model ConnectionSessionEvent {
+  id               String   @id @default(cuid())
+  connectionId     String
+  connection       WhatsAppConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  eventType        String
+  previousStatus   String?
+  newStatus        String?
+  reasonCode       String?
+  sanitizedDetails String?
+  occurredAt       DateTime @default(now())
+}
+
+model RawChannelEvent {
+  id              String   @id @default(cuid())
+  connectionId    String
+  connection      WhatsAppConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  eventId         String   @unique
+  idempotencyKey  String   @unique
+  schemaVersion   String   @default("1.0")
+  eventType       String
+  payload         String   @default("{}")
+  occurredAt      DateTime @default(now())
+  receivedAt      DateTime @default(now())
+  processingStatus String  @default("pending")
+  errorCode       String?
+  attempts        Int      @default(0)
+}
+
+model AgentIdentity {
+  id               String   @id @default(cuid())
+  agentId          String?
+  agent            Agent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  displayName      String
+  externalRef      String?
+  connectionId     String
+  connection       WhatsAppConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  team             String?
+  associationStatus String  @default("unconfirmed")
+  confidence       Float   @default(0)
+  validFrom        DateTime @default(now())
+  validTo          DateTime?
+  confirmedBy      String?
+}
+
+model OpenQuestion {
+  id                String   @id @default(cuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sourceMessage     String
+  normalizedQuestion String?
+  askedAt           DateTime @default(now())
+  dueAt             DateTime?
+  answeredByMessage String?
+  status            String  @default("open")
+  confidence        Float   @default(0)
+}
+
+model Promise {
+  id                String   @id @default(cuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sourceMessage     String
+  promisorAgent     String
+  action            String
+  dueAt             DateTime?
+  duePrecision      String?
+  status            String  @default("open")
+  completionMessage String?
+  confidence        Float   @default(0)
+}
+
+model ConversationScore {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  version         Int      @default(1)
+  total           Float    @default(0)
+  componentScores String   @default("{}")
+  eligibility     Boolean  @default(true)
+  calculatedAt    DateTime @default(now())
+}
+
+model AlertRule {
+  id                 String  @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id])
+  name               String
+  type               String
+  active             Boolean @default(true)
+  severity           String  @default("medium")
+  scopeConnections   String  @default("[]")
+  scopeTeams         String  @default("[]")
+  daysAndHours       String  @default("{}")
+  limitMinutes       Int?
+  notificationChannels String @default("[\"in_app\"]")
+  recipients         String  @default("[]")
+  cooldownMinutes    Int     @default(30)
+  autoCloseMinutes   Int?
+  exceptions         String  @default("[]")
+  minConfidence      Float   @default(0.5)
+}
+
+model DailyMetric {
+  id                  String   @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  date                String
+  connectionId        String?
+  teamId              String?
+  conversationsStarted Int      @default(0)
+  customersWaiting    Int      @default(0)
+  medianFirstResponse Float    @default(0)
+  opportunitiesDetected Int     @default(0)
+  opportunitiesAtRisk Int      @default(0)
+  overduePromises     Int      @default(0)
+  potentialValueAtRisk Float   @default(0)
+  overallScore        Float    @default(0)
+  messagesReceived    Int      @default(0)
+  messagesSent        Int      @default(0)
+}
+
+model AgentMetric {
+  id                String   @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  agentId           String
+  agent             Agent @relation(fields: [agentId], references: [id])
+  date              String
+  conversations     Int      @default(0)
+  avgResponseTime  Float    @default(0)
+  score             Float    @default(0)
+  opportunitiesHandled Int    @default(0)
+  opportunitiesLost Int      @default(0)
+  promisesKept      Int      @default(0)
+  promisesTotal     Int      @default(0)
+  questionsAnswered Int      @default(0)
+  questionsTotal    Int      @default(0)
+}
+
+model ReportDefinition {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  reportType      String
+  name            String
+  description     String?
+  schedule        String?
+  timezone        String   @default("America/Sao_Paulo")
+  daysOfWeek      String   @default("[]")
+  recipients      String   @default("[]")
+  channels        String   @default("[\"email\"]")
+  sendEmpty       Boolean  @default(false)
+  lastRunAt       DateTime?
+}
+
+model ClassificationFeedback {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  targetId        String
+  targetType      String
+  previousValue   String?
+  correctedValue  String?
+  justification   String?
+  userId          String?
+  appliedToMetrics Boolean @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model Notification {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  userId          String?
+  type            String
+  title           String
+  message         String?
+  data            String   @default("{}")
+  read            Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model OrganizationMember {
+  id            String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId        String
+  name          String
+  email         String
+  role          String    @default("member")
+  team          String?
+  status        String    @default("active")
+  lastAccessAt  DateTime?
+  mfaEnabled    Boolean   @default(false)
+  invitedAt     DateTime  @default(now())
+  invitedBy     String?
+}
+
+model Team {
+  id            String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name          String
+  code          String
+  unitId        String?
+  supervisorId  String?
+  connectionIds String   @default("[]")
+  slaConfig     String   @default("{}")
+  goals         String   @default("{}")
+  active        Boolean  @default(true)
+}
+
+model Plan {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  name             String
+  description      String?
+  monthlyPrice     Float    @default(0)
+  annualPrice      Float    @default(0)
+  stripePriceIds   String   @default("{}")
+  currency         String   @default("BRL")
+  trialDays        Int      @default(0)
+  maxConnections   Int      @default(1)
+  maxAgents        Int      @default(1)
+  maxConversationsMonthly Int @default(100)
+  maxMessagesMonthly Int    @default(500)
+  maxAudioMinutes  Int      @default(0)
+  retentionDays    Int      @default(30)
+  maxExports       Int      @default(5)
+  maxAlertRules    Int      @default(5)
+  features         String   @default("{}")
+  active           Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  highlight        Boolean  @default(false)
+  subscriptions      Subscription[]
+}
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  organizationId     String @unique
+  organization       Organization @relation(fields: [organizationId], references: [id])
+  planId             String
+  plan               Plan      @relation(fields: [planId], references: [id])
+  stripeCustomerId   String?
+  stripeSubscriptionId String?
+  status             String    @default("active")
+  currentPeriodStart DateTime  @default(now())
+  currentPeriodEnd   DateTime  @default(now())
+  trialEnd           DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+  createdAt          DateTime  @default(now())
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   ArrowLeft,
   Phone,
@@ -42,9 +42,6 @@ import {
 
 import { cn } from '@/lib/utils'
 import {
-  conversations,
-  agents,
-  getConversationMessages,
   formatCurrency,
   timeAgo,
   getSeverityColor,
@@ -55,6 +52,7 @@ import {
   getStatusLabel,
 } from '@/lib/mock-data'
 import { useAppStore } from '@/lib/store'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -188,35 +186,98 @@ function formatMsgTime(iso: string) {
 
 export default function ConversationDetail() {
   const selectedConversationId = useAppStore((s) => s.selectedConversationId)
-  const selectConversation = useAppStore((s) => s.selectConversation)
   const setView = useAppStore((s) => s.setView)
+  const refreshTrigger = useAppStore((s) => s.refreshTrigger)
 
-  const conv = useMemo(
-    () => conversations.find((c) => c.id === selectedConversationId),
-    [selectedConversationId]
-  )
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<any>(null)
 
-  const messages = useMemo(
-    () => (selectedConversationId ? getConversationMessages(selectedConversationId) : []),
-    [selectedConversationId]
-  )
+  const fetchData = useCallback(async () => {
+    if (!selectedConversationId) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/conversations/${selectedConversationId}`)
+      if (!res.ok) throw new Error('Erro ao carregar conversa')
+      const json = await res.json()
+      setData(json)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [selectedConversationId])
 
-  const agent = useMemo(
-    () => agents.find((a) => a.id === conv?.agentId),
-    [conv?.agentId]
-  )
+  useEffect(() => { fetchData() }, [fetchData, refreshTrigger])
 
-  if (!conv) {
+  if (isLoading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
-        <MessageSquare className="h-12 w-12" />
-        <p>Conversa não encontrada.</p>
-        <Button variant="outline" onClick={() => { selectConversation(null); setView('conversations') }}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar às conversas
-        </Button>
+      <div className="flex items-center justify-center h-96">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-96 w-full mt-4" />
+        </div>
       </div>
     )
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-destructive font-medium">{error || 'Conversa não encontrada'}</p>
+        <button onClick={() => setView('conversations')} className="text-sm text-primary underline">Voltar</button>
+      </div>
+    )
+  }
+
+  // Derive data from API response
+  const conversation = {
+    id: data.id,
+    customerName: data.contact?.displayName || 'Desconhecido',
+    customerPhone: data.contact?.phoneLast4 ? `*****${data.contact.phoneLast4}` : '******',
+    agentName: data.agent?.name || 'Sem agente',
+    agentTeam: data.agent?.team || '',
+    connectionName: data.connection?.name || '',
+    operationalStatus: data.operationalStatus,
+    inferredStage: data.inferredStage,
+    primaryIntent: data.primaryIntent,
+    urgency: data.urgency,
+    sentiment: data.sentiment,
+    score: data.score,
+    potentialValue: data.potentialValue,
+    confidence: data.confidence,
+    waitingMinutes: data.waitingMinutes,
+    tags: data.tags || [],
+    hasOpportunity: data.potentialValue > 0,
+    lastActivity: data.lastActivity,
+    openedAt: data.openedAt,
+    closedAt: data.closedAt,
+  }
+  const messages = data.messages || []
+  const classifications = data.classifications || []
+  const findings = data.findings || []
+  const opportunities = data.opportunities || []
+  const openQuestions = data.openQuestions || []
+  const promises = data.promises || []
+  const conversationAlerts = data.alerts || []
+  const scoreDetail = data.scoreDetail
+
+  const handleOutcome = (outcome: 'won' | 'lost', value?: number) => {
+    fetch(`/api/conversations/${selectedConversationId}/outcome`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outcome, value }),
+    }).then(() => fetchData()).catch(() => {})
+  }
+
+  const handleFeedback = (type: string, previousValue: string, correctedValue: string, justification: string) => {
+    fetch(`/api/conversations/${selectedConversationId}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, previousValue, correctedValue, justification }),
+    }).then(() => fetchData()).catch(() => {})
   }
 
   const handleBack = () => {
@@ -225,45 +286,39 @@ export default function ConversationDetail() {
   }
 
   // Synthetic audit data for the right panel
-  const secondaryIntent = conv.primaryIntent === 'preco' ? 'agendamento' : conv.primaryIntent === 'consulta' ? 'preco' : 'suporte'
-  const sentimentEvolution = conv.sentiment === 'positive'
+  const secondaryIntent = conversation.primaryIntent === 'preco' ? 'agendamento' : conversation.primaryIntent === 'consulta' ? 'preco' : 'suporte'
+  const sentimentEvolution = conversation.sentiment === 'positive'
     ? [{ from: 'neutral', to: 'positive', at: 'há 2h' }]
-    : conv.sentiment === 'frustrated'
+    : conversation.sentiment === 'frustrated'
       ? [{ from: 'neutral', to: 'confused', at: 'há 5h' }, { from: 'confused', to: 'frustrated', at: 'há 1h' }]
       : []
 
-  const openQuestions = [
-    { id: 'q1', text: 'Qual o valor do tratamento completo?', status: 'answered' as const },
-    { id: 'q2', text: 'Aceitam plano Unimed?', status: 'answered' as const },
-    { id: 'q3', text: 'Horário de funcionamento aos sábados?', status: 'pending' as const },
-  ]
+  const findingsFromApi = findings.map((f: any) => ({
+    id: f.id, type: f.type, severity: f.severity, evidence: f.evidence, status: f.status, confidence: f.confidence,
+  }))
 
-  const promises = [
-    { id: 'p1', text: 'Confirmar agendamento até amanhã', status: 'fulfilled' as const, dueAt: '2025-01-15T12:00:00' },
-    { id: 'p2', text: 'Enviar orçamento detalhado', status: 'pending' as const, dueAt: '2025-01-16T18:00:00' },
-  ]
-
-  const findings = [
-    { id: 'f1', type: 'Resposta lenta', severity: 'medium', evidence: 'Tempo de resposta de 12min, acima do SLA de 10min.' },
-    { id: 'f2', type: 'Pergunta parcialmente respondida', severity: 'low', evidence: 'Cliente perguntou sobre horário aos sábados e não obteve resposta.' },
-  ]
-
-  const scoreBreakdown = {
-    velocidade: { weight: 30, score: Math.round(conv.score * 0.95), label: 'Velocidade' },
-    oportunidades: { weight: 25, score: Math.round(conv.score * 0.9), label: 'Oportunidades' },
-    pendencias: { weight: 20, score: Math.round(conv.score * 0.85), label: 'Pendências' },
-    qualidade: { weight: 15, score: Math.round(conv.score * 0.88), label: 'Qualidade' },
-    recuperacao: { weight: 10, score: Math.round(conv.score * 0.8), label: 'Recuperação' },
+  const scoreBreakdown = scoreDetail?.components ? {
+    velocidade: { weight: 30, score: Math.round((scoreDetail.components.velocidade || conversation.score) as number), label: 'Velocidade' },
+    oportunidades: { weight: 25, score: Math.round((scoreDetail.components.oportunidades || conversation.score) as number), label: 'Oportunidades' },
+    pendencias: { weight: 20, score: Math.round((scoreDetail.components.pendencias || conversation.score) as number), label: 'Pendências' },
+    qualidade: { weight: 15, score: Math.round((scoreDetail.components.qualidade || conversation.score) as number), label: 'Qualidade' },
+    recuperacao: { weight: 10, score: Math.round((scoreDetail.components.recuperacao || conversation.score) as number), label: 'Recuperação' },
+  } : {
+    velocidade: { weight: 30, score: Math.round(conversation.score * 0.95), label: 'Velocidade' },
+    oportunidades: { weight: 25, score: Math.round(conversation.score * 0.9), label: 'Oportunidades' },
+    pendencias: { weight: 20, score: Math.round(conversation.score * 0.85), label: 'Pendências' },
+    qualidade: { weight: 15, score: Math.round(conversation.score * 0.88), label: 'Qualidade' },
+    recuperacao: { weight: 10, score: Math.round(conversation.score * 0.8), label: 'Recuperação' },
   }
 
   const valueMemory = {
-    ticketUsed: conv.potentialValue > 0 ? Math.round(conv.potentialValue * 0.7) : 0,
+    ticketUsed: conversation.potentialValue > 0 ? Math.round(conversation.potentialValue * 0.7) : 0,
     ticketSource: 'Média do segmento (odonto)',
-    probability: +(0.4 + Math.random() * 0.4).toFixed(2),
+    probability: conversation.confidence,
     probabilitySource: 'Modelo de intenção v3',
     factors: ['Pedido de preço explícito', 'Alta engajamento', 'Perguntas sobre plano'],
-    range: [conv.potentialValue > 0 ? Math.round(conv.potentialValue * 0.8) : 0, conv.potentialValue],
-    confidence: conv.confidence,
+    range: [conversation.potentialValue > 0 ? Math.round(conversation.potentialValue * 0.8) : 0, conversation.potentialValue],
+    confidence: conversation.confidence,
     lastUpdated: new Date(Date.now() - 1800000).toISOString(),
   }
 
@@ -285,11 +340,11 @@ export default function ConversationDetail() {
               </Button>
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-lg font-bold">{conv.customerName}</span>
-                  <span className="font-mono text-sm text-muted-foreground">***{conv.customerPhone.slice(-4)}</span>
-                  {conv.tags.length > 0 && (
+                  <span className="text-lg font-bold">{conversation.customerName}</span>
+                  <span className="font-mono text-sm text-muted-foreground">***{conversation.customerPhone.slice(-4)}</span>
+                  {conversation.tags.length > 0 && (
                     <div className="flex items-center gap-1">
-                      {conv.tags.map((t) => (
+                      {conversation.tags.map((t) => (
                         <Badge key={t} variant="secondary" className="text-xs">
                           <Tag className="mr-1 h-2.5 w-2.5" />
                           {t}
@@ -301,30 +356,30 @@ export default function ConversationDetail() {
                 <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
                   <span className="inline-flex items-center gap-1">
                     <Phone className="h-3 w-3" />
-                    {conv.connectionName}
+                    {conversation.connectionName}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <User className="h-3 w-3" />
-                    {conv.agentName}
+                    {conversation.agentName}
                   </span>
                   <Badge
                     variant="outline"
-                    className={cn('text-xs', statusBadgeColor[conv.operationalStatus] || '')}
+                    className={cn('text-xs', statusBadgeColor[conversation.operationalStatus] || '')}
                   >
-                    {getStatusLabel(conv.operationalStatus)}
+                    {getStatusLabel(conversation.operationalStatus)}
                   </Badge>
                   <span className="inline-flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {timeAgo(conv.lastActivity)}
+                    {timeAgo(conversation.lastActivity)}
                   </span>
-                  {conv.potentialValue > 0 && (
+                  {conversation.potentialValue > 0 && (
                     <span className="inline-flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400">
                       <DollarSign className="h-3 w-3" />
-                      {formatCurrency(conv.potentialValue)}
+                      {formatCurrency(conversation.potentialValue)}
                     </span>
                   )}
-                  <span className={cn('font-bold tabular-nums', scoreColor(conv.score))}>
-                    {conv.score}
+                  <span className={cn('font-bold tabular-nums', scoreColor(conversation.score))}>
+                    {conversation.score}
                   </span>
                 </div>
               </div>
@@ -352,7 +407,7 @@ export default function ConversationDetail() {
                 <div className="flex flex-col gap-1 p-4 lg:p-6">
                   {messages.map((msg, idx) => {
                     const isOutbound = msg.direction === 'outbound'
-                    const auditEvents = getAuditEventsBetweenMessages(conv.id, idx, messages.length)
+                    const auditEvents = getAuditEventsBetweenMessages(conversation.id, idx, messages.length)
 
                     return (
                       <div key={msg.id}>
@@ -467,8 +522,8 @@ export default function ConversationDetail() {
                     <CardContent className="space-y-3">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs text-muted-foreground">Intenção principal:</span>
-                        <Badge variant="outline" className={cn('text-xs', intentBadgeColor[conv.primaryIntent] || '')}>
-                          {getIntentLabel(conv.primaryIntent)}
+                        <Badge variant="outline" className={cn('text-xs', intentBadgeColor[conversation.primaryIntent] || '')}>
+                          {getIntentLabel(conversation.primaryIntent)}
                         </Badge>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -479,15 +534,15 @@ export default function ConversationDetail() {
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs text-muted-foreground">Urgência:</span>
-                        <Badge variant="outline" className={cn('text-xs', urgencyBadgeVariant[conv.urgency] || '')}>
-                          {getUrgencyLabel(conv.urgency)}
+                        <Badge variant="outline" className={cn('text-xs', urgencyBadgeVariant[conversation.urgency] || '')}>
+                          {getUrgencyLabel(conversation.urgency)}
                         </Badge>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs text-muted-foreground">Sentimento:</span>
-                        <Badge variant="outline" className={cn('text-xs', sentimentBadgeColor[conv.sentiment] || '')}>
-                          <span className={cn('mr-1.5 h-2 w-2 rounded-full inline-block', sentimentDotColor[conv.sentiment] || 'bg-slate-400')} />
-                          {getSentimentLabel(conv.sentiment)}
+                        <Badge variant="outline" className={cn('text-xs', sentimentBadgeColor[conversation.sentiment] || '')}>
+                          <span className={cn('mr-1.5 h-2 w-2 rounded-full inline-block', sentimentDotColor[conversation.sentiment] || 'bg-slate-400')} />
+                          {getSentimentLabel(conversation.sentiment)}
                         </Badge>
                         {sentimentEvolution.length > 0 && (
                           <div className="flex items-center gap-1 ml-1">
@@ -501,8 +556,8 @@ export default function ConversationDetail() {
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs text-muted-foreground">Etapa inferida:</span>
-                        <Badge variant="outline" className={cn('text-xs', stageBadgeColor[conv.inferredStage] || '')}>
-                          {getStageLabel(conv.inferredStage)}
+                        <Badge variant="outline" className={cn('text-xs', stageBadgeColor[conversation.inferredStage] || '')}>
+                          {getStageLabel(conversation.inferredStage)}
                         </Badge>
                       </div>
                     </CardContent>
@@ -629,7 +684,7 @@ export default function ConversationDetail() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
                         <BarChart3 className="h-4 w-4 text-teal-600" />
-                        Composição da nota ({conv.score})
+                        Composição da nota ({conversation.score})
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2.5">
@@ -655,7 +710,7 @@ export default function ConversationDetail() {
                   </Card>
 
                   {/* Potential Value Memory */}
-                  {conv.potentialValue > 0 && (
+                  {conversation.potentialValue > 0 && (
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-semibold flex items-center gap-2">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,8 @@ import {
   FileJson, FileDown, RefreshCw, AlertCircle, CheckCircle2, Loader2, Hourglass,
   LayoutGrid, History, ChevronDown,
 } from 'lucide-react'
-import { reportTypes, reportHistory, timeAgo } from '@/lib/mock-data'
+import { timeAgo } from '@/lib/mock-data'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const reportIcons: Record<string, React.ReactNode> = {
   daily: <Clock className="h-5 w-5" />,
@@ -52,10 +53,35 @@ function getStatusBadge(status: string) {
 export default function ReportsView() {
   const [configDialogOpen, setConfigDialogOpen] = useState<string | null>(null)
   const [historyFilter, setHistoryFilter] = useState<string>('all')
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [reportTypesData, setReportTypesData] = useState<any[]>([])
+  const [reportHistoryData, setReportHistoryData] = useState<any[]>([])
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true); setError(null)
+    try {
+      const res = await fetch('/api/reports')
+      if (!res.ok) throw new Error('Erro ao carregar relatórios')
+      const data = await res.json()
+      setReportTypesData((data.definitions || []).map((d: any) => ({
+        id: d.id, name: d.name, description: d.description,
+        schedule: d.schedule, recipients: d.recipients || [], lastRun: d.lastRun,
+      })))
+      setReportHistoryData(data.history || [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally { setIsLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  if (isLoading) return <div className="flex flex-col gap-4 p-4 md:p-6"><Skeleton className="h-8 w-48" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-lg" />)}</div></div>
+  if (error) return <div className="flex flex-col items-center justify-center h-96 gap-4"><p className="text-destructive font-medium">{error}</p><button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button></div>
 
   const filteredHistory = historyFilter === 'all'
-    ? reportHistory
-    : reportHistory.filter(r => r.reportTypeId === historyFilter)
+    ? reportHistoryData
+    : reportHistoryData.filter((r: any) => r.reportTypeId === historyFilter)
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -102,7 +128,7 @@ export default function ReportsView() {
         {/* ========== REPORT TYPES GRID ========== */}
         <TabsContent value="types" className="mt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {reportTypes.map((report) => (
+            {reportTypesData.map((report) => (
               <Card key={report.id} className="flex flex-col">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -197,7 +223,7 @@ export default function ReportsView() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os tipos</SelectItem>
-                    {reportTypes.map((rt) => (
+                    {reportTypesData.map((rt) => (
                       <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
                     ))}
                   </SelectContent>

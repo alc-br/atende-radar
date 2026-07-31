@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,7 +20,8 @@ import {
   Pause, Play, TestTube, Pencil, Stethoscope, Unplug, Trash2, ChevronDown, ChevronUp,
   Activity, Clock, HardDrive, Zap, Shield, Server, CheckCircle2, XCircle, Info,
 } from 'lucide-react'
-import { connections, connectionDiagnostics, timeAgo } from '@/lib/mock-data'
+import { timeAgo } from '@/lib/mock-data'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const statusConfig: Record<string, { label: string; color: string; dotColor: string }> = {
   pending:      { label: 'Pendente',       color: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600', dotColor: 'bg-gray-400' },
@@ -67,14 +68,80 @@ export default function ConnectionsView() {
   const [newConnAck, setNewConnAck] = useState(false)
   const [expandedDiag, setExpandedDiag] = useState<string | null>(null)
   const [localPaused, setLocalPaused] = useState<Record<string, boolean>>({})
+  const [diagnosticsMap, setDiagnosticsMap] = useState<Record<string, any>>({})
 
-  const connectedCount = connections.filter(c => c.status === 'connected').length
-  const disconnectedCount = connections.filter(c => ['disconnected', 'logged_out', 'blocked', 'error'].includes(c.status)).length
-  const problemCount = connections.filter(c => ['degraded', 'syncing', 'qr_required', 'connecting'].includes(c.status)).length
-  const totalMessages24h = connections.reduce((sum, c) => sum + Math.floor(c.messageCount * 0.15), 0)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [connectionsData, setConnectionsData] = useState<any[]>([])
 
-  const togglePause = (connId: string) => {
-    setLocalPaused(prev => ({ ...prev, [connId]: !prev[connId] }))
+  const fetchData = useCallback(async () => {
+    setIsLoading(true); setError(null)
+    try {
+      const res = await fetch('/api/connections')
+      if (!res.ok) throw new Error('Erro ao carregar conexões')
+      const data = await res.json()
+      setConnectionsData(data.connections || [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally { setIsLoading(false) }
+  }, [])
+
+  const fetchDiagnostics = useCallback(async (connId: string) => {
+    try {
+      const res = await fetch(`/api/connections/${connId}/health`)
+      if (res.ok) {
+        const data = await res.json()
+        setDiagnosticsMap(prev => ({ ...prev, [connId]: data.diagnostics }))
+      }
+    } catch (_e) { /* ignore */ }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  const connectedCount = connectionsData.filter((c: any) => c.status === 'connected').length
+  const disconnectedCount = connectionsData.filter((c: any) => ['disconnected', 'logged_out', 'blocked', 'error'].includes(c.status)).length
+  const problemCount = connectionsData.filter((c: any) => ['degraded', 'syncing', 'qr_required', 'connecting'].includes(c.status)).length
+  const totalMessages24h = connectionsData.reduce((sum: number, c: any) => sum + Math.floor((c.messageCount || 0) * 0.15), 0)
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6 p-4 md:p-6">
+        <div className="flex justify-between items-center">
+          <div><Skeleton className="h-8 w-40" /><Skeleton className="h-4 w-64 mt-2" /></div>
+          <Skeleton className="h-9 w-36" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-4">
+        <p className="text-destructive">{error}</p>
+        <Button variant="outline" onClick={fetchData}>Tentar novamente</Button>
+      </div>
+    )
+  }
+
+  const _fetchDiagnosticsUnused = fetchDiagnostics  // prevent lint warning
+
+  const togglePause = async (connId: string) => {
+    const conn = connectionsData.find((c: any) => c.id === connId)
+    const newPaused = !localPaused[connId]
+    setLocalPaused(prev => ({ ...prev, [connId]: newPaused }))
+    try {
+      await fetch(`/api/connections/${connId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: newPaused ? 'pause' : 'resume' }),
+      })
+    } catch (_e) { /* ignore */ }
   }
 
   return (
@@ -207,11 +274,11 @@ export default function ConnectionsView() {
 
       {/* Connection cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {connections.map((conn) => {
+        {connectionsData.map((conn) => {
           const cfg = statusConfig[conn.status] || statusConfig.error
-          const diag = connectionDiagnostics[conn.id]
-          const isPaused = localPaused[conn.id] || false
+          const diag = diagnosticsMap[conn.id]
           const isExpanded = expandedDiag === conn.id
+          if (isExpanded && !diag) fetchDiagnostics(conn.id)
 
           return (
             <Card key={conn.id} className={`flex flex-col ${cfg.dotColor === 'bg-red-500' ? 'border-red-200 dark:border-red-800/50' : cfg.dotColor === 'bg-orange-500' ? 'border-orange-200 dark:border-orange-800/50' : ''}`}>
@@ -282,11 +349,11 @@ export default function ConnectionsView() {
                           variant="ghost" size="sm" className="h-7 text-xs gap-1"
                           onClick={() => togglePause(conn.id)}
                         >
-                          {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
-                          {isPaused ? 'Retomar' : 'Pausar'}
+                          {localPaused[conn.id] ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                          {localPaused[conn.id] ? 'Retomar' : 'Pausar'}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent><p>{isPaused ? 'Retomar conexão' : 'Pausar temporariamente'}</p></TooltipContent>
+                      <TooltipContent><p>{localPaused[conn.id] ? 'Retomar conexão' : 'Pausar temporariamente'}</p></TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>

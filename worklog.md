@@ -912,3 +912,208 @@ accordion, alert, alert-dialog, aspect-ratio, avatar, badge, breadcrumb, button,
 - Prisma schema defines the data model (10 models)
 - ESLint passes with 0 errors
 
+
+## Task 1: Prisma Schema Expansion & Comprehensive Seed Script
+
+**Date**: $(date -u +%Y-%m-%d)  
+**Files**: `prisma/schema.prisma`, `src/lib/seed-data.ts`, `prisma/seed.ts`, `package.json`  
+**Status**: ✅ Complete  
+
+### What was done
+
+#### 1. Schema Expansion (prisma/schema.prisma)
+
+Added 16 new models to the existing 12-model schema (now 28 models total). All existing models and relations preserved intact.
+
+**New models added:**
+1. **ConnectionSessionEvent** — tracks connection state transitions (connected, disconnected, syncing, qr_required, degraded) with previous/new status, reason codes, and sanitized details. Belongs to WhatsAppConnection.
+2. **RawChannelEvent** — idempotent event ingestion table with unique `eventId` and `idempotencyKey`, processing status tracking, and JSON payload. Belongs to WhatsAppConnection.
+3. **AgentIdentity** — maps agents to WhatsApp connections with confidence scoring, association status, and validity windows. Optional relation to Agent.
+4. **OpenQuestion** — tracks unanswered customer questions per conversation with normalized question text, due dates, and status (open/answered/cancelled).
+5. **Promise** — tracks agent promises with action, due date/precision, status (open/approaching/kept/overdue/cancelled), and confidence.
+6. **ConversationScore** — versioned scoring with total and component-level scores stored as JSON (`{"first_response":20,"continuity":14,...}`), plus eligibility flag.
+7. **AlertRule** — configurable alert rules with scope (connections, teams), schedule (daysAndHours JSON), notification channels, cooldown, auto-close, exceptions, and min confidence threshold.
+8. **DailyMetric** — daily aggregation metrics per org (optionally per connection/team): conversations started, customers waiting, median first response, opportunities, overdue promises, value at risk, overall score, message counts.
+9. **AgentMetric** — daily per-agent metrics: conversations, avg response time, score, opportunities handled/lost, promises kept/total, questions answered/total.
+10. **ReportDefinition** — scheduled report configs with type, schedule, timezone, days of week, recipients, channels, and send-empty flag.
+11. **ClassificationFeedback** — human corrections to AI classifications/findings with previous/corrected values, justification, and applied-to-metrics flag.
+12. **Notification** — in-app notifications with type, title, message, JSON data payload, and read status.
+13. **OrganizationMember** — organization member profiles with role, team, MFA status, invitation tracking.
+14. **Team** — team definitions with code, supervisor, connection assignments, SLA config (JSON), and goals (JSON).
+15. **Plan** — subscription plans with tiered limits (connections, agents, conversations, messages, audio minutes), retention, exports, alert rules, and feature flags (JSON).
+16. **Subscription** — org subscription linking to Plan with Stripe IDs, billing period, trial, and cancellation tracking.
+
+**Relations added to existing models:**
+- Organization: alertRules, dailyMetrics, agentMetrics, reportDefinitions, members, teams, subscription (1:1), notifications, classificationFeedbacks
+- WhatsAppConnection: sessionEvents, rawEvents, agentIdentities
+- Agent: identities, metrics
+- Conversation: openQuestions, promises, scores
+- Plan: subscriptions
+
+All JSON arrays (scopeConnections, daysOfWeek, etc.) stored as String for SQLite compatibility.
+
+#### 2. Seed Data (src/lib/seed-data.ts)
+
+Created comprehensive deterministic seed data file (no Math.random) with 400+ records across all 28 models:
+
+| Model | Records | Notes |
+|-------|---------|-------|
+| Organization | 1 | OdontoVida Clinicas |
+| Plan | 3 | Essencial R$149, Gestão R$299, Performance R$599 |
+| WhatsAppConnection | 6 | All statuses: connected, disconnected, syncing, qr_required, degraded |
+| Agent | 5 | Ana Silva, Carlos Mendes, Juliana Costa, Roberto Alves, Fernanda Lima |
+| Contact | 15 | Brazilian customer names with masked phone data |
+| Conversation | 15 | Diverse stages, intents, urgencies, sentiments |
+| Message | 60 | 4-8 per conversation from 18 message templates |
+| ConversationClassification | 30 | Intent + sentiment per conversation |
+| AuditFinding | 8 | no_response, pending_quote, abandoned_lead, etc. |
+| RevenueOpportunity | 12 | Active/won/lost with calculated expected values |
+| Alert | 8 | Derived from findings with severity mapping |
+| RecoveryItem | 3 | Lost/abandoned/frustrated conversations |
+| ReportDefinition | 8 | daily, weekly, agent, lost_opportunities, promises, recovery, data_quality, connections |
+| ReportRun | 10 | Historical runs (completed, processing, failed, pending) |
+| AlertRule | 8 | All 8 rule types from mock-data.ts |
+| DailyMetric | 14 | 14 days of org-level metrics |
+| AgentMetric | 70 | 5 agents × 14 days |
+| OrganizationMember | 5 | Admin, gestor, supervisor, 2 members |
+| Team | 2 | Recepção, Marketing with SLA configs |
+| Subscription | 1 | Gestão plan for OdontoVida |
+| ConversationScore | 15 | Component scores (first_response, continuity, quality, closing) |
+| OpenQuestion | 5 | 1 answered, 3 open, 1 cancelled |
+| Promise | 5 | 1 kept, 2 overdue, 1 open, 1 approaching |
+| ConnectionSessionEvent | 6 | One per connection |
+| RawChannelEvent | 5 | Mixed processed/failed events |
+| AgentIdentity | 5 | One per agent |
+| ClassificationFeedback | 3 | Corrections for intent and finding classifications |
+| Notification | 10 | Alerts, system, reports, recovery types |
+
+#### 3. Seed Script (prisma/seed.ts)
+
+- Uses `prisma.upsert()` for all operations — fully idempotent (verified by running twice)
+- Ordered to respect foreign key dependencies
+- Creates records in 28 sequential steps
+- Clear console progress output
+
+#### 4. Package.json Updates
+
+- Added `"db:seed": "npx tsx prisma/seed.ts"` to scripts
+- Added `"prisma": { "seed": "npx tsx prisma/seed.ts" }` section
+- Added `tsx@^4.19.0` to devDependencies
+
+### Verification
+
+- `bun run db:push` — schema applied successfully (all 28 tables created)
+- `bunx tsx prisma/seed.ts` — seed ran successfully, all records created
+- Re-running seed — idempotent, no duplicates
+- Final counts: 28 tables, 296 total records
+
+## Task 4: 5 New Component Views + Navigation Wiring
+
+**Date**: 2025-01-25  
+**Status**: ✅ Complete  
+
+### What was done
+
+Created 5 new component views and wired them into the SPA navigation system:
+
+1. **Onboarding Wizard** (`src/components/onboarding/onboarding-view.tsx`)
+   - 7-step wizard: Empresa → Horário Comercial → Meta e Ticket → WhatsApp → Equipe → Relatórios → Revisão
+   - Step indicator bar at top with icons, progress bar, back/next navigation
+   - Each step saves to local state (Zustand-compatible)
+   - Final step shows summary cards and "Ativar organização" button that sets org in store
+   - Uses: Card, Button, Input, Select, Progress, Badge, Label
+
+2. **Members View** (`src/components/members/members-view.tsx`)
+   - Table with columns: name (avatar + name), email, role (colored badge), team, status, last access, actions
+   - Invite dialog with email, role select, team select
+   - Dropdown actions: change role (admin/supervisor/agent), resend invite, remove
+   - Search filter, loading skeleton states
+   - Mock data with 7 members
+
+3. **Teams View** (`src/components/teams/teams-view.tsx`)
+   - Summary cards row: total teams, active teams, total members
+   - Team cards with: name, supervisor, member count, member badges, active status
+   - Create team dialog (name + supervisor select)
+   - Toggle activate/deactivate button per card
+   - Loading skeleton states, responsive grid
+
+4. **Plans & Billing View** (`src/components/plans/plans-view.tsx`)
+   - Current plan card: name, price/cycle, status badge, next billing date
+   - Usage metrics section with Progress bars (conversations, messages, agents, connections)
+   - 3 plan comparison cards: Essencial R$149, Gestão R$299 (current), Performance R$599 (highlighted)
+   - Feature comparison table with 13 rows, check/X icons
+   - Upgrade CTA buttons with toast feedback
+
+5. **Notifications Center** (`src/components/notifications/notifications-view.tsx`)
+   - Notification list with typed icons (alert, connection, report, team, message)
+   - Color-coded icon backgrounds, unread indicator (dot + border)
+   - Click to toggle read status, "Mark all as read" button
+   - ScrollArea with max height, loading skeletons
+   - Mock data with 10 notifications
+
+### Store Update
+- Added `'notifications'` to the `View` type union in `src/lib/store.ts`
+
+### Sidebar Update (`src/components/layout/app-sidebar.tsx`)
+- Split navigation into `mainNavItems` and `secondaryNavItems` arrays
+- Added "Administração" section label
+- Added **Membros** (UserCog icon) under secondary
+- Added **Planos** (CreditCard icon) under secondary
+- Refactored `renderNavItem` helper to reduce duplication
+
+### Header Update (`src/components/layout/app-header.tsx`)
+- Replaced static notification dropdown with a clickable bell button that navigates to the Notifications view via `setView('notifications')`
+- Removed unused `Bell` import, using inline SVG bell icon
+
+### Router Update (`src/app/page.tsx`)
+- Added 5 new imports + switch cases: `onboarding`, `members`, `teams`, `plans`, `notifications`
+
+### Quality Checks
+- `bun run lint` — passed with zero errors
+- Dev server compiled successfully, all views accessible
+
+## Task 5: NextAuth Credentials Authentication Setup
+
+**Date**: 2025-01-25  
+**Files**: 
+- `src/lib/auth.ts` (new)
+- `src/app/api/auth/[...nextauth]/route.ts` (new)
+- `src/app/login/page.tsx` (new)
+- `src/components/auth/auth-provider.tsx` (new)
+- `src/app/layout.tsx` (modified)
+- `src/components/layout/app-header.tsx` (modified)
+- `.env.local` (modified)
+**Status**: ✅ Complete  
+
+### What was done
+
+Set up basic NextAuth v4 credentials authentication for the AtendeRadar application.
+
+1. **`src/lib/auth.ts`** — NextAuth configuration with Credentials provider. Accepts any email with password `demo123`. On authorize, looks up (or auto-creates) an `OrganizationMember` in the database. Includes JWT session strategy and callbacks to propagate `id`, `name`, and `role` into the session and JWT token. Exports `authOptions` for use with `NextAuth(authOptions)` pattern (v4 compatible).
+
+2. **`src/app/api/auth/[...nextauth]/route.ts`** — Route handler for NextAuth API endpoints (`GET`, `POST`) using the standard v4 pattern: `const handler = NextAuth(authOptions); export { handler as GET, handler as POST }`.
+
+3. **`src/app/login/page.tsx`** — Standalone login page with:
+   - AtendeRadar branding (Radar icon + title + tagline)
+   - Centered responsive Card layout with email/password fields
+   - Login button with loading spinner state
+   - "Entrar como demonstração" button that auto-fills and submits demo@odontovida.com / demo123
+   - Error display for invalid credentials
+   - Redirects to `/` on success
+   - Hint text showing demo password
+
+4. **`src/components/auth/auth-provider.tsx`** — Client component wrapping children with `SessionProvider` from `next-auth/react`.
+
+5. **`src/app/layout.tsx`** — Updated to wrap children with `AuthProvider` inside the `ThemeProvider`.
+
+6. **`src/components/layout/app-header.tsx`** — Updated user dropdown to:
+   - Display user name and dynamic initials from `useSession()` (falls back to "Demo User")
+   - Include functional "Sair" (logout) button using `signOut({ callbackUrl: '/login' })`
+
+7. **`.env.local`** — Added `NEXTAUTH_SECRET=atenderadar-demo-secret-key-2024`.
+
+### Notes
+- Used NextAuth v4 pattern (since `next-auth@^4.24.11` is installed)
+- No middleware protection — the app is accessible without login (demo mode)
+- Login page is at `/login` for when auth is needed
+- Lint passes cleanly

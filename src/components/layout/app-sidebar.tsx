@@ -3,14 +3,15 @@
 import { useAppStore } from '@/lib/store'
 import {
   LayoutDashboard, AlertTriangle, MessageSquare, RotateCcw, Users,
-  FileBarChart, Wifi, Settings, ChevronLeft, ChevronRight, Radar
+  FileBarChart, Wifi, Settings, ChevronLeft, ChevronRight, Radar,
+  UserCog, CreditCard,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { View } from '@/lib/store'
 
-const navItems: { view: View; icon: React.ElementType; label: string; badge?: string }[] = [
+const mainNavItems: { view: View; icon: React.ElementType; label: string; badge?: string }[] = [
   { view: 'dashboard', icon: LayoutDashboard, label: 'Visão Geral' },
   { view: 'alerts', icon: AlertTriangle, label: 'Alertas', badge: '5' },
   { view: 'conversations', icon: MessageSquare, label: 'Conversas' },
@@ -18,11 +19,58 @@ const navItems: { view: View; icon: React.ElementType; label: string; badge?: st
   { view: 'team', icon: Users, label: 'Equipe' },
   { view: 'reports', icon: FileBarChart, label: 'Relatórios' },
   { view: 'connections', icon: Wifi, label: 'Conexões' },
+]
+
+const secondaryNavItems: { view: View; icon: React.ElementType; label: string; badge?: string }[] = [
   { view: 'settings', icon: Settings, label: 'Configurações' },
+  { view: 'members', icon: UserCog, label: 'Membros' },
+  { view: 'plans', icon: CreditCard, label: 'Planos' },
 ]
 
 export function AppSidebar() {
   const { currentView, setView, sidebarOpen, setSidebarOpen } = useAppStore()
+
+  const isActive = (view: View) =>
+    currentView === view ||
+    (view === 'conversations' && currentView === 'conversation-detail') ||
+    (view === 'team' && currentView === 'agent-profile')
+
+  const renderNavItem = (item: { view: View; icon: React.ElementType; label: string; badge?: string }) => {
+    const active = isActive(item.view)
+    const Icon = item.icon
+    const btn = (
+      <button
+        key={item.view}
+        onClick={() => setView(item.view)}
+        className={cn(
+          'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative',
+          active
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+        )}
+      >
+        <Icon className={cn('w-5 h-5 shrink-0', active && 'text-sidebar-primary')} />
+        {sidebarOpen && <span className="truncate">{item.label}</span>}
+        {sidebarOpen && item.badge && (
+          <span className="ml-auto flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-bold rounded-full bg-destructive text-white">
+            {item.badge}
+          </span>
+        )}
+      </button>
+    )
+    if (!sidebarOpen) {
+      return (
+        <Tooltip key={item.view} delayDuration={0}>
+          <TooltipTrigger asChild>{btn}</TooltipTrigger>
+          <TooltipContent side="right" className="font-medium">
+            {item.label}
+            {item.badge && <span className="ml-1.5 text-destructive">({item.badge})</span>}
+          </TooltipContent>
+        </Tooltip>
+      )
+    }
+    return btn
+  }
 
   return (
     <aside
@@ -44,46 +92,19 @@ export function AppSidebar() {
         )}
       </div>
 
-      {/* Nav */}
+      {/* Main Nav */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto custom-scrollbar">
-        {navItems.map((item) => {
-          const isActive = currentView === item.view ||
-            (item.view === 'conversations' && currentView === 'conversation-detail') ||
-            (item.view === 'team' && currentView === 'agent-profile')
-          const Icon = item.icon
-          const btn = (
-            <button
-              key={item.view}
-              onClick={() => setView(item.view)}
-              className={cn(
-                'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative',
-                isActive
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-              )}
-            >
-              <Icon className={cn('w-5 h-5 shrink-0', isActive && 'text-sidebar-primary')} />
-              {sidebarOpen && <span className="truncate">{item.label}</span>}
-              {sidebarOpen && item.badge && (
-                <span className="ml-auto flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-bold rounded-full bg-destructive text-white">
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          )
-          if (!sidebarOpen) {
-            return (
-              <Tooltip key={item.view} delayDuration={0}>
-                <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                <TooltipContent side="right" className="font-medium">
-                  {item.label}
-                  {item.badge && <span className="ml-1.5 text-destructive">({item.badge})</span>}
-                </TooltipContent>
-              </Tooltip>
-            )
-          }
-          return btn
-        })}
+        {mainNavItems.map(renderNavItem)}
+
+        {/* Separator + Secondary items */}
+        <div className="pt-4 mt-4 border-t border-sidebar-border">
+          {sidebarOpen && (
+            <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+              Administração
+            </p>
+          )}
+          {secondaryNavItems.map(renderNavItem)}
+        </div>
       </nav>
 
       {/* Collapse toggle */}

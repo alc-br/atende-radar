@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   MessageSquare,
   Clock,
@@ -69,12 +69,6 @@ import {
 } from '@/components/ui/chart'
 
 import {
-  dashboardSummary,
-  conversations,
-  agents,
-  auditFunnel,
-  failuresByType,
-  evolutionData,
   formatCurrency,
   timeAgo,
   getSeverityColor,
@@ -82,6 +76,7 @@ import {
 } from '@/lib/mock-data'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -117,8 +112,24 @@ const severityChartColor: Record<string, string> = {
 
 // ─── KPI definitions ─────────────────────────────────────────────────
 
-function buildKpiCards(): KpiCardData[] {
-  const s = dashboardSummary
+function buildKpiCards(s: {
+  conversationsStarted: number
+  conversationsStartedChange: number
+  customersWaiting: number
+  customersWaitingChange: number
+  medianFirstResponse: number
+  medianFirstResponseChange: number
+  opportunitiesDetected: number
+  opportunitiesDetectedChange: number
+  opportunitiesAtRisk: number
+  opportunitiesAtRiskChange: number
+  overduePromises: number
+  overduePromisesChange: number
+  potentialValueAtRisk: number
+  potentialValueAtRiskChange: number
+  overallScore: number
+  overallScoreChange: number
+}): KpiCardData[] {
   return [
     {
       label: 'Conversas Iniciadas',
@@ -238,47 +249,126 @@ const evolutionChartConfig = {
 // ─── Component ───────────────────────────────────────────────────────
 
 export default function DashboardView() {
-  const { period, setPeriod, selectConversation } = useAppStore()
+  const { period, setPeriod, selectConversation, refreshTrigger } = useAppStore()
   const [prioridadesCount] = useState(10)
 
-  const kpiCards = useMemo(() => buildKpiCards(), [])
+  // API state
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [apiData, setApiData] = useState<{
+    summary: {
+      conversationsStarted: number; conversationsStartedChange: number
+      customersWaiting: number; customersWaitingChange: number
+      medianFirstResponse: number; medianFirstResponseChange: number
+      opportunitiesDetected: number; opportunitiesDetectedChange: number
+      opportunitiesAtRisk: number; opportunitiesAtRiskChange: number
+      overduePromises: number; overduePromisesChange: number
+      potentialValueAtRisk: number; potentialValueAtRiskChange: number
+      overallScore: number; overallScoreChange: number
+    } | null
+    funnel: { stage: string; count: number; color: string }[]
+    failures: { type: string; count: number; severity: string }[]
+    evolution: { date: string; score: number; responseTime: number; abandonment: number; valueAtRisk: number }[]
+    priorities: {
+      id: string; customerName: string; customerPhone: string; agentName: string
+      agentTeam: string; primaryIntent: string; urgency: string; waitingMinutes: number
+      potentialValue: number; score: number; riskScore: number; hasOpportunity?: boolean
+      operationalStatus?: string; lastActivity?: string
+    }[]
+    teamPerformance: {
+      name: string; team: string; score: number; avgResponseTime: number
+      opportunities: number; criticalFailures: number; promisesKept: number
+      promisesTotal: number; trend: string
+    }[]
+  } | null>(null)
 
-  // Top conversations by risk (highest urgency + lowest score)
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/dashboard?period=${period}`)
+      if (!res.ok) throw new Error('Erro ao carregar dashboard')
+      const data = await res.json()
+      setApiData(data)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [period])
+
+  useEffect(() => { fetchData() }, [fetchData, refreshTrigger])
+
+  const kpiCards = useMemo(() => {
+    if (!apiData?.summary) return []
+    return buildKpiCards(apiData.summary)
+  }, [apiData?.summary])
+
+  // Top conversations by risk (from API priorities)
   const priorityConversations = useMemo(() => {
-    return [...conversations]
-      .filter((c) => c.hasOpportunity && c.operationalStatus !== 'won')
-      .sort((a, b) => {
-        const urgencyOrder = { critical: 0, high: 1, normal: 2, low: 3 }
-        const uDiff = (urgencyOrder[a.urgency] ?? 2) - (urgencyOrder[b.urgency] ?? 2)
-        if (uDiff !== 0) return uDiff
-        return a.score - b.score
-      })
-      .slice(0, prioridadesCount)
-  }, [prioridadesCount])
+    if (!apiData?.priorities) return []
+    return apiData.priorities.slice(0, prioridadesCount).map((p) => ({
+      ...p,
+      hasOpportunity: true,
+      operationalStatus: 'active',
+      lastActivity: new Date().toISOString(),
+    }))
+  }, [apiData?.priorities, prioridadesCount])
 
   // Evolution data formatted for pt-BR dates
   const formattedEvolution = useMemo(() => {
-    return evolutionData.map((d) => ({
+    if (!apiData?.evolution) return []
+    return apiData.evolution.map((d) => ({
       ...d,
       dateLabel: new Date(d.date + 'T12:00:00').toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
       }),
     }))
-  }, [])
+  }, [apiData?.evolution])
 
-  // Agent performance with computed values
+  // Agent performance from API
   const agentPerformance = useMemo(() => {
-    return agents.map((a) => {
-      const criticalFailures = Math.floor(Math.random() * 4)
-      const unfulfilledPromises = a.promisesTotal - a.promisesKept
-      return {
-        ...a,
-        criticalFailures,
-        unfulfilledPromises,
-      }
-    })
-  }, [])
+    if (!apiData?.teamPerformance) return []
+    return apiData.teamPerformance.map((a) => ({
+      ...a,
+      unfulfilledPromises: a.promisesTotal - a.promisesKept,
+    }))
+  }, [apiData?.teamPerformance])
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6 p-4 md:p-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-10 w-40" />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          ))}
+        </div>
+        <Skeleton className="h-80 w-full rounded-lg" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Skeleton className="h-80 w-full rounded-lg" />
+          <Skeleton className="h-80 w-full rounded-lg" />
+        </div>
+        <Skeleton className="h-80 w-full rounded-lg" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4 p-4">
+        <p className="text-destructive font-medium">{error}</p>
+        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
+      </div>
+    )
+  }
+
+  if (!apiData) return null
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -469,7 +559,7 @@ export default function DashboardView() {
           <CardContent>
             <ChartContainer config={funnelChartConfig} className="h-[280px] w-full">
               <BarChart
-                data={auditFunnel}
+                data={apiData.funnel}
                 layout="vertical"
                 margin={{ left: 0, right: 20, top: 4, bottom: 4 }}
               >
@@ -486,7 +576,7 @@ export default function DashboardView() {
                   cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
                 />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
-                  {auditFunnel.map((entry, index) => (
+                  {apiData.funnel.map((entry, index) => (
                     <Cell key={`funnel-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
@@ -509,7 +599,7 @@ export default function DashboardView() {
           <CardContent>
             <ChartContainer config={failuresChartConfig} className="h-[280px] w-full">
               <BarChart
-                data={failuresByType}
+                data={apiData.failures}
                 layout="vertical"
                 margin={{ left: 0, right: 20, top: 4, bottom: 4 }}
               >
@@ -526,7 +616,7 @@ export default function DashboardView() {
                   cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
                 />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
-                  {failuresByType.map((entry, index) => (
+                  {apiData.failures.map((entry, index) => (
                     <Cell
                       key={`failure-${index}`}
                       fill={severityChartColor[entry.severity] || 'var(--chart-1)'}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,7 @@ import {
   Building2, Clock, Headphones, DollarSign, Brain, Bell, Shield,
   Save, Plus, Trash2, Upload, X,
 } from 'lucide-react'
-import { organization } from '@/lib/mock-data'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const WEEKDAYS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
 
@@ -54,9 +54,9 @@ const SEGMENT_LABELS: Record<string, string> = {
   juridico: 'Jurídico', restaurante: 'Restaurante', spa_beleza: 'Spa/Beleza', outro: 'Outro',
 }
 
-function TabSaveButton() {
+function TabSaveButton({ onSave }: { onSave?: () => void }) {
   return (
-    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" type="submit">
+    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" type="submit" onClick={onSave}>
       <Save className="h-4 w-4" />
       Salvar
     </Button>
@@ -65,14 +65,34 @@ function TabSaveButton() {
 
 export default function SettingsView() {
   // --- Empresa ---
-  const [empName, setEmpName] = useState(organization.name)
-  const [empDisplay, setEmpDisplay] = useState(organization.displayName)
-  const [empCnpj, setEmpCnpj] = useState('12.345.678/0001-90')
-  const [empSegment, setEmpSegment] = useState(organization.segment)
-  const [empSite, setEmpSite] = useState('https://odontovida.com.br')
-  const [empPhone, setEmpPhone] = useState(organization.phone)
-  const [empEmail, setEmpEmail] = useState(organization.adminEmail)
-  const [empTimezone, setEmpTimezone] = useState(organization.timezone)
+  const [isLoading, setIsLoading] = useState(true)
+  const [empName, setEmpName] = useState('')
+  const [empDisplay, setEmpDisplay] = useState('')
+  const [empCnpj, setEmpCnpj] = useState('')
+  const [empSegment, setEmpSegment] = useState('')
+  const [empSite, setEmpSite] = useState('')
+  const [empPhone, setEmpPhone] = useState('')
+  const [empEmail, setEmpEmail] = useState('')
+  const [empTimezone, setEmpTimezone] = useState('America/Sao_Paulo')
+  const [rulesData, setRulesData] = useState<any[]>([])
+
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.ok ? r.json() : {}).then(data => {
+      if (data.organization) {
+        setEmpName(data.organization.name || '')
+        setEmpDisplay(data.organization.displayName || '')
+        setEmpCnpj(data.organization.cnpj || '')
+        setEmpSegment(data.organization.segment || '')
+        setEmpSite(data.organization.website || '')
+        setEmpPhone(data.organization.phone || '')
+        setEmpEmail(data.organization.adminEmail || '')
+        setEmpTimezone(data.organization.timezone || 'America/Sao_Paulo')
+ }
+    }).catch(() => {})
+    fetch('/api/alert-rules').then(r => r.ok ? r.json() : {}).then(data => {
+      setRulesData(data.rules || [])
+    }).catch(() => {}).finally(() => setIsLoading(false))
+  }, [])
   const [empCurrency] = useState('BRL')
   const [empLang] = useState('pt-BR')
 
@@ -120,7 +140,7 @@ export default function SettingsView() {
 
   // --- IA ---
   const [aiLang] = useState('pt-BR')
-  const [aiSegment, setAiSegment] = useState(organization.segment)
+  const [aiSegment, setAiSegment] = useState('')
   const [aiTerms, setAiTerms] = useState('clareamento = clareamento dental\nortodontia = aparelho\nimplante = implante dentário\nlimpeza = limpeza profissional\nprofilaxia = limpeza profissional\nRAF = radiografia panorâmica\nTC = tomografia computadorizada')
   const [aiConfidence, setAiConfidence] = useState([0.55])
   const [aiAudio, setAiAudio] = useState(false)
@@ -199,6 +219,7 @@ export default function SettingsView() {
           <TabsTrigger value="ia" className="gap-1.5 text-xs sm:text-sm"><Brain className="h-4 w-4" />IA</TabsTrigger>
           <TabsTrigger value="notificacoes" className="gap-1.5 text-xs sm:text-sm"><Bell className="h-4 w-4" />Notificações</TabsTrigger>
           <TabsTrigger value="privacidade" className="gap-1.5 text-xs sm:text-sm"><Shield className="h-4 w-4" />Privacidade</TabsTrigger>
+          <TabsTrigger value="regras" className="gap-1.5 text-xs sm:text-sm"><Shield className="h-4 w-4" />Regras</TabsTrigger>
         </TabsList>
 
         {/* ====== EMPRESA ====== */}
@@ -784,8 +805,67 @@ export default function SettingsView() {
                 </div>
 
                 <Separator />
-                <div className="flex justify-end"><TabSaveButton /></div>
+                <div className="flex justify-end"><TabSaveButton onSave={() => { fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: empDisplay, name: empName, cnpj: empCnpj, segment: empSegment, website: empSite, phone: empPhone, adminEmail: empEmail, timezone: empTimezone }) }).then(() => {}).catch(() => {}) }} /></div>
               </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Regras de Alerta (from API) ── */}
+        <TabsContent value="regras" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <div>
+                <CardTitle className="text-lg">Regras de Alerta</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">
+                  Configure quando e como os alertas são gerados.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+                    <TableHead className="w-[80px] text-center">Ativa</TableHead>
+                    <TableHead>Severidade</TableHead>
+                    <TableHead className="hidden md:table-cell">Cooldown</TableHead>
+                    <TableHead className="hidden lg:table-cell">Canais</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rulesData.map((rule: any) => (
+                    <TableRow key={rule.id}>
+                      <TableCell className="font-medium text-sm">{rule.name}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{rule.type}</TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={rule.active}
+                          onCheckedChange={(checked: boolean) => {
+                            fetch(`/api/alert-rules/${rule.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ active: checked }),
+                            }).then(() => fetch('/api/alert-rules').then(r => r.ok ? r.json() : {}).then(d => setRulesData(d.rules || [])).catch(() => {})).catch(() => {})
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={rule.severity === 'critical' ? 'destructive' : rule.severity === 'high' ? 'default' : 'secondary'} className="gap-1 text-xs">{rule.severity}</Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{rule.cooldownMinutes} min</TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {(rule.channels || []).map((ch: string) => (
+                            <Badge key={ch} variant="outline" className="text-xs">{ch}</Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   ArrowLeft,
   Star,
@@ -31,8 +31,8 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
-import { agents, evolutionData } from '@/lib/mock-data'
 import { useAppStore } from '@/lib/store'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import {
   Card,
@@ -123,10 +123,47 @@ function getFailures(score: number): string[] {
 export default function AgentProfile() {
   const selectedAgentId = useAppStore((s) => s.selectedAgentId)
   const setView = useAppStore((s) => s.setView)
+  const refreshTrigger = useAppStore((s) => s.refreshTrigger)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [profileData, setProfileData] = useState<any>(null)
 
-  const agent = useMemo(() => {
-    return agents.find((a) => a.id === selectedAgentId) ?? agents[0]
+  const fetchData = useCallback(async () => {
+    if (!selectedAgentId) return
+    setIsLoading(true); setError(null)
+    try {
+      const res = await fetch(`/api/team/${selectedAgentId}`)
+      if (!res.ok) throw new Error('Erro ao carregar perfil')
+      const data = await res.json()
+      setProfileData(data)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally { setIsLoading(false) }
   }, [selectedAgentId])
+
+  useEffect(() => { fetchData() }, [fetchData, refreshTrigger])
+
+  const agent = profileData ? {
+    id: profileData.id,
+    name: profileData.name,
+    email: profileData.email,
+    role: profileData.role,
+    team: profileData.team || '',
+    avatar: null,
+    status: profileData.status,
+    score: profileData.metrics?.score || 0,
+    conversations: profileData.metrics?.conversations || 0,
+    avgResponseTime: profileData.metrics?.avgResponseTime || 0,
+    opportunities: profileData.metrics?.opportunities || 0,
+    opportunitiesLost: profileData.metrics?.opportunitiesLost || 0,
+    promisesKept: profileData.metrics?.promisesKept || 0,
+    promisesTotal: profileData.metrics?.promisesTotal || 0,
+    trend: profileData.metrics?.trend || 'stable',
+  } : {
+    id: '', name: '', email: '', role: '', team: '', avatar: null, status: '', score: 0,
+    conversations: 0, avgResponseTime: 0, opportunities: 0, opportunitiesLost: 0,
+    promisesKept: 0, promisesTotal: 0, trend: 'stable' as const,
+  }
 
   // Compute score dimensions (mock based on overall score + noise)
   const scoreDimensions: ScoreDimension[] = useMemo(() => {
@@ -192,17 +229,22 @@ export default function AgentProfile() {
     .slice(0, 2)
     .toUpperCase()
 
-  // Chart data (reuse evolutionData, add slight offset per agent for visual variety)
+  // Chart data from API scoreEvolution
   const chartData = useMemo(() => {
-    const offset = parseInt(agent.id.split('_')[1] || '1') * 3
-    return evolutionData.map((d, i) => ({
+    if (!profileData?.scoreEvolution?.length) return []
+    return profileData.scoreEvolution.map((d: any) => ({
       date: d.date,
-      score: Math.min(100, Math.max(30, d.score + (i % 2 === 0 ? offset : -offset / 2) + Math.round((Math.random() - 0.5) * 5))),
+      score: d.score,
     }))
-  }, [agent.id])
+  }, [profileData?.scoreEvolution])
 
   const strengths = getStrengths(agent.score)
   const failures = getFailures(agent.score)
+
+  // --- Early returns AFTER all hooks ---
+  if (isLoading) return <div className="flex flex-col gap-4 p-4 md:p-6"><Skeleton className="h-8 w-40" /><Skeleton className="h-64 w-full rounded-lg" /><Skeleton className="h-64 w-full rounded-lg" /></div>
+  if (error) return <div className="flex flex-col items-center justify-center h-96 gap-4"><p className="text-destructive font-medium">{error}</p><button onClick={() => setView('team')} className="text-sm text-primary underline">Voltar</button></div>
+  if (!profileData) return null
 
   const getOpportunityStatusLabel = (status: string) => {
     const labels: Record<string, string> = {

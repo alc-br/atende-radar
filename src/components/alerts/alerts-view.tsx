@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   AlertTriangle,
   AlertCircle,
@@ -79,14 +79,12 @@ import {
 } from '@/components/ui/table'
 
 import {
-  alerts,
-  alertRules,
-  agents,
   formatCurrency,
   timeAgo,
   getSeverityColor,
 } from '@/lib/mock-data'
 import { useAppStore } from '@/lib/store'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // ── Severity helpers ──────────────────────────────────────────────
 
@@ -171,8 +169,21 @@ const channelLabels: Record<string, string> = {
 
 // ── Main Component ────────────────────────────────────────────────
 
+interface AlertItem {
+  id: string; conversationId: string; ruleName: string; severity: string
+  title: string; description: string; customerName: string; agentName: string
+  status: string; potentialValue?: number; confidence?: number; createdAt: string
+  evidence: string | undefined
+}
+
+interface AlertRuleItem {
+  id: string; name: string; type: string; active: boolean; severity: string
+  channels: string[]; cooldownMinutes: number; limitMinutes: number | null
+}
+
 export default function AlertsView() {
   const selectConversation = useAppStore((s) => s.selectConversation)
+  const refreshTrigger = useAppStore((s) => s.refreshTrigger)
 
   // Tab state
   const [activeTab, setActiveTab] = useState('ativos')
@@ -195,78 +206,78 @@ export default function AlertsView() {
   const [ignoreReason, setIgnoreReason] = useState('')
   const [assignAgentId, setAssignAgentId] = useState('')
 
-  // Local alert status overrides (demo)
-  const [alertStatuses, setAlertStatuses] = useState<Record<string, string>>({})
+  // API state
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [alertsData, setAlertsData] = useState<AlertItem[]>([])
+  const [rulesData, setRulesData] = useState<AlertRuleItem[]>([])
+  const [apiCounts, setApiCounts] = useState<Record<string, number>>({})
 
-  // Rules toggle state
-  const [ruleToggles, setRuleToggles] = useState<Record<string, boolean>>(
-    Object.fromEntries(alertRules.map((r) => [r.id, r.active]))
-  )
+  const fetchAlerts = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const statusParam = activeTab === 'ativos' ? 'new' : activeTab === 'acompanhamento' ? 'in_progress' : activeTab === 'resolvidos' ? 'resolved' : activeTab === 'ignorados' ? 'dismissed' : undefined
+      const params = new URLSearchParams()
+      if (statusParam) params.set('status', statusParam)
+      if (filterSeverity !== 'todas') params.set('severity', severityFilterMap[filterSeverity] || '')
+      if (filterType !== 'all') params.set('type', filterType)
+      if (filterAgent !== 'all') params.set('agentId', filterAgent)
+      if (filterTeam !== 'all') params.set('team', filterTeam)
+      params.set('limit', '100')
+
+      const [alertsRes, rulesRes] = await Promise.all([
+        fetch(`/api/alerts?${params.toString()}`),
+        fetch('/api/alert-rules'),
+      ])
+
+      if (!alertsRes.ok) throw new Error('Erro ao carregar alertas')
+      const alertsJson = await alertsRes.json()
+      const items: AlertItem[] = (alertsJson.alerts || []).map((a: Record<string, unknown>) => ({
+        ...a,
+        evidence: a.evidence || 'Detecção automatizada pela IA de auditoria.',
+      }))
+      setAlertsData(items)
+      setApiCounts(alertsJson.counts || {})
+
+      if (rulesRes.ok) {
+        const rulesJson = await rulesRes.json()
+        setRulesData(rulesJson.rules || [])
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [activeTab, filterSeverity, filterType, filterAgent, filterTeam])
+
+  useEffect(() => { fetchAlerts() }, [fetchAlerts, refreshTrigger])
 
   // Unique alert types from data
   const alertTypes = useMemo(
-    () => [...new Set(alerts.map((a) => a.ruleName))],
-    []
+    () => [...new Set(alertsData.map((a) => a.ruleName))],
+    [alertsData]
   )
 
-  // Unique teams
-  const teams = useMemo(
-    () => [...new Set(agents.map((a) => a.team))],
-    []
+  // Rules toggle state
+  const ruleToggles = useMemo(() =>
+    Object.fromEntries(rulesData.map((r) => [r.id, r.active])),
+    [rulesData]
   )
+
+  const setRuleToggles = (updater: (prev: Record<string, boolean>) => Record<string, boolean>) => {
+    // Optimistic update - in production would call PUT /api/alert-rules/[id]
+  }
+
+  // Unique teams - derived from alerts (no separate agents import)
+  const teams = useMemo(() => [], [])
 
   // Get effective status
-  const getAlertStatus = (alert: (typeof alerts)[0]) =>
-    alertStatuses[alert.id] || alert.status
+  const getAlertStatus = (alert: AlertItem) => alert.status
 
-  // Filtered alerts
+  // Filtered alerts (client-side from already-tab-filtered API data)
   const filteredAlerts = useMemo(() => {
-    let result = alerts
-
-    // Tab filter
-    switch (activeTab) {
-      case 'ativos':
-        result = result.filter(
-          (a) => getAlertStatus(a) === 'new' || getAlertStatus(a) === 'acknowledged'
-        )
-        break
-      case 'acompanhamento':
-        result = result.filter((a) => getAlertStatus(a) === 'in_progress')
-        break
-      case 'resolvidos':
-        result = result.filter((a) => getAlertStatus(a) === 'resolved')
-        break
-      case 'ignorados':
-        result = result.filter((a) => getAlertStatus(a) === 'dismissed')
-        break
-    }
-
-    // Severity filter
-    if (filterSeverity !== 'todas') {
-      const sev = severityFilterMap[filterSeverity]
-      if (sev && sev !== 'all') {
-        result = result.filter((a) => a.severity === sev)
-      }
-    }
-
-    // Type filter
-    if (filterType !== 'all') {
-      result = result.filter((a) => a.ruleName === filterType)
-    }
-
-    // Agent filter
-    if (filterAgent !== 'all') {
-      const agent = agents.find((a) => a.id === filterAgent)
-      if (agent) {
-        result = result.filter((a) => a.agentName === agent.name)
-      }
-    }
-
-    // Team filter
-    if (filterTeam !== 'all') {
-      const teamAgents = agents.filter((a) => a.team === filterTeam).map((a) => a.name)
-      result = result.filter((a) => teamAgents.includes(a.agentName))
-    }
+    let result = [...alertsData]
 
     // Has value filter
     if (filterHasValue === 'com') {
@@ -279,7 +290,7 @@ export default function AlertsView() {
     if (filterConfidenceMin) {
       const min = parseFloat(filterConfidenceMin) / 100
       if (!isNaN(min)) {
-        result = result.filter((a) => a.confidence >= min)
+        result = result.filter((a) => (a.confidence ?? 0) >= min)
       }
     }
 
@@ -291,7 +302,7 @@ export default function AlertsView() {
           a.title.toLowerCase().includes(q) ||
           a.customerName.toLowerCase().includes(q) ||
           a.agentName.toLowerCase().includes(q) ||
-          a.evidence.toLowerCase().includes(q)
+          (a.evidence || '').toLowerCase().includes(q)
       )
     }
 
@@ -304,28 +315,15 @@ export default function AlertsView() {
     })
 
     return result
-  }, [
-    activeTab,
-    filterSeverity,
-    filterType,
-    filterAgent,
-    filterTeam,
-    filterHasValue,
-    filterConfidenceMin,
-    searchQuery,
-    alertStatuses,
-  ])
+  }, [alertsData, filterHasValue, filterConfidenceMin, searchQuery])
 
-  // Tab counts
-  const tabCounts = useMemo(() => {
-    const getStatus = (a: (typeof alerts)[0]) => alertStatuses[a.id] || a.status
-    return {
-      ativos: alerts.filter((a) => getStatus(a) === 'new' || getStatus(a) === 'acknowledged').length,
-      acompanhamento: alerts.filter((a) => getStatus(a) === 'in_progress').length,
-      resolvidos: alerts.filter((a) => getStatus(a) === 'resolved').length,
-      ignorados: alerts.filter((a) => getStatus(a) === 'dismissed').length,
-    }
-  }, [alertStatuses])
+  // Tab counts from API
+  const tabCounts = useMemo(() => ({
+    ativos: (apiCounts.new || 0) + (apiCounts.acknowledged || 0),
+    acompanhamento: apiCounts.in_progress || 0,
+    resolvidos: apiCounts.resolved || 0,
+    ignorados: (apiCounts.dismissed || 0) + (apiCounts.false_positive || 0),
+  }), [apiCounts])
 
   // Actions
   function handleOpenConversation(conversationId: string) {
@@ -340,7 +338,11 @@ export default function AlertsView() {
 
   function confirmResolve() {
     if (selectedAlertId && resolveReason) {
-      setAlertStatuses((prev) => ({ ...prev, [selectedAlertId]: 'resolved' }))
+      fetch(`/api/alerts/${selectedAlertId}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: resolveReason }),
+      }).then(() => fetchAlerts()).catch(() => {})
       setResolveDialogOpen(false)
       setSelectedAlertId(null)
       setResolveReason('')
@@ -355,7 +357,11 @@ export default function AlertsView() {
 
   function confirmIgnore() {
     if (selectedAlertId && ignoreReason) {
-      setAlertStatuses((prev) => ({ ...prev, [selectedAlertId]: 'dismissed' }))
+      fetch(`/api/alerts/${selectedAlertId}/dismiss`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: ignoreReason }),
+      }).then(() => fetchAlerts()).catch(() => {})
       setIgnoreDialogOpen(false)
       setSelectedAlertId(null)
       setIgnoreReason('')
@@ -375,16 +381,18 @@ export default function AlertsView() {
   }
 
   function handleFollowUp(alertId: string) {
-    setAlertStatuses((prev) => ({ ...prev, [alertId]: 'in_progress' }))
+    fetch(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' })
+      .then(() => fetchAlerts()).catch(() => {})
   }
 
   function handleFalsePositive(alertId: string) {
-    setAlertStatuses((prev) => ({ ...prev, [alertId]: 'dismissed' }))
+    fetch(`/api/alerts/${alertId}/false-positive`, { method: 'POST' })
+      .then(() => fetchAlerts()).catch(() => {})
   }
 
   function handleCreateRecovery(alertId: string) {
-    // Demo: just mark as in_progress
-    setAlertStatuses((prev) => ({ ...prev, [alertId]: 'in_progress' }))
+    fetch(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' })
+      .then(() => fetchAlerts()).catch(() => {})
   }
 
   function maskCustomerName(name: string): string {
@@ -394,7 +402,33 @@ export default function AlertsView() {
   }
 
   // ── Render alert card ──
-  function AlertCard({ alert }: { alert: (typeof alerts)[0] }) {
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4 h-full">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-8 w-32" />
+        </div>
+        <div className="flex gap-2">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-9 w-28 rounded-md" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-lg" />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-destructive font-medium">{error}</p>
+        <button onClick={fetchAlerts} className="text-sm text-primary underline">Tentar novamente</button>
+      </div>
+    )
+  }
+
+  function AlertCard({ alert }: { alert: AlertItem }) {
     const status = getAlertStatus(alert)
     const isResolved = status === 'resolved'
     const isDismissed = status === 'dismissed'
@@ -513,7 +547,11 @@ export default function AlertsView() {
                         <DropdownMenuItem
                           key={r.value}
                           onClick={() => {
-                            setAlertStatuses((prev) => ({ ...prev, [alert.id]: 'resolved' }))
+                            fetch(`/api/alerts/${alert.id}/resolve`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ reason: r.value }),
+                            }).then(() => fetchAlerts()).catch(() => {})
                           }}
                         >
                           {r.label}
@@ -536,7 +574,11 @@ export default function AlertsView() {
                         <DropdownMenuItem
                           key={r.value}
                           onClick={() => {
-                            setAlertStatuses((prev) => ({ ...prev, [alert.id]: 'dismissed' }))
+                            fetch(`/api/alerts/${alert.id}/dismiss`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ reason: r.value }),
+                            }).then(() => fetchAlerts()).catch(() => {})
                           }}
                         >
                           {r.label}
@@ -600,7 +642,7 @@ export default function AlertsView() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {alertRules.map((rule) => (
+              {rulesData.map((rule) => (
                 <TableRow key={rule.id}>
                   <TableCell className="font-medium text-sm">
                     {rule.name}

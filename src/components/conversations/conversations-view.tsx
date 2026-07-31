@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   Search,
   ArrowUpDown,
@@ -23,8 +23,6 @@ import {
 
 import { cn } from '@/lib/utils'
 import {
-  conversations as allConversations,
-  agents,
   formatCurrency,
   timeAgo,
   getSeverityColor,
@@ -34,6 +32,7 @@ import {
   getSentimentLabel,
 } from '@/lib/mock-data'
 import { useAppStore } from '@/lib/store'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -142,6 +141,7 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
 
 export default function ConversationsView() {
   const selectConversation = useAppStore((s) => s.selectConversation)
+  const refreshTrigger = useAppStore((s) => s.refreshTrigger)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -171,6 +171,42 @@ export default function ConversationsView() {
   const [tagDialogOpen, setTagDialogOpen] = useState(false)
   const [tagInput, setTagInput] = useState('')
 
+  // API state
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [allConversations, setAllConversations] = useState<any[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const params = new URLSearchParams()
+      if (search) params.set('search', search)
+      if (period) params.set('period', period)
+      if (agentFilter !== 'all') params.set('agentId', agentFilter)
+      if (intentFilter !== 'all') params.set('intent', intentFilter)
+      if (urgencyFilter !== 'all') params.set('urgency', urgencyFilter)
+      if (sentimentFilter !== 'all') params.set('sentiment', sentimentFilter)
+      if (stageFilter !== 'all') params.set('stage', stageFilter)
+      if (failureFilter !== 'all') params.set('hasAlerts', 'true')
+      if (hasPotentialValue) params.set('minValue', '1')
+      params.set('limit', '100')
+
+      const res = await fetch(`/api/conversations?${params.toString()}`)
+      if (!res.ok) throw new Error('Erro ao carregar conversas')
+      const data = await res.json()
+      setAllConversations(data.conversations || [])
+      setTotalCount(data.pagination?.total || 0)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [search, period, agentFilter, intentFilter, urgencyFilter, sentimentFilter, stageFilter, failureFilter, hasPotentialValue])
+
+  useEffect(() => { fetchData() }, [fetchData, refreshTrigger])
+
   const handleSort = useCallback(
     (field: SortField) => {
       if (sortField === field) {
@@ -185,24 +221,7 @@ export default function ConversationsView() {
 
   const filtered = useMemo(() => {
     let data = [...allConversations]
-    if (search) {
-      const q = search.toLowerCase()
-      data = data.filter(
-        (c) =>
-          c.customerName.toLowerCase().includes(q) ||
-          c.customerPhone.includes(q) ||
-          c.agentName.toLowerCase().includes(q)
-      )
-    }
-    if (agentFilter !== 'all') data = data.filter((c) => c.agentId === agentFilter)
-    if (intentFilter !== 'all') data = data.filter((c) => c.primaryIntent === intentFilter)
-    if (urgencyFilter !== 'all') data = data.filter((c) => c.urgency === urgencyFilter)
-    if (sentimentFilter !== 'all') data = data.filter((c) => c.sentiment === sentimentFilter)
-    if (stageFilter !== 'all') data = data.filter((c) => c.inferredStage === stageFilter)
-    if (failureFilter !== 'all') {
-      data = data.filter((c) => c.alertCount > 0)
-    }
-    if (hasPotentialValue) data = data.filter((c) => c.potentialValue > 0)
+    // Search is done server-side, but we can still filter unreadByManager client-side
     if (unreadByManager) data = data.filter((c) => c.operationalStatus === 'new' || c.operationalStatus === 'waiting_company')
 
     data.sort((a, b) => {
@@ -219,7 +238,7 @@ export default function ConversationsView() {
       return sortDir === 'asc' ? cmp : -cmp
     })
     return data
-  }, [search, agentFilter, intentFilter, urgencyFilter, sentimentFilter, stageFilter, failureFilter, hasPotentialValue, unreadByManager, sortField, sortDir])
+  }, [allConversations, unreadByManager, sortField, sortDir])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const safePage = Math.min(page, totalPages)
@@ -265,13 +284,38 @@ export default function ConversationsView() {
   }, [clearSelection])
 
   const uniqueIntents = useMemo(
-    () => [...new Set(allConversations.map((c) => c.primaryIntent))].sort(),
-    []
+    () => [...new Set(allConversations.map((c) => c.primaryIntent).filter(Boolean))].sort(),
+    [allConversations]
   )
   const uniqueStages = useMemo(
-    () => [...new Set(allConversations.map((c) => c.inferredStage))].sort(),
-    []
+    () => [...new Set(allConversations.map((c) => c.inferredStage).filter(Boolean))].sort(),
+    [allConversations]
   )
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <TooltipProvider delayDuration={300}>
+        <div className="flex flex-col gap-4 p-4 lg:p-6">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-10 w-full max-w-sm" />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-9" />)}
+          </div>
+          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+        </div>
+      </TooltipProvider>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-destructive font-medium">{error}</p>
+        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
+      </div>
+    )
+  }
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -281,7 +325,7 @@ export default function ConversationsView() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Conversas</h1>
             <p className="text-sm text-muted-foreground">
-              {filtered.length} conversa{filtered.length !== 1 ? 's' : ''} encontrada{filtered.length !== 1 ? 's' : ''}
+              {totalCount || allConversations.length} conversa{(totalCount || allConversations.length) !== 1 ? 's' : ''} encontrada{(totalCount || allConversations.length) !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
@@ -337,11 +381,17 @@ export default function ConversationsView() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {agents.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
+                {allConversations
+                  .filter((c) => c.agentId)
+                  .reduce((acc, c) => {
+                    if (!acc.find((a: any) => a.id === c.agentId)) acc.push({ id: c.agentId, name: c.agentName })
+                    return acc
+                  }, [] as { id: string; name: string }[])
+                  .map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
 
@@ -811,11 +861,17 @@ export default function ConversationsView() {
                 <SelectValue placeholder="Selecione o atendente" />
               </SelectTrigger>
               <SelectContent>
-                {agents.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name} — {a.team}
-                  </SelectItem>
-                ))}
+                {allConversations
+                  .filter((c) => c.agentId)
+                  .reduce((acc, c) => {
+                    if (!acc.find((a: any) => a.id === c.agentId)) acc.push({ id: c.agentId, name: c.agentName, team: c.agentTeam })
+                    return acc
+                  }, [] as { id: string; name: string; team: string }[])
+                  .map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} — {a.team}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <DialogFooter>

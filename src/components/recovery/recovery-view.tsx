@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   RotateCcw,
   UserPlus,
@@ -25,12 +25,11 @@ import {
 
 import { cn } from '@/lib/utils'
 import {
-  recoveryItems,
-  agents,
   formatCurrency,
   timeAgo,
 } from '@/lib/mock-data'
 import { useAppStore } from '@/lib/store'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import {
   Card,
@@ -160,6 +159,9 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
 }
 
 export default function RecoveryView() {
+  const refreshTrigger = useAppStore((s) => s.refreshTrigger)
+  const selectConversation = useAppStore((s) => s.selectConversation)
+
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [agentFilter, setAgentFilter] = useState<string>('all')
@@ -182,11 +184,36 @@ export default function RecoveryView() {
   const [deadlineItemId, setDeadlineItemId] = useState<string | null>(null)
   const [deadlineInput, setDeadlineInput] = useState('')
 
-  // Local overrides for demo
-  const [localStatuses, setLocalStatuses] = useState<Record<string, RecoveryStatus>>({})
-  const [localAssignees, setLocalAssignees] = useState<Record<string, string>>({})
-  const [localOutcomes, setLocalOutcomes] = useState<Record<string, string>>({})
-  const [localRecoveredValues, setLocalRecoveredValues] = useState<Record<string, number>>({})
+  // API state
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [recoveryItems, setRecoveryItems] = useState<any[]>([])
+  const [agentList, setAgentList] = useState<{id:string,name:string}[]>([])
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const params = new URLSearchParams()
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (agentFilter !== 'all') params.set('assignedTo', agentFilter)
+      const res = await fetch(`/api/recovery?${params.toString()}`)
+      if (!res.ok) throw new Error('Erro ao carregar recuperação')
+      const data = await res.json()
+      setRecoveryItems(data.items || [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [statusFilter, agentFilter])
+
+  useEffect(() => { fetchData() }, [fetchData, refreshTrigger])
+
+  // Fetch agents for assign dialog
+  useEffect(() => {
+    fetch('/api/team').then(r => r.ok ? r.json() : {}).then(d => setAgentList(d.agents || [])).catch(() => {})
+  }, [])
 
   const handleSort = useCallback(
     (field: SortField) => {
@@ -202,13 +229,13 @@ export default function RecoveryView() {
 
   // Computed data
   const items = useMemo(() => {
-    const data = recoveryItems.map((item) => ({
+    const data = recoveryItems.map((item: any) => ({
       ...item,
       priority: getPriorityFromScore(item.priorityScore),
-      status: localStatuses[item.id] ?? (item.status as RecoveryStatus),
-      assignedTo: localAssignees[item.id] ?? item.assignedTo,
-      outcome: localOutcomes[item.id] ?? item.outcome,
-      recoveredValue: localRecoveredValues[item.id] ?? item.recoveredValue,
+      status: item.status as RecoveryStatus,
+      assignedTo: item.assignedTo,
+      outcome: item.outcome,
+      recoveredValue: item.recoveredValue,
     }))
 
     return data
@@ -248,30 +275,26 @@ export default function RecoveryView() {
             return 0
         }
       })
-  }, [recoveryItems, statusFilter, agentFilter, priorityFilter, recoveredValueFilter, sortField, sortDir, localStatuses, localAssignees, localOutcomes, localRecoveredValues])
+  }, [recoveryItems, statusFilter, agentFilter, priorityFilter, recoveredValueFilter, sortField, sortDir])
 
   // Metrics
   const metrics = useMemo(() => {
     const total = recoveryItems.length
     const worked = recoveryItems.filter(
-      (r) => r.status === 'attempted' || r.status === 'contacted' || r.status === 'recovered' || r.status === 'lost'
+      (r: any) => r.status === 'attempted' || r.status === 'contacted' || r.status === 'recovered' || r.status === 'lost'
     ).length
     const contacted = recoveryItems.filter(
-      (r) => r.status === 'contacted' || r.status === 'recovered'
+      (r: any) => r.status === 'contacted' || r.status === 'recovered'
     ).length
-    const totalRecovered = recoveryItems.reduce((sum, r) => sum + (r.recoveredValue || 0), 0)
-    const workedPlusLocal = worked + Object.values(localStatuses).filter(
-      (s) => s === 'attempted' || s === 'contacted' || s === 'recovered' || s === 'lost'
-    ).length
-    const recoveredPlusLocal = totalRecovered + Object.values(localRecoveredValues).reduce((sum, v) => sum + v, 0)
+    const totalRecovered = recoveryItems.reduce((sum: number, r: any) => sum + (r.recoveredValue || 0), 0)
     return {
       created: total,
-      worked: workedPlusLocal,
-      workedPct: total > 0 ? ((workedPlusLocal / total) * 100).toFixed(0) : '0',
-      contactPct: workedPlusLocal > 0 ? ((contacted / workedPlusLocal) * 100).toFixed(0) : '0',
-      recoveredValue: recoveredPlusLocal,
+      worked,
+      workedPct: total > 0 ? ((worked / total) * 100).toFixed(0) : '0',
+      contactPct: worked > 0 ? ((contacted / worked) * 100).toFixed(0) : '0',
+      recoveredValue: totalRecovered,
     }
-  }, [recoveryItems, localStatuses, localRecoveredValues])
+  }, [recoveryItems])
 
   // Action handlers
   const openAssignDialog = (id: string) => {
@@ -282,11 +305,11 @@ export default function RecoveryView() {
 
   const confirmAssign = () => {
     if (assignItemId && assignAgent) {
-      const agent = agents.find((a) => a.id === assignAgent)
-      setLocalAssignees((prev) => ({ ...prev, [assignItemId]: agent?.name || '' }))
-      if (localStatuses[assignItemId] === 'new') {
-        setLocalStatuses((prev) => ({ ...prev, [assignItemId]: 'assigned' }))
-      }
+      fetch(`/api/recovery/${assignItemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedTo: assignAgent, status: 'assigned' }),
+      }).then(() => fetchData()).catch(() => {})
     }
     setAssignDialogOpen(false)
   }
@@ -299,17 +322,14 @@ export default function RecoveryView() {
 
   const confirmOutcome = () => {
     if (outcomeItemId && selectedOutcome) {
-      setLocalOutcomes((prev) => ({
-        ...prev,
-        [outcomeItemId]: outcomeLabels[selectedOutcome as OutcomeType],
-      }))
-      if (selectedOutcome === 'contato_feito') {
-        setLocalStatuses((prev) => ({ ...prev, [outcomeItemId]: 'contacted' }))
-      } else if (selectedOutcome === 'agendamento' || selectedOutcome === 'venda_recuperada') {
-        setLocalStatuses((prev) => ({ ...prev, [outcomeItemId]: 'recovered' }))
-      } else {
-        setLocalStatuses((prev) => ({ ...prev, [outcomeItemId]: 'attempted' }))
-      }
+      let newStatus = 'attempted'
+      if (selectedOutcome === 'contato_feito') newStatus = 'contacted'
+      if (selectedOutcome === 'agendamento' || selectedOutcome === 'venda_recuperada') newStatus = 'recovered'
+      fetch(`/api/recovery/${outcomeItemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, outcome: outcomeLabels[selectedOutcome as OutcomeType] }),
+      }).then(() => fetchData()).catch(() => {})
     }
     setOutcomeDialogOpen(false)
   }
@@ -324,8 +344,11 @@ export default function RecoveryView() {
     if (valueItemId) {
       const val = parseFloat(recoveredValueInput.replace(',', '.')) || 0
       if (val > 0) {
-        setLocalRecoveredValues((prev) => ({ ...prev, [valueItemId]: val }))
-        setLocalStatuses((prev) => ({ ...prev, [valueItemId]: 'recovered' }))
+        fetch(`/api/recovery/${valueItemId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'recovered', recoveredValue: val }),
+        }).then(() => fetchData()).catch(() => {})
       }
     }
     setValueDialogOpen(false)
@@ -343,16 +366,43 @@ export default function RecoveryView() {
   }
 
   const handleAttempt = (id: string) => {
-    setLocalStatuses((prev) => ({ ...prev, [id]: 'attempted' }))
+    fetch(`/api/recovery/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'attempted', attempts: (recoveryItems.find((r: any) => r.id === id)?.attempts || 0) + 1 }),
+    }).then(() => fetchData()).catch(() => {})
   }
 
   const handleReturnOriginal = (id: string) => {
-    setLocalAssignees((prev) => {
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
-    setLocalStatuses((prev) => ({ ...prev, [id]: 'new' }))
+    fetch(`/api/recovery/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignedTo: null, status: 'new' }),
+    }).then(() => fetchData()).catch(() => {})
+  }
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <TooltipProvider>
+        <div className="flex flex-col gap-4 p-4 lg:p-6">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+          </div>
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+        </div>
+      </TooltipProvider>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-destructive font-medium">{error}</p>
+        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
+      </div>
+    )
   }
 
   return (

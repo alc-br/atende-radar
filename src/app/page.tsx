@@ -14,6 +14,11 @@ import AgentProfile from '@/components/team/agent-profile'
 import ReportsView from '@/components/reports/reports-view'
 import ConnectionsView from '@/components/connections/connections-view'
 import SettingsView from '@/components/settings/settings-view'
+import OnboardingView from '@/components/onboarding/onboarding-view'
+import MembersView from '@/components/members/members-view'
+import TeamsView from '@/components/teams/teams-view'
+import PlansView from '@/components/plans/plans-view'
+import NotificationsView from '@/components/notifications/notifications-view'
 
 function MainContent() {
   const { currentView, selectedConversationId, selectedAgentId, sidebarOpen } = useAppStore()
@@ -40,6 +45,16 @@ function MainContent() {
         return <ConnectionsView />
       case 'settings':
         return <SettingsView />
+      case 'onboarding':
+        return <OnboardingView />
+      case 'members':
+        return <MembersView />
+      case 'teams':
+        return <TeamsView />
+      case 'plans':
+        return <PlansView />
+      case 'notifications':
+        return <NotificationsView />
       default:
         return <DashboardView />
     }

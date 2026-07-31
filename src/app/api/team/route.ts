@@ -1,0 +1,54 @@
+import { NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+
+export async function GET() {
+  try {
+    const org = await db.organization.findFirst()
+    if (!org) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+    }
+
+    const agents = await db.agent.findMany({
+      where: { organizationId: org.id },
+      include: {
+        metrics: { orderBy: { date: 'desc' }, take: 2 },
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    const formatted = agents.map((a) => {
+      const latest = a.metrics[0]
+      const prev = a.metrics[1]
+      const trend =
+        latest && prev
+          ? latest.score > prev.score
+            ? 'up'
+            : latest.score < prev.score
+              ? 'down'
+              : 'stable'
+          : 'stable'
+
+      return {
+        id: a.id,
+        name: a.name,
+        email: a.email,
+        role: a.role,
+        team: a.team,
+        status: a.status,
+        score: latest ? Math.round(latest.score) : 0,
+        conversations: latest?.conversations ?? 0,
+        avgResponseTime: latest ? +(latest.avgResponseTime).toFixed(1) : 0,
+        opportunities: latest?.opportunitiesHandled ?? 0,
+        opportunitiesLost: latest?.opportunitiesLost ?? 0,
+        promisesKept: latest?.promisesKept ?? 0,
+        promisesTotal: latest?.promisesTotal ?? 0,
+        trend,
+      }
+    })
+
+    return NextResponse.json({ agents: formatted })
+  } catch (error) {
+    console.error('Team GET error:', error)
+    return NextResponse.json({ error: 'Failed to load team data' }, { status: 500 })
+  }
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   ArrowUpDown,
   ArrowUp,
@@ -14,8 +14,9 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { agents, formatPhone } from '@/lib/mock-data'
+import { formatPhone } from '@/lib/mock-data'
 import { useAppStore } from '@/lib/store'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import {
   Card,
@@ -71,9 +72,27 @@ function TrendIcon({ trend }: { trend: string }) {
 
 export default function TeamView() {
   const selectAgent = useAppStore((s) => s.selectAgent)
+  const refreshTrigger = useAppStore((s) => s.refreshTrigger)
 
   const [sortField, setSortField] = useState<SortField>('score')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [agentsData, setAgentsData] = useState<any[]>([])
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true); setError(null)
+    try {
+      const res = await fetch('/api/team')
+      if (!res.ok) throw new Error('Erro ao carregar equipe')
+      const data = await res.json()
+      setAgentsData(data.agents || [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally { setIsLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData, refreshTrigger])
 
   const handleSort = useCallback(
     (field: SortField) => {
@@ -89,14 +108,14 @@ export default function TeamView() {
 
   const sortedAgents = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1
-    return [...agents].sort((a, b) => {
+    return [...agentsData].sort((a, b) => {
       switch (sortField) {
         case 'name':
           return a.name.localeCompare(b.name) * dir
         case 'team':
-          return a.team.localeCompare(b.team) * dir
+          return (a.team || '').localeCompare(b.team || '') * dir
         case 'identity':
-          return 0 // masked, no sort
+          return 0
         case 'status':
           return a.status.localeCompare(b.status) * dir
         case 'conversations':
@@ -110,20 +129,28 @@ export default function TeamView() {
         case 'opportunitiesLost':
           return (a.opportunitiesLost - b.opportunitiesLost) * dir
         case 'promises':
-          return ((a.promisesKept / a.promisesTotal) - (b.promisesKept / b.promisesTotal)) * dir
-        case 'trend':
+          const aRatio = a.promisesTotal > 0 ? a.promisesKept / a.promisesTotal : 0
+          const bRatio = b.promisesTotal > 0 ? b.promisesKept / b.promisesTotal : 0
+          return (aRatio - bRatio) * dir
+        case 'trend': {
           const trendOrder: Record<string, number> = { up: 0, stable: 1, down: 2 }
           return ((trendOrder[a.trend] ?? 1) - (trendOrder[b.trend] ?? 1)) * dir
+        }
         default:
           return 0
       }
     })
-  }, [agents, sortField, sortDir])
+  }, [agentsData, sortField, sortDir])
 
   // Summary stats
-  const totalAgents = agents.length
-  const avgScore = Math.round(agents.reduce((sum, a) => sum + a.score, 0) / agents.length)
-  const avgResponseTime = (agents.reduce((sum, a) => sum + a.avgResponseTime, 0) / agents.length).toFixed(1)
+  const totalAgents = agentsData.length
+  const avgScore = agentsData.length > 0 ? Math.round(agentsData.reduce((sum: number, a: any) => sum + (a.score || 0), 0) / agentsData.length) : 0
+  const avgResponseTime = agentsData.length > 0 ? (agentsData.reduce((sum: number, a: any) => sum + (a.avgResponseTime || 0), 0) / agentsData.length).toFixed(1) : '0.0'
+
+  if (isLoading) {
+    return <div className="flex flex-col gap-4 p-4 lg:p-6"><Skeleton className="h-8 w-48" />{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
+  }
+  if (error) return <div className="flex flex-col items-center justify-center h-96 gap-4"><p className="text-destructive font-medium">{error}</p><button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button></div>
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-emerald-600'
