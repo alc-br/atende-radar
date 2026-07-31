@@ -30,7 +30,7 @@ export async function GET(
           orderBy: { askedAt: 'desc' },
         },
         promises: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { dueAt: 'desc' },
         },
         scores: {
           orderBy: { calculatedAt: 'desc' },
