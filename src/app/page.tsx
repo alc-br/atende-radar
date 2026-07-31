@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { AppHeader } from '@/components/layout/app-header'
 import { useAppStore } from '@/lib/store'
@@ -24,7 +26,18 @@ import LoginPage from '@/components/login/login-page'
 import AdminView from '@/components/admin/admin-view'
 
 function MainContent() {
-  const { currentView, selectedConversationId, selectedAgentId, sidebarOpen, showLanding, showLogin } = useAppStore()
+  const { currentView, selectedConversationId, selectedAgentId, sidebarOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
+  const { status } = useSession()
+
+  // O Zustand store e efemero: qualquer refresh da arvore RSC (ex.: apos o
+  // signIn) reinicia showLanding para o default (true). Sincroniza com a
+  // sessao real do NextAuth para nao devolver um usuario autenticado pra landing.
+  useEffect(() => {
+    if (status === 'authenticated') {
+      setShowLanding(false)
+      setShowLogin(false)
+    }
+  }, [status, setShowLanding, setShowLogin])
 
   const renderView = () => {
     switch (currentView) {
@@ -69,12 +82,13 @@ function MainContent() {
     }
   }
 
-  if (showLogin) {
-    return <LoginPage />
+  if (status === 'loading') {
+    return null
   }
 
-  if (showLanding) {
-    return <LandingPage />
+  // Sem sessao valida, nunca renderiza o shell autenticado — so landing ou login.
+  if (status !== 'authenticated') {
+    return showLogin ? <LoginPage /> : <LandingPage />
   }
 
   return (
