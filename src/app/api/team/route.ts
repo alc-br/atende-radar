@@ -52,3 +52,42 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to load team data' }, { status: 500 })
   }
 }
+
+export async function POST(request: Request) {
+  try {
+    const org = await db.organization.findFirst()
+    if (!org) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+    }
+
+    const body = await request.json()
+    const { name, email, role, team } = body as {
+      name?: string
+      email?: string
+      role?: string
+      team?: string
+    }
+
+    if (!name || !email) {
+      return NextResponse.json(
+        { error: 'name and email are required' },
+        { status: 400 }
+      )
+    }
+
+    const agent = await db.agent.create({
+      data: {
+        organizationId: org.id,
+        name,
+        email,
+        role: role || 'atendente',
+        team,
+      },
+    })
+
+    return NextResponse.json({ success: true, agent }, { status: 201 })
+  } catch (error) {
+    console.error('Team POST error:', error)
+    return NextResponse.json({ error: 'Failed to create agent' }, { status: 500 })
+  }
+}

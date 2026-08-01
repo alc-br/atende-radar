@@ -19,9 +19,10 @@ import {
 } from '@/components/ui/table'
 import {
   Building2, Clock, Headphones, DollarSign, Brain, Bell, Shield,
-  Save, Plus, Trash2, Upload, X,
+  Save, Plus, Trash2, Upload, X, Sparkles,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAppStore } from '@/lib/store'
 
 const WEEKDAYS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
 
@@ -64,6 +65,7 @@ function TabSaveButton({ onSave }: { onSave?: () => void }) {
 }
 
 export default function SettingsView() {
+  const { setView } = useAppStore()
   // --- Empresa ---
   const [isLoading, setIsLoading] = useState(true)
   const [empName, setEmpName] = useState('')
@@ -303,6 +305,19 @@ export default function SettingsView() {
                 <Separator />
                 <div className="flex justify-end"><TabSaveButton /></div>
               </form>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="text-base">Configuração inicial</CardTitle>
+              <CardDescription>Refaça o assistente de configuração para revisar horários, metas, WhatsApp e equipe.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" className="gap-1.5" onClick={() => setView('onboarding')}>
+                <Sparkles className="h-4 w-4" />
+                Refazer onboarding
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

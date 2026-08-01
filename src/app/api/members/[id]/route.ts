@@ -30,3 +30,24 @@ export async function PATCH(
     return NextResponse.json({ error: 'Failed to update member' }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+
+    const existing = await db.organizationMember.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+    }
+
+    await db.organizationMember.delete({ where: { id } })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Member DELETE error:', error)
+    return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
+  }
+}

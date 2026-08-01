@@ -1,43 +1,64 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import {
   LayoutDashboard, AlertTriangle, MessageSquare, RotateCcw, Users,
   FileBarChart, Wifi, Settings, ChevronLeft, ChevronRight, Radar,
-  UserCog, CreditCard, ShieldCheck,
+  UserCog, CreditCard, ShieldCheck, Building2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { View } from '@/lib/store'
 
-const mainNavItems: { view: View; icon: React.ElementType; label: string; badge?: string }[] = [
+const mainNavItems: { view: View; icon: React.ElementType; label: string }[] = [
   { view: 'dashboard', icon: LayoutDashboard, label: 'Visão Geral' },
-  { view: 'alerts', icon: AlertTriangle, label: 'Alertas', badge: '5' },
+  { view: 'alerts', icon: AlertTriangle, label: 'Alertas' },
   { view: 'conversations', icon: MessageSquare, label: 'Conversas' },
-  { view: 'recovery', icon: RotateCcw, label: 'Recuperação', badge: '8' },
+  { view: 'recovery', icon: RotateCcw, label: 'Recuperação' },
   { view: 'team', icon: Users, label: 'Equipe' },
   { view: 'reports', icon: FileBarChart, label: 'Relatórios' },
   { view: 'connections', icon: Wifi, label: 'Conexões' },
 ]
 
-const secondaryNavItems: { view: View; icon: React.ElementType; label: string; badge?: string }[] = [
+const secondaryNavItems: { view: View; icon: React.ElementType; label: string }[] = [
   { view: 'settings', icon: Settings, label: 'Configurações' },
   { view: 'members', icon: UserCog, label: 'Membros' },
+  { view: 'teams', icon: Building2, label: 'Equipes' },
   { view: 'plans', icon: CreditCard, label: 'Planos' },
   { view: 'admin', icon: ShieldCheck, label: 'Admin' },
 ]
 
 export function AppSidebar() {
-  const { currentView, setView, sidebarOpen, setSidebarOpen } = useAppStore()
+  const { currentView, setView, sidebarOpen, setSidebarOpen, refreshTrigger } = useAppStore()
+  const [badges, setBadges] = useState<Partial<Record<View, string>>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      fetch('/api/alerts?status=new&limit=1').then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/recovery?status=new&limit=1').then((r) => (r.ok ? r.json() : null)),
+    ]).then(([alertsData, recoveryData]) => {
+      if (cancelled) return
+      const next: Partial<Record<View, string>> = {}
+      const activeAlerts = alertsData?.counts?.new
+      if (activeAlerts > 0) next.alerts = String(activeAlerts)
+      const openRecovery = recoveryData?.pagination?.total
+      if (openRecovery > 0) next.recovery = String(openRecovery)
+      setBadges(next)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [refreshTrigger])
 
   const isActive = (view: View) =>
     currentView === view ||
     (view === 'conversations' && currentView === 'conversation-detail') ||
     (view === 'team' && currentView === 'agent-profile')
 
-  const renderNavItem = (item: { view: View; icon: React.ElementType; label: string; badge?: string }) => {
+  const renderNavItem = (item: { view: View; icon: React.ElementType; label: string }) => {
     const active = isActive(item.view)
+    const badge = badges[item.view]
     const Icon = item.icon
     const btn = (
       <button
@@ -52,9 +73,9 @@ export function AppSidebar() {
       >
         <Icon className={cn('w-5 h-5 shrink-0', active && 'text-sidebar-primary')} />
         {sidebarOpen && <span className="truncate">{item.label}</span>}
-        {sidebarOpen && item.badge && (
+        {sidebarOpen && badge && (
           <span className="ml-auto flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-bold rounded-full bg-destructive text-white">
-            {item.badge}
+            {badge}
           </span>
         )}
       </button>
@@ -65,7 +86,7 @@ export function AppSidebar() {
           <TooltipTrigger asChild>{btn}</TooltipTrigger>
           <TooltipContent side="right" className="font-medium">
             {item.label}
-            {item.badge && <span className="ml-1.5 text-destructive">({item.badge})</span>}
+            {badge && <span className="ml-1.5 text-destructive">({badge})</span>}
           </TooltipContent>
         </Tooltip>
       )

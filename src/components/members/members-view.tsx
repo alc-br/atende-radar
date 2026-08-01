@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,73 +21,81 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { UserPlus, MoreHorizontal, Mail, Shield, Trash2, Users } from 'lucide-react'
+import { UserPlus, MoreHorizontal, Shield, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
+import { timeAgo } from '@/lib/utils'
 
-type Role = 'admin' | 'supervisor' | 'agent'
-type MemberStatus = 'active' | 'pending' | 'inactive'
+type Role = 'admin' | 'gestor' | 'supervisor' | 'analista' | 'member' | 'atendente' | 'viewer'
 
 interface Member {
   id: string
   name: string
   email: string
-  role: Role
-  team: string
-  status: MemberStatus
-  lastAccess: string
-  avatar: string
+  role: string
+  team: string | null
+  status: string
+  lastAccessAt: string | null
 }
 
-const ROLE_LABELS: Record<Role, string> = {
+const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
+  gestor: 'Gestor',
   supervisor: 'Supervisor',
-  agent: 'Atendente',
+  analista: 'Analista',
+  member: 'Membro',
+  atendente: 'Atendente',
+  viewer: 'Visualizador',
 }
 
-const ROLE_COLORS: Record<Role, string> = {
+const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  gestor: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
   supervisor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  agent: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  analista: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+  member: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  atendente: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  viewer: 'bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400',
 }
 
-const STATUS_LABELS: Record<MemberStatus, string> = {
+const STATUS_LABELS: Record<string, string> = {
   active: 'Ativo',
   pending: 'Pendente',
   inactive: 'Inativo',
 }
 
-const STATUS_COLORS: Record<MemberStatus, string> = {
+const STATUS_COLORS: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   inactive: 'bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400',
 }
 
-const mockMembers: Member[] = [
-  { id: '1', name: 'Ana Silva', email: 'ana@empresa.com', role: 'admin', team: 'Geral', status: 'active', lastAccess: 'Agora mesmo', avatar: 'AS' },
-  { id: '2', name: 'Carlos Oliveira', email: 'carlos@empresa.com', role: 'supervisor', team: 'Vendas', status: 'active', lastAccess: 'Há 5 min', avatar: 'CO' },
-  { id: '3', name: 'Maria Santos', email: 'maria@empresa.com', role: 'agent', team: 'Vendas', status: 'active', lastAccess: 'Há 12 min', avatar: 'MS' },
-  { id: '4', name: 'João Lima', email: 'joao@empresa.com', role: 'agent', team: 'Suporte', status: 'active', lastAccess: 'Há 30 min', avatar: 'JL' },
-  { id: '5', name: 'Fernanda Costa', email: 'fernanda@empresa.com', role: 'supervisor', team: 'Suporte', status: 'active', lastAccess: 'Há 1h', avatar: 'FC' },
-  { id: '6', name: 'Pedro Rocha', email: 'pedro@empresa.com', role: 'agent', team: 'Vendas', status: 'pending', lastAccess: '—', avatar: 'PR' },
-  { id: '7', name: 'Lucia Ferreira', email: 'lucia@empresa.com', role: 'agent', team: 'Suporte', status: 'inactive', lastAccess: 'Há 7 dias', avatar: 'LF' },
-]
-
 export default function MembersView() {
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteName, setInviteName] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<Role>('agent')
+  const [inviteRole, setInviteRole] = useState<Role>('member')
   const [inviteTeam, setInviteTeam] = useState('')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMembers(mockMembers)
+  const fetchMembers = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/members')
+      if (!res.ok) throw new Error('Erro ao carregar membros')
+      const data = await res.json()
+      setMembers(data.members || [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally {
       setLoading(false)
-    }, 600)
-    return () => clearTimeout(timer)
+    }
   }, [])
+
+  useEffect(() => { fetchMembers() }, [fetchMembers])
 
   const filtered = members.filter(
     (m) =>
@@ -95,38 +103,71 @@ export default function MembersView() {
       m.email.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleInvite = () => {
-    if (!inviteEmail.trim()) return
-    const newMember: Member = {
-      id: String(Date.now()),
-      name: inviteEmail.split('@')[0],
-      email: inviteEmail,
-      role: inviteRole,
-      team: inviteTeam || 'Geral',
-      status: 'pending',
-      lastAccess: '—',
-      avatar: inviteEmail.substring(0, 2).toUpperCase(),
+  const handleInvite = async () => {
+    if (!inviteName.trim() || !inviteEmail.trim()) return
+    try {
+      const res = await fetch('/api/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: inviteName,
+          email: inviteEmail,
+          role: inviteRole,
+          team: inviteTeam || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erro ao adicionar membro')
+      }
+      toast.success('Membro adicionado com sucesso!')
+      setInviteName('')
+      setInviteEmail('')
+      setInviteRole('member')
+      setInviteTeam('')
+      setInviteOpen(false)
+      fetchMembers()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao adicionar membro')
     }
-    setMembers((prev) => [...prev, newMember])
-    setInviteEmail('')
-    setInviteRole('agent')
-    setInviteTeam('')
-    setInviteOpen(false)
-    toast.success('Convite enviado com sucesso!')
   }
 
-  const changeRole = (id: string, role: Role) => {
-    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role } : m)))
-    toast.success('Função atualizada.')
+  const changeRole = async (id: string, role: Role) => {
+    try {
+      const res = await fetch(`/api/members/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      })
+      if (!res.ok) throw new Error('Erro ao atualizar função')
+      toast.success('Função atualizada.')
+      fetchMembers()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao atualizar função')
+    }
   }
 
-  const removeMember = (id: string) => {
-    setMembers((prev) => prev.filter((m) => m.id !== id))
-    toast.success('Membro removido.')
+  const removeMember = async (id: string) => {
+    try {
+      const res = await fetch(`/api/members/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Erro ao remover membro')
+      toast.success('Membro removido.')
+      fetchMembers()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao remover membro')
+    }
   }
 
-  const resendInvite = (email: string) => {
-    toast.success(`Convite reenviado para ${email}`)
+  const initials = (name: string) =>
+    name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase()
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-destructive font-medium">{error}</p>
+        <button onClick={fetchMembers} className="text-sm text-primary underline">Tentar novamente</button>
+      </div>
+    )
   }
 
   return (
@@ -138,14 +179,23 @@ export default function MembersView() {
         </div>
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
-            <Button><UserPlus className="w-4 h-4 mr-2" />Convidar membro</Button>
+            <Button><UserPlus className="w-4 h-4 mr-2" />Adicionar membro</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Convidar membro</DialogTitle>
-              <DialogDescription>Envie um convite por e-mail para adicionar um novo membro à organização.</DialogDescription>
+              <DialogTitle>Adicionar membro</DialogTitle>
+              <DialogDescription>Adicione um novo membro à organização.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="invite-name">Nome</Label>
+                <Input
+                  id="invite-name"
+                  placeholder="Nome completo"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="invite-email">E-mail</Label>
                 <Input
@@ -161,27 +211,25 @@ export default function MembersView() {
                 <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="supervisor">Supervisor</SelectItem>
-                    <SelectItem value="agent">Atendente</SelectItem>
+                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Equipe</Label>
-                <Select value={inviteTeam} onValueChange={setInviteTeam}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a equipe" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Geral">Geral</SelectItem>
-                    <SelectItem value="Vendas">Vendas</SelectItem>
-                    <SelectItem value="Suporte">Suporte</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="invite-team">Equipe</Label>
+                <Input
+                  id="invite-team"
+                  placeholder="Ex.: Recepção"
+                  value={inviteTeam}
+                  onChange={(e) => setInviteTeam(e.target.value)}
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancelar</Button>
-              <Button onClick={handleInvite} disabled={!inviteEmail.trim()}>Enviar convite</Button>
+              <Button onClick={handleInvite} disabled={!inviteName.trim() || !inviteEmail.trim()}>Adicionar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -239,7 +287,7 @@ export default function MembersView() {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                              {member.avatar}
+                              {initials(member.name)}
                             </div>
                             <span className="font-medium">{member.name}</span>
                           </div>
@@ -248,18 +296,18 @@ export default function MembersView() {
                           {member.email}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className={ROLE_COLORS[member.role]}>
-                            {ROLE_LABELS[member.role]}
+                          <Badge variant="secondary" className={ROLE_COLORS[member.role] || ROLE_COLORS.member}>
+                            {ROLE_LABELS[member.role] || member.role}
                           </Badge>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">{member.team}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{member.team || '—'}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className={STATUS_COLORS[member.status]}>
-                            {STATUS_LABELS[member.status]}
+                          <Badge variant="secondary" className={STATUS_COLORS[member.status] || STATUS_COLORS.active}>
+                            {STATUS_LABELS[member.status] || member.status}
                           </Badge>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
-                          {member.lastAccess}
+                          {member.lastAccessAt ? timeAgo(member.lastAccessAt) : '—'}
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
@@ -269,20 +317,13 @@ export default function MembersView() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => changeRole(member.id, 'admin')}>
-                                <Shield className="w-4 h-4 mr-2" />Tornar admin
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => changeRole(member.id, 'supervisor')}>
-                                <Shield className="w-4 h-4 mr-2" />Tornar supervisor
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => changeRole(member.id, 'agent')}>
-                                <Shield className="w-4 h-4 mr-2" />Tornar atendente
-                              </DropdownMenuItem>
-                              {member.status === 'pending' && (
-                                <DropdownMenuItem onClick={() => resendInvite(member.email)}>
-                                  <Mail className="w-4 h-4 mr-2" />Reenviar convite
-                                </DropdownMenuItem>
-                              )}
+                              {Object.entries(ROLE_LABELS)
+                                .filter(([value]) => value !== member.role)
+                                .map(([value, label]) => (
+                                  <DropdownMenuItem key={value} onClick={() => changeRole(member.id, value as Role)}>
+                                    <Shield className="w-4 h-4 mr-2" />Tornar {label.toLowerCase()}
+                                  </DropdownMenuItem>
+                                ))}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive"

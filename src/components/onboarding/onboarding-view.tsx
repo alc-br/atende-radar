@@ -17,6 +17,11 @@ import {
 import { useAppStore } from '@/lib/store'
 import { toast } from 'sonner'
 
+interface OnboardingAgent {
+  name: string
+  email: string
+}
+
 interface OnboardingState {
   orgName: string
   segment: string
@@ -25,7 +30,7 @@ interface OnboardingState {
   avgTicket: string
   conversionRate: string
   whatsappConnected: boolean
-  agents: string[]
+  agents: OnboardingAgent[]
   reportFreq: 'daily' | 'weekly' | 'daily+weekly'
   reportTime: string
   reportWeekDay: string
@@ -85,7 +90,9 @@ export default function OnboardingView() {
   const { setView, setCurrentOrganization } = useAppStore()
   const [step, setStep] = useState(0)
   const [state, setState] = useState<OnboardingState>(initialState)
-  const [agentInput, setAgentInput] = useState('')
+  const [agentNameInput, setAgentNameInput] = useState('')
+  const [agentEmailInput, setAgentEmailInput] = useState('')
+  const [activating, setActivating] = useState(false)
 
   const update = (partial: Partial<OnboardingState>) =>
     setState((prev) => ({ ...prev, ...partial }))
@@ -100,14 +107,16 @@ export default function OnboardingView() {
     }))
 
   const addAgent = () => {
-    const name = agentInput.trim()
-    if (name && !state.agents.includes(name)) {
-      update({ agents: [...state.agents, name] })
-      setAgentInput('')
+    const name = agentNameInput.trim()
+    const email = agentEmailInput.trim()
+    if (name && email && !state.agents.some((a) => a.email === email)) {
+      update({ agents: [...state.agents, { name, email }] })
+      setAgentNameInput('')
+      setAgentEmailInput('')
     }
   }
-  const removeAgent = (name: string) =>
-    update({ agents: state.agents.filter((a) => a !== name) })
+  const removeAgent = (email: string) =>
+    update({ agents: state.agents.filter((a) => a.email !== email) })
 
   const progress = ((step + 1) / STEPS.length) * 100
   const tzLabel = (tz: string) => tz.replace('America/', '').replace(/_/g, ' ')
@@ -124,22 +133,49 @@ export default function OnboardingView() {
     }
   }
 
-  const handleActivate = () => {
-    setCurrentOrganization({
-      id: 'org-1',
-      name: state.orgName.toLowerCase().replace(/\s+/g, '-'),
-      displayName: state.orgName,
-      segment: state.segment,
-      timezone: state.timezone,
-      currency: 'BRL',
-      status: 'active',
-      phone: '',
-      adminEmail: '',
-      logoUrl: null,
-      website: null,
-    })
-    toast.success('Organização ativada com sucesso!')
-    setView('dashboard')
+  const handleActivate = async () => {
+    setActivating(true)
+    try {
+      const settingsRes = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: state.orgName,
+          segment: state.segment,
+          timezone: state.timezone,
+        }),
+      })
+      if (!settingsRes.ok) throw new Error('Erro ao salvar dados da empresa')
+      const { organization } = await settingsRes.json()
+
+      for (const agent of state.agents) {
+        await fetch('/api/team', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: agent.name, email: agent.email, role: 'atendente' }),
+        })
+      }
+
+      setCurrentOrganization({
+        id: organization.id,
+        name: organization.name,
+        displayName: organization.displayName,
+        segment: organization.segment,
+        timezone: organization.timezone,
+        currency: organization.currency,
+        status: organization.status,
+        phone: organization.phone,
+        adminEmail: organization.adminEmail,
+        logoUrl: organization.logoUrl,
+        website: organization.website,
+      })
+      toast.success('Organização ativada com sucesso!')
+      setView('dashboard')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao ativar organização')
+    } finally {
+      setActivating(false)
+    }
   }
 
   const renderStep = () => {
@@ -297,23 +333,30 @@ export default function OnboardingView() {
       case 4:
         return (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Adicione os nomes dos atendentes da equipe.</p>
+            <p className="text-sm text-muted-foreground">Adicione os atendentes da equipe.</p>
             <div className="flex gap-2">
               <Input
                 placeholder="Nome do atendente"
-                value={agentInput}
-                onChange={(e) => setAgentInput(e.target.value)}
+                value={agentNameInput}
+                onChange={(e) => setAgentNameInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAgent())}
               />
-              <Button onClick={addAgent} size="icon">
+              <Input
+                type="email"
+                placeholder="E-mail"
+                value={agentEmailInput}
+                onChange={(e) => setAgentEmailInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAgent())}
+              />
+              <Button onClick={addAgent} size="icon" disabled={!agentNameInput.trim() || !agentEmailInput.trim()}>
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
             <div className="flex flex-wrap gap-2">
               {state.agents.map((agent) => (
-                <Badge key={agent} variant="secondary" className="gap-1.5 py-1.5 px-3 text-sm">
-                  {agent}
-                  <button onClick={() => removeAgent(agent)} className="hover:text-destructive">
+                <Badge key={agent.email} variant="secondary" className="gap-1.5 py-1.5 px-3 text-sm">
+                  {agent.name} <span className="text-muted-foreground">({agent.email})</span>
+                  <button onClick={() => removeAgent(agent.email)} className="hover:text-destructive">
                     <X className="w-3 h-3" />
                   </button>
                 </Badge>
@@ -383,7 +426,7 @@ export default function OnboardingView() {
                 { label: 'Status', value: state.whatsappConnected ? '✅ Conectado' : '❌ Não conectado' },
               ]} />
               <SummaryCard title="Equipe" items={[
-                { label: 'Atendentes', value: state.agents.length > 0 ? state.agents.join(', ') : 'Nenhum' },
+                { label: 'Atendentes', value: state.agents.length > 0 ? state.agents.map((a) => a.name).join(', ') : 'Nenhum' },
               ]} />
               <SummaryCard title="Relatórios" items={[
                 { label: 'Frequência', value: state.reportFreq === 'daily' ? 'Diário' : state.reportFreq === 'weekly' ? 'Semanal' : 'Diário + Semanal' },
@@ -394,10 +437,10 @@ export default function OnboardingView() {
               size="lg"
               className="w-full sm:w-auto"
               onClick={handleActivate}
-              disabled={!state.orgName || !state.segment}
+              disabled={!state.orgName || !state.segment || activating}
             >
               <Zap className="w-4 h-4 mr-2" />
-              Ativar organização
+              {activating ? 'Ativando...' : 'Ativar organização'}
             </Button>
           </div>
         )

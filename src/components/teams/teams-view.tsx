@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,61 +20,112 @@ import { toast } from 'sonner'
 interface Team {
   id: string
   name: string
-  supervisor: string
-  memberCount: number
+  code: string
+  supervisorId: string | null
+  supervisorName: string | null
   active: boolean
+  memberCount: number
   members: string[]
 }
 
-const mockTeams: Team[] = [
-  { id: '1', name: 'Vendas', supervisor: 'Carlos Oliveira', memberCount: 3, active: true, members: ['Maria Santos', 'Pedro Rocha'] },
-  { id: '2', name: 'Suporte', supervisor: 'Fernanda Costa', memberCount: 2, active: true, members: ['João Lima'] },
-  { id: '3', name: 'Retenção', supervisor: 'Ana Silva', memberCount: 1, active: false, members: [] },
-]
+interface AgentOption {
+  id: string
+  name: string
+}
 
-const supervisorOptions = [
-  'Ana Silva', 'Carlos Oliveira', 'Fernanda Costa', 'Maria Santos',
-]
+const slugify = (name: string) =>
+  name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
 
 export default function TeamsView() {
   const [teams, setTeams] = useState<Team[]>([])
+  const [agents, setAgents] = useState<AgentOption[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
-  const [newSupervisor, setNewSupervisor] = useState('')
+  const [newSupervisorId, setNewSupervisorId] = useState('')
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setTeams(mockTeams)
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [teamsRes, agentsRes] = await Promise.all([
+        fetch('/api/teams'),
+        fetch('/api/team'),
+      ])
+      if (!teamsRes.ok) throw new Error('Erro ao carregar equipes')
+      const teamsData = await teamsRes.json()
+      setTeams(teamsData.teams || [])
+      if (agentsRes.ok) {
+        const agentsData = await agentsRes.json()
+        setAgents((agentsData.agents || []).map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })))
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+    } finally {
       setLoading(false)
-    }, 500)
-    return () => clearTimeout(timer)
+    }
   }, [])
 
-  const handleCreate = () => {
-    if (!newName.trim() || !newSupervisor) return
-    const team: Team = {
-      id: String(Date.now()),
-      name: newName,
-      supervisor: newSupervisor,
-      memberCount: 0,
-      active: true,
-      members: [],
+  useEffect(() => { fetchData() }, [fetchData])
+
+  const handleCreate = async () => {
+    if (!newName.trim() || !newSupervisorId) return
+    try {
+      const res = await fetch('/api/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName,
+          code: slugify(newName),
+          supervisorId: newSupervisorId,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erro ao criar equipe')
+      }
+      toast.success(`Equipe "${newName}" criada com sucesso!`)
+      setNewName('')
+      setNewSupervisorId('')
+      setCreateOpen(false)
+      fetchData()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao criar equipe')
     }
-    setTeams((prev) => [...prev, team])
-    setNewName('')
-    setNewSupervisor('')
-    setCreateOpen(false)
-    toast.success(`Equipe "${team.name}" criada com sucesso!`)
   }
 
-  const toggleActive = (id: string) => {
-    setTeams((prev) => prev.map((t) => (t.id === id ? { ...t, active: !t.active } : t)))
-    toast.success('Status da equipe atualizado.')
+  const toggleActive = async (team: Team) => {
+    try {
+      const res = await fetch(`/api/teams/${team.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !team.active }),
+      })
+      if (!res.ok) throw new Error('Erro ao atualizar equipe')
+      toast.success('Status da equipe atualizado.')
+      fetchData()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao atualizar equipe')
+    }
   }
 
   const totalMembers = teams.reduce((sum, t) => sum + t.memberCount, 0)
   const activeTeams = teams.filter((t) => t.active).length
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-destructive font-medium">{error}</p>
+        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -104,11 +155,11 @@ export default function TeamsView() {
               </div>
               <div className="space-y-2">
                 <Label>Supervisor</Label>
-                <Select value={newSupervisor} onValueChange={setNewSupervisor}>
+                <Select value={newSupervisorId} onValueChange={setNewSupervisorId}>
                   <SelectTrigger><SelectValue placeholder="Selecione o supervisor" /></SelectTrigger>
                   <SelectContent>
-                    {supervisorOptions.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    {agents.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -116,7 +167,7 @@ export default function TeamsView() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button onClick={handleCreate} disabled={!newName.trim() || !newSupervisor}>Criar</Button>
+              <Button onClick={handleCreate} disabled={!newName.trim() || !newSupervisorId}>Criar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -184,7 +235,9 @@ export default function TeamsView() {
                       </div>
                       <div>
                         <CardTitle className="text-base">{team.name}</CardTitle>
-                        <CardDescription className="text-xs mt-0.5">Supervisor: {team.supervisor}</CardDescription>
+                        <CardDescription className="text-xs mt-0.5">
+                          Supervisor: {team.supervisorName || 'Não definido'}
+                        </CardDescription>
                       </div>
                     </div>
                     <Badge
@@ -216,7 +269,7 @@ export default function TeamsView() {
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() => toggleActive(team.id)}
+                    onClick={() => toggleActive(team)}
                   >
                     {team.active ? 'Desativar' : 'Ativar'} equipe
                   </Button>

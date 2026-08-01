@@ -8,23 +8,36 @@ export async function GET() {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
-    const teams = await db.team.findMany({
-      where: { organizationId: org.id },
-      orderBy: { name: 'asc' },
-    })
+    const [teams, agents] = await Promise.all([
+      db.team.findMany({
+        where: { organizationId: org.id },
+        orderBy: { name: 'asc' },
+      }),
+      db.agent.findMany({
+        where: { organizationId: org.id },
+        select: { id: true, name: true, team: true, status: true },
+      }),
+    ])
 
     return NextResponse.json({
-      teams: teams.map((t) => ({
-        id: t.id,
-        name: t.name,
-        code: t.code,
-        unitId: t.unitId,
-        supervisorId: t.supervisorId,
-        connectionIds: JSON.parse(t.connectionIds || '[]') as string[],
-        slaConfig: JSON.parse(t.slaConfig || '{}') as Record<string, unknown>,
-        goals: JSON.parse(t.goals || '{}') as Record<string, unknown>,
-        active: t.active,
-      })),
+      teams: teams.map((t) => {
+        const supervisor = t.supervisorId ? agents.find((a) => a.id === t.supervisorId) : null
+        const members = agents.filter((a) => a.team === t.name && a.status === 'active')
+        return {
+          id: t.id,
+          name: t.name,
+          code: t.code,
+          unitId: t.unitId,
+          supervisorId: t.supervisorId,
+          supervisorName: supervisor?.name || null,
+          connectionIds: JSON.parse(t.connectionIds || '[]') as string[],
+          slaConfig: JSON.parse(t.slaConfig || '{}') as Record<string, unknown>,
+          goals: JSON.parse(t.goals || '{}') as Record<string, unknown>,
+          active: t.active,
+          memberCount: members.length,
+          members: members.map((m) => m.name),
+        }
+      }),
     })
   } catch (error) {
     console.error('Teams GET error:', error)
