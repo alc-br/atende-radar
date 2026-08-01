@@ -50,7 +50,7 @@ export async function GET() {
         recipients: JSON.parse(r.recipientEmails || '[]') as string[],
         status: r.status,
         createdAt: r.createdAt.toISOString(),
-        fileSize: r.filePath ? `${Math.floor(Math.random() * 500 + 100)} KB` : null,
+        filePath: r.filePath,
       }
     })
 

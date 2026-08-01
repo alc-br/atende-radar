@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 
 const reportIcons: Record<string, React.ReactNode> = {
   daily: <Clock className="h-5 w-5" />,
@@ -52,6 +53,10 @@ function getStatusBadge(status: string) {
 
 export default function ReportsView() {
   const [configDialogOpen, setConfigDialogOpen] = useState<string | null>(null)
+  const [configSchedule, setConfigSchedule] = useState('')
+  const [configRecipients, setConfigRecipients] = useState('')
+  const [savingConfig, setSavingConfig] = useState(false)
+  const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [historyFilter, setHistoryFilter] = useState<string>('all')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -76,6 +81,59 @@ export default function ReportsView() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  const handleGenerate = async (reportTypeId: string) => {
+    setGeneratingId(reportTypeId)
+    try {
+      const periodEnd = new Date()
+      const periodStart = new Date()
+      periodStart.setDate(periodStart.getDate() - 7)
+      const res = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportTypeId,
+          periodStart: periodStart.toISOString(),
+          periodEnd: periodEnd.toISOString(),
+        }),
+      })
+      if (!res.ok) throw new Error('Erro ao gerar relatório')
+      toast.success('Relatório em processamento.')
+      fetchData()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao gerar relatório')
+    } finally {
+      setGeneratingId(null)
+    }
+  }
+
+  const openConfig = (report: { id: string; schedule: string; recipients: string[] }) => {
+    setConfigSchedule(report.schedule || '')
+    setConfigRecipients(report.recipients.join('\n'))
+    setConfigDialogOpen(report.id)
+  }
+
+  const handleSaveConfig = async (reportTypeId: string) => {
+    setSavingConfig(true)
+    try {
+      const res = await fetch(`/api/reports/${reportTypeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schedule: configSchedule,
+          recipients: configRecipients.split('\n').map((r) => r.trim()).filter(Boolean),
+        }),
+      })
+      if (!res.ok) throw new Error('Erro ao salvar configuração')
+      toast.success('Configuração salva.')
+      setConfigDialogOpen(null)
+      fetchData()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao salvar configuração')
+    } finally {
+      setSavingConfig(false)
+    }
+  }
+
   if (isLoading) return <div className="flex flex-col gap-4 p-4 md:p-6"><Skeleton className="h-8 w-48" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-lg" />)}</div></div>
   if (error) return <div className="flex flex-col items-center justify-center h-96 gap-4"><p className="text-destructive font-medium">{error}</p><button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button></div>
 
@@ -94,19 +152,19 @@ export default function ReportsView() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info('Exportação de arquivos ainda não disponível nesta versão.')}>
             <FileJson className="h-4 w-4" />
             CSV indicadores
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info('Exportação de arquivos ainda não disponível nesta versão.')}>
             <FileSpreadsheet className="h-4 w-4" />
             XLSX relatórios
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info('Exportação de arquivos ainda não disponível nesta versão.')}>
             <FileDown className="h-4 w-4" />
             PDF executivo
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info('Exportação de arquivos ainda não disponível nesta versão.')}>
             <FileJson className="h-4 w-4" />
             JSON API
           </Button>
@@ -160,11 +218,16 @@ export default function ReportsView() {
                   </div>
                   <Separator />
                   <div className="flex items-center gap-2">
-                    <Button size="sm" className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
-                      <RefreshCw className="h-3.5 w-3.5" />
+                    <Button
+                      size="sm"
+                      className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      disabled={generatingId === report.id}
+                      onClick={() => handleGenerate(report.id)}
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${generatingId === report.id ? 'animate-spin' : ''}`} />
                       Gerar agora
                     </Button>
-                    <Dialog open={configDialogOpen === report.id} onOpenChange={(open) => setConfigDialogOpen(open ? report.id : null)}>
+                    <Dialog open={configDialogOpen === report.id} onOpenChange={(open) => open ? openConfig(report) : setConfigDialogOpen(null)}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm" className="gap-1.5">
                           <Settings2 className="h-3.5 w-3.5" />
@@ -184,20 +247,28 @@ export default function ReportsView() {
                             <input
                               type="text"
                               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
-                              defaultValue={report.schedule}
+                              value={configSchedule}
+                              onChange={(e) => setConfigSchedule(e.target.value)}
                             />
                           </div>
                           <div className="space-y-2">
                             <label className="text-sm font-medium">Destinatários (um por linha)</label>
                             <textarea
                               className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
-                              defaultValue={report.recipients.join('\n')}
+                              value={configRecipients}
+                              onChange={(e) => setConfigRecipients(e.target.value)}
                             />
                           </div>
                         </div>
                         <DialogFooter>
                           <Button variant="outline" onClick={() => setConfigDialogOpen(null)}>Cancelar</Button>
-                          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setConfigDialogOpen(null)}>Salvar</Button>
+                          <Button
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            disabled={savingConfig}
+                            onClick={() => handleSaveConfig(report.id)}
+                          >
+                            Salvar
+                          </Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
@@ -254,18 +325,27 @@ export default function ReportsView() {
                         <TableCell>{getStatusBadge(row.status)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {row.createdAt ? timeAgo(row.createdAt) : '—'}
-                          {row.fileSize && (
-                            <span className="ml-1.5 text-xs text-muted-foreground">({row.fileSize})</span>
-                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             {row.status === 'completed' && (
                               <>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Download">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  title="Download"
+                                  onClick={() => toast.info('Geração de arquivo ainda não disponível nesta versão.')}
+                                >
                                   <Download className="h-3.5 w-3.5" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Reenviar">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  title="Reenviar"
+                                  onClick={() => toast.info('Reenvio por e-mail ainda não disponível nesta versão.')}
+                                >
                                   <Send className="h-3.5 w-3.5" />
                                 </Button>
                               </>

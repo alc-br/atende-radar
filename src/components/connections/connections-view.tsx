@@ -440,8 +440,8 @@ export default function ConnectionsView() {
                           </div>
                           <div className="flex items-center gap-1.5">
                             <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-muted-foreground">Armazenamento:</span>
-                            <span className="font-medium">{diag.storageUsed}</span>
+                            <span className="text-muted-foreground">Mensagens:</span>
+                            <span className="font-medium">{diag.messageCount}</span>
                           </div>
                         </div>
 

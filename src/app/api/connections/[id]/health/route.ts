@@ -22,6 +22,12 @@ export async function GET(
       return NextResponse.json({ error: 'Connection not found' }, { status: 404 })
     }
 
+    const tenMinAgo = new Date(Date.now() - 10 * 60000)
+    const [recentEventCount, messageCount] = await Promise.all([
+      db.rawChannelEvent.count({ where: { connectionId: id, receivedAt: { gte: tenMinAgo } } }),
+      db.message.count({ where: { conversation: { connectionId: id } } }),
+    ])
+
     // Build diagnostics based on connection state
     const minutesSinceEvent = connection.lastEventAt
       ? (Date.now() - connection.lastEventAt.getTime()) / 60000
@@ -31,15 +37,15 @@ export async function GET(
       ? (Date.now() - connection.lastSyncAt.getTime()) / 60000
       : 9999
 
+    const eventRate = `${(recentEventCount / 10).toFixed(1)}/min`
+
     let socketStatus = 'NONE'
-    let eventRate = '0/min'
     let recentErrors: string[] = []
     let recommendedActions: string[] = []
 
     switch (connection.status) {
       case 'connected':
         socketStatus = 'OPEN'
-        eventRate = `${(10 + Math.random() * 10).toFixed(1)}/min`
         if (minutesSinceEvent > 10) {
           socketStatus = 'OPEN (unstable)'
           recentErrors.push(`Sem eventos há ${Math.floor(minutesSinceEvent)} minutos`)
@@ -53,7 +59,6 @@ export async function GET(
         break
       case 'syncing':
         socketStatus = 'CONNECTING'
-        eventRate = `${(3 + Math.random() * 5).toFixed(1)}/min`
         recentErrors.push('Sincronização em andamento')
         recommendedActions.push('Aguardar conclusão da sincronização')
         break
@@ -64,7 +69,6 @@ export async function GET(
         break
       case 'degraded':
         socketStatus = 'OPEN (unstable)'
-        eventRate = `${(1 + Math.random() * 4).toFixed(1)}/min`
         recentErrors.push('Latência elevada detectada')
         recommendedActions.push('Verificar rede local e firewall')
         break
@@ -92,11 +96,11 @@ export async function GET(
       diagnostics: {
         socketStatus,
         lastHeartbeat: connection.lastEventAt?.toISOString() || '—',
-        pendingQueues: connection.status === 'syncing' ? Math.floor(Math.random() * 15) + 1 : 0,
+        pendingQueues: 0,
         eventRate,
         recentErrors,
         protocolVersion: connection.status === 'qr_required' ? '—' : 'WAWeb v2.2426.66',
-        storageUsed: `${(Math.random() * 50 + 5).toFixed(1)} MB`,
+        messageCount,
         recommendedActions,
       },
     })

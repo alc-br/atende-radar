@@ -105,17 +105,55 @@ const getStatusLabel = (status: string) => {
   return labels[status] || status
 }
 
-// Mock strengths/failures based on agent score
-function getStrengths(score: number): string[] {
-  if (score >= 80) return ['Tempo de resposta consistente', 'Alta taxa de conversão de oportunidades', 'Boa qualidade nas interações']
-  if (score >= 70) return ['Responde dentro do SLA', 'Trata perguntas do cliente']
-  return ['Responde mensagens']
+const FINDING_TYPE_LABELS: Record<string, string> = {
+  no_response: 'Sem resposta',
+  slow_response: 'Resposta lenta',
+  ignored_question: 'Pergunta ignorada',
+  pending_quote: 'Orçamento pendente',
+  overdue_promise: 'Promessa vencida',
+  abandoned_lead: 'Lead abandonado',
+  customer_frustrated: 'Cliente frustrado',
 }
 
-function getFailures(score: number): string[] {
-  if (score >= 80) return ['Pode melhorar follow-up pós-venda']
-  if (score >= 70) return ['Tempo de resposta acima da média em horários de pico', 'Algumas promessas sem acompanhamento']
-  return ['Resposta lenta a pedidos de preço', 'Alta taxa de oportunidades perdidas', 'Promessas frequentemente não cumpridas']
+interface AgentStats {
+  avgResponseTime: number
+  opportunities: number
+  opportunitiesLost: number
+  promisesKept: number
+  promisesTotal: number
+  questionsAnswered: number
+  questionsTotal: number
+}
+
+// Strengths derived from real per-agent metrics
+function getStrengths(stats: AgentStats): string[] {
+  const items: string[] = []
+  if (stats.avgResponseTime > 0 && stats.avgResponseTime <= 5) {
+    items.push(`Tempo de resposta rápido (${stats.avgResponseTime.toFixed(1)} min em média)`)
+  }
+  if (stats.promisesTotal > 0 && stats.promisesKept / stats.promisesTotal >= 0.8) {
+    items.push(`Alta taxa de promessas cumpridas (${Math.round((stats.promisesKept / stats.promisesTotal) * 100)}%)`)
+  }
+  if (stats.opportunities > 0 && stats.opportunitiesLost === 0) {
+    items.push('Nenhuma oportunidade perdida no período')
+  }
+  if (stats.questionsTotal > 0 && stats.questionsAnswered / stats.questionsTotal >= 0.9) {
+    items.push('Responde quase todas as perguntas dos clientes')
+  }
+  return items.length > 0 ? items : ['Sem destaques suficientes no período']
+}
+
+// Failures derived from real audit findings for this agent's conversations
+function getFailures(findings: { type: string }[]): string[] {
+  if (findings.length === 0) return ['Nenhuma falha registrada no período']
+  const counts = new Map<string, number>()
+  for (const f of findings) {
+    counts.set(f.type, (counts.get(f.type) || 0) + 1)
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([type, count]) => `${count}x ${FINDING_TYPE_LABELS[type] || type}`)
 }
 
 // --- Component ---
@@ -158,69 +196,67 @@ export default function AgentProfile() {
     opportunitiesLost: profileData.metrics?.opportunitiesLost || 0,
     promisesKept: profileData.metrics?.promisesKept || 0,
     promisesTotal: profileData.metrics?.promisesTotal || 0,
+    questionsAnswered: profileData.metrics?.questionsAnswered || 0,
+    questionsTotal: profileData.metrics?.questionsTotal || 0,
     trend: profileData.metrics?.trend || 'stable',
   } : {
     id: '', name: '', email: '', role: '', team: '', avatar: null, status: '', score: 0,
     conversations: 0, avgResponseTime: 0, opportunities: 0, opportunitiesLost: 0,
-    promisesKept: 0, promisesTotal: 0, trend: 'stable' as const,
+    promisesKept: 0, promisesTotal: 0, questionsAnswered: 0, questionsTotal: 0, trend: 'stable' as const,
   }
 
-  // Compute score dimensions (mock based on overall score + noise)
+  // Score dimensions derived from real per-agent metrics
   const scoreDimensions: ScoreDimension[] = useMemo(() => {
     const base = agent.score
-    const dims: ScoreDimension[] = [
-      { key: 'velocidade', label: 'Velocidade', weight: 30, score: Math.min(100, Math.max(20, base + Math.round((Math.random() - 0.5) * 20))) },
-      { key: 'oportunidades', label: 'Oportunidades', weight: 25, score: Math.min(100, Math.max(20, base + Math.round((Math.random() - 0.5) * 25))) },
-      { key: 'pendencias', label: 'Pendências', weight: 20, score: Math.min(100, Math.max(20, base + Math.round((Math.random() - 0.5) * 15))) },
-      { key: 'qualidade', label: 'Qualidade', weight: 15, score: Math.min(100, Math.max(20, base + Math.round((Math.random() - 0.5) * 18))) },
-      { key: 'recuperacao', label: 'Recuperação', weight: 10, score: Math.min(100, Math.max(20, base + Math.round((Math.random() - 0.5) * 22))) },
+    const velocidade = Math.min(100, Math.max(0, Math.round(100 - agent.avgResponseTime * 8)))
+    const oppDenom = agent.opportunities + agent.opportunitiesLost
+    const oportunidades = oppDenom > 0 ? Math.round((agent.opportunities / oppDenom) * 100) : base
+    const pendencias = agent.promisesTotal > 0 ? Math.round((agent.promisesKept / agent.promisesTotal) * 100) : base
+    const qualidade = agent.questionsTotal > 0 ? Math.round((agent.questionsAnswered / agent.questionsTotal) * 100) : base
+    return [
+      { key: 'velocidade', label: 'Velocidade', weight: 30, score: velocidade },
+      { key: 'oportunidades', label: 'Oportunidades', weight: 25, score: oportunidades },
+      { key: 'pendencias', label: 'Pendências', weight: 20, score: pendencias },
+      { key: 'qualidade', label: 'Qualidade', weight: 15, score: qualidade },
+      { key: 'recuperacao', label: 'Recuperação', weight: 10, score: base },
     ]
-    return dims
-  }, [agent.score])
+  }, [agent.score, agent.avgResponseTime, agent.opportunities, agent.opportunitiesLost, agent.promisesKept, agent.promisesTotal, agent.questionsAnswered, agent.questionsTotal])
 
-  // Mock exemplary / to-review conversations
+  const recentConversations: any[] = profileData?.recentConversations || []
+
   const exemplaryConversations = useMemo(() => {
-    const convs = [
-      { id: 'ex_1', title: 'Clareamento dental — venda concluída', score: 95 },
-      { id: 'ex_2', title: 'Orçamento de implante — follow-up excelente', score: 91 },
-    ]
-    if (agent.score >= 80) return convs
-    return convs.slice(0, 1)
-  }, [agent.score])
+    return [...recentConversations]
+      .filter((c) => c.score >= 80)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((c) => ({ id: c.id, title: `${c.customerName} — ${c.primaryIntent || c.inferredStage || 'conversa'}`, score: c.score }))
+  }, [recentConversations])
 
   const toReviewConversations = useMemo(() => {
-    const convs = [
-      { id: 'rev_1', title: 'Cliente frustrado com atraso', reason: 'Resposta fora do SLA' },
-      { id: 'rev_2', title: 'Orçamento enviado sem preço', reason: 'Pergunta ignorada' },
-      { id: 'rev_3', title: 'Promessa não cumprida', reason: 'Vencimento sem retorno' },
-    ]
-    if (agent.score >= 80) return convs.slice(0, 1)
-    if (agent.score >= 70) return convs.slice(0, 2)
-    return convs
-  }, [agent.score])
+    return [...recentConversations]
+      .filter((c) => c.score < 70)
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 3)
+      .map((c) => ({ id: c.id, title: `${c.customerName} — ${c.primaryIntent || c.inferredStage || 'conversa'}`, reason: `Nota ${c.score}` }))
+  }, [recentConversations])
 
-  // Mock promises
   const promises = useMemo(() => {
-    const today = new Date()
-    return [
-      { id: 'p_1', text: 'Enviar orçamento de clareamento', status: 'fulfilled' as const, dueDate: new Date(today.getTime() - 2 * 86400000).toISOString(), completed: true },
-      { id: 'p_2', text: 'Confirmar agendamento sexta-feira', status: 'fulfilled' as const, dueDate: new Date(today.getTime() - 1 * 86400000).toISOString(), completed: true },
-      { id: 'p_3', text: 'Retornar sobre plano Unimed', status: 'overdue' as const, dueDate: new Date(today.getTime() - 1 * 86400000).toISOString(), completed: false },
-      { id: 'p_4', text: 'Verificar disponibilidade Dr. Silva', status: 'pending' as const, dueDate: new Date(today.getTime() + 2 * 86400000).toISOString(), completed: false },
-      { id: 'p_5', text: 'Enviar documentos pós-consulta', status: 'pending' as const, dueDate: new Date(today.getTime() + 3 * 86400000).toISOString(), completed: false },
-    ]
-  }, [])
+    const raw: any[] = profileData?.promises || []
+    const now = Date.now()
+    return raw.map((p) => {
+      let status: 'fulfilled' | 'overdue' | 'pending' = 'pending'
+      if (p.status === 'kept') status = 'fulfilled'
+      else if (p.dueDate && new Date(p.dueDate).getTime() < now) status = 'overdue'
+      return { id: p.id, text: p.text, status, dueDate: p.dueDate }
+    })
+  }, [profileData])
 
-  // Mock opportunities
   const opportunities = useMemo(() => {
-    return [
-      { id: 'o_1', intent: 'Clareamento dental', value: 1800, status: 'won' as const },
-      { id: 'o_2', intent: 'Implante dentário', value: 3500, status: 'negotiation' as const },
-      { id: 'o_3', intent: 'Limpeza periódica', value: 250, status: 'lost' as const },
-      { id: 'o_4', intent: 'Aparelho ortodôntico', value: 4200, status: 'price' as const },
-      { id: 'o_5', intent: 'Tratamento de canal', value: 800, status: 'won' as const },
-    ]
-  }, [])
+    const raw: any[] = profileData?.opportunities || []
+    return raw.map((o) => ({ id: o.id, intent: o.intent, value: o.value, status: o.status }))
+  }, [profileData])
+
+  const findings: { type: string; severity: string; status: string }[] = profileData?.findings || []
 
   const initials = agent.name
     .split(' ')
@@ -238,8 +274,8 @@ export default function AgentProfile() {
     }))
   }, [profileData?.scoreEvolution])
 
-  const strengths = getStrengths(agent.score)
-  const failures = getFailures(agent.score)
+  const strengths = getStrengths(agent)
+  const failures = getFailures(findings)
 
   // --- Early returns AFTER all hooks ---
   if (isLoading) return <div className="flex flex-col gap-4 p-4 md:p-6"><Skeleton className="h-8 w-40" /><Skeleton className="h-64 w-full rounded-lg" /><Skeleton className="h-64 w-full rounded-lg" /></div>

@@ -37,6 +37,24 @@ export async function GET(
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
     }
 
+    const [promises, opportunities, findings] = await Promise.all([
+      db.promise.findMany({
+        where: { conversation: { agentId: id } },
+        orderBy: { dueAt: 'desc' },
+        take: 10,
+      }),
+      db.revenueOpportunity.findMany({
+        where: { conversation: { agentId: id } },
+        include: { conversation: { select: { primaryIntent: true, inferredStage: true } } },
+        orderBy: { expectedValue: 'desc' },
+        take: 10,
+      }),
+      db.auditFinding.findMany({
+        where: { conversation: { agentId: id } },
+        select: { type: true, severity: true, status: true },
+      }),
+    ])
+
     // Score evolution from metrics
     const scoreEvolution = agent.metrics.map((m) => ({
       date: m.date,
@@ -96,6 +114,19 @@ export async function GET(
         openedAt: c.openedAt.toISOString(),
         closedAt: c.closedAt?.toISOString(),
       })),
+      promises: promises.map((p) => ({
+        id: p.id,
+        text: p.action,
+        status: p.status,
+        dueDate: p.dueAt?.toISOString() || null,
+      })),
+      opportunities: opportunities.map((o) => ({
+        id: o.id,
+        intent: o.conversation.primaryIntent || 'Oportunidade',
+        value: Math.round(o.expectedValue),
+        status: o.conversation.inferredStage,
+      })),
+      findings: findings.map((f) => ({ type: f.type, severity: f.severity, status: f.status })),
     })
   } catch (error) {
     console.error('Agent profile error:', error)
