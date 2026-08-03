@@ -25,6 +25,12 @@ export async function PATCH(
     } else if (action === 'resume') {
       data.status = 'connected'
       data.disabledAt = null
+    } else if (action === 'reconnect') {
+      data.status = 'qr_required'
+      data.disabledAt = null
+    } else if (action === 'disconnect') {
+      data.status = 'disconnected'
+      data.disabledAt = new Date()
     }
 
     const updated = await db.whatsAppConnection.update({

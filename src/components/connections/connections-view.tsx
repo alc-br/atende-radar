@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -65,7 +66,30 @@ function QualityDots({ quality }: { quality: 'good' | 'medium' | 'bad' | null })
 export default function ConnectionsView() {
   const [newConnDialogOpen, setNewConnDialogOpen] = useState(false)
   const [newConnName, setNewConnName] = useState('')
+  const [newConnPhone, setNewConnPhone] = useState('')
   const [newConnAck, setNewConnAck] = useState(false)
+  const [creatingConn, setCreatingConn] = useState(false)
+
+  const handleCreateConnection = async () => {
+    setCreatingConn(true)
+    try {
+      const res = await fetch('/api/connections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newConnName, phoneNumber: newConnPhone }),
+      })
+      if (!res.ok) throw new Error()
+      setNewConnName('')
+      setNewConnPhone('')
+      setNewConnAck(false)
+      setNewConnDialogOpen(false)
+      fetchData()
+    } catch {
+      // keep dialog open so the user can retry
+    } finally {
+      setCreatingConn(false)
+    }
+  }
   const [expandedDiag, setExpandedDiag] = useState<string | null>(null)
   const [localPaused, setLocalPaused] = useState<Record<string, boolean>>({})
   const [diagnosticsMap, setDiagnosticsMap] = useState<Record<string, any>>({})
@@ -97,6 +121,49 @@ export default function ConnectionsView() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => {
+    connectionsData.forEach((c: any) => fetchDiagnostics(c.id))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionsData.length])
+
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [renameConnId, setRenameConnId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+
+  const patchConnection = (connId: string, body: Record<string, unknown>) => {
+    fetch(`/api/connections/${connId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(() => fetchData()).catch(() => {})
+  }
+
+  const handleReconnect = (connId: string) => {
+    patchConnection(connId, { action: 'reconnect' })
+    toast.info('Conexão marcada para novo pareamento. Gere um novo QR Code.')
+  }
+
+  const handleDisconnect = (connId: string) => {
+    patchConnection(connId, { action: 'disconnect' })
+  }
+
+  const handleDeleteConnection = (connId: string) => {
+    fetch(`/api/connections/${connId}`, { method: 'DELETE' }).then(() => fetchData()).catch(() => {})
+  }
+
+  const openRenameDialog = (connId: string, currentName: string) => {
+    setRenameConnId(connId)
+    setRenameValue(currentName)
+    setRenameDialogOpen(true)
+  }
+
+  const confirmRename = () => {
+    if (renameConnId && renameValue.trim()) {
+      patchConnection(renameConnId, { name: renameValue.trim() })
+    }
+    setRenameDialogOpen(false)
+  }
 
   const connectedCount = connectionsData.filter((c: any) => c.status === 'connected').length
   const disconnectedCount = connectionsData.filter((c: any) => ['disconnected', 'logged_out', 'blocked', 'error'].includes(c.status)).length
@@ -177,6 +244,16 @@ export default function ConnectionsView() {
                   onChange={(e) => setNewConnName(e.target.value)}
                 />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Número do WhatsApp</label>
+                <input
+                  type="text"
+                  placeholder="Ex: 5511999998888"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+                  value={newConnPhone}
+                  onChange={(e) => setNewConnPhone(e.target.value)}
+                />
+              </div>
               <Alert>
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-xs">
@@ -206,8 +283,8 @@ export default function ConnectionsView() {
               <Button variant="outline" onClick={() => setNewConnDialogOpen(false)}>Cancelar</Button>
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                disabled={!newConnName.trim() || !newConnAck}
-                onClick={() => setNewConnDialogOpen(false)}
+                disabled={!newConnName.trim() || !newConnPhone.trim() || !newConnAck || creatingConn}
+                onClick={handleCreateConnection}
               >
                 Criar conexão
               </Button>
@@ -329,7 +406,7 @@ export default function ConnectionsView() {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => handleReconnect(conn.id)}>
                           <RefreshCw className="h-3 w-3" />Reconectar
                         </Button>
                       </TooltipTrigger>
@@ -337,7 +414,10 @@ export default function ConnectionsView() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                        <Button
+                          variant="ghost" size="sm" className="h-7 text-xs gap-1"
+                          onClick={() => toast.info('Geração de QR Code ainda não disponível nesta versão (sem integração real com WhatsApp).')}
+                        >
                           <QrCode className="h-3 w-3" />Gerar QR
                         </Button>
                       </TooltipTrigger>
@@ -357,7 +437,10 @@ export default function ConnectionsView() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                        <Button
+                          variant="ghost" size="sm" className="h-7 text-xs gap-1"
+                          onClick={() => toast.info('Envio de mensagem de teste ainda não disponível nesta versão (sem integração real com WhatsApp).')}
+                        >
                           <TestTube className="h-3 w-3" />Testar
                         </Button>
                       </TooltipTrigger>
@@ -365,7 +448,7 @@ export default function ConnectionsView() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => openRenameDialog(conn.id, conn.name)}>
                           <Pencil className="h-3 w-3" />Renomear
                         </Button>
                       </TooltipTrigger>
@@ -381,7 +464,7 @@ export default function ConnectionsView() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-amber-600">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-amber-600" onClick={() => handleDisconnect(conn.id)}>
                           <Unplug className="h-3 w-3" />Desconectar
                         </Button>
                       </TooltipTrigger>
@@ -389,7 +472,7 @@ export default function ConnectionsView() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-red-600">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-red-600" onClick={() => handleDeleteConnection(conn.id)}>
                           <Trash2 className="h-3 w-3" />Excluir
                         </Button>
                       </TooltipTrigger>
@@ -499,6 +582,26 @@ export default function ConnectionsView() {
           )
         })}
       </div>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renomear conexão</DialogTitle>
+            <DialogDescription>Escolha um novo nome para esta conexão.</DialogDescription>
+          </DialogHeader>
+          <input
+            type="text"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={confirmRename} disabled={!renameValue.trim()}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
