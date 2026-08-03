@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
+  try {
+    return value ? (JSON.parse(value) as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+
 export async function GET() {
   try {
     const org = await db.organization.findFirst()
@@ -34,6 +42,7 @@ export async function GET() {
         phone: org.phone,
         adminEmail: org.adminEmail,
       },
+      settings: safeJsonParse<Record<string, unknown>>(org.settingsJson, {}),
       alertRulesCount,
       reportDefinitions: reportDefinitions.map((r) => ({
         id: r.id,
@@ -67,6 +76,7 @@ export async function PATCH(request: Request) {
       website,
       phone,
       adminEmail,
+      settings,
     } = body as {
       displayName?: string
       cnpj?: string
@@ -77,6 +87,7 @@ export async function PATCH(request: Request) {
       website?: string
       phone?: string
       adminEmail?: string
+      settings?: Record<string, unknown>
     }
 
     const data: Record<string, unknown> = { updatedAt: new Date() }
@@ -89,13 +100,21 @@ export async function PATCH(request: Request) {
     if (website !== undefined) data.website = website
     if (phone !== undefined) data.phone = phone
     if (adminEmail !== undefined) data.adminEmail = adminEmail
+    if (settings !== undefined) {
+      const current = safeJsonParse<Record<string, unknown>>(org.settingsJson, {})
+      data.settingsJson = JSON.stringify({ ...current, ...settings })
+    }
 
     const updated = await db.organization.update({
       where: { id: org.id },
       data,
     })
 
-    return NextResponse.json({ success: true, organization: updated })
+    return NextResponse.json({
+      success: true,
+      organization: updated,
+      settings: safeJsonParse<Record<string, unknown>>(updated.settingsJson, {}),
+    })
   } catch (error) {
     console.error('Settings PATCH error:', error)
     return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })

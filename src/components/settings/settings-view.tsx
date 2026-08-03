@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
+import { toast } from 'sonner'
 
 const WEEKDAYS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
 
@@ -55,11 +56,16 @@ const SEGMENT_LABELS: Record<string, string> = {
   juridico: 'Jurídico', restaurante: 'Restaurante', spa_beleza: 'Spa/Beleza', outro: 'Outro',
 }
 
-function TabSaveButton({ onSave }: { onSave?: () => void }) {
+function TabSaveButton({ onSave, saving }: { onSave?: () => void; saving?: boolean }) {
   return (
-    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" type="submit" onClick={onSave}>
+    <Button
+      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+      type="submit"
+      disabled={saving}
+      onClick={onSave}
+    >
       <Save className="h-4 w-4" />
-      Salvar
+      {saving ? 'Salvando...' : 'Salvar'}
     </Button>
   )
 }
@@ -78,6 +84,8 @@ export default function SettingsView() {
   const [empTimezone, setEmpTimezone] = useState('America/Sao_Paulo')
   const [rulesData, setRulesData] = useState<any[]>([])
 
+  const [savingTab, setSavingTab] = useState<string | null>(null)
+
   useEffect(() => {
     fetch('/api/settings').then(r => r.ok ? r.json() : {}).then(data => {
       if (data.organization) {
@@ -89,12 +97,91 @@ export default function SettingsView() {
         setEmpPhone(data.organization.phone || '')
         setEmpEmail(data.organization.adminEmail || '')
         setEmpTimezone(data.organization.timezone || 'America/Sao_Paulo')
- }
+      }
+      const s = data.settings || {}
+      if (s.businessHours) setBusinessHours(s.businessHours)
+      if (s.holidays !== undefined) setHolidays(s.holidays)
+      if (s.toleranceBefore !== undefined) setToleranceBefore(s.toleranceBefore)
+      if (s.toleranceAfter !== undefined) setToleranceAfter(s.toleranceAfter)
+      if (s.outsideRule !== undefined) setOutsideRule(s.outsideRule)
+      if (s.slaFirst !== undefined) setSlaFirst(s.slaFirst)
+      if (s.slaContinuity !== undefined) setSlaContinuity(s.slaContinuity)
+      if (s.abandonTime !== undefined) setAbandonTime(s.abandonTime)
+      if (s.reopenWindow !== undefined) setReopenWindow(s.reopenWindow)
+      if (s.inactivityClose !== undefined) setInactivityClose(s.inactivityClose)
+      if (s.avgTicket !== undefined) setAvgTicket(s.avgTicket)
+      if (s.convRate !== undefined) setConvRate(s.convRate)
+      if (s.products) setProducts(s.products)
+      if (s.intentions) setIntentions(s.intentions)
+      if (s.minSample !== undefined) setMinSample(s.minSample)
+      if (s.opportunityCeiling !== undefined) setOpportunityCeiling(s.opportunityCeiling)
+      if (s.showEstimates !== undefined) setShowEstimates(s.showEstimates)
+      if (s.aiSegment !== undefined) setAiSegment(s.aiSegment)
+      if (s.aiTerms !== undefined) setAiTerms(s.aiTerms)
+      if (s.aiConfidence) setAiConfidence(s.aiConfidence)
+      if (s.aiAudio !== undefined) setAiAudio(s.aiAudio)
+      if (s.aiMasking !== undefined) setAiMasking(s.aiMasking)
+      if (s.notifDailyEnabled !== undefined) setNotifDailyEnabled(s.notifDailyEnabled)
+      if (s.notifDailyTime !== undefined) setNotifDailyTime(s.notifDailyTime)
+      if (s.notifDailyDays !== undefined) setNotifDailyDays(s.notifDailyDays)
+      if (s.notifWeeklyEnabled !== undefined) setNotifWeeklyEnabled(s.notifWeeklyEnabled)
+      if (s.notifWeeklyTime !== undefined) setNotifWeeklyTime(s.notifWeeklyTime)
+      if (s.notifImmediate !== undefined) setNotifImmediate(s.notifImmediate)
+      if (s.notifDigestEnabled !== undefined) setNotifDigestEnabled(s.notifDigestEnabled)
+      if (s.notifDigestFreq !== undefined) setNotifDigestFreq(s.notifDigestFreq)
+      if (s.notifRecipients) setNotifRecipients(s.notifRecipients)
+      if (s.silenceStart !== undefined) setSilenceStart(s.silenceStart)
+      if (s.silenceEnd !== undefined) setSilenceEnd(s.silenceEnd)
+      if (s.retContent !== undefined) setRetContent(s.retContent)
+      if (s.retMetadata !== undefined) setRetMetadata(s.retMetadata)
+      if (s.retAttachments !== undefined) setRetAttachments(s.retAttachments)
+      if (s.privMasking !== undefined) setPrivMasking(s.privMasking)
+      if (s.privExport !== undefined) setPrivExport(s.privExport)
+      if (s.privExcluded !== undefined) setPrivExcluded(s.privExcluded)
+      if (s.privLegalBasis !== undefined) setPrivLegalBasis(s.privLegalBasis)
+      if (s.privDPO !== undefined) setPrivDPO(s.privDPO)
     }).catch(() => {})
     fetch('/api/alert-rules').then(r => r.ok ? r.json() : {}).then(data => {
       setRulesData(data.rules || [])
     }).catch(() => {}).finally(() => setIsLoading(false))
   }, [])
+
+  const saveOrganization = async () => {
+    setSavingTab('empresa')
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: empDisplay, cnpj: empCnpj, segment: empSegment,
+          website: empSite, phone: empPhone, adminEmail: empEmail, timezone: empTimezone,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Dados da empresa salvos.')
+    } catch {
+      toast.error('Não foi possível salvar os dados da empresa.')
+    } finally {
+      setSavingTab(null)
+    }
+  }
+
+  const saveSettingsSlice = async (tab: string, settings: Record<string, unknown>, label: string) => {
+    setSavingTab(tab)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success(`${label} salvo${label.endsWith('a') ? 'a' : 'o'}.`)
+    } catch {
+      toast.error(`Não foi possível salvar: ${label}.`)
+    } finally {
+      setSavingTab(null)
+    }
+  }
   const [empCurrency] = useState('BRL')
   const [empLang] = useState('pt-BR')
 
@@ -303,7 +390,7 @@ export default function SettingsView() {
                   </div>
                 </div>
                 <Separator />
-                <div className="flex justify-end"><TabSaveButton /></div>
+                <div className="flex justify-end"><TabSaveButton onSave={saveOrganization} saving={savingTab === 'empresa'} /></div>
               </form>
             </CardContent>
           </Card>
@@ -402,7 +489,12 @@ export default function SettingsView() {
                 </div>
 
                 <Separator />
-                <div className="flex justify-end"><TabSaveButton /></div>
+                <div className="flex justify-end">
+                  <TabSaveButton
+                    saving={savingTab === 'horarios'}
+                    onSave={() => saveSettingsSlice('horarios', { businessHours, holidays, toleranceBefore, toleranceAfter, outsideRule }, 'Horário comercial')}
+                  />
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -440,7 +532,12 @@ export default function SettingsView() {
                   </div>
                 </div>
                 <Separator />
-                <div className="flex justify-end"><TabSaveButton /></div>
+                <div className="flex justify-end">
+                  <TabSaveButton
+                    saving={savingTab === 'atendimento'}
+                    onSave={() => saveSettingsSlice('atendimento', { slaFirst, slaContinuity, abandonTime, reopenWindow, inactivityClose }, 'Parâmetros de atendimento')}
+                  />
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -557,7 +654,12 @@ export default function SettingsView() {
               </CardContent>
             </Card>
 
-            <div className="flex justify-end"><TabSaveButton /></div>
+            <div className="flex justify-end">
+              <TabSaveButton
+                saving={savingTab === 'financeiro'}
+                onSave={() => saveSettingsSlice('financeiro', { avgTicket, convRate, products, intentions, minSample, opportunityCeiling, showEstimates }, 'Parâmetros financeiros')}
+              />
+            </div>
           </form>
         </TabsContent>
 
@@ -622,7 +724,12 @@ export default function SettingsView() {
                 </div>
 
                 <Separator />
-                <div className="flex justify-end"><TabSaveButton /></div>
+                <div className="flex justify-end">
+                  <TabSaveButton
+                    saving={savingTab === 'ia'}
+                    onSave={() => saveSettingsSlice('ia', { aiSegment, aiTerms, aiConfidence, aiAudio, aiMasking }, 'Configurações de IA')}
+                  />
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -746,7 +853,15 @@ export default function SettingsView() {
               </CardContent>
             </Card>
 
-            <div className="flex justify-end"><TabSaveButton /></div>
+            <div className="flex justify-end">
+              <TabSaveButton
+                saving={savingTab === 'notificacoes'}
+                onSave={() => saveSettingsSlice('notificacoes', {
+                  notifDailyEnabled, notifDailyTime, notifDailyDays, notifWeeklyEnabled, notifWeeklyTime,
+                  notifImmediate, notifDigestEnabled, notifDigestFreq, notifRecipients, silenceStart, silenceEnd,
+                }, 'Preferências de notificação')}
+              />
+            </div>
           </form>
         </TabsContent>
 
@@ -820,7 +935,14 @@ export default function SettingsView() {
                 </div>
 
                 <Separator />
-                <div className="flex justify-end"><TabSaveButton onSave={() => { fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: empDisplay, name: empName, cnpj: empCnpj, segment: empSegment, website: empSite, phone: empPhone, adminEmail: empEmail, timezone: empTimezone }) }).then(() => {}).catch(() => {}) }} /></div>
+                <div className="flex justify-end">
+                  <TabSaveButton
+                    saving={savingTab === 'privacidade'}
+                    onSave={() => saveSettingsSlice('privacidade', {
+                      retContent, retMetadata, retAttachments, privMasking, privExport, privExcluded, privLegalBasis, privDPO,
+                    }, 'Configurações de privacidade')}
+                  />
+                </div>
               </form>
             </CardContent>
           </Card>
