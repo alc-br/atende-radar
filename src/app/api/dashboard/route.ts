@@ -67,48 +67,91 @@ interface TeamPerfItem {
   trend: string
 }
 
-export async function GET() {
+function dateStr(d: Date): string {
+  return d.toISOString().split('T')[0]
+}
+
+// Windows are [start, end] inclusive, in days-ago terms (0 = today)
+function resolveWindows(period: string): { curStart: number; curEnd: number; prevStart: number; prevEnd: number } {
+  switch (period) {
+    case 'today':
+      return { curStart: 0, curEnd: 0, prevStart: 1, prevEnd: 1 }
+    case 'yesterday':
+      return { curStart: 1, curEnd: 1, prevStart: 2, prevEnd: 2 }
+    case '30d':
+      return { curStart: 29, curEnd: 0, prevStart: 59, prevEnd: 30 }
+    case '7d':
+    case 'custom':
+    default:
+      return { curStart: 6, curEnd: 0, prevStart: 13, prevEnd: 7 }
+  }
+}
+
+function sumOrAvg(rows: { [key: string]: unknown }[], field: string, mode: 'sum' | 'avg'): number {
+  if (rows.length === 0) return 0
+  const total = rows.reduce((acc, r) => acc + (Number(r[field]) || 0), 0)
+  return mode === 'sum' ? total : total / rows.length
+}
+
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const period = searchParams.get('period') || '7d'
+
     // Get the first (and likely only) organization
     const org = await db.organization.findFirst()
     if (!org) {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
-    // --- Dashboard Summary from DailyMetric ---
-    const today = new Date().toISOString().split('T')[0]
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    // --- Dashboard Summary from DailyMetric, filtered by the selected period ---
+    const { curStart, curEnd, prevStart, prevEnd } = resolveWindows(period)
+    const curFrom = dateStr(new Date(Date.now() - curStart * 86400000))
+    const curTo = dateStr(new Date(Date.now() - curEnd * 86400000))
+    const prevFrom = dateStr(new Date(Date.now() - prevStart * 86400000))
+    const prevTo = dateStr(new Date(Date.now() - prevEnd * 86400000))
 
-    const [todayMetrics, yesterdayMetrics] = await Promise.all([
-      db.dailyMetric.findFirst({ where: { organizationId: org.id, date: today } }),
-      db.dailyMetric.findFirst({ where: { organizationId: org.id, date: yesterday } }),
+    const [curRows, prevRows] = await Promise.all([
+      db.dailyMetric.findMany({ where: { organizationId: org.id, date: { gte: curFrom, lte: curTo } } }),
+      db.dailyMetric.findMany({ where: { organizationId: org.id, date: { gte: prevFrom, lte: prevTo } } }),
     ])
 
-    const t = todayMetrics
-    const y = yesterdayMetrics
-
-    const calcChange = (todayVal: number, yestVal: number): number => {
-      if (yestVal === 0) return todayVal > 0 ? 100 : 0
-      return +(((todayVal - yestVal) / Math.abs(yestVal)) * 100).toFixed(1)
+    const calcChange = (curVal: number, prevVal: number): number => {
+      if (prevVal === 0) return curVal > 0 ? 100 : 0
+      return +(((curVal - prevVal) / Math.abs(prevVal)) * 100).toFixed(1)
     }
 
+    const agg = (field: string, mode: 'sum' | 'avg') => ({
+      cur: sumOrAvg(curRows, field, mode),
+      prev: sumOrAvg(prevRows, field, mode),
+    })
+
+    const conversationsStarted = agg('conversationsStarted', 'sum')
+    const customersWaiting = agg('customersWaiting', 'avg')
+    const medianFirstResponse = agg('medianFirstResponse', 'avg')
+    const opportunitiesDetected = agg('opportunitiesDetected', 'sum')
+    const opportunitiesAtRisk = agg('opportunitiesAtRisk', 'sum')
+    const overduePromises = agg('overduePromises', 'sum')
+    const potentialValueAtRisk = agg('potentialValueAtRisk', 'avg')
+    const overallScore = agg('overallScore', 'avg')
+
     const summary: DashboardSummary = {
-      conversationsStarted: t?.conversationsStarted ?? 0,
-      conversationsStartedChange: calcChange(t?.conversationsStarted ?? 0, y?.conversationsStarted ?? 0),
-      customersWaiting: t?.customersWaiting ?? 0,
-      customersWaitingChange: calcChange(t?.customersWaiting ?? 0, y?.customersWaiting ?? 0),
-      medianFirstResponse: t?.medianFirstResponse ?? 0,
-      medianFirstResponseChange: calcChange(t?.medianFirstResponse ?? 0, y?.medianFirstResponse ?? 0),
-      opportunitiesDetected: t?.opportunitiesDetected ?? 0,
-      opportunitiesDetectedChange: calcChange(t?.opportunitiesDetected ?? 0, y?.opportunitiesDetected ?? 0),
-      opportunitiesAtRisk: t?.opportunitiesAtRisk ?? 0,
-      opportunitiesAtRiskChange: calcChange(t?.opportunitiesAtRisk ?? 0, y?.opportunitiesAtRisk ?? 0),
-      overduePromises: t?.overduePromises ?? 0,
-      overduePromisesChange: calcChange(t?.overduePromises ?? 0, y?.overduePromises ?? 0),
-      potentialValueAtRisk: t?.potentialValueAtRisk ?? 0,
-      potentialValueAtRiskChange: calcChange(t?.potentialValueAtRisk ?? 0, y?.potentialValueAtRisk ?? 0),
-      overallScore: Math.round(t?.overallScore ?? 0),
-      overallScoreChange: calcChange(t?.overallScore ?? 0, y?.overallScore ?? 0),
+      conversationsStarted: Math.round(conversationsStarted.cur),
+      conversationsStartedChange: calcChange(conversationsStarted.cur, conversationsStarted.prev),
+      customersWaiting: Math.round(customersWaiting.cur),
+      customersWaitingChange: calcChange(customersWaiting.cur, customersWaiting.prev),
+      medianFirstResponse: +medianFirstResponse.cur.toFixed(1),
+      medianFirstResponseChange: calcChange(medianFirstResponse.cur, medianFirstResponse.prev),
+      opportunitiesDetected: Math.round(opportunitiesDetected.cur),
+      opportunitiesDetectedChange: calcChange(opportunitiesDetected.cur, opportunitiesDetected.prev),
+      opportunitiesAtRisk: Math.round(opportunitiesAtRisk.cur),
+      opportunitiesAtRiskChange: calcChange(opportunitiesAtRisk.cur, opportunitiesAtRisk.prev),
+      overduePromises: Math.round(overduePromises.cur),
+      overduePromisesChange: calcChange(overduePromises.cur, overduePromises.prev),
+      potentialValueAtRisk: Math.round(potentialValueAtRisk.cur),
+      potentialValueAtRiskChange: calcChange(potentialValueAtRisk.cur, potentialValueAtRisk.prev),
+      overallScore: Math.round(overallScore.cur),
+      overallScoreChange: calcChange(overallScore.cur, overallScore.prev),
     }
 
     // --- Audit Funnel ---
