@@ -271,8 +271,52 @@ export default function AlertsView() {
     [rulesData]
   )
 
-  const setRuleToggles = (updater: (prev: Record<string, boolean>) => Record<string, boolean>) => {
-    // Optimistic update - in production would call PUT /api/alert-rules/[id]
+  const toggleRuleActive = (ruleId: string, checked: boolean) => {
+    setRulesData((prev) => prev.map((r) => (r.id === ruleId ? { ...r, active: checked } : r)))
+    fetch(`/api/alert-rules/${ruleId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: checked }),
+    }).catch(() => {
+      setRulesData((prev) => prev.map((r) => (r.id === ruleId ? { ...r, active: !checked } : r)))
+    })
+  }
+
+  // New rule dialog state
+  const [newRuleOpen, setNewRuleOpen] = useState(false)
+  const [newRuleName, setNewRuleName] = useState('')
+  const [newRuleType, setNewRuleType] = useState('')
+  const [newRuleSeverity, setNewRuleSeverity] = useState('medium')
+  const [newRuleCooldown, setNewRuleCooldown] = useState('30')
+  const [creatingRule, setCreatingRule] = useState(false)
+
+  const handleCreateRule = async () => {
+    if (!newRuleName.trim() || !newRuleType) return
+    setCreatingRule(true)
+    try {
+      const res = await fetch('/api/alert-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newRuleName,
+          type: newRuleType,
+          severity: newRuleSeverity,
+          cooldownMinutes: parseInt(newRuleCooldown, 10) || 30,
+          channels: ['in_app'],
+        }),
+      })
+      if (!res.ok) throw new Error()
+      setNewRuleName('')
+      setNewRuleType('')
+      setNewRuleSeverity('medium')
+      setNewRuleCooldown('30')
+      setNewRuleOpen(false)
+      fetchAlerts()
+    } catch {
+      // keep dialog open with entered values so the user can retry
+    } finally {
+      setCreatingRule(false)
+    }
   }
 
   // Unique teams - derived from alerts (no separate agents import)
@@ -637,10 +681,67 @@ export default function AlertsView() {
               Configure quando e como os alertas são gerados.
             </CardDescription>
           </div>
-          <Button size="sm" className="gap-1.5">
-            <Plus className="h-4 w-4" />
-            Nova regra
-          </Button>
+          <Dialog open={newRuleOpen} onOpenChange={setNewRuleOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1.5">
+                <Plus className="h-4 w-4" />
+                Nova regra
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nova regra de alerta</DialogTitle>
+                <DialogDescription>Configure quando este alerta deve ser gerado.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input
+                    placeholder="Ex: Cliente sem resposta"
+                    value={newRuleName}
+                    onChange={(e) => setNewRuleName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select value={newRuleType} onValueChange={setNewRuleType}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(alertTypeLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Severidade</Label>
+                  <Select value={newRuleSeverity} onValueChange={setNewRuleSeverity}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(severityLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Cooldown (minutos)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={newRuleCooldown}
+                    onChange={(e) => setNewRuleCooldown(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setNewRuleOpen(false)}>Cancelar</Button>
+                <Button onClick={handleCreateRule} disabled={!newRuleName.trim() || !newRuleType || creatingRule}>
+                  Criar regra
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -666,9 +767,7 @@ export default function AlertsView() {
                   <TableCell className="text-center">
                     <Switch
                       checked={ruleToggles[rule.id] ?? rule.active}
-                      onCheckedChange={(checked) => {
-                        setRuleToggles((prev) => ({ ...prev, [rule.id]: checked }))
-                      }}
+                      onCheckedChange={(checked) => toggleRuleActive(rule.id, checked)}
                     />
                   </TableCell>
                   <TableCell>
