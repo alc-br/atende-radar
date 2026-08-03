@@ -136,6 +136,12 @@ export default function OnboardingView() {
   const handleActivate = async () => {
     setActivating(true)
     try {
+      const dayIndex: Record<string, string> = { dom: '0', seg: '1', ter: '2', qua: '3', qui: '4', sex: '5', sab: '6' }
+      const businessHours: Record<string, { open: string; close: string; enabled: boolean }> = {}
+      for (const [key, h] of Object.entries(state.businessHours)) {
+        businessHours[dayIndex[key]] = { open: h.start, close: h.end, enabled: h.active }
+      }
+
       const settingsRes = await fetch('/api/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -143,6 +149,15 @@ export default function OnboardingView() {
           displayName: state.orgName,
           segment: state.segment,
           timezone: state.timezone,
+          settings: {
+            businessHours,
+            avgTicket: state.avgTicket,
+            convRate: state.conversionRate,
+            notifDailyEnabled: state.reportFreq !== 'weekly',
+            notifWeeklyEnabled: state.reportFreq !== 'daily',
+            notifDailyTime: state.reportTime,
+            notifWeeklyTime: state.reportTime,
+          },
         }),
       })
       if (!settingsRes.ok) throw new Error('Erro ao salvar dados da empresa')
