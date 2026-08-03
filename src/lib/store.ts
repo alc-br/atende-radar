@@ -27,8 +27,10 @@ interface AppState {
   currentOrganization: CurrentOrganization | null
   showLanding: boolean
   showLogin: boolean
+  pendingSearch: string | null
   setShowLanding: (show: boolean) => void
   setShowLogin: (show: boolean) => void
+  setPendingSearch: (query: string | null) => void
   setView: (view: View) => void
   selectConversation: (id: string | null) => void
   selectAgent: (id: string | null) => void
@@ -48,6 +50,8 @@ export const useAppStore = create<AppState>((set) => ({
   currentOrganization: null,
   showLanding: true,
   showLogin: false,
+  pendingSearch: null,
+  setPendingSearch: (query) => set({ pendingSearch: query }),
   setView: (view) => set({ currentView: view }),
   selectConversation: (id) => set({ selectedConversationId: id, currentView: id ? 'conversation-detail' : 'conversations' }),
   selectAgent: (id) => set({ selectedAgentId: id, currentView: id ? 'agent-profile' : 'team' }),

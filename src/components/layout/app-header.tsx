@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { useSession, signOut } from 'next-auth/react'
 import { Moon, Sun, Menu, Search, ChevronDown, User, LogOut, HelpCircle, ArrowLeft } from 'lucide-react'
@@ -11,12 +12,14 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTheme } from 'next-themes'
+import { toast } from 'sonner'
 
 export function AppHeader() {
-  const { sidebarOpen, setSidebarOpen, currentOrganization, setView, setShowLanding } = useAppStore()
+  const { sidebarOpen, setSidebarOpen, currentOrganization, setView, setShowLanding, setPendingSearch } = useAppStore()
   const { data: session } = useSession()
   const orgName = currentOrganization?.displayName || 'AtendeRadar'
   const { theme, setTheme } = useTheme()
+  const [headerSearch, setHeaderSearch] = useState('')
 
   const userName = (session?.user as any)?.name || 'Demo User'
   const userInitials = userName
@@ -51,7 +54,7 @@ export function AppHeader() {
               <div className='w-2 h-2 rounded-full bg-emerald-500 mr-2' />
               {orgName}
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => toast.info('Múltiplas organizações não são suportadas nesta versão.')}>
               <div className='w-2 h-2 rounded-full bg-muted-foreground/40 mr-2' />
               Criar organização...
             </DropdownMenuItem>
@@ -65,6 +68,14 @@ export function AppHeader() {
           <Input
             placeholder='Buscar conversas, contatos, alertas...'
             className='pl-9 bg-muted/50 border-0 focus-visible:ring-1'
+            value={headerSearch}
+            onChange={(e) => setHeaderSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && headerSearch.trim()) {
+                setPendingSearch(headerSearch.trim())
+                setView('conversations')
+              }
+            }}
           />
         </div>
       </div>
@@ -98,8 +109,8 @@ export function AppHeader() {
           <DropdownMenuContent align='end'>
             <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem><User className='mr-2 h-4 w-4' />Perfil</DropdownMenuItem>
-            <DropdownMenuItem><HelpCircle className='mr-2 h-4 w-4' />Ajuda</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setView('settings')}><User className='mr-2 h-4 w-4' />Perfil</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => toast.info('Central de ajuda ainda não disponível nesta versão.')}><HelpCircle className='mr-2 h-4 w-4' />Ajuda</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className='text-destructive' onClick={() => signOut({ callbackUrl: '/login' })}>
               <LogOut className='mr-2 h-4 w-4' />Sair

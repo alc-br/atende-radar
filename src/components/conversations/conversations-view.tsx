@@ -143,9 +143,18 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
 export default function ConversationsView() {
   const selectConversation = useAppStore((s) => s.selectConversation)
   const refreshTrigger = useAppStore((s) => s.refreshTrigger)
+  const pendingSearch = useAppStore((s) => s.pendingSearch)
+  const setPendingSearch = useAppStore((s) => s.setPendingSearch)
 
   // Filters
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    if (pendingSearch) {
+      setSearch(pendingSearch)
+      setPendingSearch(null)
+    }
+  }, [pendingSearch, setPendingSearch])
   const [period, setPeriod] = useState('7d')
   const [agentFilter, setAgentFilter] = useState('all')
   const [intentFilter, setIntentFilter] = useState('all')
