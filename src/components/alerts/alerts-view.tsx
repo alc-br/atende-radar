@@ -381,6 +381,13 @@ export default function AlertsView() {
   }
 
   function confirmAssign() {
+    if (selectedAlertId && assignAgentId) {
+      fetch(`/api/alerts/${selectedAlertId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedTo: assignAgentId }),
+      }).then(() => fetchAlerts()).catch(() => {})
+    }
     setAssignDialogOpen(false)
     setSelectedAlertId(null)
     setAssignAgentId('')
