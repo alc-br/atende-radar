@@ -9,6 +9,39 @@ function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+    const { agentId, addTag, markReviewed } = body as { agentId?: string; addTag?: string; markReviewed?: boolean }
+
+    const existing = await db.conversation.findUnique({ where: { id }, select: { tags: true } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+
+    const data: Record<string, unknown> = { updatedAt: new Date() }
+    if (agentId !== undefined) data.agentId = agentId
+    if (markReviewed) data.reviewedAt = new Date()
+    if (addTag) {
+      const currentTags = safeJsonParse<string[]>(existing.tags, [])
+      if (!currentTags.includes(addTag)) {
+        data.tags = JSON.stringify([...currentTags, addTag])
+      }
+    }
+
+    const updated = await db.conversation.update({ where: { id }, data })
+
+    return NextResponse.json({ success: true, conversation: updated })
+  } catch (error) {
+    console.error('Conversation PATCH error:', error)
+    return NextResponse.json({ error: 'Failed to update conversation' }, { status: 500 })
+  }
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -164,7 +197,9 @@ export async function GET(
         urgencyFactor: o.urgencyFactor,
         lossFactor: o.lossFactor,
         baseTicket: o.baseTicket,
+        ticketSource: o.ticketSource,
         probability: o.probability,
+        probabilitySource: o.probabilitySource,
         expectedValue: o.expectedValue,
         rangeLow: o.rangeLow,
         rangeHigh: o.rangeHigh,
@@ -172,6 +207,7 @@ export async function GET(
         confirmedSaleValue: o.confirmedSaleValue,
         confirmedRecovered: o.confirmedRecovered,
         createdAt: o.createdAt.toISOString(),
+        updatedAt: o.updatedAt.toISOString(),
       })),
 
       // Open Questions

@@ -57,6 +57,9 @@ export async function POST(
       case 'stage':
         updateData.inferredStage = correctedValue
         break
+      case 'agent':
+        updateData.agentId = correctedValue
+        break
       default:
         // For classification types, mark the classification as reviewed
         if (correctedValue && type.startsWith('classification:')) {

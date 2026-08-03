@@ -33,6 +33,7 @@ import {
 } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -264,24 +265,57 @@ export default function ConversationsView() {
   const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
 
   const handleAssign = useCallback(() => {
+    const ids = Array.from(selectedIds)
+    Promise.all(ids.map((id) =>
+      fetch(`/api/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: assignAgent }),
+      })
+    )).then(() => fetchData()).catch(() => {})
     setAssignDialogOpen(false)
     setAssignAgent('')
     clearSelection()
-  }, [clearSelection])
+  }, [clearSelection, selectedIds, assignAgent, fetchData])
 
   const handleAddTag = useCallback(() => {
+    const ids = Array.from(selectedIds)
+    const tag = tagInput.trim()
+    Promise.all(ids.map((id) =>
+      fetch(`/api/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addTag: tag }),
+      })
+    )).then(() => fetchData()).catch(() => {})
     setTagDialogOpen(false)
     setTagInput('')
     clearSelection()
-  }, [clearSelection])
+  }, [clearSelection, selectedIds, tagInput, fetchData])
 
   const handleBatchAction = useCallback((action: string) => {
     if (action === 'assign') setAssignDialogOpen(true)
     if (action === 'tag') setTagDialogOpen(true)
-    if (action === 'recovery' || action === 'export' || action === 'review') {
+    if (action === 'review') {
+      const ids = Array.from(selectedIds)
+      Promise.all(ids.map((id) =>
+        fetch(`/api/conversations/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ markReviewed: true }),
+        })
+      )).then(() => fetchData()).catch(() => {})
       clearSelection()
     }
-  }, [clearSelection])
+    if (action === 'recovery') {
+      toast.info('Envio em lote para recuperação ainda não disponível nesta versão.')
+      clearSelection()
+    }
+    if (action === 'export') {
+      toast.info('Exportação de metadados ainda não disponível nesta versão.')
+      clearSelection()
+    }
+  }, [clearSelection, selectedIds, fetchData])
 
   const uniqueIntents = useMemo(
     () => [...new Set(allConversations.map((c) => c.primaryIntent).filter(Boolean))].sort(),

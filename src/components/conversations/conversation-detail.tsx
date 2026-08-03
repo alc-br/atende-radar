@@ -64,6 +64,17 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import {
   Card,
   CardContent,
   CardHeader,
@@ -192,6 +203,22 @@ export default function ConversationDetail() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<any>(null)
+  const [agentOptions, setAgentOptions] = useState<{ id: string; name: string }[]>([])
+
+  // Correction dialog (intent / urgency / agent)
+  const [correctionDialogOpen, setCorrectionDialogOpen] = useState<'intent' | 'urgency' | 'agent' | null>(null)
+  const [correctionValue, setCorrectionValue] = useState('')
+  const [correctionJustification, setCorrectionJustification] = useState('')
+
+  // Outcome dialog (venda / perda / valor)
+  const [outcomeDialogOpen, setOutcomeDialogOpen] = useState<'won' | 'lost' | null>(null)
+  const [outcomeValue, setOutcomeValue] = useState('')
+
+  useEffect(() => {
+    fetch('/api/team').then((r) => (r.ok ? r.json() : { agents: [] }))
+      .then((d) => setAgentOptions((d.agents || []).map((a: { id: string; name: string }) => ({ id: a.id, name: a.name }))))
+      .catch(() => {})
+  }, [])
 
   const fetchData = useCallback(async () => {
     if (!selectedConversationId) return
@@ -285,13 +312,50 @@ export default function ConversationDetail() {
     setView('conversations')
   }
 
-  // Synthetic audit data for the right panel
-  const secondaryIntent = conversation.primaryIntent === 'preco' ? 'agendamento' : conversation.primaryIntent === 'consulta' ? 'preco' : 'suporte'
-  const sentimentEvolution = conversation.sentiment === 'positive'
-    ? [{ from: 'neutral', to: 'positive', at: 'há 2h' }]
-    : conversation.sentiment === 'frustrated'
-      ? [{ from: 'neutral', to: 'confused', at: 'há 5h' }, { from: 'confused', to: 'frustrated', at: 'há 1h' }]
-      : []
+  const openCorrectionDialog = (kind: 'intent' | 'urgency' | 'agent') => {
+    setCorrectionValue(kind === 'agent' ? (data.agent?.id || '') : kind === 'intent' ? conversation.primaryIntent : conversation.urgency)
+    setCorrectionJustification('')
+    setCorrectionDialogOpen(kind)
+  }
+
+  const confirmCorrection = () => {
+    if (!correctionDialogOpen || !correctionValue) return
+    const previousValue = correctionDialogOpen === 'agent' ? (data.agent?.id || '') : correctionDialogOpen === 'intent' ? conversation.primaryIntent : conversation.urgency
+    handleFeedback(correctionDialogOpen, previousValue, correctionValue, correctionJustification)
+    setCorrectionDialogOpen(null)
+  }
+
+  const confirmOutcome = () => {
+    if (!outcomeDialogOpen) return
+    const value = outcomeValue ? parseFloat(outcomeValue.replace(',', '.')) : undefined
+    handleOutcome(outcomeDialogOpen, value)
+    setOutcomeDialogOpen(null)
+    setOutcomeValue('')
+  }
+
+  const markQuestionAnswered = (questionId: string) => {
+    fetch(`/api/open-questions/${questionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'answered' }),
+    }).then(() => fetchData()).catch(() => {})
+  }
+
+  const setPromiseStatus = (promiseId: string, status: 'kept' | 'cancelled') => {
+    fetch(`/api/promises/${promiseId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    }).then(() => fetchData()).catch(() => {})
+  }
+
+  const markFindingFalsePositive = (findingId: string) => {
+    fetch(`/api/findings/${findingId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ falsePositive: true }),
+    }).then(() => fetchData()).catch(() => {})
+  }
 
   const findingsFromApi = findings.map((f: any) => ({
     id: f.id, type: f.type, severity: f.severity, evidence: f.evidence, status: f.status, confidence: f.confidence,
@@ -311,16 +375,16 @@ export default function ConversationDetail() {
     recuperacao: { weight: 10, score: Math.round(conversation.score * 0.8), label: 'Recuperação' },
   }
 
-  const valueMemory = {
-    ticketUsed: conversation.potentialValue > 0 ? Math.round(conversation.potentialValue * 0.7) : 0,
-    ticketSource: 'Média do segmento (odonto)',
-    probability: conversation.confidence,
-    probabilitySource: 'Modelo de intenção v3',
-    factors: ['Pedido de preço explícito', 'Alta engajamento', 'Perguntas sobre plano'],
-    range: [conversation.potentialValue > 0 ? Math.round(conversation.potentialValue * 0.8) : 0, conversation.potentialValue],
-    confidence: conversation.confidence,
-    lastUpdated: new Date(Date.now() - 1800000).toISOString(),
-  }
+  const primaryOpportunity = opportunities[0]
+  const valueMemory = primaryOpportunity ? {
+    ticketUsed: Math.round(primaryOpportunity.baseTicket),
+    ticketSource: primaryOpportunity.ticketSource,
+    probability: primaryOpportunity.probability,
+    probabilitySource: primaryOpportunity.probabilitySource,
+    range: [Math.round(primaryOpportunity.rangeLow), Math.round(primaryOpportunity.rangeHigh)],
+    confidence: primaryOpportunity.confidence,
+    lastUpdated: primaryOpportunity.updatedAt,
+  } : null
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -527,12 +591,6 @@ export default function ConversationDetail() {
                         </Badge>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">Intenção secundária:</span>
-                        <Badge variant="outline" className={cn('text-xs', intentBadgeColor[secondaryIntent] || '')}>
-                          {getIntentLabel(secondaryIntent)}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs text-muted-foreground">Urgência:</span>
                         <Badge variant="outline" className={cn('text-xs', urgencyBadgeVariant[conversation.urgency] || '')}>
                           {getUrgencyLabel(conversation.urgency)}
@@ -544,15 +602,6 @@ export default function ConversationDetail() {
                           <span className={cn('mr-1.5 h-2 w-2 rounded-full inline-block', sentimentDotColor[conversation.sentiment] || 'bg-slate-400')} />
                           {getSentimentLabel(conversation.sentiment)}
                         </Badge>
-                        {sentimentEvolution.length > 0 && (
-                          <div className="flex items-center gap-1 ml-1">
-                            {sentimentEvolution.map((e, i) => (
-                              <span key={i} className="text-xs text-muted-foreground">
-                                {getSentimentLabel(e.from)} <ArrowRightLeft className="inline h-3 w-3" /> {getSentimentLabel(e.to)} ({e.at})
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs text-muted-foreground">Etapa inferida:</span>
@@ -573,7 +622,7 @@ export default function ConversationDetail() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {openQuestions.map((q) => (
-                        <div key={q.id} className="flex items-start gap-2 text-sm">
+                        <div key={q.id} className="flex items-start gap-2 text-sm group">
                           {q.status === 'answered' ? (
                             <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
                           ) : (
@@ -582,11 +631,27 @@ export default function ConversationDetail() {
                           <span className={cn(q.status === 'answered' ? 'text-muted-foreground line-through' : 'text-foreground')}>
                             {q.text}
                           </span>
-                          <Badge variant={q.status === 'answered' ? 'secondary' : 'outline'} className="ml-auto text-xs flex-shrink-0">
-                            {q.status === 'answered' ? 'Respondida' : 'Pendente'}
-                          </Badge>
+                          <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+                            {q.status !== 'answered' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                                title="Marcar como respondida"
+                                onClick={() => markQuestionAnswered(q.id)}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            <Badge variant={q.status === 'answered' ? 'secondary' : 'outline'} className="text-xs">
+                              {q.status === 'answered' ? 'Respondida' : 'Pendente'}
+                            </Badge>
+                          </div>
                         </div>
                       ))}
+                      {openQuestions.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Nenhuma pergunta em aberto.</p>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -600,36 +665,53 @@ export default function ConversationDetail() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {promises.map((p) => {
-                        const isOverdue = p.status === 'pending' && new Date(p.dueAt) < new Date()
+                        const isKept = p.status === 'kept'
+                        const isCancelled = p.status === 'cancelled'
+                        const isOverdue = !isKept && !isCancelled && p.dueAt && new Date(p.dueAt) < new Date()
                         return (
-                          <div key={p.id} className="flex items-start gap-2 text-sm">
-                            {p.status === 'fulfilled' ? (
+                          <div key={p.id} className="flex items-start gap-2 text-sm group">
+                            {isKept ? (
                               <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
+                            ) : isCancelled ? (
+                              <XCircle className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                             ) : isOverdue ? (
                               <AlertTriangle className="h-4 w-4 mt-0.5 text-red-600 flex-shrink-0" />
                             ) : (
                               <Clock className="h-4 w-4 mt-0.5 text-amber-500 flex-shrink-0" />
                             )}
                             <div className="flex-1 min-w-0">
-                              <span className={cn(
-                                p.status === 'fulfilled' ? 'text-muted-foreground' : 'text-foreground'
-                              )}>
+                              <span className={cn(isKept || isCancelled ? 'text-muted-foreground' : 'text-foreground')}>
                                 {p.text}
                               </span>
-                              <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                                <CalendarClock className="h-3 w-3" />
-                                Prazo: {new Date(p.dueAt).toLocaleDateString('pt-BR')} {new Date(p.dueAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                              </div>
+                              {p.dueAt && (
+                                <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                  <CalendarClock className="h-3 w-3" />
+                                  Prazo: {new Date(p.dueAt).toLocaleDateString('pt-BR')} {new Date(p.dueAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              )}
                             </div>
+                            {!isKept && !isCancelled && (
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 flex-shrink-0">
+                                <Button variant="ghost" size="icon" className="h-6 w-6" title="Confirmar cumprida" onClick={() => setPromiseStatus(p.id, 'kept')}>
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" title="Cancelar promessa" onClick={() => setPromiseStatus(p.id, 'cancelled')}>
+                                  <XCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                              </div>
+                            )}
                             <Badge
-                              variant={p.status === 'fulfilled' ? 'secondary' : isOverdue ? 'destructive' : 'outline'}
+                              variant={isKept ? 'secondary' : isOverdue ? 'destructive' : 'outline'}
                               className="text-xs flex-shrink-0"
                             >
-                              {p.status === 'fulfilled' ? 'Cumprida' : isOverdue ? 'Vencida' : 'Pendente'}
+                              {isKept ? 'Cumprida' : isCancelled ? 'Cancelada' : isOverdue ? 'Vencida' : 'Pendente'}
                             </Badge>
                           </div>
                         )
                       })}
+                      {promises.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Nenhuma promessa registrada.</p>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -643,12 +725,26 @@ export default function ConversationDetail() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {findings.map((f) => (
-                        <div key={f.id} className="space-y-1">
+                        <div key={f.id} className="space-y-1 group">
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className={cn('text-xs', getSeverityColor(f.severity))}>
                               {f.severity === 'critical' ? 'Crítica' : f.severity === 'high' ? 'Alta' : f.severity === 'medium' ? 'Média' : 'Baixa'}
                             </Badge>
                             <span className="text-sm font-medium">{f.type}</span>
+                            {f.falsePositive && (
+                              <Badge variant="secondary" className="text-xs">Falso positivo</Badge>
+                            )}
+                            {!f.falsePositive && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-xs gap-1 ml-auto opacity-0 group-hover:opacity-100"
+                                onClick={() => markFindingFalsePositive(f.id)}
+                              >
+                                <Ban className="h-3 w-3" />
+                                Falso positivo
+                              </Button>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground pl-2 border-l-2 border-muted-foreground/30">
                             {f.evidence}
@@ -662,23 +758,6 @@ export default function ConversationDetail() {
                   </Card>
 
                   {/* Recommendation */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <Lightbulb className="h-4 w-4 text-amber-500" />
-                        Recomendação para o gestor
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Conversa com boa evolução. O atendente respondeu ao pedido de preço em tempo adequado
-                        e demonstrou conhecimento. Entretanto, uma pergunta sobre horário de sábado ficou
-                        sem resposta. Recomenda-se acompanhar a confirmação do agendamento e orientar
-                        o atendente a sempre verificar se restam dúvidas antes de encerrar.
-                      </p>
-                    </CardContent>
-                  </Card>
-
                   {/* Score Composition */}
                   <Card>
                     <CardHeader className="pb-2">
@@ -710,7 +789,7 @@ export default function ConversationDetail() {
                   </Card>
 
                   {/* Potential Value Memory */}
-                  {conversation.potentialValue > 0 && (
+                  {valueMemory && (
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -734,8 +813,6 @@ export default function ConversationDetail() {
                           </span>
                           <span className="text-muted-foreground">Confiança</span>
                           <span className="text-right font-medium">{(valueMemory.confidence * 100).toFixed(0)}%</span>
-                          <span className="text-muted-foreground">Fatores</span>
-                          <span className="text-right text-xs text-muted-foreground">{valueMemory.factors.join(', ')}</span>
                           <span className="text-muted-foreground">Atualizado</span>
                           <span className="text-right text-xs text-muted-foreground">{timeAgo(valueMemory.lastUpdated)}</span>
                         </div>
@@ -756,45 +833,35 @@ export default function ConversationDetail() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => openCorrectionDialog('intent')}>
                           <ArrowRightLeft className="h-3 w-3" />
                           Alterar intenção
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => openCorrectionDialog('urgency')}>
                           <Flame className="h-3 w-3" />
                           Alterar urgência
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Marcar pergunta respondida
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                          <Handshake className="h-3 w-3" />
-                          Confirmar promessa
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                          <XCircle className="h-3 w-3" />
-                          Cancelar promessa
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700">
-                          <Award className="h-3 w-3" />
-                          Confirmar venda
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                          <DollarSign className="h-3 w-3" />
-                          Informar valor real
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs text-red-600 dark:text-red-400 border-red-300 dark:border-red-700">
-                          <HeartCrack className="h-3 w-3" />
-                          Confirmar perda
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => openCorrectionDialog('agent')}>
                           <UserCog className="h-3 w-3" />
                           Mudar responsável
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                          <Ban className="h-3 w-3" />
-                          Marcar falso positivo
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700"
+                          onClick={() => { setOutcomeValue(primaryOpportunity ? String(Math.round(primaryOpportunity.expectedValue)) : ''); setOutcomeDialogOpen('won') }}
+                        >
+                          <Award className="h-3 w-3" />
+                          Confirmar venda
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs text-red-600 dark:text-red-400 border-red-300 dark:border-red-700"
+                          onClick={() => { setOutcomeValue(''); setOutcomeDialogOpen('lost') }}
+                        >
+                          <HeartCrack className="h-3 w-3" />
+                          Confirmar perda
                         </Button>
                       </div>
                     </CardContent>
@@ -806,6 +873,71 @@ export default function ConversationDetail() {
           </ResizablePanelGroup>
         </div>
       </div>
+
+      {/* Correction dialog: intent / urgency / agent */}
+      <Dialog open={!!correctionDialogOpen} onOpenChange={(open) => !open && setCorrectionDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {correctionDialogOpen === 'intent' ? 'Alterar intenção' : correctionDialogOpen === 'urgency' ? 'Alterar urgência' : 'Mudar responsável'}
+            </DialogTitle>
+            <DialogDescription>Registre a correção e, se quiser, uma justificativa.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Select value={correctionValue} onValueChange={setCorrectionValue}>
+              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+              <SelectContent>
+                {correctionDialogOpen === 'intent' && Object.keys(intentBadgeColor).map((v) => (
+                  <SelectItem key={v} value={v}>{getIntentLabel(v)}</SelectItem>
+                ))}
+                {correctionDialogOpen === 'urgency' && Object.keys(urgencyBadgeVariant).map((v) => (
+                  <SelectItem key={v} value={v}>{getUrgencyLabel(v)}</SelectItem>
+                ))}
+                {correctionDialogOpen === 'agent' && agentOptions.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Textarea
+              placeholder="Justificativa (opcional)"
+              value={correctionJustification}
+              onChange={(e) => setCorrectionJustification(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCorrectionDialogOpen(null)}>Cancelar</Button>
+            <Button onClick={confirmCorrection} disabled={!correctionValue}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Outcome dialog: venda / perda */}
+      <Dialog open={!!outcomeDialogOpen} onOpenChange={(open) => !open && setOutcomeDialogOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{outcomeDialogOpen === 'won' ? 'Confirmar venda' : 'Confirmar perda'}</DialogTitle>
+            <DialogDescription>
+              {outcomeDialogOpen === 'won' ? 'Informe o valor real da venda confirmada.' : 'Esta conversa será marcada como perdida.'}
+            </DialogDescription>
+          </DialogHeader>
+          {outcomeDialogOpen === 'won' && (
+            <div className="py-4">
+              <Label>Valor da venda (R$)</Label>
+              <Input
+                type="text"
+                placeholder="0,00"
+                value={outcomeValue}
+                onChange={(e) => setOutcomeValue(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOutcomeDialogOpen(null)}>Cancelar</Button>
+            <Button onClick={confirmOutcome} disabled={outcomeDialogOpen === 'won' && !outcomeValue}>Confirmar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   )
 }
