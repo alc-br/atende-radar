@@ -99,7 +99,7 @@ export default function SettingsView() {
         setEmpTimezone(data.organization.timezone || 'America/Sao_Paulo')
       }
       const s = data.settings || {}
-      if (s.businessHours) setBusinessHours(s.businessHours)
+      if (s.businessHours) setBusinessHours(prev => ({ ...prev, ...s.businessHours }))
       if (s.holidays !== undefined) setHolidays(s.holidays)
       if (s.toleranceBefore !== undefined) setToleranceBefore(s.toleranceBefore)
       if (s.toleranceAfter !== undefined) setToleranceAfter(s.toleranceAfter)
