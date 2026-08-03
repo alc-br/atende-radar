@@ -13,7 +13,7 @@ import {
   Minus,
 } from 'lucide-react'
 
-import { cn, formatPhone } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -294,8 +294,6 @@ export default function TeamView() {
                     .join('')
                     .slice(0, 2)
                     .toUpperCase()
-                  const phoneMasked = formatPhone('1' + agent.id.split('_')[1].padStart(3, '0').slice(-3) + '00')
-
                   return (
                     <TableRow
                       key={agent.id}
@@ -321,7 +319,7 @@ export default function TeamView() {
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground font-mono text-xs">
-                        {phoneMasked}
+                        {agent.whatsappIdentity || '—'}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline" className={cn('border', getStatusColor(agent.status))}>

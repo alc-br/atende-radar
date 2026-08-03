@@ -12,6 +12,7 @@ export async function GET() {
       where: { organizationId: org.id },
       include: {
         metrics: { orderBy: { date: 'desc' }, take: 2 },
+        identities: { orderBy: { confidence: 'desc' }, take: 1 },
       },
       orderBy: { name: 'asc' },
     })
@@ -27,6 +28,7 @@ export async function GET() {
               ? 'down'
               : 'stable'
           : 'stable'
+      const identity = a.identities[0]
 
       return {
         id: a.id,
@@ -43,6 +45,7 @@ export async function GET() {
         promisesKept: latest?.promisesKept ?? 0,
         promisesTotal: latest?.promisesTotal ?? 0,
         trend,
+        whatsappIdentity: identity ? identity.displayName : null,
       }
     })
 
