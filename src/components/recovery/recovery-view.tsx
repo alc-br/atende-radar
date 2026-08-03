@@ -354,6 +354,17 @@ export default function RecoveryView() {
     setValueDialogOpen(false)
   }
 
+  const confirmDeadline = () => {
+    if (deadlineItemId && deadlineInput) {
+      fetch(`/api/recovery/${deadlineItemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dueAt: new Date(deadlineInput).toISOString() }),
+      }).then(() => fetchData()).catch(() => {})
+    }
+    setDeadlineDialogOpen(false)
+  }
+
   const openDeadlineDialog = (id: string, currentDue: string) => {
     setDeadlineItemId(id)
     setDeadlineInput(new Date(currentDue).toISOString().split('T')[0])
@@ -864,7 +875,7 @@ export default function RecoveryView() {
               <Button variant="outline" onClick={() => setDeadlineDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => setDeadlineDialogOpen(false)}>
+              <Button onClick={confirmDeadline}>
                 Salvar
               </Button>
             </DialogFooter>
