@@ -63,6 +63,7 @@ export function AppSidebar() {
     const btn = (
       <button
         key={item.view}
+        data-tour={`nav-${item.view}`}
         onClick={() => setView(item.view)}
         className={cn(
           'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative',

@@ -15,7 +15,7 @@ import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 
 export function AppHeader() {
-  const { sidebarOpen, setSidebarOpen, currentOrganization, setView, setShowLanding, setPendingSearch } = useAppStore()
+  const { sidebarOpen, setSidebarOpen, currentOrganization, setView, setShowLanding, setPendingSearch, currentView, startTour } = useAppStore()
   const { data: session } = useSession()
   const orgName = currentOrganization?.displayName || 'AtendeRadar'
   const { theme, setTheme } = useTheme()
@@ -66,6 +66,7 @@ export function AppHeader() {
         <div className='relative w-full'>
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground' />
           <Input
+            data-tour='header-search'
             placeholder='Buscar conversas, contatos, alertas...'
             className='pl-9 bg-muted/50 border-0 focus-visible:ring-1'
             value={headerSearch}
@@ -99,7 +100,7 @@ export function AppHeader() {
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant='ghost' className='gap-2 h-9'>
+            <Button data-tour='header-help' variant='ghost' className='gap-2 h-9'>
               <Avatar className='h-7 w-7'>
                 <AvatarFallback className='bg-primary text-primary-foreground text-xs'>{userInitials}</AvatarFallback>
               </Avatar>
@@ -110,7 +111,8 @@ export function AppHeader() {
             <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setView('settings')}><User className='mr-2 h-4 w-4' />Perfil</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toast.info('Central de ajuda ainda não disponível nesta versão.')}><HelpCircle className='mr-2 h-4 w-4' />Ajuda</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => startTour(currentView)}><HelpCircle className='mr-2 h-4 w-4' />Tour desta tela</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => startTour('welcome')}><HelpCircle className='mr-2 h-4 w-4' />Tour de boas-vindas</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className='text-destructive' onClick={() => signOut({ callbackUrl: '/login' })}>
               <LogOut className='mr-2 h-4 w-4' />Sair

@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { AppHeader } from '@/components/layout/app-header'
+import { TourOverlay } from '@/components/tour/tour-overlay'
+import { TOURS } from '@/lib/tours'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import DashboardView from '@/components/dashboard/dashboard-view'
@@ -28,6 +30,11 @@ import AdminView from '@/components/admin/admin-view'
 function MainContent() {
   const { currentView, selectedConversationId, selectedAgentId, sidebarOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
   const { status } = useSession()
+  const seenTours = useAppStore((s) => s.seenTours)
+  const toursLoaded = useAppStore((s) => s.toursLoaded)
+  const setSeenTours = useAppStore((s) => s.setSeenTours)
+  const startTour = useAppStore((s) => s.startTour)
+  const activeTour = useAppStore((s) => s.activeTour)
 
   // O Zustand store e efemero: qualquer refresh da arvore RSC (ex.: apos o
   // signIn) reinicia showLanding para o default (true). Sincroniza com a
@@ -38,6 +45,26 @@ function MainContent() {
       setShowLogin(false)
     }
   }, [status, setShowLanding, setShowLogin])
+
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    fetch('/api/tours')
+      .then((r) => (r.ok ? r.json() : { seen: [] }))
+      .then((d) => setSeenTours(d.seen || []))
+      .catch(() => setSeenTours([]))
+  }, [status, setSeenTours])
+
+  useEffect(() => {
+    if (!toursLoaded || activeTour) return
+    if (!seenTours.includes('welcome')) {
+      const id = window.setTimeout(() => startTour('welcome'), 600)
+      return () => window.clearTimeout(id)
+    }
+    if (TOURS[currentView] && !seenTours.includes(currentView)) {
+      const id = window.setTimeout(() => startTour(currentView), 600)
+      return () => window.clearTimeout(id)
+    }
+  }, [toursLoaded, seenTours, currentView, activeTour, startTour])
 
   const renderView = () => {
     switch (currentView) {
@@ -93,6 +120,7 @@ function MainContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <TourOverlay />
       <AppSidebar />
       <div
         className={cn(
