@@ -426,7 +426,7 @@ export default function RecoveryView() {
         </div>
 
         {/* Metrics cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div data-tour="recovery-metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Itens criados</CardTitle>
@@ -540,7 +540,7 @@ export default function RecoveryView() {
         </Card>
 
         {/* Table */}
-        <Card>
+        <Card data-tour="recovery-table">
           <CardContent className="p-0">
             <ScrollArea className="max-h-[calc(100vh-380px)]">
               <Table>

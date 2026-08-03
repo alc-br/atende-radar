@@ -179,7 +179,7 @@ export default function MembersView() {
         </div>
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
-            <Button><UserPlus className="w-4 h-4 mr-2" />Adicionar membro</Button>
+            <Button data-tour="members-add"><UserPlus className="w-4 h-4 mr-2" />Adicionar membro</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -235,7 +235,7 @@ export default function MembersView() {
         </Dialog>
       </div>
 
-      <Card>
+      <Card data-tour="members-table">
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <CardTitle className="flex items-center gap-2 text-base">

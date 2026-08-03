@@ -285,7 +285,7 @@ export default function AdminView() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="flex flex-wrap">
+        <TabsList data-tour="admin-tabs" className="flex flex-wrap">
           <TabsTrigger value="overview" className="gap-1.5">
             <Activity className="w-4 h-4" />
             Visão Geral
@@ -307,7 +307,7 @@ export default function AdminView() {
         {/* ── Tab 1: Visão Geral ───────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-6">
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div data-tour="admin-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {loading
               ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)
               : kpiCards.map((kpi) => {

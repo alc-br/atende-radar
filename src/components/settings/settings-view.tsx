@@ -300,7 +300,7 @@ export default function SettingsView() {
       </div>
 
       <Tabs defaultValue="empresa" className="w-full">
-        <TabsList className="flex flex-wrap h-auto gap-1">
+        <TabsList data-tour="settings-tabs" className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="empresa" className="gap-1.5 text-xs sm:text-sm"><Building2 className="h-4 w-4" />Empresa</TabsTrigger>
           <TabsTrigger value="horarios" className="gap-1.5 text-xs sm:text-sm"><Clock className="h-4 w-4" />Horários</TabsTrigger>
           <TabsTrigger value="atendimento" className="gap-1.5 text-xs sm:text-sm"><Headphones className="h-4 w-4" />Atendimento</TabsTrigger>

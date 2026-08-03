@@ -207,7 +207,7 @@ export default function PlansView() {
             </Card>
 
             {/* Usage metrics */}
-            <Card>
+            <Card data-tour="plans-usage">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Sparkles className="w-5 h-5" />
@@ -243,7 +243,7 @@ export default function PlansView() {
           {/* Plan comparison cards */}
           <div>
             <h2 className="text-lg font-semibold mb-4">Compare os planos</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div data-tour="plans-compare" className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {plans.map((plan) => {
                 const isCurrent = subscription?.plan.id === plan.id
                 const isHighlight = plan.highlight

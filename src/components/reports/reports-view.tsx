@@ -172,7 +172,7 @@ export default function ReportsView() {
       </div>
 
       <Tabs defaultValue="types" className="w-full">
-        <TabsList>
+        <TabsList data-tour="reports-tabs">
           <TabsTrigger value="types" className="gap-1.5">
             <LayoutGrid className="h-4 w-4" />
             Tipos de Relatório
@@ -185,7 +185,7 @@ export default function ReportsView() {
 
         {/* ========== REPORT TYPES GRID ========== */}
         <TabsContent value="types" className="mt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div data-tour="reports-types" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {reportTypesData.map((report) => (
               <Card key={report.id} className="flex flex-col">
                 <CardHeader className="pb-3">

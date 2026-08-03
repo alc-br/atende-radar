@@ -191,7 +191,7 @@ export default function TeamView() {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div data-tour="team-summary" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total de agentes</CardTitle>
@@ -222,7 +222,7 @@ export default function TeamView() {
       </div>
 
       {/* Table */}
-      <Card>
+      <Card data-tour="team-table">
         <CardContent className="p-0">
           <ScrollArea className="max-h-[calc(100vh-300px)]">
             <Table>

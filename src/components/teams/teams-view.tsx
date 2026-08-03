@@ -136,7 +136,7 @@ export default function TeamsView() {
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Criar equipe</Button>
+            <Button data-tour="teams-create"><Plus className="w-4 h-4 mr-2" />Criar equipe</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -211,7 +211,7 @@ export default function TeamsView() {
       </div>
 
       {/* Team cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div data-tour="teams-list" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {loading
           ? Array.from({ length: 3 }).map((_, i) => (
               <Card key={i}>

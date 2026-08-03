@@ -222,7 +222,7 @@ export default function ConnectionsView() {
           </p>
         </div>
         <Dialog open={newConnDialogOpen} onOpenChange={setNewConnDialogOpen}>
-          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" onClick={() => setNewConnDialogOpen(true)}>
+          <Button data-tour="connections-new" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" onClick={() => setNewConnDialogOpen(true)}>
             <Plus className="h-4 w-4" />
             Nova conexão
           </Button>
@@ -350,7 +350,7 @@ export default function ConnectionsView() {
       </div>
 
       {/* Connection cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div data-tour="connections-list" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {connectionsData.map((conn) => {
           const cfg = statusConfig[conn.status] || statusConfig.error
           const diag = diagnosticsMap[conn.id]

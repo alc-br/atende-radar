@@ -383,7 +383,7 @@ export default function DashboardView() {
         <div className="flex items-center gap-2">
           <CalendarDays className="text-muted-foreground size-4" />
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger data-tour="dashboard-period" className="w-[160px]">
               <SelectValue placeholder="Período" />
             </SelectTrigger>
             <SelectContent>
@@ -398,7 +398,7 @@ export default function DashboardView() {
       </div>
 
       {/* ─── KPI Cards ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8">
+      <div data-tour="dashboard-kpis" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8">
         {kpiCards.map((kpi) => {
           const Icon = kpi.icon
           const isImproved = contextualChangeColor(kpi.label, kpi.change)
@@ -460,7 +460,7 @@ export default function DashboardView() {
       </div>
 
       {/* ─── Prioridades Agora Table ─────────────────────────────── */}
-      <Card>
+      <Card data-tour="dashboard-priorities">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <AlertOctagon className="text-destructive size-4" />
@@ -630,7 +630,7 @@ export default function DashboardView() {
       </div>
 
       {/* ─── Team Performance Table ───────────────────────────────── */}
-      <Card>
+      <Card data-tour="dashboard-team-perf">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Users className="text-primary size-4" />

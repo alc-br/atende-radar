@@ -376,7 +376,7 @@ export default function ConversationsView() {
         {/* Search + Filters */}
         <div className="flex flex-col gap-3">
           {/* Search bar */}
-          <div className="relative max-w-sm">
+          <div data-tour="conversations-search" className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Buscar por cliente, telefone ou atendente..."
@@ -390,7 +390,7 @@ export default function ConversationsView() {
           </div>
 
           {/* Filters row */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9">
+          <div data-tour="conversations-filters" className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9">
             {/* Período */}
             <Select
               value={period}

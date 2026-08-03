@@ -683,7 +683,7 @@ export default function AlertsView() {
           </div>
           <Dialog open={newRuleOpen} onOpenChange={setNewRuleOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5">
+              <Button data-tour="alerts-new-rule" size="sm" className="gap-1.5">
                 <Plus className="h-4 w-4" />
                 Nova regra
               </Button>
@@ -818,7 +818,7 @@ export default function AlertsView() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <TabsList>
+          <TabsList data-tour="alerts-tabs">
             <TabsTrigger value="ativos" className="gap-1.5">
               <Zap className="h-3.5 w-3.5" />
               Ativos
@@ -1007,7 +1007,7 @@ export default function AlertsView() {
   // ── Filter Bar (inline to access state) ──
   function FilterBar() {
     return (
-      <Card className="p-3">
+      <Card data-tour="alerts-filterbar" className="p-3">
         <div className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
           <Filter className="h-3.5 w-3.5" />
           Filtros
