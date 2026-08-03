@@ -463,6 +463,7 @@ model OrganizationMember {
   status        String    @default("active")
   lastAccessAt  DateTime?
   mfaEnabled    Boolean   @default(false)
+  seenToursJson String?
   invitedAt     DateTime  @default(now())
   invitedBy     String?
 }
