@@ -1,6 +1,42 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+export async function PATCH(request: Request) {
+  try {
+    const org = await db.organization.findFirst()
+    if (!org) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+    }
+
+    const body = await request.json()
+    const { planId } = body as { planId?: string }
+    if (!planId) {
+      return NextResponse.json({ error: 'planId é obrigatório' }, { status: 400 })
+    }
+
+    const plan = await db.plan.findUnique({ where: { id: planId } })
+    if (!plan) {
+      return NextResponse.json({ error: 'Plano não encontrado' }, { status: 404 })
+    }
+
+    const existing = await db.subscription.findUnique({ where: { organizationId: org.id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Nenhuma assinatura ativa encontrada' }, { status: 404 })
+    }
+
+    const updated = await db.subscription.update({
+      where: { organizationId: org.id },
+      data: { planId },
+      include: { plan: true },
+    })
+
+    return NextResponse.json({ success: true, subscription: { id: updated.id, planId: updated.planId, planName: updated.plan.name } })
+  } catch (error) {
+    console.error('Subscription PATCH error:', error)
+    return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 })
+  }
+}
+
 export async function GET() {
   try {
     const org = await db.organization.findFirst()

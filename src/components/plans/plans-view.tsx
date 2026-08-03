@@ -121,8 +121,27 @@ export default function PlansView() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const handleUpgrade = (planName: string) => {
-    toast.success(`Solicitação de upgrade para o plano ${planName} enviada!`)
+  const [changingPlanId, setChangingPlanId] = useState<string | null>(null)
+
+  const handleUpgrade = async (planId: string, planName: string) => {
+    setChangingPlanId(planId)
+    try {
+      const res = await fetch('/api/subscription', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erro ao mudar de plano')
+      }
+      toast.success(`Plano alterado para ${planName}.`)
+      fetchData()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao mudar de plano')
+    } finally {
+      setChangingPlanId(null)
+    }
   }
 
   const renderCell = (value: boolean | string | number) => {
@@ -307,9 +326,10 @@ export default function PlansView() {
                         <Button
                           className="w-full"
                           variant={isHighlight ? 'default' : 'outline'}
-                          onClick={() => handleUpgrade(plan.name)}
+                          disabled={changingPlanId === plan.id}
+                          onClick={() => handleUpgrade(plan.id, plan.name)}
                         >
-                          Fazer upgrade
+                          {changingPlanId === plan.id ? 'Alterando...' : 'Fazer upgrade'}
                           <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
                       )}
