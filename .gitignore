@@ -66,3 +66,7 @@ db/*.db
 # lock files (use bun.lock)
 package-lock.json
 yarn.lock
+# e2e
+prisma/test.db*
+test-results/
+playwright-report/
