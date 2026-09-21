@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function GET() {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('connections.view')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const connections = await db.whatsAppConnection.findMany({
       where: { organizationId: org.id },
@@ -58,10 +58,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('connections.manage')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const body = await request.json()
     const { name, phoneNumber } = body as { name?: string; phoneNumber?: string }

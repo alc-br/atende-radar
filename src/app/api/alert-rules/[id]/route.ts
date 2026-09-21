@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('alert_rules.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = await request.json()
     const {
@@ -40,7 +43,7 @@ export async function PUT(
       minConfidence?: number
     }
 
-    const existing = await db.alertRule.findUnique({ where: { id } })
+    const existing = await db.alertRule.findFirst({ where: { id, organizationId: g.auth.orgId } })
     if (!existing) {
       return NextResponse.json({ error: 'Alert rule not found' }, { status: 404 })
     }

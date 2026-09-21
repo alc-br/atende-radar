@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -11,10 +12,9 @@ function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
 
 export async function GET() {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('settings.manage')
+    if (!g.ok) return g.res
+    const org = await db.organization.findUniqueOrThrow({ where: { id: g.auth.orgId } })
 
     // Get alert rules count
     const alertRulesCount = await db.alertRule.count({
@@ -60,10 +60,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('settings.manage')
+    if (!g.ok) return g.res
+    const org = await db.organization.findUniqueOrThrow({ where: { id: g.auth.orgId } })
 
     const body = await request.json()
     const {

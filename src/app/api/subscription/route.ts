@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function PATCH(request: Request) {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('billing.manage')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const body = await request.json()
     const { planId } = body as { planId?: string }
@@ -39,10 +39,9 @@ export async function PATCH(request: Request) {
 
 export async function GET() {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('billing.manage')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const subscription = await db.subscription.findUnique({
       where: { organizationId: org.id },

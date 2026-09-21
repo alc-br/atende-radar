@@ -15,22 +15,25 @@ export const authOptions: NextAuthOptions = {
         // In production, this would check against User model
         if (!credentials?.email || !credentials?.password) return null
         if (credentials.password !== 'demo123') return null
+        const email = credentials.email.trim().toLowerCase()
 
         // Find or create user in our OrganizationMember table
         const member = await db.organizationMember.findFirst({
-          where: { email: credentials.email, status: 'active' },
+          where: { email, status: 'active' },
         })
 
         if (!member) {
-          // Auto-create for demo
-          const org = await db.organization.findFirst()
+          // Auto-create for demo — sempre na organização de demonstração, nunca na de um cliente (até o B1/B7)
+          const org = await db.organization.findUnique({ where: { id: process.env.DEMO_ORG_ID || 'org_seed_1' } })
           if (!org) return null
+          // e-mail suspenso não pode "renascer" como demo
+          if (await db.organizationMember.findFirst({ where: { email } })) return null
           const newMember = await db.organizationMember.create({
             data: {
               organizationId: org.id,
-              userId: credentials.email,
-              name: credentials.email.split('@')[0],
-              email: credentials.email,
+              userId: email,
+              name: email.split('@')[0],
+              email,
               role: 'gestor',
               team: 'Recepção',
               status: 'active',

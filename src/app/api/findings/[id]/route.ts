@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('conversations.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = await request.json()
     const { falsePositive, status } = body as { falsePositive?: boolean; status?: string }
 
-    const existing = await db.auditFinding.findUnique({ where: { id } })
+    const existing = await db.auditFinding.findFirst({ where: { id, conversation: { organizationId: g.auth.orgId } } })
     if (!existing) {
       return NextResponse.json({ error: 'Finding not found' }, { status: 404 })
     }

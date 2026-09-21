@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { View } from '@/lib/store'
+import { canOpenView } from '@/lib/permissions'
 
 const mainNavItems: { view: View; icon: React.ElementType; label: string }[] = [
   { view: 'dashboard', icon: LayoutDashboard, label: 'Visão Geral' },
@@ -32,6 +33,10 @@ const secondaryNavItems: { view: View; icon: React.ElementType; label: string }[
 
 export function AppSidebar() {
   const { currentView, setView, sidebarOpen, setSidebarOpen, refreshTrigger } = useAppStore()
+  const me = useAppStore((st) => st.me)
+  // Só mostra o que o papel pode abrir. Enquanto /api/me carrega, não mostra nada restrito.
+  const visible = (item: { view: View }) =>
+    item.view === 'admin' ? !!me?.isPlatformOperator : !!me && canOpenView(me.role, item.view)
   const [badges, setBadges] = useState<Partial<Record<View, string>>>({})
 
   useEffect(() => {
@@ -117,7 +122,7 @@ export function AppSidebar() {
 
       {/* Main Nav */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto custom-scrollbar">
-        {mainNavItems.map(renderNavItem)}
+        {mainNavItems.filter(visible).map(renderNavItem)}
 
         {/* Separator + Secondary items */}
         <div className="pt-4 mt-4 border-t border-sidebar-border">
@@ -126,7 +131,7 @@ export function AppSidebar() {
               Administração
             </p>
           )}
-          {secondaryNavItems.map(renderNavItem)}
+          {secondaryNavItems.filter(visible).map(renderNavItem)}
         </div>
       </nav>
 

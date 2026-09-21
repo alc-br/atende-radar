@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, badRequest } from '@/lib/api-auth'
+import { validateTeamRefs } from '@/lib/team-refs'
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('teams.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = await request.json()
     const { name, supervisorId, active, connectionIds, slaConfig, goals } = body as {
@@ -17,10 +21,13 @@ export async function PATCH(
       goals?: Record<string, unknown>
     }
 
-    const existing = await db.team.findUnique({ where: { id } })
+    const existing = await db.team.findFirst({ where: { id, organizationId: g.auth.orgId } })
     if (!existing) {
       return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     }
+
+    const refError = await validateTeamRefs(g.auth.orgId, supervisorId, connectionIds)
+    if (refError) return badRequest(refError)
 
     const data: Record<string, unknown> = {}
     if (name !== undefined) data.name = name
@@ -44,9 +51,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('teams.manage')
+    if (!g.ok) return g.res
     const { id } = await params
 
-    const existing = await db.team.findUnique({ where: { id } })
+    const existing = await db.team.findFirst({ where: { id, organizationId: g.auth.orgId } })
     if (!existing) {
       return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     }

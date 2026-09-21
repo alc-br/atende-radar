@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, badRequest } from '@/lib/api-auth'
+import { isRole } from '@/lib/permissions'
 
 export async function GET() {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('members.view')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const members = await db.organizationMember.findMany({
       where: { organizationId: org.id },
@@ -36,10 +37,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('members.manage')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const body = await request.json()
     const { name, email, role, team } = body as {
@@ -56,15 +56,25 @@ export async function POST(request: Request) {
       )
     }
 
+    const finalRole = role || 'member'
+    if (!isRole(finalRole)) return badRequest('Papel inválido')
+
+    // E-mail é a identidade de login: precisa ser único em toda a plataforma, não só na organização.
+    const normalizedEmail = email.trim().toLowerCase()
+    const taken = await db.organizationMember.findFirst({ where: { email: normalizedEmail } })
+    if (taken) {
+      return NextResponse.json({ error: 'Este e-mail já está em uso' }, { status: 409 })
+    }
+
     const member = await db.organizationMember.create({
       data: {
         organizationId: org.id,
-        userId: email, // use email as userId for now
+        userId: normalizedEmail, // use email as userId for now
         name,
-        email,
-        role: role || 'member',
+        email: normalizedEmail,
+        role: finalRole,
         team,
-        invitedBy: 'current_user', // would be real user in production
+        invitedBy: g.auth.memberId,
       },
     })
 

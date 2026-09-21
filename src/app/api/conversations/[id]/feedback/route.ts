@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, badRequest } from '@/lib/api-auth'
 
 interface FeedbackBody {
   type: string
@@ -13,6 +14,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('conversations.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = (await request.json()) as FeedbackBody
     const { type, previousValue, correctedValue, justification } = body
@@ -24,9 +27,13 @@ export async function POST(
       )
     }
 
-    const conversation = await db.conversation.findUnique({ where: { id } })
+    const conversation = await db.conversation.findFirst({ where: { id, organizationId: g.auth.orgId } })
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+
+    if (type === 'agent' && !(await db.agent.findFirst({ where: { id: correctedValue, organizationId: g.auth.orgId }, select: { id: true } }))) {
+      return badRequest('agente inválido')
     }
 
     // Create the feedback record
@@ -64,8 +71,8 @@ export async function POST(
         // For classification types, mark the classification as reviewed
         if (correctedValue && type.startsWith('classification:')) {
           const classId = type.replace('classification:', '')
-          await db.conversationClassification.update({
-            where: { id: classId },
+          await db.conversationClassification.updateMany({
+            where: { id: classId, conversationId: id },
             data: {
               label: correctedValue,
               reviewedStatus: 'corrected',

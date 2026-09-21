@@ -26,6 +26,7 @@ import NotificationsView from '@/components/notifications/notifications-view'
 import LandingPage from '@/components/landing/landing-page'
 import LoginPage from '@/components/login/login-page'
 import AdminView from '@/components/admin/admin-view'
+import { canOpenView } from '@/lib/permissions'
 
 function MainContent() {
   const { currentView, selectedConversationId, selectedAgentId, sidebarOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
@@ -35,6 +36,8 @@ function MainContent() {
   const setSeenTours = useAppStore((s) => s.setSeenTours)
   const startTour = useAppStore((s) => s.startTour)
   const activeTour = useAppStore((s) => s.activeTour)
+  const me = useAppStore((s) => s.me)
+  const setMe = useAppStore((s) => s.setMe)
 
   // O Zustand store e efemero: qualquer refresh da arvore RSC (ex.: apos o
   // signIn) reinicia showLanding para o default (true). Sincroniza com a
@@ -45,6 +48,18 @@ function MainContent() {
       setShowLogin(false)
     }
   }, [status, setShowLanding, setShowLogin])
+
+  // Papel real (vem do banco) para montar o menu e bloquear telas que o papel não pode abrir.
+  useEffect(() => {
+    if (status !== 'authenticated') {
+      setMe(null)
+      return
+    }
+    fetch('/api/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator } : null))
+      .catch(() => setMe(null))
+  }, [status, setMe])
 
   useEffect(() => {
     if (status !== 'authenticated') return
@@ -67,6 +82,9 @@ function MainContent() {
   }, [toursLoaded, seenTours, currentView, activeTour, startTour])
 
   const renderView = () => {
+    // Tela que o papel não pode abrir (ex.: link antigo / estado persistido) volta para a Visão Geral.
+    const allowed = currentView === 'admin' ? !!me?.isPlatformOperator : !me || canOpenView(me.role, currentView)
+    if (!allowed) return <DashboardView />
     switch (currentView) {
       case 'dashboard':
         return <DashboardView />

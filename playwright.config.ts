@@ -13,13 +13,14 @@ export default defineConfig({
   },
   webServer: {
     // Banco descartável: recriado e populado a cada execução, nunca toca dev.db nem produção.
-    command: `node tests/e2e/reset-test-db.mjs && bunx prisma db push --skip-generate && bun prisma/seed.ts && bunx next dev -p ${PORT}`,
+    command: `node tests/e2e/reset-test-db.mjs && bunx prisma db push --skip-generate && bun prisma/seed.ts && bun tests/e2e/seed-test-orgs.ts && bunx next dev -p ${PORT}`,
     url: `http://127.0.0.1:${PORT}/login`,
     reuseExistingServer: false,
     timeout: 180_000,
     env: {
       DATABASE_URL: TEST_DB,
       NEXTAUTH_SECRET: 'e2e-secret-not-for-production',
+      PLATFORM_ADMIN_EMAILS: "platform@test.local",
       NEXTAUTH_URL: `http://127.0.0.1:${PORT}`,
     },
   },

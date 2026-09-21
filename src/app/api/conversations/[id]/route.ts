@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, conversationScope, badRequest } from '@/lib/api-auth'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -14,13 +15,19 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('conversations.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = await request.json()
     const { agentId, addTag, markReviewed } = body as { agentId?: string; addTag?: string; markReviewed?: boolean }
 
-    const existing = await db.conversation.findUnique({ where: { id }, select: { tags: true } })
+    const existing = await db.conversation.findFirst({ where: { id, organizationId: g.auth.orgId }, select: { tags: true } })
     if (!existing) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+
+    if (agentId && !(await db.agent.findFirst({ where: { id: agentId, organizationId: g.auth.orgId }, select: { id: true } }))) {
+      return badRequest('agentId inválido')
     }
 
     const data: Record<string, unknown> = { updatedAt: new Date() }
@@ -47,10 +54,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('conversations.view')
+    if (!g.ok) return g.res
     const { id } = await params
 
-    const conversation = await db.conversation.findUnique({
-      where: { id },
+    const conversation = await db.conversation.findFirst({
+      where: { id, ...conversationScope(g.auth) },
       include: {
         contact: { select: { id: true, displayName: true, phoneLast4: true, isGroup: true } },
         agent: { select: { id: true, name: true, email: true, team: true, role: true } },

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, recoveryScope } from '@/lib/api-auth'
 
 interface PatchBody {
   status?: string
@@ -15,10 +16,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('recovery.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = (await request.json()) as PatchBody
 
-    const existing = await db.recoveryItem.findUnique({ where: { id } })
+    const existing = await db.recoveryItem.findFirst({ where: { id, ...recoveryScope(g.auth) } })
     if (!existing) {
       return NextResponse.json({ error: 'Recovery item not found' }, { status: 404 })
     }

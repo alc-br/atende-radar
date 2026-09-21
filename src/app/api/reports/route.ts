@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function GET() {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('reports.view')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     // Report definitions
     const definitions = await db.reportDefinition.findMany({

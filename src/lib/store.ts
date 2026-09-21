@@ -17,7 +17,16 @@ interface CurrentOrganization {
   website: string | null
 }
 
+interface Me {
+  role: string
+  name: string
+  email: string
+  isPlatformOperator: boolean
+}
+
 interface AppState {
+  me: Me | null
+  setMe: (me: Me | null) => void
   currentView: View
   selectedConversationId: string | null
   selectedAgentId: string | null
@@ -51,6 +60,8 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  me: null,
+  setMe: (me) => set({ me }),
   currentView: 'dashboard',
   selectedConversationId: null,
   selectedAgentId: null,

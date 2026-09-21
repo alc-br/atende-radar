@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, recoveryScope, badRequest } from '@/lib/api-auth'
 import { Prisma } from '@prisma/client'
 
 export async function GET(request: Request) {
@@ -10,12 +11,11 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('recovery.manage')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
-    const where: Prisma.RecoveryItemWhereInput = { organizationId: org.id }
+    const where: Prisma.RecoveryItemWhereInput = { AND: [recoveryScope(g.auth)] }
 
     if (status && status !== 'all') {
       where.status = status
@@ -81,10 +81,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('recovery.manage')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const body = await request.json()
     const {
@@ -107,6 +106,16 @@ export async function POST(request: Request) {
       assignedTo?: string
       priorityScore?: number
       dueAt?: string
+    }
+
+    if (conversationId && !(await db.conversation.findFirst({ where: { id: conversationId, organizationId: org.id }, select: { id: true } }))) {
+      return badRequest('conversationId inválido')
+    }
+    if (agentId && !(await db.agent.findFirst({ where: { id: agentId, organizationId: org.id }, select: { id: true } }))) {
+      return badRequest('agentId inválido')
+    }
+    if (opportunityId && !(await db.revenueOpportunity.findFirst({ where: { id: opportunityId, conversation: { organizationId: org.id } }, select: { id: true } }))) {
+      return badRequest('opportunityId inválido')
     }
 
     const item = await db.recoveryItem.create({

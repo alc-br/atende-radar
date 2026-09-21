@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('agents.view')
+    if (!g.ok) return g.res
     const { id } = await params
 
-    const agent = await db.agent.findUnique({
-      where: { id },
+    const agent = await db.agent.findFirst({
+      where: { id, organizationId: g.auth.orgId },
       include: {
         metrics: { orderBy: { date: 'asc' } },
         organization: { select: { id: true, name: true } },
@@ -39,7 +42,7 @@ export async function GET(
 
     const [promises, opportunities, findings] = await Promise.all([
       db.promise.findMany({
-        where: { conversation: { agentId: id } },
+        where: { conversation: { agentId: id, organizationId: g.auth.orgId } },
         orderBy: { dueAt: 'desc' },
         take: 10,
       }),

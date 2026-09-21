@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 interface OutcomeBody {
   outcome: 'won' | 'lost'
@@ -12,6 +13,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('conversations.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = (await request.json()) as OutcomeBody
     const { outcome, value, reason } = body
@@ -23,8 +26,8 @@ export async function POST(
       )
     }
 
-    const conversation = await db.conversation.findUnique({
-      where: { id },
+    const conversation = await db.conversation.findFirst({
+      where: { id, organizationId: g.auth.orgId },
       include: { opportunities: { orderBy: { createdAt: 'desc' }, take: 1 } },
     })
 

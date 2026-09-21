@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, alertScope } from '@/lib/api-auth'
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('alerts.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = await request.json()
     const { reason } = body as { reason?: string }
@@ -14,7 +17,7 @@ export async function POST(
       return NextResponse.json({ error: 'reason is required' }, { status: 400 })
     }
 
-    const alert = await db.alert.findUnique({ where: { id } })
+    const alert = await db.alert.findFirst({ where: { id, ...alertScope(g.auth) } })
     if (!alert) {
       return NextResponse.json({ error: 'Alert not found' }, { status: 404 })
     }

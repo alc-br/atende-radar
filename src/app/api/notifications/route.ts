@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function GET(request: Request) {
   try {
@@ -9,10 +10,9 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '30')
 
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('notifications.view')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const where: Record<string, unknown> = { organizationId: org.id }
     if (userId) where.userId = userId

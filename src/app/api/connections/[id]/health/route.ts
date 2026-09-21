@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('connections.view')
+    if (!g.ok) return g.res
     const { id } = await params
 
-    const connection = await db.whatsAppConnection.findUnique({
-      where: { id },
+    const connection = await db.whatsAppConnection.findFirst({
+      where: { id, organizationId: g.auth.orgId },
       include: {
         sessionEvents: {
           orderBy: { occurredAt: 'desc' },

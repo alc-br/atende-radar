@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function PATCH(
   request: Request,
@@ -7,10 +8,9 @@ export async function PATCH(
 ) {
   try {
     const { type } = await params
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('reports.configure')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const existing = await db.reportDefinition.findFirst({
       where: { organizationId: org.id, reportType: type },

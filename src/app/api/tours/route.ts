@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -12,12 +11,10 @@ function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
 }
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-  }
+  const g = await guard('tours.use')
+  if (!g.ok) return g.res
 
-  const member = await db.organizationMember.findUnique({ where: { id: session.user.id } })
+  const member = await db.organizationMember.findUnique({ where: { id: g.auth.memberId } })
   if (!member) {
     return NextResponse.json({ error: 'Membro não encontrado' }, { status: 404 })
   }
@@ -26,10 +23,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-  }
+  const g = await guard('tours.use')
+  if (!g.ok) return g.res
 
   const body = await request.json()
   const { tourId } = body as { tourId?: string }
@@ -37,7 +32,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'tourId é obrigatório' }, { status: 400 })
   }
 
-  const member = await db.organizationMember.findUnique({ where: { id: session.user.id } })
+  const member = await db.organizationMember.findUnique({ where: { id: g.auth.memberId } })
   if (!member) {
     return NextResponse.json({ error: 'Membro não encontrado' }, { status: 404 })
   }

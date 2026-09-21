@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, alertScope } from '@/lib/api-auth'
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('alerts.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = await request.json()
     const { assignedTo, status } = body as { assignedTo?: string; status?: string }
 
-    const existing = await db.alert.findUnique({ where: { id } })
+    const existing = await db.alert.findFirst({ where: { id, ...alertScope(g.auth) } })
     if (!existing) {
       return NextResponse.json({ error: 'Alert not found' }, { status: 404 })
     }

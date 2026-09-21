@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, alertScope } from '@/lib/api-auth'
 import { Prisma } from '@prisma/client'
 
 export async function GET(request: Request) {
@@ -13,13 +14,12 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('alerts.view')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     // Build where clause
-    const where: Prisma.AlertWhereInput = { organizationId: org.id }
+    const where: Prisma.AlertWhereInput = { AND: [alertScope(g.auth)] }
 
     if (status && status !== 'all') {
       where.status = status
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
       db.alert.count({ where }),
       db.alert.groupBy({
         by: ['status'],
-        where: { organizationId: org.id },
+        where: alertScope(g.auth),
         _count: { id: true },
       }),
     ])

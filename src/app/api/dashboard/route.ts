@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, conversationScope } from '@/lib/api-auth'
 import { Prisma } from '@prisma/client'
 
 interface DashboardSummary {
@@ -99,10 +100,9 @@ export async function GET(request: Request) {
     const period = searchParams.get('period') || '7d'
 
     // Get the first (and likely only) organization
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('dashboard.view')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     // --- Dashboard Summary from DailyMetric, filtered by the selected period ---
     const { curStart, curEnd, prevStart, prevEnd } = resolveWindows(period)
@@ -232,7 +232,7 @@ export async function GET(request: Request) {
 
     // --- Top 10 Priorities (by riskScore) ---
     const topConversations = await db.conversation.findMany({
-      where: { organizationId: org.id },
+      where: conversationScope(g.auth),
       include: {
         contact: { select: { displayName: true, phoneLast4: true } },
         agent: { select: { name: true, team: true } },
@@ -301,7 +301,7 @@ export async function GET(request: Request) {
       failures,
       evolution,
       priorities,
-      teamPerformance,
+      teamPerformance: g.auth.role === 'atendente' ? [] : teamPerformance,
     })
   } catch (error) {
     console.error('Dashboard API error:', error)

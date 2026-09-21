@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, isPlatformOperator } from '@/lib/api-auth'
 import fs from 'fs'
 import path from 'path'
 
@@ -12,6 +13,13 @@ function resolveDbFilePath(): string | null {
 
 export async function GET() {
   try {
+    // Painel da plataforma: só o operador (PLATFORM_ADMIN_EMAILS). Admin de cliente não entra.
+    const g = await guard()
+    if (!g.ok) return g.res
+    if (!isPlatformOperator(g.auth.email)) {
+      return NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 })
+    }
+
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
 

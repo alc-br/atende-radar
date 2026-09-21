@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, badRequest } from '@/lib/api-auth'
+import { validateTeamRefs } from '@/lib/team-refs'
 
 export async function GET() {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('teams.view')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const [teams, agents] = await Promise.all([
       db.team.findMany({
@@ -47,10 +48,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('teams.manage')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const body = await request.json()
     const { name, code, supervisorId, connectionIds, slaConfig, goals } = body as {
@@ -68,6 +68,9 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    const refError = await validateTeamRefs(org.id, supervisorId, connectionIds)
+    if (refError) return badRequest(refError)
 
     const team = await db.team.create({
       data: {

@@ -1,28 +1,37 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard, notFound, badRequest } from '@/lib/api-auth'
+import { isRole } from '@/lib/permissions'
+
+const STATUSES = ['active', 'suspended']
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('members.manage')
+    if (!g.ok) return g.res
     const { id } = await params
     const body = await request.json()
-    const { role, team } = body as { role?: string; team?: string }
+    const { role, team, status } = body as { role?: string; team?: string; status?: string }
 
-    const existing = await db.organizationMember.findUnique({ where: { id } })
-    if (!existing) {
-      return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+    const existing = await db.organizationMember.findFirst({ where: { id, organizationId: g.auth.orgId } })
+    if (!existing) return notFound('Member')
+
+    if (role !== undefined && !isRole(role)) return badRequest('Papel inválido')
+    if (status !== undefined && !STATUSES.includes(status)) return badRequest('Status inválido')
+    // Evita que a organização fique sem ninguém capaz de administrá-la
+    if (id === g.auth.memberId && ((role !== undefined && role !== existing.role) || (status !== undefined && status !== 'active'))) {
+      return badRequest('Você não pode alterar o seu próprio papel ou status')
     }
 
     const data: Record<string, unknown> = {}
     if (role !== undefined) data.role = role
     if (team !== undefined) data.team = team
+    if (status !== undefined) data.status = status
 
-    const updated = await db.organizationMember.update({
-      where: { id },
-      data,
-    })
+    const updated = await db.organizationMember.update({ where: { id }, data })
 
     return NextResponse.json({ success: true, member: updated })
   } catch (error) {
@@ -36,12 +45,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const g = await guard('members.manage')
+    if (!g.ok) return g.res
     const { id } = await params
 
-    const existing = await db.organizationMember.findUnique({ where: { id } })
-    if (!existing) {
-      return NextResponse.json({ error: 'Member not found' }, { status: 404 })
-    }
+    const existing = await db.organizationMember.findFirst({ where: { id, organizationId: g.auth.orgId } })
+    if (!existing) return notFound('Member')
+    if (id === g.auth.memberId) return badRequest('Você não pode remover a si mesmo')
 
     await db.organizationMember.delete({ where: { id } })
 

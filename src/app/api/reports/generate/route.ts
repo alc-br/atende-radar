@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 interface GenerateBody {
   reportTypeId: string
@@ -9,10 +10,9 @@ interface GenerateBody {
 
 export async function POST(request: Request) {
   try {
-    const org = await db.organization.findFirst()
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-    }
+    const g = await guard('reports.generate')
+    if (!g.ok) return g.res
+    const org = { id: g.auth.orgId }
 
     const body = (await request.json()) as GenerateBody
     const { reportTypeId, periodStart, periodEnd } = body

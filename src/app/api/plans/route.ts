@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guard } from '@/lib/api-auth'
 
 export async function GET() {
   try {
+    const g = await guard('plans.view')
+    if (!g.ok) return g.res
     const plans = await db.plan.findMany({
       where: { active: true },
       orderBy: { sortOrder: 'asc' },
