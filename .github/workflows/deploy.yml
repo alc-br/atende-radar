@@ -4,7 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      accept_data_loss:
+        description: 'Aceitar avisos de perda de dados do Prisma (só depois de revisar a mudança de schema; o backup do deploy já foi feito)'
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -62,8 +67,14 @@ jobs:
         working-directory: /opt/atende-radar/current
         run: |
           /usr/local/bin/bun run db:generate
-          # SEM --accept-data-loss: se a mudança de schema destruiria dados, o deploy falha em vez de apagar.
-          /usr/local/bin/bun run db:push:safe
+          # Por padrão SEM --accept-data-loss: se a mudança de schema destruiria dados, o deploy falha em vez de apagar.
+          # Uma mudança já revisada é liberada disparando o workflow à mão com accept_data_loss=true (fica registrado no histórico).
+          if [ "${{ github.event.inputs.accept_data_loss }}" = "true" ]; then
+            echo "ATENÇÃO: aplicando com --accept-data-loss (aprovado manualmente)"
+            /usr/local/bin/bun run db:push
+          else
+            /usr/local/bin/bun run db:push:safe
+          fi
 
       - name: Build
         working-directory: /opt/atende-radar/current
