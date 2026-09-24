@@ -27,6 +27,7 @@ export default defineConfig({
       DATABASE_URL: TEST_DB,
       NEXTAUTH_SECRET: 'e2e-secret-not-for-production',
       PLATFORM_ADMIN_EMAILS: 'platform@test.local',
+      GATEWAY_SECRET: 'gateway-secret-test',
       SIGNUP_RATE_LIMIT_PER_HOUR: '500', // os testes criam muitas contas do mesmo IP
       NEXTAUTH_URL: `http://127.0.0.1:${PORT}`,
     },

@@ -55,6 +55,8 @@ model WhatsAppConnection {
   lastSyncAt     DateTime?
   pairedAt       DateTime?
   disabledAt     DateTime?
+  qrCode         String?   // último QR emitido pelo WhatsApp (some quando conecta)
+  qrUpdatedAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   conversations  Conversation[]
@@ -148,6 +150,9 @@ model Message {
   isAutomatic     Boolean  @default(false)
   deliveryStatus  String   @default("delivered")
   createdAt       DateTime @default(now())
+  connectionId    String?  // de qual número entrou (mensagens reais do WhatsApp)
+  externalId      String?  // id da mensagem no WhatsApp: garante que a mesma mensagem não entra duas vezes
+  @@unique([connectionId, externalId])
 }
 
 model ConversationClassification {
