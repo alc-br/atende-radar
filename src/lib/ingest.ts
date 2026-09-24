@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { z } from 'zod'
 import { db } from './db'
+import { requestAnalysis } from './background'
 
 // ---------- contrato dos eventos (gateway → sistema) ----------
 export const EventSchema = z.object({
@@ -201,5 +202,6 @@ export async function ingestEvent(raw: unknown): Promise<IngestResult> {
   })
 
   await db.whatsAppConnection.update({ where: { id: connection.id }, data: { lastEventAt: new Date() } })
+  requestAnalysis(connection.organizationId)
   return { ok: true }
 }

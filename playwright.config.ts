@@ -4,7 +4,7 @@ const PORT = 3100
 const TEST_DB = 'file:./test.db'
 
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './tests',
   fullyParallel: false,
   workers: 1,
   reporter: [['list']],
@@ -13,7 +13,8 @@ export default defineConfig({
   },
   // Testes de API (rápidos, sem navegador) e testes de interface em desktop e celular.
   projects: [
-    { name: 'api', testIgnore: /\.ui\.spec\.ts$/ },
+    { name: 'unit', testMatch: /\.unit\.spec\.ts$/ },
+    { name: 'api', testIgnore: /(\.ui|\.unit)\.spec\.ts$/ },
     { name: 'ui-desktop', testMatch: /\.ui\.spec\.ts$/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
     { name: 'ui-mobile', testMatch: /\.ui\.spec\.ts$/, use: { ...devices['Pixel 7'] } },
   ],
@@ -28,6 +29,7 @@ export default defineConfig({
       NEXTAUTH_SECRET: 'e2e-secret-not-for-production',
       PLATFORM_ADMIN_EMAILS: 'platform@test.local',
       GATEWAY_SECRET: 'gateway-secret-test',
+      ANALYSIS_SCHEDULER: 'off', // os testes disparam o motor com POST /api/gateway/tick, de forma determinística
       SIGNUP_RATE_LIMIT_PER_HOUR: '500', // os testes criam muitas contas do mesmo IP
       NEXTAUTH_URL: `http://127.0.0.1:${PORT}`,
     },
