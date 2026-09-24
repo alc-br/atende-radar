@@ -217,10 +217,10 @@ export default function ReportsView() {
                     </div>
                   </div>
                   <Separator />
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       size="sm"
-                      className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="flex-1 min-w-[7.5rem] gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                       disabled={generatingId === report.id}
                       onClick={() => handleGenerate(report.id)}
                     >
@@ -229,7 +229,7 @@ export default function ReportsView() {
                     </Button>
                     <Dialog open={configDialogOpen === report.id} onOpenChange={(open) => open ? openConfig(report) : setConfigDialogOpen(null)}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-1.5">
+                        <Button variant="outline" size="sm" className="gap-1.5 flex-1 min-w-[7.5rem]">
                           <Settings2 className="h-3.5 w-3.5" />
                           Configurar
                         </Button>
