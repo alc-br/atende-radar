@@ -1,4 +1,5 @@
 import { analyzeAll, analyzeOrganization } from './analysis/engine'
+import { startWhatsApp } from './whatsapp/manager'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -16,6 +17,7 @@ async function safely(label: string, fn: () => Promise<unknown>) {
 }
 
 export function startBackgroundJobs() {
+  startWhatsApp() // só liga com WHATSAPP_GATEWAY=on
   if (g.__arJobsStarted || !enabled()) return
   g.__arJobsStarted = true
   g.__arTimers = new Map()

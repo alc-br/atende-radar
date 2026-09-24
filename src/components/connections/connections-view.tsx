@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
+import { QrDialog } from './qr-dialog'
 
 const statusConfig: Record<string, { label: string; color: string; dotColor: string }> = {
   pending:      { label: 'Pendente',       color: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600', dotColor: 'bg-gray-400' },
@@ -69,6 +70,7 @@ export default function ConnectionsView() {
   const [newConnPhone, setNewConnPhone] = useState('')
   const [newConnAck, setNewConnAck] = useState(false)
   const [creatingConn, setCreatingConn] = useState(false)
+  const [qrConnId, setQrConnId] = useState<string | null>(null)
 
   const handleCreateConnection = async () => {
     setCreatingConn(true)
@@ -79,11 +81,13 @@ export default function ConnectionsView() {
         body: JSON.stringify({ name: newConnName, phoneNumber: newConnPhone }),
       })
       if (!res.ok) throw new Error()
+      const created = await res.json().catch(() => null)
       setNewConnName('')
       setNewConnPhone('')
       setNewConnAck(false)
       setNewConnDialogOpen(false)
       fetchData()
+      if (created?.connection?.id) setQrConnId(created.connection.id) // já abre o QR para parear
     } catch {
       // keep dialog open so the user can retry
     } finally {
@@ -108,6 +112,14 @@ export default function ConnectionsView() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido')
     } finally { setIsLoading(false) }
+  }, [])
+
+  // Atualiza a lista SEM mostrar o esqueleto de carregamento (senão o diálogo do QR é desmontado).
+  const refreshQuietly = useCallback(async () => {
+    try {
+      const res = await fetch('/api/connections')
+      if (res.ok) setConnectionsData((await res.json()).connections || [])
+    } catch { /* mantém a lista atual */ }
   }, [])
 
   const fetchDiagnostics = useCallback(async (connId: string) => {
@@ -266,18 +278,9 @@ export default function ConnectionsView() {
                   Li e compreendo os riscos de usar uma integração não oficial com o WhatsApp.
                 </label>
               </div>
-              {/* QR Code Placeholder */}
-              <div className="flex flex-col items-center gap-3 py-4">
-                <div className="h-48 w-48 rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/30 flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                    <QrCode className="h-12 w-12 mx-auto mb-2 opacity-40" />
-                    <p className="text-xs">QR Code aparecerá aqui</p>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground text-center max-w-[260px]">
-                  Após confirmar, escaneie o QR Code com o WhatsApp do número desejado.
-                </p>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Ao criar a conexão, o QR Code aparece na próxima tela para você ler com o celular deste número.
+              </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setNewConnDialogOpen(false)}>Cancelar</Button>
@@ -416,7 +419,10 @@ export default function ConnectionsView() {
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost" size="sm" className="h-7 text-xs gap-1"
-                          onClick={() => toast.info('Geração de QR Code ainda não disponível nesta versão (sem integração real com WhatsApp).')}
+                          onClick={() => {
+                            if (conn.status === 'connected') toast.info('Este número já está conectado. Para trocar de aparelho, use "Reconectar" e depois "Gerar QR".')
+                            else setQrConnId(conn.id)
+                          }}
                         >
                           <QrCode className="h-3 w-3" />Gerar QR
                         </Button>
@@ -602,6 +608,7 @@ export default function ConnectionsView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <QrDialog connectionId={qrConnId} onOpenChange={(o) => { if (!o) setQrConnId(null) }} onConnected={refreshQuietly} />
     </div>
   )
 }
