@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test'
 
 const PORT = 3100
 const TEST_DB = 'file:./test.db'
@@ -11,6 +11,12 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
   },
+  // Testes de API (rápidos, sem navegador) e testes de interface em desktop e celular.
+  projects: [
+    { name: 'api', testIgnore: /\.ui\.spec\.ts$/ },
+    { name: 'ui-desktop', testMatch: /\.ui\.spec\.ts$/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'ui-mobile', testMatch: /\.ui\.spec\.ts$/, use: { ...devices['Pixel 7'] } },
+  ],
   webServer: {
     // Banco descartável: recriado e populado a cada execução, nunca toca dev.db nem produção.
     command: `node tests/e2e/reset-test-db.mjs && bunx prisma db push && bun prisma/seed.ts && bun tests/e2e/seed-test-orgs.ts && bunx next dev -p ${PORT}`,

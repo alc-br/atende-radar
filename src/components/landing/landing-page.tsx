@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { signIn } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,13 +12,6 @@ import {
   Users, ArrowRight, CheckCircle2, Star, Bot, FileText,
   Radio, Sparkles, Target, TrendingUp, Eye, Phone, ChevronRight,
 } from 'lucide-react'
-
-const stats = [
-  { value: '+500', label: 'Empresas' },
-  { value: '+2M', label: 'Conversas Auditadas' },
-  { value: 'R$15M+', label: 'Receita Recuperada' },
-  { value: '4.9★', label: 'Satisfação' },
-]
 
 const painPoints = [
   {
@@ -70,7 +65,7 @@ const features = [
   {
     icon: Radio,
     title: 'Conexões Multi-WhatsApp',
-    description: 'Suporte a múltiplas conexões Baileys para escalar sua operação sem limites.',
+    description: 'Conecte mais de um número de WhatsApp, conforme o seu plano.',
   },
 ]
 
@@ -95,72 +90,66 @@ const steps = [
   },
 ]
 
-const plans = [
-  {
-    name: 'Starter',
-    price: 'R$297',
-    period: '/mês',
-    description: 'Ideal para pequenas equipes que querem começar a auditar.',
-    features: [
-      '1 conexão WhatsApp',
-      '5 agentes',
-      '500 conversas/mês',
-      'Análise IA básica',
-      'Relatórios semanais',
-      'Suporte por e-mail',
-    ],
-    cta: 'Começar Agora',
-    highlighted: false,
-  },
-  {
-    name: 'Profissional',
-    price: 'R$697',
-    period: '/mês',
-    description: 'Para equipes que querem escalar e maximizar receita.',
-    features: [
-      '3 conexões WhatsApp',
-      '15 agentes',
-      '3.000 conversas/mês',
-      'Análise IA avançada',
-      '8 tipos de relatório',
-      'Alertas inteligentes',
-      'Recuperação de receita',
-      'Suporte prioritário',
-    ],
-    cta: 'Assinar Profissional',
-    highlighted: true,
-  },
-  {
-    name: 'Enterprise',
-    price: 'Sob consulta',
-    period: '',
-    description: 'Para grandes operações com necessidades específicas.',
-    features: [
-      'Conexões ilimitadas',
-      'Agentes ilimitados',
-      'Conversas ilimitadas',
-      'IA personalizada',
-      'API dedicada',
-      'SLA garantido',
-      'Gerente de sucesso',
-      'Treinamento Incluso',
-    ],
-    cta: 'Falar com Vendas',
-    highlighted: false,
-  },
-]
+interface PublicPlan {
+  code: string
+  name: string
+  description: string | null
+  monthlyPrice: number
+  highlight: boolean
+  trialDays: number
+  limits: { maxConnections: number; maxAgents: number; maxConversationsMonthly: number; retentionDays: number; maxAlertRules: number }
+  features: Record<string, boolean>
+}
+
+// Só lista o que o produto de fato entrega hoje (sem "API" nem "relatórios personalizados", que ainda não existem).
+function planBullets(p: PublicPlan): string[] {
+  const l = p.limits
+  const list = [
+    `${l.maxConnections} ${l.maxConnections === 1 ? 'conexão' : 'conexões'} de WhatsApp`,
+    `Até ${l.maxAgents} atendentes`,
+    `${l.maxConversationsMonthly.toLocaleString('pt-BR')} conversas por mês`,
+    `${l.maxAlertRules} regras de alerta`,
+    `Histórico de ${l.retentionDays} dias`,
+  ]
+  if (p.features.daily_report) list.push('Relatório diário')
+  if (p.features.team_management) list.push('Gestão de equipes')
+  if (p.features.advanced_dashboard) list.push('Painel avançado')
+  return list
+}
+
+const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
 export default function LandingPage() {
-  const { setView, setShowLanding, setShowLogin } = useAppStore()
+  const { setView, setShowLanding, setShowLogin, openAuth } = useAppStore()
+  const [plans, setPlans] = useState<PublicPlan[] | null>(null)
+  const [plansError, setPlansError] = useState(false)
+  const [demoLoading, setDemoLoading] = useState(false)
 
-  const handleStart = () => {
-    setShowLogin(true)
-  }
+  const handleStart = () => openAuth('signup')
+  const handleLogin = () => openAuth('login')
 
-  const handleDemo = () => {
+  // Demonstração: entra na conta pública de demonstração (ver B7: virá um ambiente demo separado).
+  const handleDemo = async () => {
+    setDemoLoading(true)
+    const result = await signIn('credentials', { email: 'demo@atenderadar.com', password: 'demo123', redirect: false })
+    setDemoLoading(false)
+    if (result?.error) {
+      openAuth('login')
+      return
+    }
     setShowLanding(false)
+    setShowLogin(false)
     setView('dashboard')
   }
+
+  const loadPlans = () => {
+    setPlansError(false)
+    fetch('/api/public/plans')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => setPlans(d.plans))
+      .catch(() => setPlansError(true))
+  }
+  useEffect(loadPlans, [])
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -179,7 +168,7 @@ export default function LandingPage() {
           }} />
         </div>
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-20 sm:pt-20 sm:pb-28">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-10 sm:pt-20 sm:pb-28">
           {/* Nav bar */}
           <nav className="flex items-center justify-between mb-16 sm:mb-20">
             <div className="flex items-center gap-2">
@@ -191,13 +180,13 @@ export default function LandingPage() {
               </span>
             </div>
             <div className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground">
-              <button className="hover:text-foreground transition-colors">Funcionalidades</button>
-              <button className="hover:text-foreground transition-colors">Preços</button>
-              <Button variant="ghost" size="sm" onClick={handleStart}>
+              <button onClick={() => scrollTo('funcionalidades')} className="hover:text-foreground transition-colors">Funcionalidades</button>
+              <button onClick={() => scrollTo('precos')} className="hover:text-foreground transition-colors">Preços</button>
+              <Button variant="ghost" size="sm" onClick={handleLogin}>
                 Entrar
               </Button>
             </div>
-            <Button size="sm" className="sm:hidden" onClick={handleStart}>
+            <Button size="sm" className="sm:hidden" onClick={handleLogin}>
               Entrar
             </Button>
           </nav>
@@ -206,7 +195,7 @@ export default function LandingPage() {
           <div className="text-center max-w-3xl mx-auto">
             <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
               <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-              Plataforma #1 em Auditoria de WhatsApp
+              Auditoria de receita e qualidade no WhatsApp
             </Badge>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.1] mb-6">
               Auditoria Inteligente de{' '}
@@ -233,25 +222,12 @@ export default function LandingPage() {
                 size="lg"
                 className="w-full sm:w-auto h-12 text-base font-medium border-foreground/20"
                 onClick={handleDemo}
+                disabled={demoLoading}
               >
                 <MessageSquare className="w-4 h-4 mr-2" />
                 Ver Demonstração
               </Button>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========== SOCIAL PROOF / TRUST BAR ========== */}
-      <section className="border-y border-border bg-card/50 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-emerald-600 mb-1">{stat.value}</div>
-                <div className="text-sm text-muted-foreground font-medium">{stat.label}</div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -288,7 +264,7 @@ export default function LandingPage() {
       </section>
 
       {/* ========== FEATURES GRID ========== */}
-      <section className="py-20 sm:py-28 bg-muted/30">
+      <section id="funcionalidades" className="py-20 sm:py-28 bg-muted/30 scroll-mt-4">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <Badge variant="outline" className="mb-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300">
@@ -360,7 +336,7 @@ export default function LandingPage() {
       </section>
 
       {/* ========== PRICING PREVIEW ========== */}
-      <section className="py-20 sm:py-28 bg-muted/30">
+      <section id="precos" className="py-20 sm:py-28 bg-muted/30 scroll-mt-4">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <Badge variant="outline" className="mb-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300">
@@ -374,63 +350,74 @@ export default function LandingPage() {
               Comece grátis por 14 dias. Sem cartão de crédito.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto">
-            {plans.map((plan) => (
-              <Card
-                key={plan.name}
-                className={
-                  plan.highlighted
-                    ? 'relative border-emerald-500 dark:border-emerald-500 shadow-xl shadow-emerald-500/10 scale-[1.02]'
-                    : 'border-border/60'
-                }
-              >
-                {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-emerald-600 text-white px-4 py-1 text-xs font-semibold shadow-md">
-                      Mais Popular
-                    </Badge>
-                  </div>
-                )}
-                <CardHeader className="pb-4 pt-8 px-6">
-                  <CardTitle className="text-lg font-semibold text-foreground">{plan.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
-                </CardHeader>
-                <CardContent className="px-6 pb-6">
-                  <div className="mb-6">
-                    {plan.price === 'Sob consulta' ? (
-                      <span className="text-3xl font-bold text-foreground">Sob consulta</span>
-                    ) : (
-                      <>
-                        <span className="text-4xl font-bold text-foreground">{plan.price}</span>
-                        <span className="text-muted-foreground ml-1">{plan.period}</span>
-                      </>
-                    )}
-                  </div>
-                  <Separator className="mb-6" />
-                  <ul className="space-y-3 mb-8">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-3 text-sm">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                        <span className="text-muted-foreground">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className={
-                      plan.highlighted
-                        ? 'w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-600/20'
-                        : 'w-full'
-                    }
-                    variant={plan.highlighted ? 'default' : 'outline'}
-                    onClick={handleStart}
-                  >
-                    {plan.cta}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))
-          }</div>
+          {plansError && (
+            <div className="text-center text-muted-foreground">
+              <p className="mb-4">Não foi possível carregar os planos agora.</p>
+              <Button variant="outline" onClick={loadPlans}>Tentar novamente</Button>
+            </div>
+          )}
+          {!plansError && !plans && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto" aria-busy="true">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-96 rounded-xl border border-border/60 bg-card/50 animate-pulse" />
+              ))}
+            </div>
+          )}
+          {plans && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto">
+              {plans.map((plan) => (
+                <Card
+                  key={plan.code}
+                  className={
+                    plan.highlight
+                      ? 'relative h-full border-emerald-500 dark:border-emerald-500 shadow-xl shadow-emerald-500/10 ring-1 ring-emerald-500/40'
+                      : 'h-full border-border/60'
+                  }
+                >
+                  {plan.highlight && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <Badge className="bg-emerald-600 text-white px-4 py-1 text-xs font-semibold shadow-md">
+                        Mais Popular
+                      </Badge>
+                    </div>
+                  )}
+                  <CardHeader className="pb-4 pt-8 px-6">
+                    <CardTitle className="text-lg font-semibold text-foreground">
+                      <h3>{plan.name}</h3>
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
+                  </CardHeader>
+                  <CardContent className="px-6 pb-6 flex-1 flex flex-col">
+                    <div className="mb-6">
+                      <span className="text-4xl font-bold text-foreground">R$ {plan.monthlyPrice}</span>
+                      <span className="text-muted-foreground ml-1">/mês</span>
+                    </div>
+                    <Separator className="mb-6" />
+                    <ul className="space-y-3 mb-8 flex-1">
+                      {planBullets(plan).map((feature) => (
+                        <li key={feature} className="flex items-start gap-3 text-sm">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                          <span className="text-muted-foreground">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      className={
+                        plan.highlight
+                          ? 'w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-600/20'
+                          : 'w-full'
+                      }
+                      variant={plan.highlight ? 'default' : 'outline'}
+                      onClick={handleStart}
+                    >
+                      Testar grátis por 14 dias
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -451,7 +438,7 @@ export default function LandingPage() {
                 Pronto para parar de perder receita?
               </h2>
               <p className="text-emerald-100 text-lg max-w-xl mx-auto mb-8 leading-relaxed">
-                Junte-se a mais de 500 empresas que já recuperaram milhões com o AtendeRadar.
+                Comece a enxergar a receita que hoje passa despercebida nas conversas do seu WhatsApp.
               </p>
               <Button
                 size="lg"
@@ -462,7 +449,7 @@ export default function LandingPage() {
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
               <p className="text-emerald-200 text-sm mt-4">
-                14 dias grátis · Sem cartão de crédito · Cancele quando quiser
+                14 dias grátis · Sem cartão de crédito
               </p>
             </div>
           </div>
@@ -481,13 +468,8 @@ export default function LandingPage() {
                 Atende<span className="text-emerald-600">Radar</span>
               </span>
             </div>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <button className="hover:text-foreground transition-colors">Termos de Uso</button>
-              <button className="hover:text-foreground transition-colors">Política de Privacidade</button>
-              <button className="hover:text-foreground transition-colors">Suporte</button>
-            </div>
             <p className="text-xs text-muted-foreground">
-              © 2025 AtendeRadar. Todos os direitos reservados.
+              © {new Date().getFullYear()} AtendeRadar. Todos os direitos reservados.
             </p>
           </div>
         </div>

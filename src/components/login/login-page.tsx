@@ -29,7 +29,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<Mode>('login')
+  const [mode, setMode] = useState<Mode>(useAppStore.getState().authMode)
   const [name, setName] = useState('')
   const [organizationName, setOrganizationName] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
@@ -197,7 +197,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    autoComplete="current-password"
+                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                     disabled={loading}
                     className="h-11 pl-10 pr-10"
                   />

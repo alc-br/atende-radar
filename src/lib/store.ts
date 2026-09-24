@@ -25,6 +25,8 @@ interface Me {
 }
 
 interface AppState {
+  authMode: 'login' | 'signup'
+  openAuth: (mode: 'login' | 'signup') => void
   me: Me | null
   setMe: (me: Me | null) => void
   currentView: View
@@ -60,6 +62,8 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  authMode: 'login',
+  openAuth: (mode) => set({ authMode: mode, showLogin: true }),
   me: null,
   setMe: (me) => set({ me }),
   currentView: 'dashboard',
