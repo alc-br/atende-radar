@@ -46,7 +46,7 @@ export const authOptions: NextAuthOptions = {
                 status: 'active',
               },
             })
-            return { id: created.id, email: created.email, name: created.name, role: created.role, sv: created.sessionVersion }
+            return { id: created.id, email: created.email, name: created.name, role: created.role, sv: created.sessionVersion, demo: true }
           }
           return null
         }
@@ -82,7 +82,8 @@ export const authOptions: NextAuthOptions = {
           where: { id: member.id },
           data: { failedLogins: 0, lockedUntil: null, lastAccessAt: new Date() },
         })
-        return { id: member.id, email: member.email, name: member.name, role: member.role, sv: member.sessionVersion }
+        // entrou pela senha pública de demonstração (sem senha própria) → sessão somente leitura
+        return { id: member.id, email: member.email, name: member.name, role: member.role, sv: member.sessionVersion, demo: !member.passwordHash }
       },
     }),
   ],
@@ -102,6 +103,7 @@ export const authOptions: NextAuthOptions = {
         ;(token as any).role = (user as any).role
         ;(token as any).name = (user as any).name
         ;(token as any).sv = (user as any).sv ?? 0
+        ;(token as any).demo = !!(user as any).demo
       }
       return token
     },

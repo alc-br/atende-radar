@@ -18,13 +18,13 @@ async function main() {
     await db.organizationMember.create({
       data: {
         id: `member_a_${role}`, organizationId: 'org_seed_1', userId: `${role}.a@test.local`,
-        name: `${role} A`, email: `${role}.a@test.local`, role, status: 'active',
+        name: `${role} A`, email: `${role}.a@test.local`, role, status: 'active', passwordHash: hashPassword('demo123'),
       },
     })
   }
   // Operador da plataforma (definido por PLATFORM_ADMIN_EMAILS no ambiente de teste)
   await db.organizationMember.create({
-    data: { id: 'member_platform', organizationId: 'org_seed_1', userId: 'platform@test.local', name: 'Operador', email: 'platform@test.local', role: 'gestor', status: 'active' },
+    data: { id: 'member_platform', organizationId: 'org_seed_1', userId: 'platform@test.local', name: 'Operador', email: 'platform@test.local', role: 'gestor', status: 'active', passwordHash: hashPassword('demo123') },
   })
 
   // Atendente A tem agente próprio + uma conversa própria (as demais conversas do seed são de outros agentes)

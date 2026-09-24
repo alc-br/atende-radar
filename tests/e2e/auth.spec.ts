@@ -307,6 +307,28 @@ test.describe('B1 · convite de membro', () => {
   })
 })
 
+test.describe('B7 · conta de demonstração é somente leitura', () => {
+  test('visitante da demo lê tudo, mas não altera nada', async () => {
+    const c = await loginAs(`visitante.${uid()}@demo.test`, 'demo123') // demo auto-criada
+    expect((await c.get('/api/dashboard')).status()).toBe(200)
+    expect((await c.get('/api/conversations')).status()).toBe(200)
+    for (const [method, path] of [['PATCH', '/api/settings'], ['POST', '/api/alert-rules'], ['POST', '/api/members'], ['POST', '/api/connections'], ['PATCH', '/api/recovery/x'], ['DELETE', '/api/teams/x']] as const) {
+      const r = await c.fetch(path, { method, data: {} })
+      expect(r.status(), `${method} ${path}`).toBe(403)
+      expect((await r.json()).error).toContain('somente leitura')
+    }
+    // o guia de telas (tour) continua funcionando
+    expect((await c.patch('/api/tours', { data: { tourId: 'welcome' } })).status()).toBe(200)
+    await c.dispose()
+  })
+
+  test('contas de teste da organização de demonstração com convite/senha própria continuam podendo escrever', async () => {
+    const adm = await loginAs('admin.a@test.local')
+    expect((await adm.patch('/api/settings', { data: {} })).status()).toBe(200)
+    await adm.dispose()
+  })
+})
+
 test.describe('B1 · conta legada de demonstração', () => {
   test('demo@atenderadar.com continua entrando na org de demonstração (até o B7)', async () => {
     const c = await loginAs('demo@atenderadar.com', 'demo123')

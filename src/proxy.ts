@@ -7,6 +7,12 @@ export async function proxy(req: NextRequest) {
   if (!token?.sub) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
   }
+  // Sessão de demonstração (senha pública): só leitura. O guia de telas (tour) continua funcionando.
+  const method = req.method.toUpperCase()
+  const readOnlyMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
+  if ((token as { demo?: boolean }).demo && !readOnlyMethod && !req.nextUrl.pathname.startsWith('/api/tours')) {
+    return NextResponse.json({ error: 'A conta de demonstração é somente leitura. Crie a sua conta grátis para testar de verdade.' }, { status: 403 })
+  }
   return NextResponse.next()
 }
 
