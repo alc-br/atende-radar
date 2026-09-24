@@ -4,12 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:
-    inputs:
-      accept_data_loss:
-        description: 'Aceitar avisos de perda de dados do Prisma (só depois de revisar a mudança de schema; o backup do deploy já foi feito)'
-        type: boolean
-        default: false
+  workflow_dispatch: {}
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -67,13 +62,23 @@ jobs:
         working-directory: /opt/atende-radar/current
         run: |
           /usr/local/bin/bun run db:generate
-          # Por padrão SEM --accept-data-loss: se a mudança de schema destruiria dados, o deploy falha em vez de apagar.
-          # Uma mudança já revisada é liberada disparando o workflow à mão com accept_data_loss=true (fica registrado no histórico).
-          if [ "${{ github.event.inputs.accept_data_loss }}" = "true" ]; then
-            echo "ATENÇÃO: aplicando com --accept-data-loss (aprovado manualmente)"
-            /usr/local/bin/bun run db:push
+          # Por padrão SEM --accept-data-loss. Se o Prisma avisar de perda de dados, o deploy só continua
+          # quando CADA aviso estiver aprovado em .github/approved-schema-changes.txt (aprovação fica no git).
+          if /usr/local/bin/bun run db:push:safe > /tmp/db-push.log 2>&1; then
+            cat /tmp/db-push.log
           else
-            /usr/local/bin/bun run db:push:safe
+            cat /tmp/db-push.log
+            grep -E '^  • ' /tmp/db-push.log | sed 's/^  • //' > /tmp/db-warnings.txt || true
+            if [ ! -s /tmp/db-warnings.txt ]; then echo "db push falhou por outro motivo"; exit 1; fi
+            while IFS= read -r w; do
+              if ! grep -qxF "$w" .github/approved-schema-changes.txt; then
+                echo "AVISO NÃO APROVADO: $w"
+                echo "Revise a mudança e registre-a em .github/approved-schema-changes.txt"
+                exit 1
+              fi
+            done < /tmp/db-warnings.txt
+            echo "Todos os avisos estão aprovados no repositório: aplicando com --accept-data-loss"
+            /usr/local/bin/bun run db:push
           fi
 
       - name: Build

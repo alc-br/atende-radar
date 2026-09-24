@@ -1,0 +1,8 @@
+# Avisos de "perda de dados" do `prisma db push` que uma PESSOA já revisou e aprovou.
+# O deploy só os aceita se a linha do aviso constar aqui, exatamente como o Prisma escreve.
+# Qualquer aviso que NÃO esteja listado derruba o deploy (o site continua no ar na versão anterior).
+# Para aprovar uma mudança: confira o backup, entenda o aviso, adicione a linha abaixo com data e motivo no commit.
+
+# 2026-09-24 — Message(connectionId, externalId) único. Todas as mensagens existentes têm os dois campos vazios (NULL),
+# e no SQLite valores NULL nunca colidem em índice único, então não pode falhar nem apagar nada.
+A unique constraint covering the columns `[connectionId,externalId]` on the table `Message` will be added. If there are existing duplicate values, this will fail.
