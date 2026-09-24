@@ -28,6 +28,9 @@ export function QrDialog({ connectionId, onOpenChange, onConnected }: Props) {
     const startedAt = Date.now()
     let stop = false
 
+    // Pede ao serviço um QR novo (necessário se o anterior expirou sem ser lido).
+    void fetch(`/api/connections/${connectionId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reconnect' }) }).catch(() => {})
+
     const poll = async () => {
       try {
         const res = await fetch(`/api/connections/${connectionId}/qr`)

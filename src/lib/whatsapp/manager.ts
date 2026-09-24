@@ -14,10 +14,14 @@ interface Session {
   state: 'connecting' | 'open'
   stopping: boolean
   retry: number
+  qrCount: number // quantos QRs já foram emitidos sem ninguém escanear
   retryTimer?: ReturnType<typeof setTimeout>
 }
 
-const g = globalThis as { __waSessions?: Map<string, Session>; __waLoop?: ReturnType<typeof setInterval> }
+const g = globalThis as { __waSessions?: Map<string, Session>; __waLoop?: ReturnType<typeof setInterval>; __waParked?: Map<string, number> }
+// Conexões "estacionadas": ninguém escaneou o QR a tempo. Só voltam quando o cliente pede de novo (a linha no banco muda).
+const parked = () => (g.__waParked ??= new Map())
+const MAX_UNSCANNED_QRS = 5
 const sessions = () => (g.__waSessions ??= new Map())
 
 const sessionsDir = () => process.env.WA_SESSIONS_DIR || path.resolve(process.cwd(), '..', 'wa-sessions')
@@ -47,7 +51,7 @@ async function startSession(connectionId: string) {
     version = undefined // usa a versão embutida
   }
 
-  const session: Session = { sock: null, state: 'connecting', stopping: false, retry: 0 }
+  const session: Session = { sock: null, state: 'connecting', stopping: false, retry: 0, qrCount: 0 }
   sessions().set(connectionId, session)
 
   const connect = () => {
@@ -66,7 +70,20 @@ async function startSession(connectionId: string) {
 
     sock.ev.on('connection.update', async (u: any) => {
       try {
-        if (u.qr) await emit(connectionId, 'connection.qr', { qr: u.qr })
+        if (u.qr) {
+          session.qrCount += 1
+          if (session.qrCount > MAX_UNSCANNED_QRS && !state.creds?.registered) {
+            // ninguém escaneou: para de pedir QR ao WhatsApp e espera o cliente pedir de novo
+            session.stopping = true
+            parked().set(connectionId, Date.now())
+            sessions().delete(connectionId)
+            try { sock.end(undefined) } catch { /* ok */ }
+            await db.whatsAppConnection.update({ where: { id: connectionId }, data: { status: 'qr_required', statusReason: 'qr_expired', qrCode: null } })
+            log(`${connectionId} QR expirou sem ser escaneado; aguardando o cliente pedir de novo`)
+            return
+          }
+          await emit(connectionId, 'connection.qr', { qr: u.qr })
+        }
         if (u.connection === 'open') {
           session.state = 'open'
           session.retry = 0
@@ -135,7 +152,9 @@ async function stopSession(connectionId: string, opts: { logout?: boolean } = {}
 
 /** Compara o que o cliente pediu (banco) com as sessões abertas e ajusta. Roda a cada 15 s. */
 export async function reconcile() {
-  const conns = await db.whatsAppConnection.findMany({ select: { id: true, status: true, disabledAt: true } })
+  // A organização de demonstração tem conexões fictícias: nunca são abertas no WhatsApp.
+  const demoOrg = process.env.DEMO_ORG_ID || 'org_seed_1'
+  const conns = await db.whatsAppConnection.findMany({ where: { organizationId: { not: demoOrg } }, select: { id: true, status: true, disabledAt: true, updatedAt: true } })
   const wanted = new Set<string>()
   for (const c of conns) {
     const s = sessions().get(c.id)
@@ -150,6 +169,11 @@ export async function reconcile() {
       await stopSession(c.id, { logout: true })
     }
     wanted.add(c.id)
+    const parkedAt = parked().get(c.id)
+    if (parkedAt) {
+      if (c.updatedAt.getTime() <= parkedAt) continue // o cliente ainda não pediu de novo
+      parked().delete(c.id)
+    }
     if (!sessions().has(c.id)) await startSession(c.id).catch((e) => log(`falha ao iniciar ${c.id}:`, e instanceof Error ? e.message : e))
   }
   for (const id of [...sessions().keys()]) if (!wanted.has(id)) await stopSession(id)
