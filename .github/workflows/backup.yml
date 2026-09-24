@@ -1,0 +1,16 @@
+name: Backup diário do banco
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # 06:00 UTC = 03:00 em Brasília
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: [self-hosted, atende-radar]
+    steps:
+      - name: Backup database
+        working-directory: /opt/atende-radar/current
+        env:
+          BACKUP_REQUIRE_DB: 'true'
+        run: /usr/local/bin/bun scripts/backup-db.ts

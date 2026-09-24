@@ -18,11 +18,18 @@ jobs:
         working-directory: /opt/atende-radar/current
         run: /usr/local/bin/bun install
 
+      - name: Backup database (antes de mexer no schema)
+        working-directory: /opt/atende-radar/current
+        env:
+          BACKUP_REQUIRE_DB: 'true'
+        run: /usr/local/bin/bun scripts/backup-db.ts
+
       - name: Prisma generate & sync schema
         working-directory: /opt/atende-radar/current
         run: |
           /usr/local/bin/bun run db:generate
-          /usr/local/bin/bun run db:push
+          # SEM --accept-data-loss: se a mudança de schema destruiria dados, o deploy falha em vez de apagar.
+          /usr/local/bin/bun run db:push:safe
 
       - name: Build
         working-directory: /opt/atende-radar/current
