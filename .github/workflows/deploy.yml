@@ -3,10 +3,44 @@ name: Deploy
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch: {}
 
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  # 1) Os testes rodam num runner do GitHub (repositório público = sem custo). Se falhar, NADA vai ao ar.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install browser (Chromium)
+        run: bunx playwright install --with-deps chromium
+
+      - name: E2E tests (API + telas, desktop e celular)
+        run: bun run test:e2e
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
+
+  # 2) Só depois de os testes passarem: deploy no servidor (runner próprio).
   deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
     runs-on: [self-hosted, atende-radar]
     steps:
       - uses: actions/checkout@v4
