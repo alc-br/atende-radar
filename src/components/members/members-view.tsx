@@ -60,12 +60,16 @@ const ROLE_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   active: 'Ativo',
   pending: 'Pendente',
+  invited: 'Convite enviado',
+  suspended: 'Suspenso',
   inactive: 'Inativo',
 }
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  invited: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  suspended: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   inactive: 'bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400',
 }
 
@@ -120,7 +124,17 @@ export default function MembersView() {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'Erro ao adicionar membro')
       }
-      toast.success('Membro adicionado com sucesso!')
+      const created = await res.json().catch(() => ({}))
+      if (created.inviteLink) {
+        // Sem provedor de e-mail: o link precisa ser repassado à pessoa manualmente.
+        await navigator.clipboard?.writeText(created.inviteLink).catch(() => {})
+        toast.success('Convite criado. Link copiado!', {
+          description: `Envie este link para ${inviteEmail}: ${created.inviteLink}`,
+          duration: 20000,
+        })
+      } else {
+        toast.success(`Convite enviado para ${inviteEmail}.`)
+      }
       setInviteName('')
       setInviteEmail('')
       setInviteRole('member')

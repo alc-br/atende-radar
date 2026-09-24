@@ -2,6 +2,7 @@
 //   Org A = organização do seed (org_seed_1, OdontoVida) com um usuário para cada um dos 7 papéis
 //   Org B = "Clínica B", com dados próprios, para provar que uma não enxerga a outra
 import { PrismaClient } from '@prisma/client'
+import { hashPassword } from '../../src/lib/passwords'
 
 const db = new PrismaClient()
 
@@ -46,9 +47,14 @@ async function main() {
 
   for (const role of ['admin', 'gestor', 'atendente'] as const) {
     await db.organizationMember.create({
-      data: { id: `member_b_${role}`, organizationId: 'org_b', userId: `${role}.b@test.local`, name: `${role} B`, email: `${role}.b@test.local`, role, status: 'active' },
+      // Org B é um cliente "real": tem senha própria (só a org de demonstração aceita a senha pública demo123)
+      data: { id: `member_b_${role}`, organizationId: 'org_b', userId: `${role}.b@test.local`, name: `${role} B`, email: `${role}.b@test.local`, role, status: 'active', passwordHash: hashPassword('demo123') },
     })
   }
+  // membro da Org B sem senha (ex.: cadastro legado): não pode entrar com a senha pública de demonstração
+  await db.organizationMember.create({
+    data: { id: 'member_b_nohash', organizationId: 'org_b', userId: 'semsenha.b@test.local', name: 'Sem senha B', email: 'semsenha.b@test.local', role: 'gestor', status: 'active' },
+  })
   await db.whatsAppConnection.create({ data: { id: 'conn_b', organizationId: 'org_b', name: 'Conexão B', phoneNumber: '+5511900000002', phoneLast4: '0002', status: 'connected' } })
   const agentB = await db.agent.create({ data: { id: 'agent_b', organizationId: 'org_b', name: 'Agente B', email: 'agente@clinicab.test', team: 'Equipe B' } })
   await db.contact.create({ data: { id: 'contact_b', organizationId: 'org_b', displayName: 'Cliente Secreto B', phoneLast4: '9999' } })

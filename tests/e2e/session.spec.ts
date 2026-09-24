@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test'
-import { loginAs } from './helpers'
+import { loginAs, createUser, STRONG } from './helpers'
 
 let admA: APIRequestContext
 let atendA: APIRequestContext
@@ -18,11 +18,9 @@ const uid = () => Math.random().toString(36).slice(2, 8)
 test.describe('B4 · sessão acompanha o cadastro em tempo real', () => {
   test('membro removido perde o acesso imediatamente (mesmo com cookie válido)', async () => {
     const email = `saindo.${uid()}@test.local`
-    const created = await admA.post('/api/members', { data: { name: 'Saindo', email, role: 'gestor' } })
-    expect(created.status()).toBe(201)
-    const { member } = await created.json()
+    const member = await createUser(admA, { email, role: 'gestor' })
 
-    const sessao = await loginAs(email)
+    const sessao = await loginAs(email, STRONG)
     expect((await sessao.get('/api/dashboard')).status()).toBe(200)
 
     expect((await admA.delete(`/api/members/${member.id}`)).status()).toBe(200)
@@ -32,8 +30,8 @@ test.describe('B4 · sessão acompanha o cadastro em tempo real', () => {
 
   test('mudança de papel vale na hora, sem novo login', async () => {
     const email = `promovido.${uid()}@test.local`
-    const { member } = await (await admA.post('/api/members', { data: { name: 'Promovido', email, role: 'viewer' } })).json()
-    const sessao = await loginAs(email)
+    const member = await createUser(admA, { email, role: 'viewer' })
+    const sessao = await loginAs(email, STRONG)
     expect((await sessao.get('/api/settings')).status()).toBe(403)
 
     expect((await admA.patch(`/api/members/${member.id}`, { data: { role: 'gestor' } })).status()).toBe(200)
@@ -46,8 +44,8 @@ test.describe('B4 · sessão acompanha o cadastro em tempo real', () => {
 
   test('membro suspenso perde o acesso', async () => {
     const email = `suspenso.${uid()}@test.local`
-    const { member } = await (await admA.post('/api/members', { data: { name: 'Suspenso', email, role: 'gestor' } })).json()
-    const sessao = await loginAs(email)
+    const member = await createUser(admA, { email, role: 'gestor' })
+    const sessao = await loginAs(email, STRONG)
     expect((await sessao.get('/api/dashboard')).status()).toBe(200)
     expect((await admA.patch(`/api/members/${member.id}`, { data: { status: 'suspended' } })).status()).toBe(200)
     expect((await sessao.get('/api/dashboard')).status()).toBe(401)

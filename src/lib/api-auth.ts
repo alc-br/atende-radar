@@ -11,6 +11,7 @@ export interface AuthContext {
   role: string
   email: string
   name: string
+  emailVerified: boolean
 }
 
 export type Guard = { ok: true; auth: AuthContext } | { ok: false; res: NextResponse }
@@ -28,7 +29,9 @@ export async function guard(permission?: Permission): Promise<Guard> {
   if (!memberId) return { ok: false, res: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) }
 
   const member = await db.organizationMember.findUnique({ where: { id: memberId } })
-  if (!member || member.status !== 'active') {
+  // sessionVersion muda quando a senha é trocada: sessões antigas deixam de valer
+  const tokenVersion = (session?.user as { sv?: number } | undefined)?.sv ?? 0
+  if (!member || member.status !== 'active' || member.sessionVersion !== tokenVersion) {
     return { ok: false, res: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) }
   }
 
@@ -38,7 +41,7 @@ export async function guard(permission?: Permission): Promise<Guard> {
 
   return {
     ok: true,
-    auth: { memberId: member.id, orgId: member.organizationId, role: member.role, email: member.email, name: member.name },
+    auth: { memberId: member.id, orgId: member.organizationId, role: member.role, email: member.email, name: member.name, emailVerified: !!member.emailVerifiedAt },
   }
 }
 
@@ -66,3 +69,15 @@ export const alertScope = (a: AuthContext): Prisma.AlertWhereInput =>
 
 export const recoveryScope = (a: AuthContext): Prisma.RecoveryItemWhereInput =>
   isOwnScopeOnly(a) ? { organizationId: a.orgId, agent: { email: a.email } } : { organizationId: a.orgId }
+
+/** Membro sem campos sensíveis (nunca devolver o registro cru: tem hash de senha). */
+export function publicMember(m: {
+  id: string; userId: string; name: string; email: string; role: string; team: string | null; status: string
+  mfaEnabled: boolean; lastAccessAt: Date | null; invitedAt: Date; invitedBy: string | null; emailVerifiedAt?: Date | null
+}) {
+  return {
+    id: m.id, userId: m.userId, name: m.name, email: m.email, role: m.role, team: m.team, status: m.status,
+    mfaEnabled: m.mfaEnabled, lastAccessAt: m.lastAccessAt?.toISOString() || null,
+    invitedAt: m.invitedAt.toISOString(), invitedBy: m.invitedBy, emailVerified: !!m.emailVerifiedAt,
+  }
+}

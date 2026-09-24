@@ -8,7 +8,20 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { Shield, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Shield, Mail, Lock, Eye, EyeOff, Loader2, User, Building2, ArrowLeft } from 'lucide-react'
+
+type Mode = 'login' | 'signup' | 'forgot'
+
+async function postJson(url: string, body: unknown): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    if (res.ok) return { ok: true }
+    const data = await res.json().catch(() => ({}))
+    return { ok: false, error: data.error || 'Algo deu errado. Tente novamente.' }
+  } catch {
+    return { ok: false, error: 'Não foi possível conectar ao servidor. Tente novamente.' }
+  }
+}
 
 export default function LoginPage() {
   const { setShowLanding, setShowLogin, setView } = useAppStore()
@@ -16,6 +29,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState<Mode>('login')
+  const [name, setName] = useState('')
+  const [organizationName, setOrganizationName] = useState('')
+  const [forgotSent, setForgotSent] = useState(false)
 
   const handleLogin = async (loginEmail: string, loginPassword: string) => {
     setLoading(true)
@@ -45,21 +62,45 @@ export default function LoginPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    handleLogin(email, password)
+    if (mode === 'login') {
+      handleLogin(email, password)
+      return
+    }
+    setLoading(true)
+    try {
+      if (mode === 'signup') {
+        const r = await postJson('/api/auth/signup', { name, email, password, organizationName })
+        if (!r.ok) {
+          toast.error('Não foi possível criar a conta', { description: r.error })
+          return
+        }
+        toast.success('Conta criada! Entrando...')
+        await handleLogin(email, password)
+      } else {
+        const r = await postJson('/api/auth/forgot', { email })
+        if (!r.ok) {
+          toast.error('Não foi possível enviar', { description: r.error })
+          return
+        }
+        setForgotSent(true)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const switchMode = (next: Mode) => {
+    setMode(next)
+    setForgotSent(false)
+    setPassword('')
   }
 
   const handleDemoLogin = () => {
     setEmail('demo@atenderadar.com')
     setPassword('demo123')
     handleLogin('demo@atenderadar.com', 'demo123')
-  }
-
-  const handleForgotPassword = () => {
-    toast.info('Funcionalidade em desenvolvimento', {
-      description: 'A recuperação de senha estará disponível em breve.',
-    })
   }
 
   return (
@@ -93,13 +134,37 @@ export default function LoginPage() {
         {/* Login Card */}
         <Card className="shadow-lg border-border/50">
           <CardHeader className="text-center pb-2">
-            <h2 className="text-xl font-semibold text-foreground">Bem-vindo de volta</h2>
+            <h2 className="text-xl font-semibold text-foreground">
+              {mode === 'login' ? 'Bem-vindo de volta' : mode === 'signup' ? 'Crie a sua conta' : 'Recuperar senha'}
+            </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Entre na sua conta para acessar o painel
+              {mode === 'login'
+                ? 'Entre na sua conta para acessar o painel'
+                : mode === 'signup'
+                  ? 'Teste grátis por 14 dias. Sem cartão de crédito.'
+                  : 'Enviaremos um link para você criar uma nova senha'}
             </p>
           </CardHeader>
           <CardContent className="pt-4">
             <form onSubmit={handleSubmit} className="space-y-4">
+              {mode === 'signup' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-name">Seu nome</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} autoComplete="name" disabled={loading} className="h-11 pl-10" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-org">Nome da empresa</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input id="signup-org" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} required minLength={2} autoComplete="organization" disabled={loading} className="h-11 pl-10" />
+                    </div>
+                  </div>
+                </>
+              )}
               {/* Email */}
               <div className="space-y-2">
                 <Label htmlFor="login-email">E-mail</Label>
@@ -120,6 +185,7 @@ export default function LoginPage() {
               </div>
 
               {/* Password */}
+              {mode !== 'forgot' && (
               <div className="space-y-2">
                 <Label htmlFor="login-password">Senha</Label>
                 <div className="relative">
@@ -150,17 +216,30 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
+              )}
+
+              {mode === 'signup' && (
+                <p className="text-xs text-muted-foreground">Mínimo de 10 caracteres, com letras e números.</p>
+              )}
 
               {/* Forgot password link */}
+              {mode === 'login' && (
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={handleForgotPassword}
+                  onClick={() => switchMode('forgot')}
                   className="text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors"
                 >
                   Esqueceu sua senha?
                 </button>
               </div>
+              )}
+
+              {mode === 'forgot' && forgotSent && (
+                <p role="status" className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 p-3 text-sm text-emerald-800 dark:text-emerald-300">
+                  Se este e-mail tiver uma conta, enviamos um link para criar uma nova senha. O link vale por 1 hora.
+                </p>
+              )}
 
               {/* Submit button */}
               <Button
@@ -171,14 +250,19 @@ export default function LoginPage() {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Entrando...
+                    {mode === 'login' ? 'Entrando...' : mode === 'signup' ? 'Criando conta...' : 'Enviando...'}
                   </>
-                ) : (
+                ) : mode === 'login' ? (
                   'Entrar'
+                ) : mode === 'signup' ? (
+                  'Criar conta grátis'
+                ) : (
+                  'Enviar link de recuperação'
                 )}
               </Button>
             </form>
 
+            {mode === 'login' && (<>
             {/* Divider */}
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
@@ -200,25 +284,28 @@ export default function LoginPage() {
               <Shield className="w-4 h-4 mr-2 text-emerald-600" />
               Entrar como demonstração
             </Button>
+            </>)}
 
             {/* Footer inside card */}
             <p className="text-center text-sm text-muted-foreground mt-6">
-              Não tem uma conta?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLanding(true)
-                }}
-                className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors"
-              >
-                Comece grátis
-              </button>
+              {mode === 'login' ? (
+                <>
+                  Não tem uma conta?{' '}
+                  <button type="button" onClick={() => switchMode('signup')} className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors">
+                    Criar conta grátis
+                  </button>
+                </>
+              ) : (
+                <button type="button" onClick={() => switchMode('login')} className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors">
+                  <ArrowLeft className="w-3.5 h-3.5" /> Voltar para o login
+                </button>
+              )}
             </p>
           </CardContent>
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          © 2025 AtendeRadar · Todos os direitos reservados
+          © 2026 AtendeRadar · Todos os direitos reservados
         </p>
       </div>
     </div>

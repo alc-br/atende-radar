@@ -466,6 +466,35 @@ model OrganizationMember {
   seenToursJson String?
   invitedAt     DateTime  @default(now())
   invitedBy     String?
+  // --- autenticação real (B1) ---
+  passwordHash    String?   // scrypt; null = conta legada de demonstração ou convite ainda não aceito
+  emailVerifiedAt DateTime?
+  failedLogins    Int       @default(0)
+  lockedUntil     DateTime?
+  sessionVersion  Int       @default(0) // incrementa ao trocar senha: derruba as sessões antigas
+}
+
+// Tokens de uso único enviados por e-mail (recuperar senha, aceitar convite, confirmar e-mail). Só o hash é guardado.
+model AuthToken {
+  id        String    @id @default(cuid())
+  memberId  String
+  type      String    // reset | invite | verify
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// Registro de todo e-mail enviado pelo sistema. Sem provedor configurado ficam 'queued' (nada sai da máquina).
+model EmailOutbox {
+  id        String    @id @default(cuid())
+  toEmail   String
+  subject   String
+  body      String
+  status    String    @default("queued") // queued | sent | failed
+  error     String?
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
 }
 
 model Team {

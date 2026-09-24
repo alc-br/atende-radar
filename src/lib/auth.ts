@@ -1,6 +1,18 @@
 import type { NextAuthOptions } from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import { db } from './db'
+import { hashPassword, verifyPassword } from './passwords'
+
+const MAX_FAILED_LOGINS = 5
+const LOCK_MINUTES = 15
+const DEMO_PASSWORD = 'demo123'
+
+// Modo demonstração (até o B7 separar o ambiente demo): a senha pública só vale na organização de demonstração.
+const demoEnabled = () => process.env.DEMO_AUTH_ENABLED !== 'false'
+const demoOrgId = () => process.env.DEMO_ORG_ID || 'org_seed_1'
+
+// Hash "de mentira" para gastar o mesmo tempo quando o e-mail não existe.
+const DUMMY_HASH = hashPassword('nao-e-uma-senha-de-verdade')
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -11,48 +23,66 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Senha', type: 'password' },
       },
       async authorize(credentials) {
-        // Demo auth: accept any email with password 'demo123'
-        // In production, this would check against User model
         if (!credentials?.email || !credentials?.password) return null
-        if (credentials.password !== 'demo123') return null
         const email = credentials.email.trim().toLowerCase()
+        const password = credentials.password
 
-        // Find or create user in our OrganizationMember table
-        const member = await db.organizationMember.findFirst({
-          where: { email, status: 'active' },
-        })
+        const member = await db.organizationMember.findFirst({ where: { email } })
 
         if (!member) {
-          // Auto-create for demo — sempre na organização de demonstração, nunca na de um cliente (até o B1/B7)
-          const org = await db.organization.findUnique({ where: { id: process.env.DEMO_ORG_ID || 'org_seed_1' } })
-          if (!org) return null
-          // e-mail suspenso não pode "renascer" como demo
-          if (await db.organizationMember.findFirst({ where: { email } })) return null
-          const newMember = await db.organizationMember.create({
-            data: {
-              organizationId: org.id,
-              userId: email,
-              name: email.split('@')[0],
-              email,
-              role: 'gestor',
-              team: 'Recepção',
-              status: 'active',
-            },
-          })
-          return {
-            id: newMember.id,
-            email: newMember.email,
-            name: newMember.name,
-            role: newMember.role,
+          verifyPassword(password, DUMMY_HASH)
+          // Demonstração: e-mail novo + senha pública cria um usuário SÓ na organização de demonstração.
+          if (demoEnabled() && password === DEMO_PASSWORD) {
+            const org = await db.organization.findUnique({ where: { id: demoOrgId() } })
+            if (!org) return null
+            const created = await db.organizationMember.create({
+              data: {
+                organizationId: org.id,
+                userId: email,
+                name: email.split('@')[0],
+                email,
+                role: 'gestor',
+                team: 'Recepção',
+                status: 'active',
+              },
+            })
+            return { id: created.id, email: created.email, name: created.name, role: created.role, sv: created.sessionVersion }
           }
+          return null
         }
 
-        return {
-          id: member.id,
-          email: member.email,
-          name: member.name,
-          role: member.role,
+        if (member.status !== 'active') {
+          verifyPassword(password, DUMMY_HASH)
+          return null
         }
+        if (member.lockedUntil && member.lockedUntil > new Date()) {
+          verifyPassword(password, DUMMY_HASH)
+          return null
+        }
+
+        const ok = member.passwordHash
+          ? verifyPassword(password, member.passwordHash)
+          : demoEnabled() && member.organizationId === demoOrgId() && password === DEMO_PASSWORD
+
+        if (!ok) {
+          const failed = member.failedLogins + 1
+          await db.organizationMember.update({
+            where: { id: member.id },
+            data: failed >= MAX_FAILED_LOGINS
+              ? { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60000) }
+              : { failedLogins: failed },
+          })
+          return null
+        }
+
+        // REQUIRE_EMAIL_VERIFICATION=true exige e-mail confirmado (ligar quando houver provedor de e-mail).
+        if (process.env.REQUIRE_EMAIL_VERIFICATION === 'true' && member.passwordHash && !member.emailVerifiedAt) return null
+
+        await db.organizationMember.update({
+          where: { id: member.id },
+          data: { failedLogins: 0, lockedUntil: null, lastAccessAt: new Date() },
+        })
+        return { id: member.id, email: member.email, name: member.name, role: member.role, sv: member.sessionVersion }
       },
     }),
   ],
@@ -62,6 +92,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub || ''
         ;(session.user as any).role = token.role
         ;(session.user as any).name = token.name
+        ;(session.user as any).sv = token.sv ?? 0
       }
       return session
     },
@@ -70,6 +101,7 @@ export const authOptions: NextAuthOptions = {
         token.sub = user.id
         ;(token as any).role = (user as any).role
         ;(token as any).name = (user as any).name
+        ;(token as any).sv = (user as any).sv ?? 0
       }
       return token
     },
@@ -79,5 +111,6 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 60 * 60 * 24 * 7, // a sessão expira em 7 dias
   },
 }
