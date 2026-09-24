@@ -25,6 +25,8 @@ interface Me {
 }
 
 interface AppState {
+  mobileNavOpen: boolean
+  setMobileNavOpen: (open: boolean) => void
   authMode: 'login' | 'signup'
   openAuth: (mode: 'login' | 'signup') => void
   me: Me | null
@@ -62,6 +64,8 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  mobileNavOpen: false,
+  setMobileNavOpen: (open) => set({ mobileNavOpen: open }),
   authMode: 'login',
   openAuth: (mode) => set({ authMode: mode, showLogin: true }),
   me: null,

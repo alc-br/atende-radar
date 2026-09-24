@@ -98,6 +98,7 @@ export async function signupOrg(overrides: Partial<{ name: string; email: string
   const res = await anon.post('/api/auth/signup', {
     data: { name: overrides.name ?? 'Dona Teste', email, password, organizationName: overrides.organizationName ?? `Empresa ${uid()}` },
   })
+  if (res.status() !== 201) throw new Error(`cadastro falhou com ${res.status()}: ${await res.text()}`)
   await anon.dispose()
   return { res, email, password }
 }

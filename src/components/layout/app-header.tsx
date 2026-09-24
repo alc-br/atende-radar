@@ -15,7 +15,7 @@ import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 
 export function AppHeader() {
-  const { sidebarOpen, setSidebarOpen, currentOrganization, setView, setShowLanding, setPendingSearch, currentView, startTour } = useAppStore()
+  const { setSidebarOpen, setMobileNavOpen, currentOrganization, setView, setShowLanding, setPendingSearch, currentView, startTour } = useAppStore()
   const { data: session } = useSession()
   const orgName = currentOrganization?.displayName || 'AtendeRadar'
   const { theme, setTheme } = useTheme()
@@ -36,7 +36,11 @@ export function AppHeader() {
           variant='ghost'
           size='icon'
           className='lg:hidden'
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label='Abrir menu'
+          onClick={() => {
+            setSidebarOpen(true) // na gaveta do celular o menu sempre aparece com os textos
+            setMobileNavOpen(true)
+          }}
         >
           <Menu className='w-5 h-5' />
         </Button>

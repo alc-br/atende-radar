@@ -152,7 +152,7 @@ function MainContent() {
         </main>
         <footer className="border-t border-border bg-card/50 backdrop-blur-sm px-4 lg:px-6 py-3 mt-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>© 2025 AtendeRadar. Auditor de Receita e Qualidade no WhatsApp.</span>
+            <span>© {new Date().getFullYear()} AtendeRadar. Auditor de Receita e Qualidade no WhatsApp.</span>
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />

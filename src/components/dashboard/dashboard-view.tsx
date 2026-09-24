@@ -76,6 +76,7 @@ import {
   cn,
 } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
+import { SetupChecklist } from './setup-checklist'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -396,6 +397,8 @@ export default function DashboardView() {
           </Select>
         </div>
       </div>
+
+      <SetupChecklist />
 
       {/* ─── KPI Cards ───────────────────────────────────────────── */}
       <div data-tour="dashboard-kpis" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8">

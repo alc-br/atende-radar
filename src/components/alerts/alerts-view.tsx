@@ -820,7 +820,9 @@ export default function AlertsView() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <TabsList data-tour="alerts-tabs">
+          {/* celular: as 5 abas não cabem; a barra rola na horizontal em vez de alargar a página */}
+          <div className="max-w-full overflow-x-auto">
+          <TabsList data-tour="alerts-tabs" className="w-max">
             <TabsTrigger value="ativos" className="gap-1.5">
               <Zap className="h-3.5 w-3.5" />
               Ativos
@@ -862,6 +864,7 @@ export default function AlertsView() {
               Regras
             </TabsTrigger>
           </TabsList>
+          </div>
         </div>
 
         {/* Filter bar – shown only for alert tabs, not rules */}

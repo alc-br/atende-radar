@@ -32,7 +32,7 @@ const secondaryNavItems: { view: View; icon: React.ElementType; label: string }[
 ]
 
 export function AppSidebar() {
-  const { currentView, setView, sidebarOpen, setSidebarOpen, refreshTrigger } = useAppStore()
+  const { currentView, setView, sidebarOpen, setSidebarOpen, refreshTrigger, mobileNavOpen, setMobileNavOpen } = useAppStore()
   const me = useAppStore((st) => st.me)
   // Só mostra o que o papel pode abrir. Enquanto /api/me carrega, não mostra nada restrito.
   const visible = (item: { view: View }) =>
@@ -69,7 +69,10 @@ export function AppSidebar() {
       <button
         key={item.view}
         data-tour={`nav-${item.view}`}
-        onClick={() => setView(item.view)}
+        onClick={() => {
+          setView(item.view)
+          setMobileNavOpen(false) // no celular a gaveta fecha ao escolher uma tela
+        }}
         className={cn(
           'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative',
           active
@@ -101,10 +104,18 @@ export function AppSidebar() {
   }
 
   return (
+    <>
+    {/* Celular: fundo escurecido; tocar fecha a gaveta */}
+    {mobileNavOpen && (
+      <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" aria-hidden="true" onClick={() => setMobileNavOpen(false)} />
+    )}
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300',
-        sidebarOpen ? 'w-64' : 'w-[68px]'
+        'fixed left-0 top-0 z-50 lg:z-40 h-screen flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300',
+        sidebarOpen ? 'w-64' : 'w-[68px]',
+        // celular: gaveta fora da tela, sempre com largura total; no desktop segue aberto/recolhido
+        'max-lg:w-64',
+        mobileNavOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'
       )}
     >
       {/* Brand */}
@@ -141,11 +152,16 @@ export function AppSidebar() {
           variant="ghost"
           size="sm"
           className="w-full justify-center text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={() => {
+            if (window.matchMedia('(max-width: 1023px)').matches) setMobileNavOpen(false)
+            else setSidebarOpen(!sidebarOpen)
+          }}
+          aria-label={sidebarOpen ? 'Recolher menu' : 'Expandir menu'}
         >
           {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </Button>
       </div>
     </aside>
+    </>
   )
 }

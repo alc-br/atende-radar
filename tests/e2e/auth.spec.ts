@@ -6,8 +6,7 @@ import { lastTokenFor, mailsTo, testDb } from './db'
 
 test.describe('B1 · cadastro cria a organização do cliente', () => {
   test('cadastro cria organização nova e vazia, e o dono entra como admin', async () => {
-    const { res, email, password } = await signupOrg()
-    expect(res.status()).toBe(201)
+    const { email, password } = await signupOrg() // falha se o cadastro não devolver 201
 
     const ctx = await loginAs(email, password)
     const me = await (await ctx.get('/api/me')).json()
@@ -55,11 +54,7 @@ test.describe('B1 · cadastro cria a organização do cliente', () => {
   })
 
   test('e-mail de confirmação é enviado e o link confirma o e-mail', async () => {
-    const { email, password } = await (async () => {
-      const r = await signupOrg()
-      expect(r.res.status()).toBe(201)
-      return r
-    })()
+    const { email, password } = await signupOrg()
     const mails = await mailsTo(email)
     expect(mails.length).toBe(1)
     expect(mails[0].body).toContain('/verify-email?token=')
@@ -69,6 +64,52 @@ test.describe('B1 · cadastro cria a organização do cliente', () => {
     await anon.dispose()
     const ctx = await loginAs(email, password)
     expect((await (await ctx.get('/api/me')).json()).member.emailVerified).toBe(true)
+    await ctx.dispose()
+  })
+})
+
+test.describe('Primeira experiência · organização nova já nasce pronta para uso', () => {
+  test('cadastro cria as 8 regras de alerta e os 8 relatórios padrão, com o e-mail do dono (nunca os da demonstração)', async () => {
+    const { email, password } = await signupOrg()
+    const ctx = await loginAs(email, password)
+    const rules = (await (await ctx.get('/api/alert-rules')).json()).rules
+    expect(rules).toHaveLength(8)
+    expect(new Set(rules.map((r: { type: string }) => r.type)).size).toBe(8)
+    for (const r of rules) expect(r.recipients).toEqual([email])
+    const reports = await (await ctx.get('/api/reports')).json()
+    expect(reports.definitions).toHaveLength(8)
+    for (const d of reports.definitions) expect(d.recipients).toEqual([email])
+    const raw = JSON.stringify([rules, reports])
+    expect(raw).not.toContain('odontovida')
+    await ctx.dispose()
+  })
+
+  test('/api/setup-status: conta nova tem 3 passos pendentes; a organização de demonstração está completa', async () => {
+    const { email, password } = await signupOrg()
+    const nova = await loginAs(email, password)
+    const s1 = await (await nova.get('/api/setup-status')).json()
+    expect(s1.steps.map((x: { id: string }) => x.id)).toEqual(['connect', 'invite', 'conversations'])
+    expect(s1.steps.every((x: { done: boolean }) => !x.done)).toBe(true)
+    expect(s1.complete).toBe(false)
+    expect(s1.canManage).toBe(true)
+    await nova.dispose()
+
+    const demo = await loginAs('admin.a@test.local')
+    const s2 = await (await demo.get('/api/setup-status')).json()
+    expect(s2.complete).toBe(true)
+    await demo.dispose()
+  })
+
+  test('convidar alguém e conectar avança os passos (dados reais, não marcação manual)', async () => {
+    const { email, password } = await signupOrg()
+    const ctx = await loginAs(email, password)
+    await createUser(ctx, { email: `colega.${uid()}@cliente.test`, role: 'atendente' })
+    let s = await (await ctx.get('/api/setup-status')).json()
+    expect(s.steps.find((x: { id: string }) => x.id === 'invite').done).toBe(true)
+    expect(s.steps.find((x: { id: string }) => x.id === 'connect').done).toBe(false)
+    await ctx.post('/api/connections', { data: { name: 'Recepção', phoneNumber: '+5511999990000' } })
+    s = await (await ctx.get('/api/setup-status')).json()
+    expect(s.steps.find((x: { id: string }) => x.id === 'connect').done).toBe(true)
     await ctx.dispose()
   })
 })
@@ -188,7 +229,8 @@ test.describe('B1 · recuperação de senha', () => {
   test('só o hash do token fica no banco', async () => {
     const { email } = await signupOrg()
     const anon = await anonymous()
-    await anon.post('/api/auth/forgot', { data: { email } })
+    const forgot = await anon.post('/api/auth/forgot', { data: { email } })
+    expect(forgot.status(), await forgot.text()).toBe(200)
     const token = await lastTokenFor(email)
     const rows = await testDb.authToken.findMany({ where: { type: 'reset' } })
     expect(rows.some((r) => r.tokenHash === token)).toBe(false)

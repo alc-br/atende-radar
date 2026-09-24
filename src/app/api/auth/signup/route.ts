@@ -5,6 +5,7 @@ import { hashPassword, passwordProblem } from '@/lib/passwords'
 import { issueToken } from '@/lib/auth-tokens'
 import { appUrl, sendMail } from '@/lib/mailer'
 import { allow, clientIp } from '@/lib/rate-limit'
+import { createOrganizationDefaults } from '@/lib/org-defaults'
 
 const Body = z.object({
   name: z.string().trim().min(2, 'Informe o seu nome.').max(120),
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
         data: { organizationId: org.id, planId: plan.id, status: 'trialing', trialEnd, currentPeriodEnd: trialEnd },
       })
     }
+    await createOrganizationDefaults(tx, org.id, email)
     return tx.organizationMember.create({
       data: {
         organizationId: org.id,

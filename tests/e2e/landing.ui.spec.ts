@@ -85,7 +85,8 @@ test.describe('Página de vendas', () => {
   })
 
   test('sem barra de rolagem horizontal e sem texto vazando (layout)', async ({ page }, info) => {
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    const deviceWidth = page.viewportSize()!.width
+    const overflow = await page.evaluate((w) => document.documentElement.scrollWidth - w, deviceWidth)
     expect(overflow, 'a página é mais larga que a tela').toBeLessThanOrEqual(0)
     await page.screenshot({ path: `test-results/screens/landing-${info.project.name}.png`, fullPage: true })
   })
