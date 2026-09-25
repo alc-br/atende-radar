@@ -87,13 +87,16 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=1536
         run: /usr/local/bin/bun run build
 
-      - name: Diagnóstico do serviço (só nomes, sem valores)
+      - name: Variáveis do app (só cria as que faltam; segredos gerados no servidor, nunca vão ao git)
         run: |
-          systemctl cat atende-radar.service 2>/dev/null | grep -E "^(ExecStart|WorkingDirectory|EnvironmentFile|Environment|User)=" | sed -E 's/^(Environment=[A-Za-z_]+)=.*/\1=<oculto>/' || true
-          ls -la /opt/atende-radar/ 2>/dev/null | awk '{print $1, $3, $9}' || true
-          for f in /opt/atende-radar/current/.env /opt/atende-radar/shared/.env; do
-            if [ -f "$f" ]; then echo "$f tem as variáveis: $(sed -E 's/=.*//' "$f" | grep -vE '^#|^$' | tr '\n' ' ')"; fi
-          done
+          ENVF=/opt/atende-radar/shared/app.env
+          add_if_missing() { grep -q "^$1=" "$ENVF" || echo "$1=$2" >> "$ENVF"; }
+          add_if_missing GATEWAY_SECRET "$(openssl rand -hex 32)"
+          add_if_missing PHONE_HASH_SECRET "$(openssl rand -hex 32)"
+          add_if_missing WHATSAPP_GATEWAY on
+          add_if_missing WA_SESSIONS_DIR /opt/atende-radar/wa-sessions
+          mkdir -p /opt/atende-radar/wa-sessions && chmod 700 /opt/atende-radar/wa-sessions
+          echo "variáveis presentes: $(sed -E 's/=.*//' "$ENVF" | grep -vE '^#|^$' | tr '\n' ' ')"
 
       - name: Restart service
         run: sudo systemctl restart atende-radar.service
