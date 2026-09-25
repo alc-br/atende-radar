@@ -83,11 +83,11 @@ function Inner({ kind }: { kind: Kind }) {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center mb-4 shadow-lg shadow-emerald-600/25">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-700 flex items-center justify-center mb-4 shadow-lg shadow-emerald-600/25">
             <Shield className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Atende<span className="text-emerald-600">Radar</span>
+            Atende<span className="text-emerald-700 dark:text-emerald-400">Radar</span>
           </h1>
         </div>
         <Card className="shadow-lg border-border/50">
@@ -125,7 +125,7 @@ function Inner({ kind }: { kind: Kind }) {
                   <Label htmlFor="confirm-password">Repita a senha</Label>
                   <Input id="confirm-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" disabled={state === 'loading'} className="h-11" />
                 </div>
-                <Button type="submit" disabled={state === 'loading'} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                <Button type="submit" disabled={state === 'loading'} className="w-full h-11 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold">
                   {state === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : copy.button}
                 </Button>
               </form>
@@ -136,7 +136,7 @@ function Inner({ kind }: { kind: Kind }) {
             )}
 
             <p className="text-center text-sm">
-              <Link href="/" className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 font-medium">
+              <Link href="/" className="text-emerald-700 hover:text-emerald-700 dark:text-emerald-400 font-medium">
                 Ir para o AtendeRadar
               </Link>
             </p>

@@ -93,11 +93,11 @@ import {
 
 // --- Audit event markers (synthetic for demo) ---
 const auditEventTypes = [
-  { type: 'intent_detected', label: 'Intenção detectada', icon: Crosshair, color: 'text-teal-600 bg-teal-100 dark:bg-teal-950', dotColor: 'bg-teal-500' },
-  { type: 'price_request', label: 'Pedido de preço', icon: DollarSign, color: 'text-amber-600 bg-amber-100 dark:bg-amber-950', dotColor: 'bg-amber-500' },
-  { type: 'question_asked', label: 'Pergunta feita', icon: HelpCircle, color: 'text-sky-600 bg-sky-100 dark:bg-sky-950', dotColor: 'bg-sky-500' },
-  { type: 'promise_made', label: 'Promessa feita', icon: Handshake, color: 'text-orange-600 bg-orange-100 dark:bg-orange-950', dotColor: 'bg-orange-500' },
-  { type: 'alert_triggered', label: 'Alerta disparado', icon: Bell, color: 'text-red-600 bg-red-100 dark:bg-red-950', dotColor: 'bg-red-500' },
+  { type: 'intent_detected', label: 'Intenção detectada', icon: Crosshair, color: 'text-teal-700 dark:text-teal-400 bg-teal-100 dark:bg-teal-950', dotColor: 'bg-teal-500' },
+  { type: 'price_request', label: 'Pedido de preço', icon: DollarSign, color: 'text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950', dotColor: 'bg-amber-500' },
+  { type: 'question_asked', label: 'Pergunta feita', icon: HelpCircle, color: 'text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-950', dotColor: 'bg-sky-500' },
+  { type: 'promise_made', label: 'Promessa feita', icon: Handshake, color: 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950', dotColor: 'bg-orange-500' },
+  { type: 'alert_triggered', label: 'Alerta disparado', icon: Bell, color: 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950', dotColor: 'bg-red-500' },
   { type: 'sentiment_change', label: 'Mudança de sentimento', icon: SmilePlus, color: 'text-purple-600 bg-purple-100 dark:bg-purple-950', dotColor: 'bg-purple-500' },
 ] as const
 
@@ -179,9 +179,9 @@ const sentimentBadgeColor: Record<string, string> = {
 }
 
 function scoreColor(score: number) {
-  if (score >= 80) return 'text-emerald-600 dark:text-emerald-400'
-  if (score >= 70) return 'text-amber-600 dark:text-amber-400'
-  return 'text-red-600 dark:text-red-400'
+  if (score >= 80) return 'text-emerald-700 dark:text-emerald-400'
+  if (score >= 70) return 'text-amber-700 dark:text-amber-400'
+  return 'text-red-700 dark:text-red-400'
 }
 
 function scoreBarColor(score: number) {
@@ -452,7 +452,7 @@ export default function ConversationDetail() {
             {/* Right: Sensitive data indicator */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
                   <Lock className="h-3.5 w-3.5" />
                   Dados sensíveis
                 </div>
@@ -528,7 +528,7 @@ export default function ConversationDetail() {
                             className={cn(
                               'max-w-[75%] rounded-2xl px-4 py-2.5',
                               isOutbound
-                                ? 'bg-emerald-600 text-white rounded-tr-md dark:bg-emerald-700'
+                                ? 'bg-emerald-700 text-white rounded-tr-md dark:bg-emerald-700'
                                 : 'bg-muted text-foreground rounded-tl-md'
                             )}
                           >
@@ -561,7 +561,7 @@ export default function ConversationDetail() {
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <Lightbulb className="h-4 w-4 text-amber-500" />
+                        <Lightbulb className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                         Resumo da conversa
                       </CardTitle>
                     </CardHeader>
@@ -579,7 +579,7 @@ export default function ConversationDetail() {
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <Target className="h-4 w-4 text-teal-600" />
+                        <Target className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                         Classificação
                       </CardTitle>
                     </CardHeader>
@@ -616,7 +616,7 @@ export default function ConversationDetail() {
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <HelpCircle className="h-4 w-4 text-sky-600" />
+                        <HelpCircle className="h-4 w-4 text-sky-700 dark:text-sky-400" />
                         Perguntas em aberto
                       </CardTitle>
                     </CardHeader>
@@ -624,16 +624,16 @@ export default function ConversationDetail() {
                       {openQuestions.map((q) => (
                         <div key={q.id} className="flex items-start gap-2 text-sm group">
                           {q.status === 'answered' ? (
-                            <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-700 dark:text-emerald-400 flex-shrink-0" />
                           ) : (
-                            <CircleDot className="h-4 w-4 mt-0.5 text-amber-500 flex-shrink-0" />
+                            <CircleDot className="h-4 w-4 mt-0.5 text-amber-700 dark:text-amber-400 flex-shrink-0" />
                           )}
                           <span className={cn(q.status === 'answered' ? 'text-muted-foreground line-through' : 'text-foreground')}>
                             {q.text}
                           </span>
                           <div className="ml-auto flex items-center gap-1 flex-shrink-0">
                             {q.status !== 'answered' && (
-                              <Button
+                              <Button aria-label="Marcar como respondida"
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 opacity-0 group-hover:opacity-100"
@@ -659,7 +659,7 @@ export default function ConversationDetail() {
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <Handshake className="h-4 w-4 text-orange-600" />
+                        <Handshake className="h-4 w-4 text-orange-700 dark:text-orange-400" />
                         Promessas
                       </CardTitle>
                     </CardHeader>
@@ -671,13 +671,13 @@ export default function ConversationDetail() {
                         return (
                           <div key={p.id} className="flex items-start gap-2 text-sm group">
                             {isKept ? (
-                              <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
+                              <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-700 dark:text-emerald-400 flex-shrink-0" />
                             ) : isCancelled ? (
                               <XCircle className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                             ) : isOverdue ? (
-                              <AlertTriangle className="h-4 w-4 mt-0.5 text-red-600 flex-shrink-0" />
+                              <AlertTriangle className="h-4 w-4 mt-0.5 text-red-700 dark:text-red-400 flex-shrink-0" />
                             ) : (
-                              <Clock className="h-4 w-4 mt-0.5 text-amber-500 flex-shrink-0" />
+                              <Clock className="h-4 w-4 mt-0.5 text-amber-700 dark:text-amber-400 flex-shrink-0" />
                             )}
                             <div className="flex-1 min-w-0">
                               <span className={cn(isKept || isCancelled ? 'text-muted-foreground' : 'text-foreground')}>
@@ -692,10 +692,10 @@ export default function ConversationDetail() {
                             </div>
                             {!isKept && !isCancelled && (
                               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 flex-shrink-0">
-                                <Button variant="ghost" size="icon" className="h-6 w-6" title="Confirmar cumprida" onClick={() => setPromiseStatus(p.id, 'kept')}>
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                <Button aria-label="Confirmar cumprida" variant="ghost" size="icon" className="h-6 w-6" title="Confirmar cumprida" onClick={() => setPromiseStatus(p.id, 'kept')}>
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" title="Cancelar promessa" onClick={() => setPromiseStatus(p.id, 'cancelled')}>
+                                <Button aria-label="Cancelar promessa" variant="ghost" size="icon" className="h-6 w-6" title="Cancelar promessa" onClick={() => setPromiseStatus(p.id, 'cancelled')}>
                                   <XCircle className="h-3.5 w-3.5 text-muted-foreground" />
                                 </Button>
                               </div>
@@ -719,7 +719,7 @@ export default function ConversationDetail() {
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <FileWarning className="h-4 w-4 text-red-600" />
+                        <FileWarning className="h-4 w-4 text-red-700 dark:text-red-400" />
                         Falhas encontradas
                       </CardTitle>
                     </CardHeader>
@@ -762,7 +762,7 @@ export default function ConversationDetail() {
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4 text-teal-600" />
+                        <BarChart3 className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                         Composição da nota ({conversation.score})
                       </CardTitle>
                     </CardHeader>
@@ -793,7 +793,7 @@ export default function ConversationDetail() {
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                          <Calculator className="h-4 w-4 text-emerald-600" />
+                          <Calculator className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
                           Cálculo do valor potencial
                         </CardTitle>
                       </CardHeader>
@@ -824,7 +824,7 @@ export default function ConversationDetail() {
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4 text-teal-600" />
+                        <RefreshCw className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                         Ações de correção
                       </CardTitle>
                       <CardDescription className="text-xs">
@@ -857,7 +857,7 @@ export default function ConversationDetail() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 gap-1.5 text-xs text-red-600 dark:text-red-400 border-red-300 dark:border-red-700"
+                          className="h-8 gap-1.5 text-xs text-red-700 dark:text-red-400 border-red-300 dark:border-red-700"
                           onClick={() => { setOutcomeValue(''); setOutcomeDialogOpen('lost') }}
                         >
                           <HeartCrack className="h-3 w-3" />
@@ -885,7 +885,7 @@ export default function ConversationDetail() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <Select value={correctionValue} onValueChange={setCorrectionValue}>
-              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+              <SelectTrigger aria-label="Selecione..."><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
                 {correctionDialogOpen === 'intent' && Object.keys(intentBadgeColor).map((v) => (
                   <SelectItem key={v} value={v}>{getIntentLabel(v)}</SelectItem>

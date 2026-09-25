@@ -421,7 +421,7 @@ export default function RecoveryView() {
       <div className="flex flex-col gap-4 p-4 md:p-6">
         {/* Page title */}
         <div className="flex items-center gap-2">
-          <RotateCcw className="h-6 w-6 text-emerald-600" />
+          <RotateCcw className="h-6 w-6 text-emerald-700 dark:text-emerald-400" />
           <h1 className="text-2xl font-bold tracking-tight">Recuperação</h1>
         </div>
 
@@ -460,10 +460,10 @@ export default function RecoveryView() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Receita recuperada</CardTitle>
-              <DollarSign className="h-4 w-4 text-emerald-600" />
+              <DollarSign className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">
+              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                 {formatCurrency(metrics.recoveredValue)}
               </div>
             </CardContent>
@@ -477,7 +477,7 @@ export default function RecoveryView() {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Status</label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger aria-label="Status" className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -494,7 +494,7 @@ export default function RecoveryView() {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Responsável</label>
                 <Select value={agentFilter} onValueChange={setAgentFilter}>
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger aria-label="Responsável" className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -510,7 +510,7 @@ export default function RecoveryView() {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Prioridade</label>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger aria-label="Prioridade" className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -525,7 +525,7 @@ export default function RecoveryView() {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Valor recuperado</label>
                 <Select value={recoveredValueFilter} onValueChange={setRecoveredValueFilter}>
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger aria-label="Valor recuperado" className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -641,7 +641,7 @@ export default function RecoveryView() {
                         <TableCell className="hidden md:table-cell text-muted-foreground">
                           {timeAgo(item.lastInteraction)}
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell font-medium text-emerald-600">
+                        <TableCell className="hidden sm:table-cell font-medium text-emerald-700 dark:text-emerald-400">
                           {item.potentialValue ? formatCurrency(item.potentialValue) : '-'}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-muted-foreground">
@@ -656,7 +656,7 @@ export default function RecoveryView() {
                           <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
+                                <Button aria-label="Atribuir"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6"
@@ -669,7 +669,7 @@ export default function RecoveryView() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
+                                <Button aria-label="Definir prazo"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6"
@@ -682,7 +682,7 @@ export default function RecoveryView() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
+                                <Button aria-label="Copiar"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6"
@@ -695,7 +695,7 @@ export default function RecoveryView() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
+                                <Button aria-label="Registrar tentativa"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6"
@@ -708,7 +708,7 @@ export default function RecoveryView() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
+                                <Button aria-label="Concluir"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6"
@@ -721,7 +721,7 @@ export default function RecoveryView() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
+                                <Button aria-label="Informar valor recuperado"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6"
@@ -734,7 +734,7 @@ export default function RecoveryView() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
+                                <Button aria-label="Devolver ao responsável original"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6"
@@ -765,7 +765,7 @@ export default function RecoveryView() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <Select value={assignAgent} onValueChange={setAssignAgent}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Selecione um agente">
                   <SelectValue placeholder="Selecione um agente" />
                 </SelectTrigger>
                 <SelectContent>

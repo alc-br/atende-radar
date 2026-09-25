@@ -223,7 +223,7 @@ export default function MembersView() {
               <div className="space-y-2">
                 <Label>Função</Label>
                 <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Função"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(ROLE_LABELS).map(([value, label]) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
@@ -300,7 +300,7 @@ export default function MembersView() {
                       <TableRow key={member.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 text-foreground flex items-center justify-center text-xs font-bold">
                               {initials(member.name)}
                             </div>
                             <span className="font-medium">{member.name}</span>
@@ -326,7 +326,7 @@ export default function MembersView() {
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Button aria-label="Mais ações" variant="ghost" size="icon" className="h-8 w-8">
                                 <MoreHorizontal className="w-4 h-4" />
                               </Button>
                             </DropdownMenuTrigger>

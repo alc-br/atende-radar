@@ -166,7 +166,7 @@ export const TOURS: Record<string, TourStep[]> = {
     {
       target: 'settings-tabs',
       title: 'Tudo configurável em um lugar',
-      body: 'Dados da empresa, horário comercial, SLAs de atendimento, parâmetros financeiros, comportamento da IA, notificações, privacidade e regras de alerta — cada aba salva de forma independente com o botão Salvar no final dela.',
+      body: 'Dados da empresa, horário comercial, SLAs de atendimento, parâmetros financeiros, parâmetros da análise, notificações, privacidade e regras de alerta — cada aba salva de forma independente com o botão Salvar no final dela.',
       placement: 'bottom',
     },
   ],

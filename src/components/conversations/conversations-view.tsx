@@ -126,9 +126,9 @@ const stageBadgeColor: Record<string, string> = {
 }
 
 function scoreColor(score: number) {
-  if (score >= 80) return 'text-emerald-600 dark:text-emerald-400'
-  if (score >= 70) return 'text-amber-600 dark:text-amber-400'
-  return 'text-red-600 dark:text-red-400'
+  if (score >= 80) return 'text-emerald-700 dark:text-emerald-400'
+  if (score >= 70) return 'text-amber-700 dark:text-amber-400'
+  return 'text-red-700 dark:text-red-400'
 }
 
 function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
@@ -156,6 +156,7 @@ export default function ConversationsView() {
     }
   }, [pendingSearch, setPendingSearch])
   const [period, setPeriod] = useState('7d')
+  const [filtersOpen, setFiltersOpen] = useState(false) // celular: os filtros ficam recolhidos
   const [agentFilter, setAgentFilter] = useState('all')
   const [intentFilter, setIntentFilter] = useState('all')
   const [urgencyFilter, setUrgencyFilter] = useState('all')
@@ -413,7 +414,17 @@ export default function ConversationsView() {
           </div>
 
           {/* Filters row */}
-          <div data-tour="conversations-filters" className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9">
+          <Button
+            variant="outline"
+            size="sm"
+            className="md:hidden self-start gap-1.5"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((o) => !o)}
+          >
+            <Filter className="h-4 w-4" />
+            {filtersOpen ? 'Ocultar filtros' : 'Filtros'}
+          </Button>
+          <div data-tour="conversations-filters" className={cn('gap-2 grid-cols-2 sm:grid-cols-3 md:grid md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9', filtersOpen ? 'grid' : 'hidden')}>
             {/* Período */}
             <Select
               value={period}
@@ -422,7 +433,7 @@ export default function ConversationsView() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-9">
+              <SelectTrigger aria-label="Período" className="h-9">
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
@@ -442,7 +453,7 @@ export default function ConversationsView() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-9">
+              <SelectTrigger aria-label="Responsável" className="h-9">
                 <SelectValue placeholder="Responsável" />
               </SelectTrigger>
               <SelectContent>
@@ -469,7 +480,7 @@ export default function ConversationsView() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-9">
+              <SelectTrigger aria-label="Intenção" className="h-9">
                 <SelectValue placeholder="Intenção" />
               </SelectTrigger>
               <SelectContent>
@@ -490,7 +501,7 @@ export default function ConversationsView() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-9">
+              <SelectTrigger aria-label="Urgência" className="h-9">
                 <SelectValue placeholder="Urgência" />
               </SelectTrigger>
               <SelectContent>
@@ -510,7 +521,7 @@ export default function ConversationsView() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-9">
+              <SelectTrigger aria-label="Sentimento" className="h-9">
                 <SelectValue placeholder="Sentimento" />
               </SelectTrigger>
               <SelectContent>
@@ -531,7 +542,7 @@ export default function ConversationsView() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-9">
+              <SelectTrigger aria-label="Etapa" className="h-9">
                 <SelectValue placeholder="Etapa" />
               </SelectTrigger>
               <SelectContent>
@@ -552,7 +563,7 @@ export default function ConversationsView() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-9">
+              <SelectTrigger aria-label="Falha" className="h-9">
                 <SelectValue placeholder="Falha" />
               </SelectTrigger>
               <SelectContent>
@@ -649,14 +660,55 @@ export default function ConversationsView() {
           </div>
         )}
 
-        {/* Table */}
-        <ScrollArea className="custom-scrollbar max-h-[calc(100vh-280px)]">
+        {/* Celular: cada conversa é um cartão com o que importa (a tabela larga fica para telas maiores) */}
+        <div className="md:hidden flex flex-col gap-2" data-testid="conversation-cards">
+          {paged.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-8">Nenhuma conversa encontrada.</p>
+          ) : (
+            paged.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => selectConversation(c.id)}
+                className="text-left rounded-lg border bg-card p-3 flex flex-col gap-2 active:bg-muted/50"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{c.customerName}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{c.customerPhone}</p>
+                  </div>
+                  {c.waitingMinutes > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 dark:text-red-400 shrink-0">
+                      <Clock className="h-3 w-3" />
+                      espera {c.waitingMinutes}min
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground shrink-0">{timeAgo(c.lastActivity)}</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {c.primaryIntent && (
+                    <Badge variant="outline" className={cn('text-xs font-normal', intentBadgeColor[c.primaryIntent] || '')}>
+                      {getIntentLabel(c.primaryIntent)}
+                    </Badge>
+                  )}
+                  {c.potentialValue > 0 && <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">{formatCurrency(c.potentialValue)}</span>}
+                  <span className="text-xs text-muted-foreground ml-auto">{c.agentName}</span>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+
+        {/* Table (a partir de telas médias) */}
+        <ScrollArea className="hidden md:block custom-scrollbar max-h-[calc(100vh-280px)]">
           <div className="min-w-[1200px]">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-10 px-3">
                     <Checkbox
+                      aria-label="Selecionar todas as conversas da página"
                       checked={paged.length > 0 && selectedIds.size === paged.length}
                       onCheckedChange={toggleSelectAll}
                     />
@@ -747,6 +799,7 @@ export default function ConversationsView() {
                     >
                       <TableCell className="px-3" onClick={(e) => e.stopPropagation()}>
                         <Checkbox
+                          aria-label={`Selecionar conversa de ${c.customerName}`}
                           checked={selectedIds.has(c.id)}
                           onCheckedChange={() => toggleSelect(c.id)}
                         />
@@ -772,7 +825,7 @@ export default function ConversationsView() {
                         {c.waitingMinutes > 0 ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="inline-flex items-center gap-1 text-sm font-medium text-red-600 dark:text-red-400">
+                              <span className="inline-flex items-center gap-1 text-sm font-medium text-red-700 dark:text-red-400">
                                 <Clock className="h-3 w-3" />
                                 {c.waitingMinutes}min
                               </span>
@@ -859,7 +912,7 @@ export default function ConversationsView() {
               Mostrando {(safePage - 1) * PER_PAGE + 1}–{Math.min(safePage * PER_PAGE, filtered.length)} de {filtered.length}
             </span>
             <div className="flex items-center gap-1">
-              <Button
+              <Button aria-label="Página anterior"
                 variant="outline"
                 size="sm"
                 className="h-8 gap-1"
@@ -900,7 +953,7 @@ export default function ConversationsView() {
                     </Button>
                   )
                 )}
-              <Button
+              <Button aria-label="Próxima página"
                 variant="outline"
                 size="sm"
                 className="h-8 gap-1"
@@ -923,7 +976,7 @@ export default function ConversationsView() {
               </DialogDescription>
             </DialogHeader>
             <Select value={assignAgent} onValueChange={setAssignAgent}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Selecione o atendente">
                 <SelectValue placeholder="Selecione o atendente" />
               </SelectTrigger>
               <SelectContent>

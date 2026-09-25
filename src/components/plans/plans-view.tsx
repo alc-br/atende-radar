@@ -84,8 +84,8 @@ const FEATURE_LABELS: Record<string, string> = {
 
 const USAGE_METRICS: { key: 'conversations' | 'messages' | 'agents' | 'connections'; label: string; icon: React.ElementType; color: string }[] = [
   { key: 'conversations', label: 'Conversas', icon: MessageSquare, color: 'text-primary' },
-  { key: 'messages', label: 'Mensagens', icon: MessageSquare, color: 'text-emerald-500' },
-  { key: 'agents', label: 'Agentes', icon: Users, color: 'text-amber-500' },
+  { key: 'messages', label: 'Mensagens', icon: MessageSquare, color: 'text-emerald-700 dark:text-emerald-400' },
+  { key: 'agents', label: 'Agentes', icon: Users, color: 'text-amber-700 dark:text-amber-400' },
   { key: 'connections', label: 'Conexões', icon: Wifi, color: 'text-purple-500' },
 ]
 
@@ -146,7 +146,7 @@ export default function PlansView() {
   const renderCell = (value: boolean | string | number) => {
     if (typeof value === 'boolean') {
       return value
-        ? <Check className="w-4 h-4 text-emerald-500 mx-auto" />
+        ? <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 mx-auto" />
         : <X className="w-4 h-4 text-muted-foreground/30 mx-auto" />
     }
     return <span className="text-sm font-medium">{value}</span>
@@ -246,11 +246,11 @@ export default function PlansView() {
                           <Icon className={`w-4 h-4 ${metric.color}`} />
                           <span className="text-sm font-medium">{metric.label}</span>
                         </div>
-                        <span className={`text-xs font-medium ${isNear ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                        <span className={`text-xs font-medium ${isNear ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
                           {entry.current.toLocaleString('pt-BR')} / {entry.limit.toLocaleString('pt-BR')}
                         </span>
                       </div>
-                      <Progress value={pct} className="h-2" />
+                      <Progress value={pct} className="h-2" aria-label={`Uso de ${metric.label}`} />
                     </div>
                   )
                 })}
@@ -282,7 +282,7 @@ export default function PlansView() {
                       </div>
                     )}
                     <CardHeader className="text-center pt-6">
-                      <div className="mx-auto w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-2">
+                      <div className="mx-auto w-10 h-10 rounded-lg bg-primary/10 text-foreground flex items-center justify-center mb-2">
                         <Icon className="w-5 h-5" />
                       </div>
                       <CardTitle className="text-lg">{plan.name}</CardTitle>
@@ -297,20 +297,20 @@ export default function PlansView() {
                     <CardContent className="space-y-3">
                       <ul className="space-y-2">
                         <li className="flex items-start gap-2 text-sm">
-                          <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
                           <span>Até {plan.limits.maxConversationsMonthly.toLocaleString('pt-BR')} conversas/mês</span>
                         </li>
                         <li className="flex items-start gap-2 text-sm">
-                          <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
                           <span>{plan.limits.maxAgents} agentes</span>
                         </li>
                         <li className="flex items-start gap-2 text-sm">
-                          <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
                           <span>{plan.limits.maxConnections} conexão(ões) WhatsApp</span>
                         </li>
                         {includedFeatures.map((f) => (
                           <li key={f} className="flex items-start gap-2 text-sm">
-                            <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                            <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
                             <span>{f}</span>
                           </li>
                         ))}

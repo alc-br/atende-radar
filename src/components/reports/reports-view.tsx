@@ -43,9 +43,9 @@ function getStatusBadge(status: string) {
     case 'processing':
       return <Badge variant="outline" className="border-sky-300 text-sky-700 bg-sky-50"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Processando</Badge>
     case 'pending':
-      return <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50"><Hourglass className="h-3 w-3 mr-1" />Pendente</Badge>
+      return <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-400 bg-amber-50"><Hourglass className="h-3 w-3 mr-1" />Pendente</Badge>
     case 'failed':
-      return <Badge variant="outline" className="border-red-300 text-red-700 bg-red-50"><AlertCircle className="h-3 w-3 mr-1" />Falhou</Badge>
+      return <Badge variant="outline" className="border-red-300 text-red-700 dark:text-red-400 bg-red-50"><AlertCircle className="h-3 w-3 mr-1" />Falhou</Badge>
     default:
       return <Badge variant="outline">{status}</Badge>
   }
@@ -220,7 +220,7 @@ export default function ReportsView() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
                       size="sm"
-                      className="flex-1 min-w-[7.5rem] gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="flex-1 min-w-[7.5rem] gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white"
                       disabled={generatingId === report.id}
                       onClick={() => handleGenerate(report.id)}
                     >
@@ -263,7 +263,7 @@ export default function ReportsView() {
                         <DialogFooter>
                           <Button variant="outline" onClick={() => setConfigDialogOpen(null)}>Cancelar</Button>
                           <Button
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="bg-emerald-700 hover:bg-emerald-800 text-white"
                             disabled={savingConfig}
                             onClick={() => handleSaveConfig(report.id)}
                           >
@@ -289,7 +289,7 @@ export default function ReportsView() {
                   <CardDescription className="text-xs mt-0.5">Últimas gerações e seus status.</CardDescription>
                 </div>
                 <Select value={historyFilter} onValueChange={setHistoryFilter}>
-                  <SelectTrigger className="w-[200px] h-8 text-xs">
+                  <SelectTrigger aria-label="Filtrar por tipo" className="w-[200px] h-8 text-xs">
                     <SelectValue placeholder="Filtrar por tipo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -330,12 +330,12 @@ export default function ReportsView() {
                           <div className="flex items-center justify-end gap-1">
                             {row.status === 'completed' && (
                               <>
-                                <Button asChild variant="ghost" size="icon" className="h-7 w-7" title="Baixar CSV (Excel)">
+                                <Button aria-label="Baixar CSV (Excel)" asChild variant="ghost" size="icon" className="h-7 w-7" title="Baixar CSV (Excel)">
                                   <a href={`/api/reports/runs/${row.id}/download?format=csv`} download aria-label="Baixar CSV">
                                     <Download className="h-3.5 w-3.5" />
                                   </a>
                                 </Button>
-                                <Button asChild variant="ghost" size="icon" className="h-7 w-7" title="Abrir para ler ou salvar em PDF">
+                                <Button aria-label="Abrir para ler ou salvar em PDF" asChild variant="ghost" size="icon" className="h-7 w-7" title="Abrir para ler ou salvar em PDF">
                                   <a href={`/api/reports/runs/${row.id}/download?format=html`} target="_blank" rel="noopener noreferrer" aria-label="Abrir relatório">
                                     <FileDown className="h-3.5 w-3.5" />
                                   </a>
@@ -343,7 +343,7 @@ export default function ReportsView() {
                               </>
                             )}
                             {row.status === 'failed' && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Tentar novamente">
+                              <Button aria-label="Tentar novamente" variant="ghost" size="icon" className="h-7 w-7 text-amber-700 dark:text-amber-400" title="Tentar novamente">
                                 <RefreshCw className="h-3.5 w-3.5" />
                               </Button>
                             )}

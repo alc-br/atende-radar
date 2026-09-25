@@ -210,7 +210,7 @@ export default function OnboardingView() {
             <div className="space-y-2">
               <Label>Segmento de atuação</Label>
               <Select value={state.segment} onValueChange={(v) => update({ segment: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione o segmento" /></SelectTrigger>
+                <SelectTrigger aria-label="Selecione o segmento"><SelectValue placeholder="Selecione o segmento" /></SelectTrigger>
                 <SelectContent>
                   {SEGMENTS.map((s) => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -221,7 +221,7 @@ export default function OnboardingView() {
             <div className="space-y-2">
               <Label>Fuso horário</Label>
               <Select value={state.timezone} onValueChange={(v) => update({ timezone: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label="Fuso horário"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {TIMEZONES.map((tz) => (
                     <SelectItem key={tz} value={tz}>{tzLabel(tz)}</SelectItem>
@@ -333,9 +333,9 @@ export default function OnboardingView() {
               ) : (
                 <>
                   <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                    <CheckCircle2 className="w-8 h-8 text-emerald-700 dark:text-emerald-400" />
                   </div>
-                  <p className="font-medium text-emerald-600 dark:text-emerald-400">WhatsApp conectado com sucesso!</p>
+                  <p className="font-medium text-emerald-700 dark:text-emerald-400">WhatsApp conectado com sucesso!</p>
                   <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                     Conectado
                   </Badge>
@@ -363,7 +363,7 @@ export default function OnboardingView() {
                 onChange={(e) => setAgentEmailInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAgent())}
               />
-              <Button onClick={addAgent} size="icon" disabled={!agentNameInput.trim() || !agentEmailInput.trim()}>
+              <Button aria-label="Adicionar" onClick={addAgent} size="icon" disabled={!agentNameInput.trim() || !agentEmailInput.trim()}>
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -390,7 +390,7 @@ export default function OnboardingView() {
             <div className="space-y-2">
               <Label>Frequência do relatório</Label>
               <Select value={state.reportFreq} onValueChange={(v) => update({ reportFreq: v as OnboardingState['reportFreq'] })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label="Frequência do relatório"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="daily">Diário</SelectItem>
                   <SelectItem value="weekly">Semanal</SelectItem>
@@ -411,7 +411,7 @@ export default function OnboardingView() {
               <div className="space-y-2">
                 <Label>Dia do relatório semanal</Label>
                 <Select value={state.reportWeekDay} onValueChange={(v) => update({ reportWeekDay: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Dia do relatório semanal"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {DAYS.filter((d) => d.key !== 'dom').map((d) => (
                       <SelectItem key={d.key} value={d.key}>{d.label}-feira</SelectItem>
@@ -486,7 +486,7 @@ export default function OnboardingView() {
                 active
                   ? 'bg-primary text-primary-foreground'
                   : done
-                    ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                    ? 'bg-primary/10 text-foreground hover:bg-primary/20'
                     : 'bg-muted text-muted-foreground'
               }`}
             >

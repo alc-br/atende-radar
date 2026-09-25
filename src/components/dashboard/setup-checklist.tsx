@@ -39,7 +39,7 @@ export function SetupChecklist() {
     <Card data-testid="setup-checklist" className="border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20">
       <CardContent className="p-4 sm:p-6">
         <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 shrink-0 rounded-lg bg-emerald-600 flex items-center justify-center">
+          <div className="w-10 h-10 shrink-0 rounded-lg bg-emerald-700 flex items-center justify-center">
             <Rocket className="w-5 h-5 text-white" />
           </div>
           <div className="min-w-0">
@@ -61,7 +61,7 @@ export function SetupChecklist() {
               >
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   {step.done ? (
-                    <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0 text-emerald-600" aria-label="Concluído" />
+                    <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-label="Concluído" />
                   ) : (
                     <Circle className="w-5 h-5 mt-0.5 shrink-0 text-muted-foreground" aria-label="Pendente" />
                   )}
@@ -74,7 +74,7 @@ export function SetupChecklist() {
                   <Button
                     size="sm"
                     variant={isNext ? 'default' : 'outline'}
-                    className={isNext ? 'bg-emerald-600 hover:bg-emerald-700 text-white shrink-0' : 'shrink-0'}
+                    className={isNext ? 'bg-emerald-700 hover:bg-emerald-800 text-white shrink-0' : 'shrink-0'}
                     onClick={() => setView(step.view as View)}
                   >
                     {step.action}

@@ -59,7 +59,7 @@ const SEGMENT_LABELS: Record<string, string> = {
 function TabSaveButton({ onSave, saving }: { onSave?: () => void; saving?: boolean }) {
   return (
     <Button
-      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+      className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
       type="submit"
       disabled={saving}
       onClick={onSave}
@@ -296,7 +296,7 @@ export default function SettingsView() {
           <TabsTrigger value="horarios" className="gap-1.5 text-xs sm:text-sm"><Clock className="h-4 w-4" />Horários</TabsTrigger>
           <TabsTrigger value="atendimento" className="gap-1.5 text-xs sm:text-sm"><Headphones className="h-4 w-4" />Atendimento</TabsTrigger>
           <TabsTrigger value="financeiro" className="gap-1.5 text-xs sm:text-sm"><DollarSign className="h-4 w-4" />Financeiro</TabsTrigger>
-          <TabsTrigger value="ia" className="gap-1.5 text-xs sm:text-sm"><Brain className="h-4 w-4" />IA</TabsTrigger>
+          <TabsTrigger value="ia" className="gap-1.5 text-xs sm:text-sm"><Brain className="h-4 w-4" />Análise</TabsTrigger>
           <TabsTrigger value="notificacoes" className="gap-1.5 text-xs sm:text-sm"><Bell className="h-4 w-4" />Notificações</TabsTrigger>
           <TabsTrigger value="privacidade" className="gap-1.5 text-xs sm:text-sm"><Shield className="h-4 w-4" />Privacidade</TabsTrigger>
           <TabsTrigger value="regras" className="gap-1.5 text-xs sm:text-sm"><Shield className="h-4 w-4" />Regras</TabsTrigger>
@@ -314,20 +314,20 @@ export default function SettingsView() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Nome empresarial</Label>
-                    <Input value={empName} onChange={e => setEmpName(e.target.value)} className="h-9" />
+                    <Input aria-label="Razão social" value={empName} onChange={e => setEmpName(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Nome de exibição</Label>
-                    <Input value={empDisplay} onChange={e => setEmpDisplay(e.target.value)} className="h-9" />
+                    <Input aria-label="Nome de exibição" value={empDisplay} onChange={e => setEmpDisplay(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">CNPJ</Label>
-                    <Input value={empCnpj} onChange={e => setEmpCnpj(e.target.value)} className="h-9 font-mono" />
+                    <Input aria-label="CNPJ" value={empCnpj} onChange={e => setEmpCnpj(e.target.value)} className="h-9 font-mono" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Segmento</Label>
                     <Select value={empSegment} onValueChange={setEmpSegment}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectTrigger aria-label="Segmento" className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {SEGMENTS.map(s => (
                           <SelectItem key={s} value={s}>{SEGMENT_LABELS[s]}</SelectItem>
@@ -337,20 +337,20 @@ export default function SettingsView() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Site</Label>
-                    <Input value={empSite} onChange={e => setEmpSite(e.target.value)} className="h-9" />
+                    <Input aria-label="Site" value={empSite} onChange={e => setEmpSite(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Telefone</Label>
-                    <Input value={empPhone} onChange={e => setEmpPhone(e.target.value)} className="h-9" />
+                    <Input aria-label="Telefone" value={empPhone} onChange={e => setEmpPhone(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">E-mail do administrador</Label>
-                    <Input type="email" value={empEmail} onChange={e => setEmpEmail(e.target.value)} className="h-9" />
+                    <Input aria-label="E-mail do responsável" type="email" value={empEmail} onChange={e => setEmpEmail(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Fuso horário</Label>
                     <Select value={empTimezone} onValueChange={setEmpTimezone}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectTrigger aria-label="Fuso horário" className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {BR_TIMEZONES.map(tz => (
                           <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
@@ -360,11 +360,11 @@ export default function SettingsView() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Moeda</Label>
-                    <Input value={empCurrency} disabled className="h-9 bg-muted" />
+                    <Input aria-label="Moeda" value={empCurrency} disabled className="h-9 bg-muted" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Idioma</Label>
-                    <Input value={empLang} disabled className="h-9 bg-muted" />
+                    <Input aria-label="Idioma" value={empLang} disabled className="h-9 bg-muted" />
                   </div>
                 </div>
                 {/* Logo upload placeholder */}
@@ -469,7 +469,7 @@ export default function SettingsView() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Regra para fora do expediente</Label>
                     <Select value={outsideRule} onValueChange={setOutsideRule}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectTrigger aria-label="Regra para fora do expediente" className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ignora">Ignora (não conta SLA)</SelectItem>
                         <SelectItem value="atraso">Conta como atraso</SelectItem>
@@ -596,7 +596,7 @@ export default function SettingsView() {
                         <TableCell><Input value={p.name} onChange={e => updateProduct(i, 'name', e.target.value)} className="h-8" placeholder="Nome" /></TableCell>
                         <TableCell><Input type="number" value={p.value} onChange={e => updateProduct(i, 'value', e.target.value)} className="h-8" /></TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" type="button" onClick={() => removeProduct(i)}>
+                          <Button aria-label="Excluir" variant="ghost" size="icon" className="h-7 w-7 text-red-700 dark:text-red-400" type="button" onClick={() => removeProduct(i)}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </TableCell>
@@ -634,7 +634,7 @@ export default function SettingsView() {
                         <TableCell><Input value={it.name} onChange={e => updateIntention(i, 'name', e.target.value)} className="h-8" placeholder="Intenção" /></TableCell>
                         <TableCell><Input type="number" value={it.probability} onChange={e => updateIntention(i, 'probability', e.target.value)} className="h-8" /></TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" type="button" onClick={() => removeIntention(i)}>
+                          <Button aria-label="Excluir" variant="ghost" size="icon" className="h-7 w-7 text-red-700 dark:text-red-400" type="button" onClick={() => removeIntention(i)}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </TableCell>
@@ -658,10 +658,14 @@ export default function SettingsView() {
         <TabsContent value="ia" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Configurações de Inteligência Artificial</CardTitle>
+              <CardTitle className="text-base">Configurações da análise</CardTitle>
               <CardDescription>Ajuste o comportamento da classificação e análise.</CardDescription>
             </CardHeader>
             <CardContent>
+              <p role="note" className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                Hoje a análise usa <strong>regras de atendimento (palavras e prazos)</strong>, sem inteligência artificial. Os ajustes desta aba
+                ainda <strong>não têm efeito</strong> e serão usados quando a análise por IA for ativada.
+              </p>
               <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -671,7 +675,7 @@ export default function SettingsView() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Segmento (contexto da IA)</Label>
                     <Select value={aiSegment} onValueChange={setAiSegment}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectTrigger aria-label="Segmento (contexto da IA)" className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {SEGMENTS.map(s => (
                           <SelectItem key={s} value={s}>{SEGMENT_LABELS[s]}</SelectItem>
@@ -689,9 +693,9 @@ export default function SettingsView() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs">Nível mínimo de confiança</Label>
-                    <span className="text-xs font-mono font-medium text-emerald-600">{(aiConfidence[0] * 100).toFixed(0)}%</span>
+                    <span className="text-xs font-mono font-medium text-emerald-700 dark:text-emerald-400">{(aiConfidence[0] * 100).toFixed(0)}%</span>
                   </div>
-                  <Slider value={aiConfidence} onValueChange={setAiConfidence} min={0} max={1} step={0.05} className="[&_[role=slider]]:bg-emerald-600" />
+                  <Slider value={aiConfidence} onValueChange={setAiConfidence} min={0} max={1} step={0.05} className="[&_[role=slider]]:bg-emerald-700" />
                   <p className="text-[11px] text-muted-foreground">Classificações abaixo deste limiar serão marcadas como "baixa confiança".</p>
                 </div>
 
@@ -910,7 +914,7 @@ export default function SettingsView() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Base legal</Label>
                     <Select value={privLegalBasis} onValueChange={setPrivLegalBasis}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectTrigger aria-label="Base legal" className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="consentimento">Consentimento do titular</SelectItem>
                         <SelectItem value="legitimo_interesse">Legítimo interesse</SelectItem>

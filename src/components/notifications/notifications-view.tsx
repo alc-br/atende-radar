@@ -31,11 +31,11 @@ const ICON_MAP: Record<string, React.ElementType> = {
 }
 
 const ICON_COLORS: Record<string, string> = {
-  alert: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
-  promise_overdue: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-  report_ready: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
-  report_failed: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
-  recovery: 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400',
+  alert: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  promise_overdue: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  report_ready: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  report_failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  recovery: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
   system: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
 }
 

@@ -234,7 +234,7 @@ export default function ConnectionsView() {
           </p>
         </div>
         <Dialog open={newConnDialogOpen} onOpenChange={setNewConnDialogOpen}>
-          <Button data-tour="connections-new" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" onClick={() => setNewConnDialogOpen(true)}>
+          <Button data-tour="connections-new" className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5" onClick={() => setNewConnDialogOpen(true)}>
             <Plus className="h-4 w-4" />
             Nova conexão
           </Button>
@@ -267,7 +267,7 @@ export default function ConnectionsView() {
                 />
               </div>
               <Alert>
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                 <AlertDescription className="text-xs">
                   Esta integração utiliza bibliotecas de código aberto (Baileys) e <strong>não possui parceria oficial com o WhatsApp/Meta</strong>. O uso pode violar os Termos de Serviço do WhatsApp. Use por sua conta e risco.
                 </AlertDescription>
@@ -285,7 +285,7 @@ export default function ConnectionsView() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setNewConnDialogOpen(false)}>Cancelar</Button>
               <Button
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="bg-emerald-700 hover:bg-emerald-800 text-white"
                 disabled={!newConnName.trim() || !newConnPhone.trim() || !newConnAck || creatingConn}
                 onClick={handleCreateConnection}
               >
@@ -459,7 +459,7 @@ export default function ConnectionsView() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-amber-600" onClick={() => handleDisconnect(conn.id)}>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-amber-700 dark:text-amber-400" onClick={() => handleDisconnect(conn.id)}>
                           <Unplug className="h-3 w-3" />Desconectar
                         </Button>
                       </TooltipTrigger>
@@ -467,7 +467,7 @@ export default function ConnectionsView() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-red-600" onClick={() => handleDeleteConnection(conn.id)}>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-red-700 dark:text-red-400" onClick={() => handleDeleteConnection(conn.id)}>
                           <Trash2 className="h-3 w-3" />Excluir
                         </Button>
                       </TooltipTrigger>
@@ -492,7 +492,7 @@ export default function ConnectionsView() {
                           <div className="flex items-center gap-1.5">
                             <Server className="h-3.5 w-3.5 text-muted-foreground" />
                             <span className="text-muted-foreground">Socket:</span>
-                            <span className={`font-mono font-medium ${diag.socketStatus === 'OPEN' ? 'text-emerald-600' : diag.socketStatus === 'CLOSED' || diag.socketStatus === 'NONE' ? 'text-red-600' : 'text-amber-600'}`}>
+                            <span className={`font-mono font-medium ${diag.socketStatus === 'OPEN' ? 'text-emerald-700 dark:text-emerald-400' : diag.socketStatus === 'CLOSED' || diag.socketStatus === 'NONE' ? 'text-red-700' : 'text-amber-700 dark:text-amber-400'}`}>
                               {diag.socketStatus}
                             </span>
                           </div>
@@ -504,7 +504,7 @@ export default function ConnectionsView() {
                           <div className="flex items-center gap-1.5">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                             <span className="text-muted-foreground">Filas pendentes:</span>
-                            <span className={`font-medium ${diag.pendingQueues > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>{diag.pendingQueues}</span>
+                            <span className={`font-medium ${diag.pendingQueues > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>{diag.pendingQueues}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Zap className="h-3.5 w-3.5 text-muted-foreground" />
@@ -535,7 +535,7 @@ export default function ConnectionsView() {
 
                         {diag.recentErrors.length > 0 && (
                           <div className="space-y-1.5">
-                            <p className="font-medium text-red-600 flex items-center gap-1">
+                            <p className="font-medium text-red-700 dark:text-red-400 flex items-center gap-1">
                               <XCircle className="h-3 w-3" />
                               Erros recentes (sanitizados)
                             </p>
@@ -550,12 +550,12 @@ export default function ConnectionsView() {
                         {diag.recommendedActions.length > 0 && (
                           <div className="space-y-1.5">
                             <p className="font-medium flex items-center gap-1">
-                              <Info className="h-3 w-3 text-teal-600" />
+                              <Info className="h-3 w-3 text-teal-700 dark:text-teal-400" />
                               Ações recomendadas
                             </p>
                             {diag.recommendedActions.map((action, i) => (
                               <div key={i} className="flex items-start gap-1.5">
-                                <CheckCircle2 className="h-3 w-3 mt-0.5 text-teal-600 shrink-0" />
+                                <CheckCircle2 className="h-3 w-3 mt-0.5 text-teal-700 dark:text-teal-400 shrink-0" />
                                 <span>{action}</span>
                               </div>
                             ))}
@@ -563,7 +563,7 @@ export default function ConnectionsView() {
                         )}
 
                         {diag.recommendedActions.length === 0 && diag.recentErrors.length === 0 && (
-                          <div className="flex items-center gap-1.5 text-emerald-600">
+                          <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             Nenhum problema detectado.
                           </div>

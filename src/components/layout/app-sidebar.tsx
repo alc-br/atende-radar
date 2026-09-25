@@ -126,7 +126,7 @@ export function AppSidebar() {
         {sidebarOpen && (
           <div className="flex flex-col min-w-0">
             <span className="font-bold text-base tracking-tight truncate">AtendeRadar</span>
-            <span className="text-[11px] text-sidebar-foreground/60 truncate">Auditor de WhatsApp</span>
+            <span className="text-[11px] text-sidebar-foreground/75 truncate">Auditor de WhatsApp</span>
           </div>
         )}
       </div>
@@ -138,7 +138,7 @@ export function AppSidebar() {
         {/* Separator + Secondary items */}
         <div className="pt-4 mt-4 border-t border-sidebar-border">
           {sidebarOpen && (
-            <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+            <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/70">
               Administração
             </p>
           )}
@@ -151,7 +151,7 @@ export function AppSidebar() {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-center text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+          className="w-full justify-center text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
           onClick={() => {
             if (window.matchMedia('(max-width: 1023px)').matches) setMobileNavOpen(false)
             else setSidebarOpen(!sidebarOpen)

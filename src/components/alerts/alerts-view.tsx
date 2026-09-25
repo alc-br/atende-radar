@@ -238,7 +238,7 @@ export default function AlertsView() {
       const alertsJson = await alertsRes.json()
       const items: AlertItem[] = (alertsJson.alerts || []).map((a: Record<string, unknown>) => ({
         ...a,
-        evidence: a.evidence || 'Detecção automatizada pela IA de auditoria.',
+        evidence: a.evidence || 'Detectado automaticamente pelas regras de atendimento.',
       }))
       setAlertsData(items)
       setApiCounts(alertsJson.counts || {})
@@ -657,7 +657,7 @@ export default function AlertsView() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs gap-1 text-emerald-600"
+                    className="h-7 text-xs gap-1 text-emerald-700 dark:text-emerald-400"
                     onClick={() => handleCreateRecovery(alert.id)}
                   >
                     <RotateCcw className="h-3 w-3" />
@@ -707,7 +707,7 @@ export default function AlertsView() {
                 <div className="space-y-2">
                   <Label>Tipo</Label>
                   <Select value={newRuleType} onValueChange={setNewRuleType}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                    <SelectTrigger aria-label="Selecione o tipo"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                     <SelectContent>
                       {Object.entries(alertTypeLabels).map(([value, label]) => (
                         <SelectItem key={value} value={value}>{label}</SelectItem>
@@ -718,7 +718,7 @@ export default function AlertsView() {
                 <div className="space-y-2">
                   <Label>Severidade</Label>
                   <Select value={newRuleSeverity} onValueChange={setNewRuleSeverity}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-label="Severidade"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {Object.entries(severityLabels).map(([value, label]) => (
                         <SelectItem key={value} value={value}>{label}</SelectItem>
@@ -808,7 +808,7 @@ export default function AlertsView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Shield className="h-6 w-6 text-emerald-600" />
+            <Shield className="h-6 w-6 text-emerald-700 dark:text-emerald-400" />
             Alertas
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -900,7 +900,7 @@ export default function AlertsView() {
           </DialogHeader>
           <div className="py-4">
             <Select value={resolveReason} onValueChange={setResolveReason}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Selecione o motivo...">
                 <SelectValue placeholder="Selecione o motivo..." />
               </SelectTrigger>
               <SelectContent>
@@ -939,7 +939,7 @@ export default function AlertsView() {
           </DialogHeader>
           <div className="py-4">
             <Select value={ignoreReason} onValueChange={setIgnoreReason}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Selecione o motivo...">
                 <SelectValue placeholder="Selecione o motivo..." />
               </SelectTrigger>
               <SelectContent>
@@ -979,7 +979,7 @@ export default function AlertsView() {
           </DialogHeader>
           <div className="py-4">
             <Select value={assignAgentId} onValueChange={setAssignAgentId}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Selecione o atendente...">
                 <SelectValue placeholder="Selecione o atendente..." />
               </SelectTrigger>
               <SelectContent>
@@ -1033,7 +1033,7 @@ export default function AlertsView() {
 
           {/* Criticidade */}
           <Select value={filterSeverity} onValueChange={setFilterSeverity}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger aria-label="Criticidade" className="h-8 text-xs">
               <SelectValue placeholder="Criticidade" />
             </SelectTrigger>
             <SelectContent>
@@ -1047,7 +1047,7 @@ export default function AlertsView() {
 
           {/* Tipo */}
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger aria-label="Tipo" className="h-8 text-xs">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
@@ -1062,7 +1062,7 @@ export default function AlertsView() {
 
           {/* Atendente */}
           <Select value={filterAgent} onValueChange={setFilterAgent}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger aria-label="Atendente" className="h-8 text-xs">
               <SelectValue placeholder="Atendente" />
             </SelectTrigger>
             <SelectContent>
@@ -1077,7 +1077,7 @@ export default function AlertsView() {
 
           {/* Equipe */}
           <Select value={filterTeam} onValueChange={setFilterTeam}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger aria-label="Equipe" className="h-8 text-xs">
               <SelectValue placeholder="Equipe" />
             </SelectTrigger>
             <SelectContent>
@@ -1092,7 +1092,7 @@ export default function AlertsView() {
 
           {/* Valor potencial */}
           <Select value={filterHasValue} onValueChange={setFilterHasValue}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger aria-label="Valor" className="h-8 text-xs">
               <SelectValue placeholder="Valor" />
             </SelectTrigger>
             <SelectContent>

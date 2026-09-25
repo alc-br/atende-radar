@@ -156,7 +156,7 @@ export default function TeamsView() {
               <div className="space-y-2">
                 <Label>Supervisor</Label>
                 <Select value={newSupervisorId} onValueChange={setNewSupervisorId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o supervisor" /></SelectTrigger>
+                  <SelectTrigger aria-label="Selecione o supervisor"><SelectValue placeholder="Selecione o supervisor" /></SelectTrigger>
                   <SelectContent>
                     {agents.map((a) => (
                       <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
@@ -177,7 +177,7 @@ export default function TeamsView() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="bg-muted/30">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 text-foreground flex items-center justify-center">
               <Users className="w-5 h-5" />
             </div>
             <div>
@@ -188,7 +188,7 @@ export default function TeamsView() {
         </Card>
         <Card className="bg-muted/30">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
               <Activity className="w-5 h-5" />
             </div>
             <div>
@@ -199,7 +199,7 @@ export default function TeamsView() {
         </Card>
         <Card className="bg-muted/30">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center">
               <UserCircle className="w-5 h-5" />
             </div>
             <div>
@@ -230,7 +230,7 @@ export default function TeamsView() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 text-foreground flex items-center justify-center">
                         <Users className="w-5 h-5" />
                       </div>
                       <div>

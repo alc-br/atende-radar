@@ -28,11 +28,11 @@ export function timeAgo(dateStr: string): string {
 
 export function getSeverityColor(severity: string) {
   switch (severity) {
-    case 'critical': return 'text-red-600 bg-red-50 border-red-200'
-    case 'high': return 'text-orange-600 bg-orange-50 border-orange-200'
-    case 'medium': return 'text-amber-600 bg-amber-50 border-amber-200'
-    case 'low': return 'text-emerald-600 bg-emerald-50 border-emerald-200'
-    case 'info': return 'text-sky-600 bg-sky-50 border-sky-200'
+    case 'critical': return 'text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800'
+    case 'high': return 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/50 border-orange-200 dark:border-orange-800'
+    case 'medium': return 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800'
+    case 'low': return 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800'
+    case 'info': return 'text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/50 border-sky-200 dark:border-sky-800'
     default: return 'text-muted-foreground bg-muted'
   }
 }

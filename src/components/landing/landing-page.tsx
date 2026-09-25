@@ -39,8 +39,8 @@ const painPoints = [
 const features = [
   {
     icon: Bot,
-    title: 'Análise Automática IA',
-    description: 'Detecta intenções, oportunidades e falhas em tempo real usando inteligência artificial avançada.',
+    title: 'Análise Automática',
+    description: 'Identifica intenções, oportunidades e falhas de atendimento nas conversas, com regras claras e explicáveis.',
   },
   {
     icon: Target,
@@ -80,7 +80,7 @@ const steps = [
     number: '02',
     icon: Sparkles,
     title: 'AtendeRadar analisa',
-    description: 'Nossa IA processa cada conversa, detectando oportunidades, falhas e riscos automaticamente.',
+    description: 'O AtendeRadar analisa cada conversa e detecta oportunidades, falhas e riscos automaticamente.',
   },
   {
     number: '03',
@@ -172,11 +172,11 @@ export default function LandingPage() {
           {/* Nav bar */}
           <nav className="flex items-center justify-between mb-16 sm:mb-20">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-lg bg-emerald-700 flex items-center justify-center">
                 <Shield className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-foreground">
-                Atende<span className="text-emerald-600">Radar</span>
+                Atende<span className="text-emerald-700 dark:text-emerald-400">Radar</span>
               </span>
             </div>
             <div className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground">
@@ -211,7 +211,7 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
                 size="lg"
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-8 h-12 text-base font-semibold shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all duration-300"
+                className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white px-8 h-12 text-base font-semibold shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all duration-300"
                 onClick={handleStart}
               >
                 Começar Agora
@@ -286,7 +286,7 @@ export default function LandingPage() {
               >
                 <CardContent className="p-6">
                   <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                    <feature.icon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <feature.icon className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                   </div>
                   <h3 className="text-base font-semibold text-foreground mb-2">{feature.title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
@@ -321,7 +321,7 @@ export default function LandingPage() {
                 )}
                 <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 mb-6 shadow-lg shadow-emerald-500/20">
                   <step.icon className="w-10 h-10 text-white" />
-                  <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-background border-2 border-emerald-500 text-xs font-bold text-emerald-600 flex items-center justify-center">
+                  <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-background border-2 border-emerald-500 text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
                     {step.number}
                   </span>
                 </div>
@@ -376,7 +376,7 @@ export default function LandingPage() {
                 >
                   {plan.highlight && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-emerald-600 text-white px-4 py-1 text-xs font-semibold shadow-md">
+                      <Badge className="bg-emerald-700 text-white px-4 py-1 text-xs font-semibold shadow-md">
                         Mais Popular
                       </Badge>
                     </div>
@@ -396,7 +396,7 @@ export default function LandingPage() {
                     <ul className="space-y-3 mb-8 flex-1">
                       {planBullets(plan).map((feature) => (
                         <li key={feature} className="flex items-start gap-3 text-sm">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 mt-0.5 shrink-0" />
                           <span className="text-muted-foreground">{feature}</span>
                         </li>
                       ))}
@@ -404,7 +404,7 @@ export default function LandingPage() {
                     <Button
                       className={
                         plan.highlight
-                          ? 'w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-600/20'
+                          ? 'w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-md shadow-emerald-600/20'
                           : 'w-full'
                       }
                       variant={plan.highlight ? 'default' : 'outline'}
@@ -461,11 +461,11 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-md bg-emerald-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-md bg-emerald-700 flex items-center justify-center">
                 <Shield className="w-4 h-4 text-white" />
               </div>
               <span className="text-sm font-bold text-foreground">
-                Atende<span className="text-emerald-600">Radar</span>
+                Atende<span className="text-emerald-700 dark:text-emerald-400">Radar</span>
               </span>
             </div>
             <p className="text-xs text-muted-foreground">

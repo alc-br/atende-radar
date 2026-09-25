@@ -236,12 +236,12 @@ export default function AdminView() {
   }, [users, userSearch, userRoleFilter])
 
   const kpiCards = data ? [
-    { label: 'Organizações Ativas', value: formatNumber(data.kpis.activeOrgs), icon: Building2, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
-    { label: 'Conexões WhatsApp', value: formatNumber(data.kpis.whatsappConnections), icon: MessageSquare, color: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-500/10' },
-    { label: 'Usuários Cadastrados', value: formatNumber(data.kpis.totalUsers), icon: Users, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
-    { label: 'Conversas Hoje', value: formatNumber(data.kpis.conversationsToday), icon: Activity, color: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-500/10' },
-    { label: 'Receita Mensal', value: formatCurrency(data.kpis.monthlyRevenue), icon: DollarSign, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
-    { label: 'Alertas Ativos', value: formatNumber(data.kpis.activeAlerts), icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10' },
+    { label: 'Organizações Ativas', value: formatNumber(data.kpis.activeOrgs), icon: Building2, color: 'text-emerald-700 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
+    { label: 'Conexões WhatsApp', value: formatNumber(data.kpis.whatsappConnections), icon: MessageSquare, color: 'text-teal-700 dark:text-teal-400', bgColor: 'bg-teal-500/10' },
+    { label: 'Usuários Cadastrados', value: formatNumber(data.kpis.totalUsers), icon: Users, color: 'text-emerald-700 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
+    { label: 'Conversas Hoje', value: formatNumber(data.kpis.conversationsToday), icon: Activity, color: 'text-teal-700 dark:text-teal-400', bgColor: 'bg-teal-500/10' },
+    { label: 'Receita Mensal', value: formatCurrency(data.kpis.monthlyRevenue), icon: DollarSign, color: 'text-emerald-700 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
+    { label: 'Alertas Ativos', value: formatNumber(data.kpis.activeAlerts), icon: AlertTriangle, color: 'text-amber-700 dark:text-amber-400', bgColor: 'bg-amber-500/10' },
   ] : []
 
   if (error) {
@@ -261,7 +261,7 @@ export default function AdminView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Settings className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+            <Settings className="w-7 h-7 text-emerald-700 dark:text-emerald-400" />
             Painel Administrativo
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -387,7 +387,7 @@ export default function AdminView() {
               />
             </div>
             <Select value={orgStatusFilter} onValueChange={setOrgStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectTrigger aria-label="Filtrar status" className="w-full sm:w-[160px]">
                 <SelectValue placeholder="Filtrar status" />
               </SelectTrigger>
               <SelectContent>
@@ -470,7 +470,7 @@ export default function AdminView() {
               />
             </div>
             <Select value={userRoleFilter} onValueChange={setUserRoleFilter}>
-              <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectTrigger aria-label="Filtrar papel" className="w-full sm:w-[160px]">
                 <SelectValue placeholder="Filtrar papel" />
               </SelectTrigger>
               <SelectContent>
@@ -540,13 +540,13 @@ export default function AdminView() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-500/10">
-                      <Database className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                      <Database className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                     </div>
                     <div className="space-y-0.5">
                       <p className="text-sm font-medium">Banco de Dados</p>
                       <div className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full ${data?.system.databaseHealthy !== false ? 'bg-emerald-500 animate-pulse' : 'bg-destructive'}`} />
-                        <span className={`text-xs font-medium ${data?.system.databaseHealthy !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                        <span className={`text-xs font-medium ${data?.system.databaseHealthy !== false ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'}`}>
                           {data?.system.databaseHealthy !== false ? 'Operacional' : 'Indisponível'}
                         </span>
                       </div>
@@ -560,13 +560,13 @@ export default function AdminView() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-500/10">
-                      <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                      <Shield className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                     </div>
                     <div className="space-y-0.5">
                       <p className="text-sm font-medium">Autenticação</p>
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Operacional</span>
+                        <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Operacional</span>
                       </div>
                     </div>
                   </div>
@@ -578,14 +578,14 @@ export default function AdminView() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-teal-500/10">
-                      <HardDrive className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                      <HardDrive className="w-5 h-5 text-teal-700 dark:text-teal-400" />
                     </div>
                     <div className="space-y-1 flex-1 min-w-0">
                       <p className="text-sm font-medium">Armazenamento</p>
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{formatBytes(data?.system.storageBytes || 0)} / 10 GB</span>
-                          <span className="font-medium text-teal-600 dark:text-teal-400">{storagePct}%</span>
+                          <span className="font-medium text-teal-700 dark:text-teal-400">{storagePct}%</span>
                         </div>
                         <Progress value={storagePct} className="h-2" />
                       </div>
@@ -654,7 +654,7 @@ export default function AdminView() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <Building2 className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                   {selectedOrg.name}
                 </DialogTitle>
                 <DialogDescription>Detalhes da organização</DialogDescription>

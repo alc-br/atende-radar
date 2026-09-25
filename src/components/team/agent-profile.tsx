@@ -80,9 +80,9 @@ const getRoleColor = (role: string) => {
 }
 
 const getScoreColor = (score: number) => {
-  if (score >= 80) return 'text-emerald-600'
-  if (score >= 70) return 'text-amber-600'
-  return 'text-red-600'
+  if (score >= 80) return 'text-emerald-700 dark:text-emerald-400'
+  if (score >= 70) return 'text-amber-700 dark:text-amber-400'
+  return 'text-red-700 dark:text-red-400'
 }
 
 const getScoreBg = (score: number) => {
@@ -303,9 +303,9 @@ export default function AgentProfile() {
 
   const getPromiseStatusIcon = (status: string) => {
     switch (status) {
-      case 'fulfilled': return <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-      case 'overdue': return <XCircle className="h-4 w-4 text-red-600" />
-      default: return <CircleDot className="h-4 w-4 text-amber-600" />
+      case 'fulfilled': return <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+      case 'overdue': return <XCircle className="h-4 w-4 text-red-700 dark:text-red-400" />
+      default: return <CircleDot className="h-4 w-4 text-amber-700 dark:text-amber-400" />
     }
   }
 
@@ -324,8 +324,8 @@ export default function AgentProfile() {
   }
 
   const TrendIcon = () => {
-    if (agent.trend === 'up') return <TrendingUp className="h-5 w-5 text-emerald-600" />
-    if (agent.trend === 'down') return <TrendingDown className="h-5 w-5 text-red-600" />
+    if (agent.trend === 'up') return <TrendingUp className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+    if (agent.trend === 'down') return <TrendingDown className="h-5 w-5 text-red-700 dark:text-red-400" />
     return <Minus className="h-5 w-5 text-muted-foreground" />
   }
 
@@ -399,19 +399,19 @@ export default function AgentProfile() {
             </Card>
             <Card>
               <CardContent className="pt-4 pb-3 text-center">
-                <div className="text-3xl font-bold text-emerald-600">{agent.opportunities}</div>
+                <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">{agent.opportunities}</div>
                 <p className="text-xs text-muted-foreground mt-1">Oportunidades</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4 pb-3 text-center">
-                <div className={cn('text-3xl font-bold', agent.opportunitiesLost > 5 ? 'text-red-600' : 'text-amber-600')}>{agent.opportunitiesLost}</div>
+                <div className={cn('text-3xl font-bold', agent.opportunitiesLost > 5 ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400')}>{agent.opportunitiesLost}</div>
                 <p className="text-xs text-muted-foreground mt-1">Falhas críticas</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4 pb-3 text-center">
-                <div className={cn('text-3xl font-bold', agent.promisesKept === agent.promisesTotal ? 'text-emerald-600' : 'text-amber-600')}>
+                <div className={cn('text-3xl font-bold', agent.promisesKept === agent.promisesTotal ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400')}>
                   {agent.promisesKept}/{agent.promisesTotal}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Promessas cumpridas</p>
@@ -495,7 +495,7 @@ export default function AgentProfile() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
                   Pontos fortes
                 </CardTitle>
               </CardHeader>
@@ -503,7 +503,7 @@ export default function AgentProfile() {
                 <ul className="space-y-2">
                   {strengths.map((s, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                      <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400 mt-0.5 shrink-0" />
                       <span className="text-sm">{s}</span>
                     </li>
                   ))}
@@ -515,7 +515,7 @@ export default function AgentProfile() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-600" />
+                  <XCircle className="h-4 w-4 text-red-700 dark:text-red-400" />
                   Falhas recorrentes
                 </CardTitle>
               </CardHeader>
@@ -523,7 +523,7 @@ export default function AgentProfile() {
                 <ul className="space-y-2">
                   {failures.map((f, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <XCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                      <XCircle className="h-4 w-4 text-red-700 dark:text-red-400 mt-0.5 shrink-0" />
                       <span className="text-sm">{f}</span>
                     </li>
                   ))}
@@ -537,7 +537,7 @@ export default function AgentProfile() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-500" />
+                  <Star className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                   Conversas exemplares
                 </CardTitle>
               </CardHeader>
@@ -545,7 +545,7 @@ export default function AgentProfile() {
                 <ul className="space-y-2">
                   {exemplaryConversations.map((c) => (
                     <li key={c.id}>
-                      <button className="flex items-center gap-2 text-sm text-teal-600 hover:underline w-full text-left">
+                      <button className="flex items-center gap-2 text-sm text-teal-700 dark:text-teal-400 hover:underline w-full text-left">
                         <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                         <span>{c.title}</span>
                         <Badge variant="outline" className={cn('border ml-auto shrink-0', getScoreBg(c.score), getScoreColor(c.score))}>
@@ -561,7 +561,7 @@ export default function AgentProfile() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                   Conversas para revisar
                 </CardTitle>
               </CardHeader>
@@ -569,7 +569,7 @@ export default function AgentProfile() {
                 <ul className="space-y-2">
                   {toReviewConversations.map((c) => (
                     <li key={c.id}>
-                      <button className="flex items-center gap-2 text-sm text-teal-600 hover:underline w-full text-left">
+                      <button className="flex items-center gap-2 text-sm text-teal-700 dark:text-teal-400 hover:underline w-full text-left">
                         <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                         <span className="flex-1">{c.title}</span>
                         <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400 shrink-0">
@@ -587,7 +587,7 @@ export default function AgentProfile() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <Handshake className="h-4 w-4 text-teal-600" />
+                <Handshake className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                 Promessas
               </CardTitle>
               <CardDescription>Acompanhamento de promessas feitas ao cliente</CardDescription>
@@ -616,7 +616,7 @@ export default function AgentProfile() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <Target className="h-4 w-4 text-emerald-600" />
+                <Target className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
                 Oportunidades
               </CardTitle>
               <CardDescription>Oportunidades identificadas nas conversas</CardDescription>
@@ -628,7 +628,7 @@ export default function AgentProfile() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{o.intent}</p>
                     </div>
-                    <span className="text-sm font-semibold text-emerald-600 shrink-0">
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
                       R$ {o.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                     <Badge variant="outline" className={cn('border shrink-0', getOpportunityStatusColor(o.status))}>

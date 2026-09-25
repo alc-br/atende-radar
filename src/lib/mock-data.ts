@@ -279,9 +279,9 @@ export function timeAgo(dateStr: string): string {
 
 export function getSeverityColor(severity: string) {
   switch (severity) {
-    case 'critical': return 'text-red-600 bg-red-50 border-red-200'
-    case 'high': return 'text-orange-600 bg-orange-50 border-orange-200'
-    case 'medium': return 'text-amber-600 bg-amber-50 border-amber-200'
+    case 'critical': return 'text-red-700 dark:text-red-400 bg-red-50 border-red-200'
+    case 'high': return 'text-orange-700 dark:text-orange-400 bg-orange-50 border-orange-200'
+    case 'medium': return 'text-amber-700 dark:text-amber-400 bg-amber-50 border-amber-200'
     case 'low': return 'text-emerald-600 bg-emerald-50 border-emerald-200'
     case 'info': return 'text-sky-600 bg-sky-50 border-sky-200'
     default: return 'text-muted-foreground bg-muted'

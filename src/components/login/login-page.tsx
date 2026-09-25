@@ -123,11 +123,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo / Branding */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center mb-4 shadow-lg shadow-emerald-600/25">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-700 flex items-center justify-center mb-4 shadow-lg shadow-emerald-600/25">
             <Shield className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Atende<span className="text-emerald-600">Radar</span>
+            Atende<span className="text-emerald-700 dark:text-emerald-400">Radar</span>
           </h1>
         </div>
 
@@ -228,7 +228,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => switchMode('forgot')}
-                  className="text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors"
+                  className="text-sm text-emerald-700 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors"
                 >
                   Esqueceu sua senha?
                 </button>
@@ -244,7 +244,7 @@ export default function LoginPage() {
               {/* Submit button */}
               <Button
                 type="submit"
-                className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-600/20"
+                className="w-full h-11 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-md shadow-emerald-600/20"
                 disabled={loading}
               >
                 {loading ? (
@@ -281,7 +281,7 @@ export default function LoginPage() {
               onClick={handleDemoLogin}
               disabled={loading}
             >
-              <Shield className="w-4 h-4 mr-2 text-emerald-600" />
+              <Shield className="w-4 h-4 mr-2 text-emerald-700 dark:text-emerald-400" />
               Entrar como demonstração
             </Button>
             </>)}
@@ -291,12 +291,12 @@ export default function LoginPage() {
               {mode === 'login' ? (
                 <>
                   Não tem uma conta?{' '}
-                  <button type="button" onClick={() => switchMode('signup')} className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors">
+                  <button type="button" onClick={() => switchMode('signup')} className="text-emerald-700 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors">
                     Criar conta grátis
                   </button>
                 </>
               ) : (
-                <button type="button" onClick={() => switchMode('login')} className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors">
+                <button type="button" onClick={() => switchMode('login')} className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors">
                   <ArrowLeft className="w-3.5 h-3.5" /> Voltar para o login
                 </button>
               )}

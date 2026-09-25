@@ -64,8 +64,8 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
 }
 
 function TrendIcon({ trend }: { trend: string }) {
-  if (trend === 'up') return <TrendingUp className="h-4 w-4 text-emerald-600" />
-  if (trend === 'down') return <TrendingDown className="h-4 w-4 text-red-600" />
+  if (trend === 'up') return <TrendingUp className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+  if (trend === 'down') return <TrendingDown className="h-4 w-4 text-red-700 dark:text-red-400" />
   return <Minus className="h-4 w-4 text-muted-foreground" />
 }
 
@@ -152,9 +152,9 @@ export default function TeamView() {
   if (error) return <div className="flex flex-col items-center justify-center h-96 gap-4"><p className="text-destructive font-medium">{error}</p><button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button></div>
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-600'
-    if (score >= 70) return 'text-amber-600'
-    return 'text-red-600'
+    if (score >= 80) return 'text-emerald-700 dark:text-emerald-400'
+    if (score >= 70) return 'text-amber-700 dark:text-amber-400'
+    return 'text-red-700 dark:text-red-400'
   }
 
   const getScoreBg = (score: number) => {
@@ -186,7 +186,7 @@ export default function TeamView() {
     <div className="flex flex-col gap-4 p-4 md:p-6">
       {/* Page title */}
       <div className="flex items-center gap-2">
-        <Users className="h-6 w-6 text-emerald-600" />
+        <Users className="h-6 w-6 text-emerald-700 dark:text-emerald-400" />
         <h1 className="text-2xl font-bold tracking-tight">Equipe</h1>
       </div>
 
@@ -204,7 +204,7 @@ export default function TeamView() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Nota média</CardTitle>
-            <Star className="h-4 w-4 text-emerald-600" />
+            <Star className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
           </CardHeader>
           <CardContent>
             <div className={cn('text-2xl font-bold', getScoreColor(avgScore))}>{avgScore}</div>
@@ -333,16 +333,16 @@ export default function TeamView() {
                       <TableCell className="hidden md:table-cell text-muted-foreground">
                         {agent.avgResponseTime} min
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell font-medium text-emerald-600">
+                      <TableCell className="hidden lg:table-cell font-medium text-emerald-700 dark:text-emerald-400">
                         {agent.opportunities}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        <span className={agent.opportunitiesLost > 5 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>
+                        <span className={agent.opportunitiesLost > 5 ? 'text-red-700 dark:text-red-400 font-medium' : 'text-muted-foreground'}>
                           {agent.opportunitiesLost}
                         </span>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        <span className={agent.promisesKept === agent.promisesTotal ? 'text-emerald-600' : 'text-amber-600'}>
+                        <span className={agent.promisesKept === agent.promisesTotal ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
                           {agent.promisesKept}/{agent.promisesTotal}
                         </span>
                       </TableCell>

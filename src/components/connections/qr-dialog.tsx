@@ -85,7 +85,7 @@ export function QrDialog({ connectionId, onOpenChange, onConnected }: Props) {
             </>
           ) : waitedTooLong ? (
             <div role="alert" className="flex flex-col items-center gap-2 text-center max-w-xs">
-              <AlertTriangle className="h-10 w-10 text-amber-600" />
+              <AlertTriangle className="h-10 w-10 text-amber-700 dark:text-amber-400" />
               <p className="font-medium">O QR Code não chegou.</p>
               <p className="text-sm text-muted-foreground">O serviço de conexão do WhatsApp pode estar desligado ou sem internet. Tente de novo em instantes; se persistir, fale com o suporte.</p>
             </div>

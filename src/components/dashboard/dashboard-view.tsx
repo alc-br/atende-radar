@@ -218,8 +218,8 @@ function contextualChangeColor(label: string, change: number): boolean {
 // ─── Trend arrow ─────────────────────────────────────────────────────
 
 function TrendArrow({ trend }: { trend: 'up' | 'down' | 'stable' }) {
-  if (trend === 'up') return <TrendingUp className="size-3.5 text-emerald-500" />
-  if (trend === 'down') return <TrendingDown className="size-3.5 text-red-500" />
+  if (trend === 'up') return <TrendingUp className="size-3.5 text-emerald-700 dark:text-emerald-400" />
+  if (trend === 'down') return <TrendingDown className="size-3.5 text-red-700 dark:text-red-400" />
   return <Minus className="size-3.5 text-muted-foreground" />
 }
 
@@ -384,7 +384,7 @@ export default function DashboardView() {
         <div className="flex items-center gap-2">
           <CalendarDays className="text-muted-foreground size-4" />
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger data-tour="dashboard-period" className="w-[160px]">
+            <SelectTrigger aria-label="Período" data-tour="dashboard-period" className="w-[160px]">
               <SelectValue placeholder="Período" />
             </SelectTrigger>
             <SelectContent>
@@ -432,8 +432,8 @@ export default function DashboardView() {
                         className={cn(
                           'inline-flex items-center gap-0.5 text-xs font-medium',
                           kpi.change === 0 && 'text-muted-foreground',
-                          kpi.change !== 0 && isImproved && 'text-emerald-600 dark:text-emerald-400',
-                          kpi.change !== 0 && !isImproved && 'text-red-500 dark:text-red-400'
+                          kpi.change !== 0 && isImproved && 'text-emerald-700 dark:text-emerald-400',
+                          kpi.change !== 0 && !isImproved && 'text-red-700 dark:text-red-400'
                         )}
                       >
                         {kpi.change > 0 && (
@@ -512,9 +512,9 @@ export default function DashboardView() {
                       className={cn(
                         'text-xs font-medium',
                         conv.waitingMinutes > 30
-                          ? 'text-red-500'
+                          ? 'text-red-700 dark:text-red-400'
                           : conv.waitingMinutes > 10
-                            ? 'text-amber-600'
+                            ? 'text-amber-700 dark:text-amber-400'
                             : 'text-muted-foreground'
                       )}
                     >
@@ -673,10 +673,10 @@ export default function DashboardView() {
                       className={cn(
                         'font-semibold tabular-nums',
                         agent.score >= 80
-                          ? 'text-emerald-600 dark:text-emerald-400'
+                          ? 'text-emerald-700 dark:text-emerald-400'
                           : agent.score >= 70
-                            ? 'text-amber-600'
-                            : 'text-red-500'
+                            ? 'text-amber-700 dark:text-amber-400'
+                            : 'text-red-700 dark:text-red-400'
                       )}
                     >
                       {agent.score}
@@ -705,7 +705,7 @@ export default function DashboardView() {
                       className={cn(
                         'text-xs',
                         agent.unfulfilledPromises > 0
-                          ? 'text-red-500 font-medium'
+                          ? 'text-red-700 dark:text-red-400 font-medium'
                           : 'text-muted-foreground'
                       )}
                     >

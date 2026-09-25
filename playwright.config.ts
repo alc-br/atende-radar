@@ -17,6 +17,8 @@ export default defineConfig({
     { name: 'api', testIgnore: /(\.ui|\.unit)\.spec\.ts$/ },
     { name: 'ui-desktop', testMatch: /\.ui\.spec\.ts$/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
     { name: 'ui-mobile', testMatch: /\.ui\.spec\.ts$/, use: { ...devices['Pixel 7'] } },
+    // tablet: só as varreduras de layout (design e página de vendas)
+    { name: 'ui-tablet', testMatch: /(design|landing)\.ui\.spec\.ts$/, use: { ...devices['iPad Mini'], browserName: 'chromium', defaultBrowserType: 'chromium' } },
   ],
   webServer: {
     // Banco descartável: recriado e populado a cada execução, nunca toca dev.db nem produção.
