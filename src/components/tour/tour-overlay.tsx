@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useAppStore } from '@/lib/store'
-import { TOURS } from '@/lib/tours'
+import { TOURS, welcomeStepsFor } from '@/lib/tours'
 import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
 
@@ -13,9 +13,12 @@ export function TourOverlay() {
   const prevTourStep = useAppStore((s) => s.prevTourStep)
   const endTour = useAppStore((s) => s.endTour)
   const markTourSeen = useAppStore((s) => s.markTourSeen)
+  const me = useAppStore((s) => s.me)
+  const setMobileNavOpen = useAppStore((s) => s.setMobileNavOpen)
 
   const [rect, setRect] = useState<DOMRect | null>(null)
-  const steps = activeTour ? TOURS[activeTour] || [] : []
+  // O tour de boas-vindas depende do papel; os demais são por tela.
+  const steps = activeTour === 'welcome' ? welcomeStepsFor(me?.role, !!me?.isPlatformOperator) : activeTour ? TOURS[activeTour] || [] : []
   const step = steps[activeStep]
 
   const measure = useCallback(() => {
@@ -36,6 +39,16 @@ export function TourOverlay() {
     el.scrollIntoView({ block: 'center', behavior: 'smooth' })
     setRect(el.getBoundingClientRect())
   }, [step, activeTour, activeStep, steps.length, nextTourStep, endTour, markTourSeen])
+
+  // No celular o menu é uma gaveta: abre quando o passo aponta para um item do menu e fecha nos demais.
+  useEffect(() => {
+    if (!activeTour || !step) return
+    if (window.matchMedia('(max-width: 1023px)').matches) setMobileNavOpen(step.target.startsWith('nav-'))
+  }, [activeTour, step, setMobileNavOpen])
+
+  useEffect(() => {
+    if (!activeTour) setMobileNavOpen(false)
+  }, [activeTour, setMobileNavOpen])
 
   useEffect(() => {
     setRect(null)
@@ -61,7 +74,13 @@ export function TourOverlay() {
 
   const cardStyle: React.CSSProperties = { position: 'fixed', zIndex: 100 }
   const gap = 12
-  if (placement === 'bottom') {
+  // Celular: o cartão fica ancorado embaixo, ocupando a largura da tela (senão o botão "Próximo" cai fora da tela).
+  const narrow = window.innerWidth < 640
+  if (narrow) {
+    cardStyle.left = 16
+    cardStyle.right = 16
+    cardStyle.bottom = 16
+  } else if (placement === 'bottom') {
     cardStyle.top = rect.bottom + gap
     cardStyle.left = Math.min(Math.max(rect.left, 16), window.innerWidth - 336)
   } else if (placement === 'top') {
@@ -104,7 +123,7 @@ export function TourOverlay() {
       />
       {/* Card com o conteúdo do passo */}
       <div
-        style={{ ...cardStyle, width: 320 }}
+        style={narrow ? cardStyle : { ...cardStyle, width: 320 }}
         className="rounded-lg border bg-popover text-popover-foreground shadow-xl p-4"
       >
         <div className="flex items-start justify-between gap-2">

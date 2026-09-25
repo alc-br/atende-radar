@@ -71,7 +71,7 @@ function MainContent() {
   }, [status, setSeenTours])
 
   useEffect(() => {
-    if (!toursLoaded || activeTour) return
+    if (!toursLoaded || activeTour || !me) return // espera saber o papel para mostrar o tour certo
     if (!seenTours.includes('welcome')) {
       const id = window.setTimeout(() => startTour('welcome'), 600)
       return () => window.clearTimeout(id)
@@ -80,7 +80,7 @@ function MainContent() {
       const id = window.setTimeout(() => startTour(currentView), 600)
       return () => window.clearTimeout(id)
     }
-  }, [toursLoaded, seenTours, currentView, activeTour, startTour])
+  }, [toursLoaded, seenTours, currentView, activeTour, startTour, me])
 
   const renderView = () => {
     // Tela que o papel não pode abrir (ex.: link antigo / estado persistido) volta para a Visão Geral.

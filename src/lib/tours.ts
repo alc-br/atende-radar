@@ -231,3 +231,97 @@ export const TOURS: Record<string, TourStep[]> = {
     },
   ],
 }
+
+
+// ---------------------------------------------------------------------------
+// Tour de boas-vindas PERSONALIZADO por papel. Cada pessoa vê só o que o papel dela abre e é dito o que fazer primeiro.
+// Regra (testada): nenhum passo aponta para um item de menu que aquele papel não enxerga.
+// ---------------------------------------------------------------------------
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'administrador',
+  gestor: 'gestor',
+  supervisor: 'supervisor',
+  analista: 'analista',
+  member: 'membro',
+  atendente: 'atendente',
+  viewer: 'visualizador',
+}
+
+const help: TourStep = {
+  target: 'header-help',
+  title: 'Precisa rever algo?',
+  body: 'Clique aqui a qualquer momento para reabrir o tour da tela em que você está ou este tour de boas-vindas.',
+  placement: 'bottom',
+}
+
+const ROLE_STEPS: Record<string, TourStep[]> = {
+  admin: [
+    { target: 'nav-connections', title: 'Bem-vindo, administrador! 1º passo: conectar o WhatsApp', body: 'Aqui você conecta o número da empresa lendo um QR Code com o celular. Sem isso o AtendeRadar não enxerga nenhuma conversa.', placement: 'right' },
+    { target: 'nav-members', title: '2º passo: convide a sua equipe', body: 'Cadastre gestores, supervisores e atendentes. Cada pessoa entra com o próprio acesso e só vê o que o papel dela permite.', placement: 'right' },
+    { target: 'nav-settings', title: '3º passo: ajuste a sua empresa', body: 'Informe horário de atendimento, ticket médio e metas. Com o ticket médio, o sistema estima o valor das oportunidades.', placement: 'right' },
+    { target: 'nav-alerts', title: 'Alertas: onde a ação acontece', body: 'Quando um cliente fica sem resposta ou uma promessa vence, aparece aqui. Sua equipe trata e o alerta se resolve sozinho quando a resposta sai.', placement: 'right' },
+    { target: 'nav-reports', title: 'Relatórios', body: 'Baixe relatórios em Excel (CSV) ou para ler e imprimir em PDF, com os números reais da sua empresa.', placement: 'right' },
+    { target: 'nav-plans', title: 'Seu plano', body: 'Veja quantos dias faltam do teste grátis, os limites do plano e peça a troca quando precisar.', placement: 'right' },
+    help,
+  ],
+  gestor: [
+    { target: 'nav-dashboard', title: 'Bem-vindo, gestor! Comece pela Visão Geral', body: 'É o resumo do dia: quantos clientes estão esperando, quanto tempo a equipe demora para responder e quanto dinheiro está em risco.', placement: 'right' },
+    { target: 'nav-alerts', title: 'Trate primeiro os alertas críticos', body: 'Os vermelhos são clientes sem resposta ou promessas vencidas. Abra a conversa e acione o atendente.', placement: 'right' },
+    { target: 'nav-recovery', title: 'Recuperação de vendas', body: 'A fila de clientes que quase compraram e não foram atendidos a tempo. Atribua cada um a alguém da equipe.', placement: 'right' },
+    { target: 'nav-team', title: 'Acompanhe a equipe', body: 'Nota, tempo de resposta e promessas cumpridas por atendente — para elogiar e para corrigir com base em fatos.', placement: 'right' },
+    { target: 'nav-reports', title: 'Relatórios', body: 'Gere e baixe o resumo diário, semanal e por equipe.', placement: 'right' },
+    help,
+  ],
+  supervisor: [
+    { target: 'nav-dashboard', title: 'Bem-vindo, supervisor! Comece pela Visão Geral', body: 'Veja rapidamente quem está esperando resposta e onde a operação está atrasando.', placement: 'right' },
+    { target: 'nav-alerts', title: 'Alertas da operação', body: 'Reconheça, resolva ou dispense alertas. Se o alerta foi um engano, marque como falso positivo: isso ensina o sistema.', placement: 'right' },
+    { target: 'nav-conversations', title: 'Revise as conversas', body: 'Abra uma conversa para ver a análise e corrigir a intenção ou o sentimento quando o sistema errar. Suas correções são respeitadas.', placement: 'right' },
+    { target: 'nav-recovery', title: 'Recuperação', body: 'Atribua os clientes da fila de recuperação a atendentes e acompanhe o resultado.', placement: 'right' },
+    { target: 'nav-team', title: 'Desempenho da equipe', body: 'Compare atendentes por nota, velocidade e promessas cumpridas.', placement: 'right' },
+    help,
+  ],
+  analista: [
+    { target: 'nav-dashboard', title: 'Bem-vindo, analista! Indicadores em um lugar só', body: 'Aqui estão os números da operação. Você trabalha com os indicadores e relatórios; o conteúdo das conversas não fica aberto para o seu papel.', placement: 'right' },
+    { target: 'nav-reports', title: 'Relatórios', body: 'Gere relatórios de qualquer tipo e baixe em Excel (CSV) ou em PDF para apresentar.', placement: 'right' },
+    { target: 'nav-team', title: 'Desempenho da equipe', body: 'Nota, tempo de resposta e promessas por atendente, para as suas análises.', placement: 'right' },
+    help,
+  ],
+  member: [
+    { target: 'nav-dashboard', title: 'Bem-vindo! Comece pela Visão Geral', body: 'Um resumo da operação de atendimento da sua empresa.', placement: 'right' },
+    { target: 'nav-alerts', title: 'Alertas', body: 'Veja os problemas detectados no atendimento. Peça ao seu gestor mais acesso se precisar tratar conversas.', placement: 'right' },
+    help,
+  ],
+  atendente: [
+    { target: 'nav-conversations', title: 'Bem-vindo, atendente! Estas são as suas conversas', body: 'Aqui aparecem só as conversas dos clientes que você atende. Você vê só o que é seu.', placement: 'right' },
+    { target: 'nav-alerts', title: 'Suas pendências', body: 'Se um cliente seu ficou sem resposta ou uma promessa sua está vencendo, o alerta aparece aqui. Responda o cliente e o alerta some sozinho.', placement: 'right' },
+    { target: 'nav-recovery', title: 'Seus retornos', body: 'Clientes que precisam de um novo contato seu para não perder a venda.', placement: 'right' },
+    help,
+  ],
+  viewer: [
+    { target: 'nav-dashboard', title: 'Bem-vindo! Você tem acesso de leitura', body: 'Acompanhe os indicadores de atendimento da empresa. Neste acesso de leitura você consulta, mas não altera nada.', placement: 'right' },
+    { target: 'nav-reports', title: 'Relatórios', body: 'Baixe os relatórios em Excel (CSV) ou abra para ler e salvar em PDF.', placement: 'right' },
+    help,
+  ],
+}
+
+const GENERIC: TourStep[] = [
+  { target: 'nav-dashboard', title: 'Bem-vindo ao AtendeRadar', body: 'A Visão Geral resume o atendimento da empresa.', placement: 'right' },
+  { target: 'nav-alerts', title: 'Alertas', body: 'Os problemas detectados no atendimento aparecem aqui.', placement: 'right' },
+  help,
+]
+
+/** Passos do tour de boas-vindas para o papel (e, se for operador da plataforma, com o painel Admin). */
+export function welcomeStepsFor(role: string | null | undefined, isPlatformOperator: boolean): TourStep[] {
+  const steps = [...(ROLE_STEPS[role ?? ''] ?? GENERIC)]
+  if (isPlatformOperator) {
+    steps.splice(steps.length - 1, 0, {
+      target: 'nav-admin',
+      title: 'Você também opera a plataforma',
+      body: 'No painel Admin você vê as empresas clientes, as assinaturas e a saúde do sistema, e ativa planos.',
+      placement: 'right',
+    })
+  }
+  return steps
+}
+
+export const roleLabel = (role: string | null | undefined) => ROLE_LABEL[role ?? ''] ?? 'usuário'
