@@ -49,6 +49,8 @@ const MATRIX: Row[] = [
   ['GET', '/api/reports', LEITURA_REL],
   ['POST', '/api/reports/generate', ANALISE],
   ['PATCH', '/api/reports/daily', CONFIG],
+  ['GET', '/api/reports/export', LEITURA_REL],
+  ['GET', '/api/reports/runs/x/download', LEITURA_REL],
 
   ['GET', '/api/team', ANALISE],
   ['GET', '/api/team/x', ANALISE],

@@ -58,6 +58,8 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['POST', '/api/subscription/request'],
   ['PATCH', '/api/admin/organizations/x/subscription'],
   ['GET', '/api/setup-status'],
+  ['GET', '/api/reports/export'],
+  ['GET', '/api/reports/runs/x/download'],
 ]
 
 /** Faz login pelo fluxo real do NextAuth (csrf + callback) e devolve um contexto com o cookie de sessão. */

@@ -80,7 +80,8 @@ test.describe('B6 · alertas de tempo de resposta', () => {
 test.describe('B6 · intenção, oportunidade e recuperação', () => {
   test('pedido de preço sem retorno → alerta, oportunidade com valor estimado do ticket da empresa e item na fila de recuperação', async () => {
     const c = await setupCompany()
-    await c.admin.patch('/api/settings', { data: { settings: { financeiro: { avgTicket: '2000', convRate: '20' } } } })
+    // mesmo formato que a tela de Configurações grava (chaves na raiz de settings)
+    await c.admin.patch('/api/settings', { data: { settings: { avgTicket: '2000', convRate: '20' } } })
     await c.send(newChat(), 'Oi, quanto custa o clareamento?', { minutes: 25, pushName: 'Quer Preço' })
     await c.tick()
 

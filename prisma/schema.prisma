@@ -266,6 +266,7 @@ model ReportRun {
   periodEnd       DateTime?
   recipientEmails String   @default("[]")
   filePath        String?
+  contentJson     String?   // foto dos dados no momento da geração (o arquivo é montado a partir dela)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

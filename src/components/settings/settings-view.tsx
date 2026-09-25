@@ -133,6 +133,8 @@ export default function SettingsView() {
       if (s.silenceStart !== undefined) setSilenceStart(s.silenceStart)
       if (s.silenceEnd !== undefined) setSilenceEnd(s.silenceEnd)
       if (s.retContent !== undefined) setRetContent(s.retContent)
+      // sem destinatários salvos: começa pelo e-mail do responsável da empresa
+      if (!s.notifRecipients && data.organization?.adminEmail) setNotifRecipients([data.organization.adminEmail])
       if (s.retMetadata !== undefined) setRetMetadata(s.retMetadata)
       if (s.retAttachments !== undefined) setRetAttachments(s.retAttachments)
       if (s.privMasking !== undefined) setPrivMasking(s.privMasking)
@@ -195,7 +197,7 @@ export default function SettingsView() {
     '5': { open: '08:00', close: '18:00', enabled: true },
     '6': { open: '', close: '', enabled: false },
   })
-  const [holidays, setHolidays] = useState('01/01/2025 - Confraternização Universal\n21/04/2025 - Tiradentes\n01/05/2025 - Dia do Trabalho\n19/06/2025 - Corpus Christi\n07/09/2025 - Independência\n12/10/2025 - Nossa Sra. Aparecida\n02/11/2025 - Finados\n15/11/2025 - Proclamação da República\n25/12/2025 - Natal')
+  const [holidays, setHolidays] = useState('')
   const [toleranceBefore, setToleranceBefore] = useState('10')
   const [toleranceAfter, setToleranceAfter] = useState('30')
   const [outsideRule, setOutsideRule] = useState('ignora')
@@ -209,20 +211,9 @@ export default function SettingsView() {
 
   // --- Financeiro ---
   const [avgTicket, setAvgTicket] = useState('1500')
-  const [convRate, setConvRate] = useState('28')
-  const [products, setProducts] = useState([
-    { name: 'Consulta inicial', value: '300' },
-    { name: 'Clareamento dental', value: '1200' },
-    { name: 'Limpeza profissional', value: '250' },
-    { name: 'Ortodontia (mensal)', value: '800' },
-  ])
-  const [intentions, setIntentions] = useState([
-    { name: 'Consulta agendamento', probability: '85' },
-    { name: 'Preço de tratamento', probability: '70' },
-    { name: 'Disponibilidade', probability: '60' },
-    { name: 'Compra/Pagamento', probability: '90' },
-    { name: 'Reclamação', probability: '20' },
-  ])
+  const [convRate, setConvRate] = useState('18')
+  const [products, setProducts] = useState<Array<{ name: string; value: string }>>([])
+  const [intentions, setIntentions] = useState<Array<{ name: string; probability: string }>>([])
   const [minSample, setMinSample] = useState('5')
   const [opportunityCeiling, setOpportunityCeiling] = useState('15000')
   const [showEstimates, setShowEstimates] = useState(true)
@@ -230,7 +221,7 @@ export default function SettingsView() {
   // --- IA ---
   const [aiLang] = useState('pt-BR')
   const [aiSegment, setAiSegment] = useState('')
-  const [aiTerms, setAiTerms] = useState('clareamento = clareamento dental\nortodontia = aparelho\nimplante = implante dentário\nlimpeza = limpeza profissional\nprofilaxia = limpeza profissional\nRAF = radiografia panorâmica\nTC = tomografia computadorizada')
+  const [aiTerms, setAiTerms] = useState('')
   const [aiConfidence, setAiConfidence] = useState([0.55])
   const [aiAudio, setAiAudio] = useState(false)
   const [aiMasking, setAiMasking] = useState(true)
@@ -244,7 +235,7 @@ export default function SettingsView() {
   const [notifImmediate, setNotifImmediate] = useState(true)
   const [notifDigestEnabled, setNotifDigestEnabled] = useState(true)
   const [notifDigestFreq, setNotifDigestFreq] = useState('15')
-  const [notifRecipients, setNotifRecipients] = useState(['contato@odontovida.com.br', 'ana@odontovida.com.br'])
+  const [notifRecipients, setNotifRecipients] = useState<string[]>([])
   const [newRecipient, setNewRecipient] = useState('')
   const [silenceStart, setSilenceStart] = useState('22:00')
   const [silenceEnd, setSilenceEnd] = useState('07:00')
@@ -257,7 +248,7 @@ export default function SettingsView() {
   const [privExport, setPrivExport] = useState(true)
   const [privExcluded, setPrivExcluded] = useState('')
   const [privLegalBasis, setPrivLegalBasis] = useState('legitimo_interesse')
-  const [privDPO, setPrivDPO] = useState('Ana Silva - ana@odontovida.com.br')
+  const [privDPO, setPrivDPO] = useState('')
 
   const addRecipient = () => {
     const v = newRecipient.trim()

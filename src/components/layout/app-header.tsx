@@ -58,10 +58,6 @@ export function AppHeader() {
               <div className='w-2 h-2 rounded-full bg-emerald-500 mr-2' />
               {orgName}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toast.info('Múltiplas organizações não são suportadas nesta versão.')}>
-              <div className='w-2 h-2 rounded-full bg-muted-foreground/40 mr-2' />
-              Criar organização...
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

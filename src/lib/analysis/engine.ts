@@ -66,9 +66,10 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     db.whatsAppConnection.findMany({ where: { organizationId: orgId } }),
   ])
 
-  const settings = parseJson<{ financeiro?: { avgTicket?: string | number; convRate?: string | number } }>(org.settingsJson, {})
-  const avgTicket = Number(settings.financeiro?.avgTicket) > 0 ? Number(settings.financeiro?.avgTicket) : 1500
-  const convRateRaw = Number(settings.financeiro?.convRate)
+  // A tela de Configurações grava os parâmetros financeiros na raiz de `settings` (avgTicket, convRate em %).
+  const settings = parseJson<{ avgTicket?: string | number; convRate?: string | number }>(org.settingsJson, {})
+  const avgTicket = Number(settings.avgTicket) > 0 ? Number(settings.avgTicket) : 1500
+  const convRateRaw = Number(settings.convRate)
   const conversionRate = convRateRaw > 0 ? (convRateRaw > 1 ? convRateRaw / 100 : convRateRaw) : 0.18
 
   const since = new Date(now.getTime() - 30 * 86400000)

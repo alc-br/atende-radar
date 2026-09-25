@@ -443,17 +443,6 @@ export default function ConnectionsView() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost" size="sm" className="h-7 text-xs gap-1"
-                          onClick={() => toast.info('Envio de mensagem de teste ainda não disponível nesta versão (sem integração real com WhatsApp).')}
-                        >
-                          <TestTube className="h-3 w-3" />Testar
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent><p>Enviar mensagem de teste</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => openRenameDialog(conn.id, conn.name)}>
                           <Pencil className="h-3 w-3" />Renomear
                         </Button>

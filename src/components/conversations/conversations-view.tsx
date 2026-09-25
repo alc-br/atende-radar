@@ -317,14 +317,37 @@ export default function ConversationsView() {
       clearSelection()
     }
     if (action === 'recovery') {
-      toast.info('Envio em lote para recuperação ainda não disponível nesta versão.')
+      // coloca as conversas escolhidas na fila de Recuperação (uma linha por conversa)
+      const chosen = allConversations.filter((c) => selectedIds.has(c.id))
+      Promise.all(chosen.map((c) => fetch('/api/recovery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: c.id, reason: 'Enviado manualmente para recuperação', customerName: c.customerName, originalAgentName: c.agentName, priorityScore: 0.5 }),
+      }))).then((rs) => {
+        const ok = rs.filter((r) => r.ok).length
+        toast.success(`${ok} conversa(s) enviada(s) para a fila de Recuperação.`)
+      }).catch(() => toast.error('Não foi possível enviar para a Recuperação.'))
       clearSelection()
     }
     if (action === 'export') {
-      toast.info('Exportação de metadados ainda não disponível nesta versão.')
+      // exporta SÓ os dados de gestão (sem o conteúdo das mensagens), em CSV para Excel
+      const chosen = allConversations.filter((c) => selectedIds.has(c.id))
+      const head = ['Cliente', 'Telefone', 'Atendente', 'Situação', 'Intenção', 'Etapa', 'Valor estimado', 'Nota', 'Última atividade']
+      const cell = (v: unknown) => {
+        const t = String(v ?? '')
+        const safe = /^[=+\-@]/.test(t) ? `'${t}` : t
+        return /[;"\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
+      }
+      const lines = [head.join(';'), ...chosen.map((c) => [c.customerName, c.customerPhone, c.agentName, c.operationalStatus, c.primaryIntent, c.inferredStage, c.potentialValue, c.score, c.lastActivity].map(cell).join(';'))]
+      const url = URL.createObjectURL(new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'atenderadar-conversas.csv'
+      a.click()
+      URL.revokeObjectURL(url)
       clearSelection()
     }
-  }, [clearSelection, selectedIds, fetchData])
+  }, [clearSelection, selectedIds, fetchData, allConversations])
 
   const uniqueIntents = useMemo(
     () => [...new Set(allConversations.map((c) => c.primaryIntent).filter(Boolean))].sort(),

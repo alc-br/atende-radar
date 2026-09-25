@@ -97,7 +97,11 @@ export default function ReportsView() {
         }),
       })
       if (!res.ok) throw new Error('Erro ao gerar relatório')
-      toast.success('Relatório em processamento.')
+      const created = await res.json().catch(() => null)
+      const runId = created?.reportRun?.id
+      toast.success('Relatório gerado.', runId ? {
+        action: { label: 'Abrir', onClick: () => window.open(`/api/reports/runs/${runId}/download?format=html`, '_blank', 'noopener') },
+      } : undefined)
       fetchData()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao gerar relatório')
@@ -152,21 +156,17 @@ export default function ReportsView() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info('Exportação de arquivos ainda não disponível nesta versão.')}>
-            <FileJson className="h-4 w-4" />
-            CSV indicadores
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <a href="/api/reports/export?format=csv" download>
+              <FileSpreadsheet className="h-4 w-4" />
+              Indicadores (CSV)
+            </a>
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info('Exportação de arquivos ainda não disponível nesta versão.')}>
-            <FileSpreadsheet className="h-4 w-4" />
-            XLSX relatórios
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info('Exportação de arquivos ainda não disponível nesta versão.')}>
-            <FileDown className="h-4 w-4" />
-            PDF executivo
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info('Exportação de arquivos ainda não disponível nesta versão.')}>
-            <FileJson className="h-4 w-4" />
-            JSON API
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <a href="/api/reports/export?format=json" download="atenderadar-indicadores.json">
+              <FileJson className="h-4 w-4" />
+              Indicadores (JSON)
+            </a>
           </Button>
         </div>
       </div>
@@ -330,23 +330,15 @@ export default function ReportsView() {
                           <div className="flex items-center justify-end gap-1">
                             {row.status === 'completed' && (
                               <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  title="Download"
-                                  onClick={() => toast.info('Geração de arquivo ainda não disponível nesta versão.')}
-                                >
-                                  <Download className="h-3.5 w-3.5" />
+                                <Button asChild variant="ghost" size="icon" className="h-7 w-7" title="Baixar CSV (Excel)">
+                                  <a href={`/api/reports/runs/${row.id}/download?format=csv`} download aria-label="Baixar CSV">
+                                    <Download className="h-3.5 w-3.5" />
+                                  </a>
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  title="Reenviar"
-                                  onClick={() => toast.info('Reenvio por e-mail ainda não disponível nesta versão.')}
-                                >
-                                  <Send className="h-3.5 w-3.5" />
+                                <Button asChild variant="ghost" size="icon" className="h-7 w-7" title="Abrir para ler ou salvar em PDF">
+                                  <a href={`/api/reports/runs/${row.id}/download?format=html`} target="_blank" rel="noopener noreferrer" aria-label="Abrir relatório">
+                                    <FileDown className="h-3.5 w-3.5" />
+                                  </a>
                                 </Button>
                               </>
                             )}
