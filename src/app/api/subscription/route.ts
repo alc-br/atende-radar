@@ -2,39 +2,15 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
 
-export async function PATCH(request: Request) {
-  try {
-    const g = await guard('billing.manage')
-    if (!g.ok) return g.res
-    const org = { id: g.auth.orgId }
-
-    const body = await request.json()
-    const { planId } = body as { planId?: string }
-    if (!planId) {
-      return NextResponse.json({ error: 'planId é obrigatório' }, { status: 400 })
-    }
-
-    const plan = await db.plan.findUnique({ where: { id: planId } })
-    if (!plan) {
-      return NextResponse.json({ error: 'Plano não encontrado' }, { status: 404 })
-    }
-
-    const existing = await db.subscription.findUnique({ where: { organizationId: org.id } })
-    if (!existing) {
-      return NextResponse.json({ error: 'Nenhuma assinatura ativa encontrada' }, { status: 404 })
-    }
-
-    const updated = await db.subscription.update({
-      where: { organizationId: org.id },
-      data: { planId },
-      include: { plan: true },
-    })
-
-    return NextResponse.json({ success: true, subscription: { id: updated.id, planId: updated.planId, planName: updated.plan.name } })
-  } catch (error) {
-    console.error('Subscription PATCH error:', error)
-    return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 })
-  }
+// A troca de plano NÃO é mais feita pelo cliente: sem cobrança automática, qualquer administrador escolheria o plano mais
+// caro de graça. O cliente pede (POST /api/subscription/request) e o operador da plataforma ativa.
+export async function PATCH() {
+  const g = await guard('billing.manage')
+  if (!g.ok) return g.res
+  return NextResponse.json(
+    { error: 'A troca de plano depende de pagamento. Use "Solicitar troca" e nossa equipe conclui com você.', code: 'payment_required' },
+    { status: 409 }
+  )
 }
 
 export async function GET() {
@@ -91,6 +67,7 @@ export async function GET() {
         currentPeriodStart: subscription.currentPeriodStart.toISOString(),
         currentPeriodEnd: subscription.currentPeriodEnd.toISOString(),
         trialEnd: subscription.trialEnd?.toISOString() || null,
+        trialDaysLeft: subscription.status === 'trialing' && subscription.trialEnd ? Math.max(0, Math.ceil((subscription.trialEnd.getTime() - Date.now()) / 86400000)) : null,
         cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       },
       usage: {

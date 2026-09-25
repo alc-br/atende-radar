@@ -27,6 +27,7 @@ import LandingPage from '@/components/landing/landing-page'
 import LoginPage from '@/components/login/login-page'
 import AdminView from '@/components/admin/admin-view'
 import { canOpenView } from '@/lib/permissions'
+import { TrialBanner } from '@/components/layout/trial-banner'
 
 function MainContent() {
   const { currentView, selectedConversationId, selectedAgentId, sidebarOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
@@ -147,6 +148,7 @@ function MainContent() {
         )}
       >
         <AppHeader />
+        <TrialBanner />
         <main className="flex-1 p-4 lg:p-6">
           {renderView()}
         </main>

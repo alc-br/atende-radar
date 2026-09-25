@@ -126,19 +126,18 @@ export default function PlansView() {
   const handleUpgrade = async (planId: string, planName: string) => {
     setChangingPlanId(planId)
     try {
-      const res = await fetch('/api/subscription', {
-        method: 'PATCH',
+      const res = await fetch('/api/subscription/request', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Erro ao mudar de plano')
+        throw new Error(data.error || 'Erro ao pedir a troca de plano')
       }
-      toast.success(`Plano alterado para ${planName}.`)
-      fetchData()
+      toast.success(`Pedido registrado: ${planName}.`, { description: 'Nossa equipe entra em contato para combinar o pagamento e ativar o plano.' })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao mudar de plano')
+      toast.error(e instanceof Error ? e.message : 'Erro ao pedir a troca de plano')
     } finally {
       setChangingPlanId(null)
     }
@@ -329,7 +328,7 @@ export default function PlansView() {
                           disabled={changingPlanId === plan.id}
                           onClick={() => handleUpgrade(plan.id, plan.name)}
                         >
-                          {changingPlanId === plan.id ? 'Alterando...' : 'Fazer upgrade'}
+                          {changingPlanId === plan.id ? 'Enviando...' : 'Solicitar troca'}
                           <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
                       )}

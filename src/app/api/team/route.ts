@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
+import { enforceQuota } from '@/lib/quotas'
 
 export async function GET() {
   try {
@@ -61,6 +62,9 @@ export async function POST(request: Request) {
     const g = await guard('agents.manage')
     if (!g.ok) return g.res
     const org = { id: g.auth.orgId }
+
+    const overQuota = await enforceQuota(g.auth.orgId, 'agents')
+    if (overQuota) return overQuota
 
     const body = await request.json()
     const { name, email, role, team } = body as {

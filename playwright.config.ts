@@ -29,6 +29,7 @@ export default defineConfig({
       NEXTAUTH_SECRET: 'e2e-secret-not-for-production',
       PLATFORM_ADMIN_EMAILS: 'platform@test.local',
       GATEWAY_SECRET: 'gateway-secret-test',
+      SALES_EMAIL: 'vendas@atenderadar.test',
       ANALYSIS_SCHEDULER: 'off', // os testes disparam o motor com POST /api/gateway/tick, de forma determinística
       SIGNUP_RATE_LIMIT_PER_HOUR: '500', // os testes criam muitas contas do mesmo IP
       NEXTAUTH_URL: `http://127.0.0.1:${PORT}`,

@@ -74,6 +74,9 @@ const MATRIX: Row[] = [
   ['GET', '/api/subscription', ADMIN],
   ['PATCH', '/api/subscription', ADMIN],
   ['GET', '/api/plans', ADMIN],
+  ['POST', '/api/subscription/request', ADMIN],
+  ['PATCH', '/api/admin/organizations/x/subscription', []], // só o operador da plataforma
+  ['GET', '/api/setup-status', ALL],
 
   // Painel da plataforma: nenhum papel de cliente entra (só o operador da plataforma — ver session.spec.ts)
   ['GET', '/api/admin', []],
