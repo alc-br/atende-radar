@@ -42,7 +42,7 @@ async function main() {
   await db.organization.create({
     data: { id: 'org_b', name: 'Clinica B', displayName: 'Clínica B', segment: 'clinica_odontologica' },
   })
-  const plan = await db.plan.findFirst()
+  const plan = await db.plan.findFirst({ where: { code: 'gestao' } }) // Org B: plano Gestão (3 conexões), para os testes de conexão
   if (plan) await db.subscription.create({ data: { id: 'sub_b', organizationId: 'org_b', planId: plan.id } })
 
   for (const role of ['admin', 'gestor', 'atendente'] as const) {
