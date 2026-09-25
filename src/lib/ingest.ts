@@ -42,7 +42,21 @@ export function phoneHash(orgId: string, digits: string): string {
 const digitsOf = (jid: string) => jid.split('@')[0].split(':')[0].replace(/\D/g, '')
 const maxDate = (a: Date | null | undefined, b: Date) => (a && a > b ? a : b)
 
+/**
+ * Se o processamento falhar DEPOIS de gravar o registro de idempotência (ex.: banco ocupado), o registro é desfeito:
+ * senão o reenvio seria tratado como duplicado e a mensagem se perderia para sempre.
+ */
 export async function ingestEvent(raw: unknown): Promise<IngestResult> {
+  try {
+    return await ingestEventInner(raw)
+  } catch (e) {
+    const eventId = (raw as { eventId?: unknown } | null)?.eventId
+    if (typeof eventId === 'string') await db.rawChannelEvent.deleteMany({ where: { eventId, processingStatus: 'received' } }).catch(() => {})
+    throw e
+  }
+}
+
+async function ingestEventInner(raw: unknown): Promise<IngestResult> {
   const parsed = EventSchema.safeParse(raw)
   if (!parsed.success) return { ok: false, status: 400, error: 'Evento inválido' }
   const evt = parsed.data

@@ -34,8 +34,21 @@ let baileysPromise: Promise<any> | null = null
 const loadBaileys = () => (baileysPromise ??= import('@whiskeysockets/baileys'))
 
 async function emit(connectionId: string, type: string, payload: Record<string, unknown>, occurredAt?: string, eventId?: string) {
-  const r = await ingestEvent({ eventId: eventId ?? `wa-${connectionId}-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, connectionId, type, occurredAt, payload })
-  if (!r.ok) log(`evento recusado (${type}): ${r.error}`)
+  const id = eventId ?? `wa-${connectionId}-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  // Banco ocupado / falha passageira: tenta de novo (o evento é idempotente, então repetir é seguro).
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const r = await ingestEvent({ eventId: id, connectionId, type, occurredAt, payload })
+      if (!r.ok) log(`evento recusado (${type}): ${r.error}`)
+      return
+    } catch (e) {
+      if (attempt === 4) {
+        log(`evento PERDIDO após 4 tentativas (${type}):`, e instanceof Error ? e.message : e)
+        return
+      }
+      await new Promise((res) => setTimeout(res, 300 * attempt * attempt))
+    }
+  }
 }
 
 async function startSession(connectionId: string) {
