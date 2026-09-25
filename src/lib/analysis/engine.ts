@@ -5,10 +5,11 @@ import { attributeAgent } from './agents'
 import { scoreConversation } from './score'
 import { estimateOpportunity } from './opportunity'
 import { recomputeMetrics } from './metrics'
+import { purgeExpired } from '../privacy'
 
 // Só conversas que vieram do WhatsApp de verdade (têm mensagem com externalId) entram no motor.
 // Dados de demonstração/seed ficam intocados.
-const REAL = { messages: { some: { externalId: { not: null } } } }
+const REAL = { messages: { some: { externalId: { not: null } } }, NOT: { contact: { excluded: true } } }
 const OPEN_ALERT = ['new', 'acknowledged', 'in_progress']
 const CLOSED_OUTCOMES = ['won', 'lost']
 
@@ -60,6 +61,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
 
   const org = await db.organization.findUnique({ where: { id: orgId } })
   if (!org) return summary
+  await purgeExpired(orgId, org.settingsJson, now) // retenção: apaga o que passou do prazo antes de analisar
   const [rules, agents, connections] = await Promise.all([
     db.alertRule.findMany({ where: { organizationId: orgId, active: true } }),
     db.agent.findMany({ where: { organizationId: orgId, status: 'active' } }),
@@ -110,11 +112,13 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     const agent = agents.find((a) => a.id === agentId) ?? conv.agent
 
     // --- classificação (respeita correções manuais) ---
-    const cls = classifyMessages(analysisMsgs)
-    const intent = fb.has('intent') ? conv.primaryIntent : cls.intent
-    const sentiment = fb.has('sentiment') ? conv.sentiment : cls.sentiment
-    const urgency = fb.has('urgency') ? conv.urgency : cls.urgency
-    const stage = fb.has('stage') ? conv.inferredStage : cls.stage
+    // Se o texto já foi apagado pela retenção, mantém a classificação que existia (não reclassifica em branco).
+    const hasText = analysisMsgs.some((m) => m.direction === 'inbound' && m.text)
+    const cls = hasText ? classifyMessages(analysisMsgs) : { ...classifyMessages([]), intent: conv.primaryIntent, stage: conv.inferredStage, urgency: conv.urgency as 'low' | 'normal' | 'high' | 'critical', sentiment: conv.sentiment as 'neutral' | 'positive' | 'frustrated' | 'anxious' | 'confused', confidence: conv.confidence }
+    const intent = fb.has('intent') || !hasText ? conv.primaryIntent : cls.intent
+    const sentiment = fb.has('sentiment') || !hasText ? conv.sentiment : cls.sentiment
+    const urgency = fb.has('urgency') || !hasText ? conv.urgency : cls.urgency
+    const stage = fb.has('stage') || !hasText ? conv.inferredStage : cls.stage
 
     for (const [type, label] of [['intent', intent], ['sentiment', sentiment], ['urgency', urgency], ['stage', stage]] as const) {
       if (!label) continue

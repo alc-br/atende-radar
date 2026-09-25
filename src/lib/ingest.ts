@@ -61,8 +61,14 @@ export async function ingestEvent(raw: unknown): Promise<IngestResult> {
         eventId: evt.eventId,
         idempotencyKey: `${connection.id}:${evt.eventId}`,
         eventType: evt.type,
-        // conteúdo das mensagens não é duplicado no registro bruto
-        payload: JSON.stringify(evt.type.startsWith('message') ? { ...evt.payload, text: undefined } : evt.payload),
+        // O registro bruto NÃO guarda dados pessoais: sem texto, sem número, sem nome, sem QR (que é credencial de pareamento).
+        payload: JSON.stringify(
+          evt.type.startsWith('message')
+            ? { messageType: evt.payload.messageType, isGroup: evt.payload.isGroup, fromMe: evt.payload.fromMe }
+            : evt.type === 'connection.status'
+              ? { status: evt.payload.status, reason: evt.payload.reason }
+              : {}
+        ),
         occurredAt,
         processingStatus: 'received',
       },
@@ -127,6 +133,13 @@ export async function ingestEvent(raw: unknown): Promise<IngestResult> {
   const hash = phoneHash(connection.organizationId, digits)
 
   // Mesma mensagem do WhatsApp chegando de novo (histórico/reconexão) com outro eventId.
+  // Contato que o cliente pediu para NÃO monitorar: nada é guardado.
+  const existingContact = await db.contact.findFirst({ where: { organizationId: connection.organizationId, phoneHash: hash }, select: { excluded: true } })
+  if (existingContact?.excluded) {
+    await db.rawChannelEvent.update({ where: { eventId: evt.eventId }, data: { processingStatus: 'ignored' } })
+    return { ok: true, ignored: 'excluded' }
+  }
+
   const already = await db.message.findUnique({ where: { connectionId_externalId: { connectionId: connection.id, externalId: msg.externalId } } })
   if (already) return { ok: true, duplicate: true }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import { PrivacyMenu } from './privacy-menu'
 import {
   ArrowLeft,
   Phone,
@@ -198,6 +199,7 @@ function formatMsgTime(iso: string) {
 export default function ConversationDetail() {
   const selectedConversationId = useAppStore((s) => s.selectedConversationId)
   const setView = useAppStore((s) => s.setView)
+  const selectConversation = useAppStore((s) => s.selectConversation)
   const refreshTrigger = useAppStore((s) => s.refreshTrigger)
 
   const [isLoading, setIsLoading] = useState(true)
@@ -406,6 +408,7 @@ export default function ConversationDetail() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-lg font-bold">{conversation.customerName}</span>
                   <span className="font-mono text-sm text-muted-foreground">***{conversation.customerPhone.slice(-4)}</span>
+                  <PrivacyMenu conversationId={selectedConversationId as string} onDone={handleBack} />
                   {conversation.tags.length > 0 && (
                     <div className="flex items-center gap-1">
                       {conversation.tags.map((t) => (

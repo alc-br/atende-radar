@@ -5,7 +5,7 @@
 //            BACKUP_KEEP  (quantos manter; padrão 30),
 //            BACKUP_REQUIRE_DB=true (banco ausente vira erro).
 import { Database } from 'bun:sqlite'
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
 
 const url = process.env.DATABASE_URL || 'file:./dev.db'
@@ -58,4 +58,19 @@ const files = readdirSync(backupDir)
 for (const old of files.slice(keep)) {
   rmSync(join(backupDir, old.f), { force: true })
   console.log(`backup-db: removido ${old.f} (retenção ${keep})`)
+}
+
+// Sessões do WhatsApp (credenciais dos números conectados): sem elas cada cliente teria de escanear o QR de novo.
+// Mesma retenção, pasta privada (0700).
+const waDir = resolve(process.cwd(), process.env.WA_SESSIONS_DIR || '../wa-sessions')
+if (existsSync(waDir) && readdirSync(waDir).length > 0) {
+  const waTarget = join(backupDir, `wa-sessions-${stamp}`)
+  mkdirSync(waTarget, { recursive: true, mode: 0o700 })
+  cpSync(waDir, waTarget, { recursive: true })
+  console.log(`backup-db: sessões do WhatsApp copiadas para ${waTarget}`)
+  const dirs = readdirSync(backupDir)
+    .filter((f) => /^wa-sessions-/.test(f))
+    .map((f) => ({ f, t: statSync(join(backupDir, f)).mtimeMs }))
+    .sort((a, b) => b.t - a.t)
+  for (const old of dirs.slice(keep)) rmSync(join(backupDir, old.f), { recursive: true, force: true })
 }

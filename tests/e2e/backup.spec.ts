@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PrismaClient } from '@prisma/client'
@@ -39,6 +39,26 @@ test.describe('B10 · backup do banco', () => {
       expect(readdirSync(dir).filter((f) => f.endsWith('.db'))).toHaveLength(2)
     } finally {
       rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('as sessões do WhatsApp também entram no backup (e só se existirem)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ar-backup-'))
+    const wa = mkdtempSync(join(tmpdir(), 'ar-wa-'))
+    try {
+      mkdirSync(join(wa, 'conn1'))
+      writeFileSync(join(wa, 'conn1', 'creds.json'), '{"fake":"credencial"}')
+      execFileSync('bun', ['scripts/backup-db.ts'], {
+        env: { ...process.env, DATABASE_URL: 'file:./test.db', BACKUP_DIR: dir, WA_SESSIONS_DIR: wa },
+        encoding: 'utf-8',
+        shell: process.platform === 'win32',
+      })
+      const copies = readdirSync(dir).filter((f) => f.startsWith('wa-sessions-'))
+      expect(copies).toHaveLength(1)
+      expect(readFileSync(join(dir, copies[0], 'conn1', 'creds.json'), 'utf-8')).toContain('credencial')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+      rmSync(wa, { recursive: true, force: true })
     }
   })
 

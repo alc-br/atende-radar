@@ -61,8 +61,11 @@ export const notFound = (what: string) => NextResponse.json({ error: `${what} no
 export const badRequest = (msg: string) => NextResponse.json({ error: msg }, { status: 400 })
 
 // ---- escopo de dados por organização (+ "só os meus" para atendente) ----
+// Contatos excluídos do monitoramento (privacidade) não aparecem em lugar nenhum.
 export const conversationScope = (a: AuthContext): Prisma.ConversationWhereInput =>
-  isOwnScopeOnly(a) ? { organizationId: a.orgId, agent: { email: a.email } } : { organizationId: a.orgId }
+  isOwnScopeOnly(a)
+    ? { organizationId: a.orgId, agent: { email: a.email }, NOT: { contact: { excluded: true } } }
+    : { organizationId: a.orgId, NOT: { contact: { excluded: true } } }
 
 export const alertScope = (a: AuthContext): Prisma.AlertWhereInput =>
   isOwnScopeOnly(a) ? { organizationId: a.orgId, conversation: { agent: { email: a.email } } } : { organizationId: a.orgId }

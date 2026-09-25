@@ -21,7 +21,7 @@ export async function recomputeMetrics(orgId: string, timezone: string, now = ne
   const yesterday = dayKey(new Date(now.getTime() - 86400000), tz)
 
   const convs = await db.conversation.findMany({
-    where: { organizationId: orgId, messages: { some: { externalId: { not: null } } } },
+    where: { organizationId: orgId, messages: { some: { externalId: { not: null } } }, NOT: { contact: { excluded: true } } },
     include: { messages: { select: { direction: true, occurredAt: true } }, opportunities: true },
   })
   const promises = await db.promise.findMany({ where: { conversation: { organizationId: orgId } }, include: { conversation: { select: { agentId: true } } } })
