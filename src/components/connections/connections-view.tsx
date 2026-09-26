@@ -362,8 +362,8 @@ export default function ConnectionsView() {
           return (
             <Card key={conn.id} className={`flex flex-col ${cfg.dotColor === 'bg-red-500' ? 'border-red-200 dark:border-red-800/50' : cfg.dotColor === 'bg-orange-500' ? 'border-orange-200 dark:border-orange-800/50' : ''}`}>
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className={`${conn.status === 'connected' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
                         {conn.name.slice(0, 2).toUpperCase()}

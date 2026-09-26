@@ -30,8 +30,8 @@ export function AppHeader() {
     .toUpperCase()
 
   return (
-    <header className='sticky top-0 z-30 h-16 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-6'>
-      <div className='flex items-center gap-3'>
+    <header className='sticky top-0 z-30 h-16 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between gap-1 px-2 sm:px-4 lg:px-6'>
+      <div className='flex items-center gap-1 sm:gap-3 min-w-0'>
         <Button
           variant='ghost'
           size='icon'
@@ -46,10 +46,10 @@ export function AppHeader() {
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant='ghost' className='gap-2 font-medium'>
-              <div className='w-2 h-2 rounded-full bg-emerald-500' />
-              {orgName}
-              <ChevronDown className='w-4 h-4 text-muted-foreground' />
+            <Button variant='ghost' className='gap-2 font-medium min-w-0 px-2 sm:px-3'>
+              <div className='w-2 h-2 rounded-full bg-emerald-500 shrink-0' />
+              <span className='truncate max-w-[30vw] sm:max-w-[40vw] lg:max-w-none'>{orgName}</span>
+              <ChevronDown className='w-4 h-4 text-muted-foreground shrink-0' />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align='start'>
@@ -81,7 +81,7 @@ export function AppHeader() {
         </div>
       </div>
 
-      <div className='flex items-center gap-2'>
+      <div className='flex items-center gap-0 sm:gap-2 shrink-0'>
         <Button aria-label="Alternar tema" variant='ghost' size='icon' onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'dark' ? <Sun className='w-4 h-4' /> : <Moon className='w-4 h-4' />}
         </Button>

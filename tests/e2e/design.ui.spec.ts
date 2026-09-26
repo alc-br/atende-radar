@@ -128,3 +128,39 @@ test.describe('Design QA · menu no celular', () => {
     await expect(aside).not.toBeInViewport()
   })
 })
+
+test.describe('Design QA · reflow a 320 px (WCAG 1.4.10 ≈ zoom 400 % em 1280)', () => {
+  test('todas as telas cabem em 320 px sem rolagem horizontal', async ({ page, context }, info) => {
+    test.skip(info.project.name !== 'ui-desktop', 'só precisa rodar uma vez; o desktop redimensiona a janela')
+    test.setTimeout(240000)
+    await authenticate(context, 'admin.a@test.local', 'demo123')
+    await page.setViewportSize({ width: 320, height: 720 })
+    await sweep(page, 'reflow320', true, info.project.name)
+  })
+})
+
+test.describe('Design QA · teclado', () => {
+  test('dá para chegar ao menu só com Tab, ver o foco e abrir uma tela com Enter', async ({ page, context, isMobile }) => {
+    test.skip(!!isMobile, 'no celular o menu fica numa gaveta; o teste de teclado é do desktop/tablet')
+    await authenticate(context, 'admin.a@test.local', 'demo123')
+    await page.goto('/')
+    await expect(page.locator('main').getByRole('heading', { name: /Vis[ãa]o Geral|Dashboard/i }).first()).toBeVisible()
+
+    let reached = false
+    for (let i = 0; i < 40 && !reached; i++) {
+      await page.keyboard.press('Tab')
+      reached = await page.evaluate(() => document.activeElement?.getAttribute('data-tour') === 'nav-alerts')
+    }
+    expect(reached, 'o item "Alertas" do menu precisa ser alcançável por Tab').toBe(true)
+    // foco visível: o elemento focado precisa ter contorno/anel (outline ou box-shadow) diferente de "none"
+    const focusStyle = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement
+      const s = getComputedStyle(el)
+      return { outline: s.outlineStyle, outlineWidth: s.outlineWidth, shadow: s.boxShadow }
+    })
+    expect(focusStyle.outline !== 'none' || focusStyle.shadow !== 'none', `foco invisível: ${JSON.stringify(focusStyle)}`).toBe(true)
+
+    await page.keyboard.press('Enter')
+    await expect(page.locator('main').getByRole('heading', { name: /Alertas/i }).first()).toBeVisible()
+  })
+})
