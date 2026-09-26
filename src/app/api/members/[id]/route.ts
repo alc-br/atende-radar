@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard, notFound, badRequest, publicMember } from '@/lib/api-auth'
 import { isRole } from '@/lib/permissions'
 
@@ -34,6 +35,9 @@ export async function PATCH(
     if (status !== undefined) data.status = status
 
     const updated = await db.organizationMember.update({ where: { id }, data })
+    if (role !== undefined && role !== existing.role) await audit(g.auth, { action: 'member.role_changed', targetType: 'member', targetId: id, targetLabel: existing.email, details: { from: existing.role, to: role } })
+    if (status !== undefined && status !== existing.status) await audit(g.auth, { action: 'member.status_changed', targetType: 'member', targetId: id, targetLabel: existing.email, details: { from: existing.status, to: status } })
+    if (team !== undefined && team !== existing.team) await audit(g.auth, { action: 'member.team_changed', targetType: 'member', targetId: id, targetLabel: existing.email, details: { from: existing.team, to: team } })
 
     return NextResponse.json({ success: true, member: publicMember(updated) })
   } catch (error) {
@@ -56,6 +60,7 @@ export async function DELETE(
     if (id === g.auth.memberId) return badRequest('Você não pode remover a si mesmo')
 
     await db.organizationMember.delete({ where: { id } })
+    await audit(g.auth, { action: 'member.removed', targetType: 'member', targetId: id, targetLabel: existing.email, details: { role: existing.role } })
 
     return NextResponse.json({ success: true })
   } catch (error) {

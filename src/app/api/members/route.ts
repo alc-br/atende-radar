@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard, badRequest, publicMember } from '@/lib/api-auth'
 import { issueToken } from '@/lib/auth-tokens'
 import { appUrl, sendMail } from '@/lib/mailer'
@@ -81,6 +82,7 @@ export async function POST(request: Request) {
       },
     })
 
+    await audit(g.auth, { action: 'member.invited', targetType: 'member', targetId: member.id, targetLabel: normalizedEmail, details: { role: finalRole } })
     const token = await issueToken(member.id, 'invite')
     await sendMail({
       to: normalizedEmail,

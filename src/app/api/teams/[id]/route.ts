@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
 import { validateTeamRefs } from '@/lib/team-refs'
 
@@ -38,6 +39,7 @@ export async function PATCH(
     if (goals !== undefined) data.goals = JSON.stringify(goals)
 
     const updated = await db.team.update({ where: { id }, data })
+    await audit(g.auth, { action: 'team.updated', targetType: 'team', targetId: id, targetLabel: updated.name, details: { keys: Object.keys(data) } })
 
     return NextResponse.json({ success: true, team: updated })
   } catch (error) {
@@ -61,6 +63,7 @@ export async function DELETE(
     }
 
     await db.team.delete({ where: { id } })
+    await audit(g.auth, { action: 'team.removed', targetType: 'team', targetId: id })
 
     return NextResponse.json({ success: true })
   } catch (error) {

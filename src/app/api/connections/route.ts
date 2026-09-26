@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 import { enforceQuota } from '@/lib/quotas'
 
@@ -88,6 +89,7 @@ export async function POST(request: Request) {
       },
     })
 
+    await audit(g.auth, { action: 'connection.created', targetType: 'connection', targetId: connection.id, targetLabel: connection.name, details: { phoneLast4 } })
     return NextResponse.json({ success: true, connection }, { status: 201 })
   } catch (error) {
     console.error('Connections POST error:', error)

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 import { enforceQuota } from '@/lib/quotas'
 
@@ -108,6 +109,7 @@ export async function POST(request: Request) {
       },
     })
 
+    await audit(g.auth, { action: 'alert_rule.created', targetType: 'alert_rule', targetId: rule.id, targetLabel: rule.name, details: { type: rule.type, severity: rule.severity, limitMinutes: rule.limitMinutes } })
     return NextResponse.json({ success: true, rule }, { status: 201 })
   } catch (error) {
     console.error('Alert rules POST error:', error)

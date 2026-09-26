@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { db } from './db'
+import { DEFAULT_RULE_NAMES } from './org-defaults'
 
 export type QuotaKind = 'connections' | 'agents' | 'alertRules'
 
 const LABEL: Record<QuotaKind, string> = {
   connections: 'conexões de WhatsApp',
   agents: 'atendentes',
-  alertRules: 'regras de alerta',
+  alertRules: 'regras de alerta próprias (além das regras padrão do produto)',
 }
 
 /**
@@ -31,7 +32,7 @@ export async function enforceQuota(orgId: string, kind: QuotaKind): Promise<Next
       ? await db.whatsAppConnection.count({ where: { organizationId: orgId } })
       : kind === 'agents'
         ? await db.agent.count({ where: { organizationId: orgId, status: 'active' } })
-        : await db.alertRule.count({ where: { organizationId: orgId } })
+        : await db.alertRule.count({ where: { organizationId: orgId, name: { notIn: DEFAULT_RULE_NAMES } } }) // as padrão não contam
 
   if (used >= limit) {
     return NextResponse.json(

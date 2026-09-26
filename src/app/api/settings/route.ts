@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
@@ -108,6 +109,9 @@ export async function PATCH(request: Request) {
       where: { id: org.id },
       data,
     })
+    const orgKeys = Object.keys(data).filter((k) => !['updatedAt', 'settingsJson'].includes(k))
+    if (orgKeys.length) await audit(g.auth, { action: 'organization.updated', targetType: 'organization', targetId: org.id, details: { keys: orgKeys } })
+    if (settings !== undefined) await audit(g.auth, { action: 'settings.updated', targetType: 'organization', targetId: org.id, details: { keys: Object.keys(settings).slice(0, 50) } })
 
     return NextResponse.json({
       success: true,

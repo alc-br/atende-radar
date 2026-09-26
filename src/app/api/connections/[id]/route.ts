@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 
 export async function PATCH(
@@ -40,6 +41,7 @@ export async function PATCH(
       where: { id },
       data,
     })
+    await audit(g.auth, { action: 'connection.updated', targetType: 'connection', targetId: id, targetLabel: updated.name, details: { action: action ?? null, renamed: !!name && name !== existing.name } })
 
     return NextResponse.json({ success: true, connection: updated })
   } catch (error) {
@@ -70,6 +72,7 @@ export async function DELETE(
         updatedAt: new Date(),
       },
     })
+    await audit(g.auth, { action: 'connection.removed', targetType: 'connection', targetId: id })
 
     return NextResponse.json({ success: true })
   } catch (error) {

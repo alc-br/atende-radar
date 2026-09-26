@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard, badRequest, notFound } from '@/lib/api-auth'
 import { eraseConversations, excludeContactOf } from '@/lib/privacy'
 
@@ -16,6 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (body.action === 'exclude') {
     await excludeContactOf(g.auth.orgId, id)
+    await audit(g.auth, { action: 'privacy.exclude', targetType: 'conversation', targetId: id })
     return NextResponse.json({ success: true, action: 'exclude' })
   }
 
@@ -24,5 +26,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     ? await db.conversation.findMany({ where: { organizationId: g.auth.orgId, contactId: conv.contactId }, select: { id: true } })
     : [{ id: conv.id }]
   const erased = await eraseConversations(g.auth.orgId, all.map((c) => c.id))
+  await audit(g.auth, { action: 'privacy.erase', targetType: 'conversation', targetId: id, details: { conversations: all.length } })
   return NextResponse.json({ success: true, action: 'erase', erased })
 }

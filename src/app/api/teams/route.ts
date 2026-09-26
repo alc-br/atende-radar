@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
 import { validateTeamRefs } from '@/lib/team-refs'
 
@@ -84,6 +85,7 @@ export async function POST(request: Request) {
       },
     })
 
+    await audit(g.auth, { action: 'team.created', targetType: 'team', targetId: team.id, targetLabel: team.name })
     return NextResponse.json({ success: true, team }, { status: 201 })
   } catch (error) {
     console.error('Teams POST error:', error)

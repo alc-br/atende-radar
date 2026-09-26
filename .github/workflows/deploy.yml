@@ -26,7 +26,7 @@ jobs:
       - name: Prisma client (para o type-check)
         run: bunx prisma generate
 
-      - name: Type-check e lint (I1: erro de tipo já derrubou telas em produção)
+      - name: "Type-check e lint (I1: erro de tipo já derrubou telas em produção)"
         run: bun run typecheck && bun run lint
 
       - name: Install browser (Chromium)

@@ -30,11 +30,16 @@ test.describe('B8 · limites do plano', () => {
     await c.dispose()
   })
 
-  test('regras de alerta: as 8 padrão já passam do limite de 5, então novas são recusadas', async () => {
+  test('regras de alerta: as 8 padrão do produto NÃO consomem a cota; a 6ª regra própria é recusada', async () => {
     const { email, password } = await signupOrg()
     const c = await loginAs(email, password)
-    const r = await c.post('/api/alert-rules', { data: { name: 'Extra', type: 'no_response' } })
+    for (let i = 1; i <= 5; i++) {
+      const r = await c.post('/api/alert-rules', { data: { name: `Própria ${i}`, type: 'no_response' } })
+      expect(r.status(), `regra própria ${i}`).toBe(201)
+    }
+    const r = await c.post('/api/alert-rules', { data: { name: 'Própria 6', type: 'no_response' } })
     expect(r.status()).toBe(402)
+    expect((await r.json()).error).toContain('regras de alerta')
     await c.dispose()
   })
 

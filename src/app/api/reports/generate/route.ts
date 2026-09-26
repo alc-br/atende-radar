@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
 import { buildReport, REPORT_TYPES, type ReportType } from '@/lib/reports/build'
 
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     })
     if (definition) await db.reportDefinition.update({ where: { id: definition.id }, data: { lastRunAt: new Date() } })
 
+    await audit(g.auth, { action: 'report.generated', targetType: 'report_run', targetId: reportRun.id })
     return NextResponse.json({ success: true, reportRun }, { status: 201 })
   } catch (error) {
     console.error('Report generate error:', error)

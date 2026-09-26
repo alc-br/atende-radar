@@ -21,6 +21,8 @@ import {
   Building2, Clock, Headphones, DollarSign, Brain, Bell, Shield,
   Save, Plus, Trash2, Upload, X, Sparkles,
 } from 'lucide-react'
+import { History } from 'lucide-react'
+import { AuditLog } from './audit-log'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
 import { toast } from 'sonner'
@@ -300,6 +302,7 @@ export default function SettingsView() {
           <TabsTrigger value="notificacoes" className="gap-1.5 text-xs sm:text-sm"><Bell className="h-4 w-4" />Notificações</TabsTrigger>
           <TabsTrigger value="privacidade" className="gap-1.5 text-xs sm:text-sm"><Shield className="h-4 w-4" />Privacidade</TabsTrigger>
           <TabsTrigger value="regras" className="gap-1.5 text-xs sm:text-sm"><Shield className="h-4 w-4" />Regras</TabsTrigger>
+          <TabsTrigger value="auditoria" className="gap-1.5 text-xs sm:text-sm"><History className="h-4 w-4" />Auditoria</TabsTrigger>
         </TabsList>
 
         {/* ====== EMPRESA ====== */}
@@ -1000,6 +1003,11 @@ export default function SettingsView() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ====== AUDITORIA ====== */}
+        <TabsContent value="auditoria" className="mt-4">
+          <AuditLog />
         </TabsContent>
       </Tabs>
     </div>

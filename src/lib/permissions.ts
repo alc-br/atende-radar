@@ -38,6 +38,7 @@ export const PERMISSIONS = {
   'connections.manage': ADMIN,
   'settings.manage': CONFIG,
   'privacy.manage': CONFIG,
+  'audit.view': CONFIG,
   'billing.manage': ADMIN,
   'plans.view': ADMIN, // a tela usa a assinatura (billing), restrita ao admin
 } as const satisfies Record<string, readonly Role[]>

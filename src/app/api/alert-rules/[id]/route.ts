@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 
 export async function PUT(
@@ -68,6 +69,7 @@ export async function PUT(
       where: { id },
       data,
     })
+    await audit(g.auth, { action: 'alert_rule.updated', targetType: 'alert_rule', targetId: id, targetLabel: updated.name, details: { keys: Object.keys(data) } })
 
     return NextResponse.json({ success: true, rule: updated })
   } catch (error) {

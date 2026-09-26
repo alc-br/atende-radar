@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
 
 // Exporta os indicadores diários da empresa (últimos 90 dias) em CSV (Excel) ou JSON.
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
     messagesSent: r.messagesSent,
   }))
 
+  await audit(g.auth, { action: 'report.exported', targetType: 'metrics', details: { format } })
   if (format === 'json') return NextResponse.json({ daily })
 
   const head = ['Data', 'Conversas iniciadas', 'Clientes aguardando', '1ª resposta mediana (min)', 'Oportunidades', 'Oportunidades em risco', 'Promessas vencidas', 'Valor em risco (R$)', 'Nota geral', 'Mensagens recebidas', 'Mensagens enviadas']

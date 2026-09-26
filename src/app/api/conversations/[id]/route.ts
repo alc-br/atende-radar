@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard, conversationScope, badRequest } from '@/lib/api-auth'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
@@ -96,6 +97,8 @@ export async function GET(
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
     }
+    // LGPD: quem abriu o conteúdo de qual conversa (sem texto, sem telefone, sem nome do cliente)
+    void audit(g.auth, { action: 'conversation.viewed', targetType: 'conversation', targetId: conversation.id })
 
     const latestScore = conversation.scores[0]
     const componentScores = latestScore

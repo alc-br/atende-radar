@@ -198,9 +198,10 @@ export default function LandingPage() {
                     <Menu className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => scrollTo('funcionalidades')}>Funcionalidades</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => scrollTo('precos')}>Preços</DropdownMenuItem>
+                {/* ao fechar, o menu devolveria o foco ao botão e rolaria a página de volta ao topo: evita isso e rola depois de fechar */}
+                <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <DropdownMenuItem onSelect={() => window.setTimeout(() => scrollTo('funcionalidades'), 50)}>Funcionalidades</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => window.setTimeout(() => scrollTo('precos'), 50)}>Preços</DropdownMenuItem>
                   <DropdownMenuItem onSelect={handleLogin}>Entrar</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

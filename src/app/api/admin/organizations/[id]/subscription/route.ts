@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { audit } from '@/lib/audit'
 import { guard, isPlatformOperator, badRequest, notFound } from '@/lib/api-auth'
 
 const STATUSES = ['trialing', 'active', 'past_due', 'canceled', 'expired']
@@ -35,5 +36,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     ? await db.subscription.update({ where: { organizationId: id }, data, include: { plan: true } })
     : await db.subscription.create({ data: { organizationId: id, planId: body.planId!, status: body.status ?? 'active', ...data }, include: { plan: true } })
 
+  await audit({ ...g.auth, orgId: id }, { action: 'subscription.changed', targetType: 'subscription', targetId: sub.id, targetLabel: sub.plan.name, details: { status: sub.status, planId: sub.planId, operator: true } })
   return NextResponse.json({ success: true, subscription: { status: sub.status, plan: sub.plan.name, currentPeriodEnd: sub.currentPeriodEnd.toISOString() } })
 }
