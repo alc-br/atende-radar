@@ -251,6 +251,8 @@ const evolutionChartConfig = {
 
 export default function DashboardView() {
   const { period, setPeriod, selectConversation, refreshTrigger } = useAppStore()
+  const me = useAppStore((s) => s.me)
+  const teamScoped = me?.role === 'supervisor' && !!me.team
   const [prioridadesCount] = useState(10)
 
   // API state
@@ -378,8 +380,13 @@ export default function DashboardView() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Visão Geral</h1>
           <p className="text-muted-foreground text-sm">
-            Acompanhe as métricas de atendimento em tempo real.
+            Métricas de atendimento da organização, atualizadas a cada minuto.
           </p>
+          {teamScoped && (
+            <p role="note" data-testid="team-scope-note" className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              Os números desta tela são da organização inteira. Conversas, Alertas, Recuperação e Equipe mostram só a sua equipe ({me?.team}) e o que ainda não tem atendente.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <CalendarDays className="text-muted-foreground size-4" />

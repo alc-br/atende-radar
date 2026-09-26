@@ -21,6 +21,7 @@ interface Me {
   role: string
   name: string
   email: string
+  team?: string | null
   isPlatformOperator: boolean
 }
 

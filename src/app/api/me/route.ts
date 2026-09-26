@@ -5,9 +5,9 @@ import { guard, isPlatformOperator } from '@/lib/api-auth'
 export async function GET() {
   const g = await guard()
   if (!g.ok) return g.res
-  const { memberId, orgId, role, email, name, emailVerified } = g.auth
+  const { memberId, orgId, role, email, name, emailVerified, team } = g.auth
   return NextResponse.json({
-    member: { id: memberId, name, email, role, emailVerified },
+    member: { id: memberId, name, email, role, emailVerified, team },
     organizationId: orgId,
     isPlatformOperator: isPlatformOperator(email),
   })

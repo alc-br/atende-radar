@@ -53,3 +53,17 @@ test('administrador vê "Adicionar membro", o menu de ações e "Criar equipe"',
   await openView(page, 'teams', !!isMobile)
   await expect(page.getByRole('button', { name: 'Criar equipe' })).toBeVisible()
 })
+
+test('supervisor com equipe vê na Visão Geral o aviso de que os números são da organização inteira', async ({ page, context }) => {
+  const adm = await loginAs('admin.a@test.local')
+  const email = `rbacui.supteam.${uid()}@test.local`
+  const sup = await createUser(adm, { email, role: 'supervisor' })
+  await adm.patch(`/api/members/${sup.id}`, { data: { team: 'Recepção' } })
+  await adm.dispose()
+  const api = await loginAs(email, 'Senha-Forte-2026x')
+  for (const tourId of ['welcome', 'dashboard']) await api.patch('/api/tours', { data: { tourId } })
+  await context.addCookies((await api.storageState()).cookies)
+  await api.dispose()
+  await page.goto('/')
+  await expect(page.getByTestId('team-scope-note')).toContainText('Recepção')
+})
