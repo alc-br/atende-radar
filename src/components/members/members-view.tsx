@@ -21,7 +21,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { UserPlus, MoreHorizontal, Shield, Trash2, Users } from 'lucide-react'
+import { UserPlus, MoreHorizontal, Shield, Trash2, Users, UsersRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { timeAgo } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
@@ -147,6 +147,25 @@ export default function MembersView() {
       fetchMembers()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao adicionar membro')
+    }
+  }
+
+  // Equipe do membro: para supervisor, define O QUE ele enxerga (só a equipe dele + o não atribuído).
+  const [teamEdit, setTeamEdit] = useState<{ id: string; name: string; team: string } | null>(null)
+  const saveTeam = async () => {
+    if (!teamEdit) return
+    try {
+      const res = await fetch(`/api/members/${teamEdit.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ team: teamEdit.team.trim() }),
+      })
+      if (!res.ok) throw new Error('Erro ao definir equipe')
+      toast.success(teamEdit.team.trim() ? `Equipe definida: ${teamEdit.team.trim()}.` : 'Equipe removida.')
+      setTeamEdit(null)
+      fetchMembers()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao definir equipe')
     }
   }
 
@@ -343,6 +362,10 @@ export default function MembersView() {
                                   </DropdownMenuItem>
                                 ))}
                               <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setTeamEdit({ id: member.id, name: member.name, team: member.team || '' })}>
+                                <UsersRound className="w-4 h-4 mr-2" />Definir equipe
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive"
                                 onClick={() => removeMember(member.id)}
@@ -361,6 +384,26 @@ export default function MembersView() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!teamEdit} onOpenChange={(o) => !o && setTeamEdit(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Definir equipe de {teamEdit?.name}</DialogTitle>
+            <DialogDescription>
+              Use o mesmo nome de equipe dos atendentes (tela Equipe). Para um supervisor, a equipe define o que ele enxerga:
+              só as conversas, alertas e atendentes da equipe dele, além do que ainda não tem atendente. Em branco = vê a organização toda.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="member-team">Equipe</Label>
+            <Input id="member-team" value={teamEdit?.team ?? ''} onChange={(e) => setTeamEdit((t) => (t ? { ...t, team: e.target.value } : t))} placeholder="Ex.: Recepção" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTeamEdit(null)}>Cancelar</Button>
+            <Button onClick={saveTeam}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

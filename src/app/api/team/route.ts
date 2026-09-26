@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { guard } from '@/lib/api-auth'
+import { guard, agentScope } from '@/lib/api-auth'
 import { enforceQuota } from '@/lib/quotas'
 
 export async function GET() {
@@ -10,7 +10,7 @@ export async function GET() {
     const org = { id: g.auth.orgId }
 
     const agents = await db.agent.findMany({
-      where: { organizationId: org.id },
+      where: agentScope(g.auth),
       include: {
         metrics: { orderBy: { date: 'desc' }, take: 2 },
         identities: { orderBy: { confidence: 'desc' }, take: 1 },

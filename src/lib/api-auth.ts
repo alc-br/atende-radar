@@ -12,6 +12,7 @@ export interface AuthContext {
   email: string
   name: string
   emailVerified: boolean
+  team: string | null
 }
 
 export type Guard = { ok: true; auth: AuthContext } | { ok: false; res: NextResponse }
@@ -41,7 +42,7 @@ export async function guard(permission?: Permission): Promise<Guard> {
 
   return {
     ok: true,
-    auth: { memberId: member.id, orgId: member.organizationId, role: member.role, email: member.email, name: member.name, emailVerified: !!member.emailVerifiedAt },
+    auth: { memberId: member.id, orgId: member.organizationId, role: member.role, email: member.email, name: member.name, emailVerified: !!member.emailVerifiedAt, team: member.team?.trim() || null },
   }
 }
 
@@ -60,18 +61,40 @@ export function isOwnScopeOnly(auth: AuthContext): boolean {
 export const notFound = (what: string) => NextResponse.json({ error: `${what} not found` }, { status: 404 })
 export const badRequest = (msg: string) => NextResponse.json({ error: msg }, { status: 400 })
 
-// ---- escopo de dados por organização (+ "só os meus" para atendente) ----
+/** Supervisor COM equipe definida (Membros › equipe) enxerga só a equipe dele + o que ainda não tem atendente. Sem equipe: a organização toda. */
+export function supervisorTeam(a: AuthContext): string | null {
+  return a.role === 'supervisor' && a.team ? a.team : null
+}
+
+// ---- escopo de dados por organização (+ "só os meus" para atendente, "só a minha equipe" para supervisor) ----
 // Contatos excluídos do monitoramento (privacidade) não aparecem em lugar nenhum.
-export const conversationScope = (a: AuthContext): Prisma.ConversationWhereInput =>
-  isOwnScopeOnly(a)
-    ? { organizationId: a.orgId, agent: { email: a.email }, NOT: { contact: { excluded: true } } }
-    : { organizationId: a.orgId, NOT: { contact: { excluded: true } } }
+export const conversationScope = (a: AuthContext): Prisma.ConversationWhereInput => {
+  const base: Prisma.ConversationWhereInput = { organizationId: a.orgId, NOT: { contact: { excluded: true } } }
+  if (isOwnScopeOnly(a)) return { ...base, agent: { email: a.email } }
+  const team = supervisorTeam(a)
+  if (team) return { ...base, OR: [{ agent: { team } }, { agentId: null }] }
+  return base
+}
 
-export const alertScope = (a: AuthContext): Prisma.AlertWhereInput =>
-  isOwnScopeOnly(a) ? { organizationId: a.orgId, conversation: { agent: { email: a.email } } } : { organizationId: a.orgId }
+export const alertScope = (a: AuthContext): Prisma.AlertWhereInput => {
+  if (isOwnScopeOnly(a)) return { organizationId: a.orgId, conversation: { agent: { email: a.email } } }
+  const team = supervisorTeam(a)
+  if (team) return { organizationId: a.orgId, OR: [{ conversation: { agent: { team } } }, { conversation: { agentId: null } }, { conversationId: null }] }
+  return { organizationId: a.orgId }
+}
 
-export const recoveryScope = (a: AuthContext): Prisma.RecoveryItemWhereInput =>
-  isOwnScopeOnly(a) ? { organizationId: a.orgId, agent: { email: a.email } } : { organizationId: a.orgId }
+export const recoveryScope = (a: AuthContext): Prisma.RecoveryItemWhereInput => {
+  if (isOwnScopeOnly(a)) return { organizationId: a.orgId, agent: { email: a.email } }
+  const team = supervisorTeam(a)
+  if (team) return { organizationId: a.orgId, OR: [{ agent: { team } }, { agentId: null }] }
+  return { organizationId: a.orgId }
+}
+
+/** Lista de atendentes (tela Equipe): supervisor com equipe vê só os dela. */
+export const agentScope = (a: AuthContext): Prisma.AgentWhereInput => {
+  const team = supervisorTeam(a)
+  return team ? { organizationId: a.orgId, team } : { organizationId: a.orgId }
+}
 
 /** Membro sem campos sensíveis (nunca devolver o registro cru: tem hash de senha). */
 export function publicMember(m: {

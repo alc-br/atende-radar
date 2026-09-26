@@ -45,6 +45,10 @@ test('administrador vê "Adicionar membro", o menu de ações e "Criar equipe"',
   await expect(page.getByRole('button', { name: 'Adicionar membro' })).toBeVisible()
   await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 15000 })
   expect(await page.getByRole('button', { name: 'Mais ações' }).count()).toBeGreaterThan(0)
+  await page.getByRole('button', { name: 'Mais ações' }).first().click()
+  await page.getByRole('menuitem', { name: 'Definir equipe' }).click()
+  await expect(page.getByRole('dialog')).toContainText('Definir equipe de')
+  await page.keyboard.press('Escape')
 
   await openView(page, 'teams', !!isMobile)
   await expect(page.getByRole('button', { name: 'Criar equipe' })).toBeVisible()
