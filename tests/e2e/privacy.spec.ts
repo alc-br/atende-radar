@@ -139,3 +139,17 @@ test.describe('Privacidade · portabilidade (exportar os dados de um cliente)', 
     await c.dispose()
   })
 })
+
+test.describe('Privacidade · retenção do registro de auditoria', () => {
+  test('entradas de auditoria mais antigas que o prazo de metadados são apagadas; as recentes ficam', async () => {
+    const c = await setupCompany()
+    await c.settings({ retMetadata: '30' })
+    const me = await (await c.admin.get('/api/me')).json()
+    await testDb.auditLog.create({ data: { organizationId: me.organizationId, actorEmail: c.email, actorRole: 'admin', action: 'settings.updated', createdAt: new Date(Date.now() - 45 * 86400000) } })
+    await c.tick({ onlyThisCompany: true })
+    const entries = (await (await c.admin.get('/api/audit?limit=500')).json()).entries as Array<{ createdAt: string }>
+    expect(entries.length).toBeGreaterThan(0) // as de hoje (settings.updated de agora) continuam
+    expect(entries.every((e) => Date.now() - new Date(e.createdAt).getTime() < 31 * 86400000)).toBe(true)
+    await c.dispose()
+  })
+})

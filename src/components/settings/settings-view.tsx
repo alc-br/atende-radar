@@ -878,7 +878,7 @@ export default function SettingsView() {
                     <Input type="number" value={retContent} onChange={e => setRetContent(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Retenção metadados (dias)</Label>
+                    <Label className="text-xs">Retenção metadados (dias) — vale também para o registro de auditoria</Label>
                     <Input type="number" value={retMetadata} onChange={e => setRetMetadata(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">

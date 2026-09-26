@@ -49,7 +49,7 @@ const parseDays = (v: unknown, fallback: number) => {
   return Number.isFinite(n) && n >= 1 ? Math.floor(n) : fallback
 }
 
-/** Retenção: apaga o TEXTO das mensagens depois de `retContent` dias (padrão 365) e as conversas inteiras depois de `retMetadata` dias (padrão 730). */
+/** Retenção: apaga o TEXTO das mensagens depois de `retContent` dias (padrão 365), as conversas inteiras e o registro de auditoria depois de `retMetadata` dias (padrão 730). */
 export async function purgeExpired(orgId: string, settingsJson: string | null, now = new Date()) {
   let settings: { retContent?: unknown; retMetadata?: unknown } = {}
   try {
@@ -66,4 +66,6 @@ export async function purgeExpired(orgId: string, settingsJson: string | null, n
   const metaCutoff = new Date(now.getTime() - metaDays * 86400000)
   const old = await db.conversation.findMany({ where: { organizationId: orgId, updatedAt: { lt: metaCutoff }, messages: { some: { externalId: { not: null } } } }, select: { id: true }, take: 500 })
   if (old.length) await eraseConversations(orgId, old.map((c) => c.id))
+  // o registro de auditoria é metadado: segue o mesmo prazo
+  await db.auditLog.deleteMany({ where: { organizationId: orgId, createdAt: { lt: metaCutoff } } })
 }
