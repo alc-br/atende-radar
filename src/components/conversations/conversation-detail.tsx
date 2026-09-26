@@ -416,6 +416,7 @@ export default function ConversationDetail() {
                 variant="ghost"
                 size="sm"
                 className="mt-0.5 h-8 w-8 p-0"
+                aria-label="Voltar para a lista de conversas"
                 onClick={handleBack}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -557,7 +558,7 @@ export default function ConversationDetail() {
                               <span className={cn('text-xs font-semibold', isOutbound ? 'text-emerald-100' : 'text-muted-foreground')}>
                                 {isOutbound ? 'Empresa' : 'Cliente'}
                               </span>
-                              <span className={cn('text-xs', isOutbound ? 'text-emerald-200' : 'text-muted-foreground')}>
+                              <span className={cn('text-xs', isOutbound ? 'text-emerald-50' : 'text-muted-foreground')}>
                                 {formatMsgTime(msg.occurredAt)}
                               </span>
                             </div>

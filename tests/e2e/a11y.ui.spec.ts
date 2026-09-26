@@ -59,6 +59,33 @@ test.describe('Acessibilidade e temas', () => {
     expect([...landing.map((x) => `[landing] ${x}`), ...login.map((x) => `[login] ${x}`)]).toEqual([])
   })
 
+  test('telas de detalhe (conversa, atendente) e diálogo: sem violações críticas/sérias', async ({ page, context, isMobile }, info) => {
+    test.setTimeout(180000)
+    await authenticate(context, 'admin.a@test.local', 'demo123')
+    const problems: string[] = []
+
+    await open(page, 'conversations', !!isMobile)
+    if (isMobile) await page.getByTestId('conversation-cards').getByRole('button').first().click()
+    else await page.locator('table tbody tr').first().click()
+    await expect(page.getByRole('button', { name: 'Privacidade do cliente' })).toBeVisible({ timeout: 20000 })
+    await page.waitForTimeout(400)
+    for (const p of await audit(page, `${info.project.name}-conversation-detail`)) problems.push(`[detalhe da conversa] ${p}`)
+
+    await open(page, 'team', !!isMobile)
+    await page.locator('[data-tour="team-table"] tbody tr').first().click()
+    await expect(page.locator('main h1')).toBeVisible({ timeout: 15000 })
+    await page.waitForTimeout(400)
+    for (const p of await audit(page, `${info.project.name}-agent-profile`)) problems.push(`[perfil do atendente] ${p}`)
+
+    await open(page, 'members', !!isMobile)
+    await page.getByRole('button', { name: 'Adicionar membro' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    for (const p of await audit(page, `${info.project.name}-dialog-member`)) problems.push(`[diálogo adicionar membro] ${p}`)
+    await page.keyboard.press('Escape')
+
+    expect(problems, problems.join('\n')).toEqual([])
+  })
+
   test('conta nova (vazia): telas sem violações críticas/sérias', async ({ page, context, isMobile }, info) => {
     test.setTimeout(300000)
     const { email, password } = await signupOrg()

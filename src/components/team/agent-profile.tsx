@@ -482,7 +482,7 @@ export default function AgentProfile() {
                         <span className={cn('font-semibold', getScoreColor(dim.score))}>{dim.score}</span>
                       </div>
                     </div>
-                    <Progress value={dim.score} className="h-2" />
+                    <Progress value={dim.score} aria-label={`${dim.label}: ${dim.score} de 100`} className="h-2" />
                   </div>
                 ))}
               </CardContent>
