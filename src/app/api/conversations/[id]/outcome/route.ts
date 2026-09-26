@@ -44,6 +44,7 @@ export async function POST(
         operationalStatus: outcome,
         closedAt: now,
         updatedAt: now,
+        needsAnalysisAt: now,
       },
     })
 

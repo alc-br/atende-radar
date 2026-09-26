@@ -123,6 +123,7 @@ model Conversation {
   lastInboundAt     DateTime?
   lastOutboundAt    DateTime?
   waitingSince      DateTime?
+  needsAnalysisAt   DateTime? // I8 · marcada pela ingestão/ações manuais; o motor limpa ao analisar (motor incremental)
   openedAt          DateTime                     @default(now())
   closedAt          DateTime?
   reviewedAt        DateTime?

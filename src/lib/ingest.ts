@@ -241,6 +241,7 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
         lastInboundAt: lastIn,
         lastOutboundAt: lastOut,
         operationalStatus: customerSpokeLast ? 'waiting_company' : 'waiting_customer',
+        needsAnalysisAt: new Date(),
         // desde quando o cliente espera resposta (só enquanto ele falou por último)
         waitingSince: customerSpokeLast ? (conversation.operationalStatus === 'waiting_company' && conversation.waitingSince ? conversation.waitingSince : lastIn) : null,
       },

@@ -13,9 +13,11 @@ Medido em 25/09/2026 com `node scripts/load-test.mjs` contra a build de produç�
 
 ## Como ler
 - **49 msg/s ≈ 4 milhões de mensagens por dia**: com folga para um piloto (dezenas de empresas pequenas).
-- O motor roda a cada 60 s e **cresce linearmente** com o número de conversas abertas (~20–45 ms por conversa). Com ~1.500
-  conversas abertas na mesma empresa um ciclo passa de 60 s e os ciclos se sobrepõem (o agendador pula o ciclo se o anterior
-  não terminou, mas os alertas atrasam). Próximo passo quando chegar perto: analisar só conversas que mudaram desde a última rodada.
+- O motor roda a cada 60 s. Desde 26/09/2026 é **incremental**: a cada rodada só entram as conversas que podem mudar de estado
+  (marcadas pela ingestão ou por ação manual, esperando a empresa, com alerta/promessa em aberto, com oportunidade ativa ou paradas
+  além do prazo de inatividade). Conversa quieta e sem pendência não é reprocessada, então o custo cresce com o que MUDA, não com o
+  histórico (~20–45 ms por conversa analisada). O gargalo passa a ser o número de conversas simultaneamente esperando a empresa.
+  Teste: `tests/e2e/engine-incremental.spec.ts`.
 - Um único servidor e um único arquivo de banco: sem redundância. Backup diário e antes de cada deploy (ver `backup-e-restauracao.md`).
 
 ## Ajustes que fizeram diferença

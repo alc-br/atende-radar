@@ -97,9 +97,25 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   const abandonHours = positive(settings.abandonTime, 4)
   const inactivityHours = positive(settings.inactivityClose, 48)
 
-  const since = new Date(now.getTime() - 30 * 86400000)
+  // I8 · Motor incremental: só entram conversas que PODEM mudar de estado nesta rodada —
+  //  · marcadas pela ingestão ou por ação manual (needsAnalysisAt),
+  //  · esperando a empresa (alertas por tempo), com alerta/promessa em aberto, com oportunidade ativa (abandono),
+  //  · abertas e paradas há mais que o prazo de inatividade (encerramento).
+  // Conversa quieta e sem pendência não é reprocessada (custo cresce com o que muda, não com o histórico).
+  const staleBefore = new Date(now.getTime() - inactivityHours * 3600000)
   const conversations = await db.conversation.findMany({
-    where: { organizationId: orgId, ...REAL, OR: [{ closedAt: null }, { updatedAt: { gte: since } }] },
+    where: {
+      organizationId: orgId,
+      ...REAL,
+      OR: [
+        { needsAnalysisAt: { not: null } },
+        { closedAt: null, operationalStatus: 'waiting_company' },
+        { closedAt: null, alerts: { some: { status: { in: OPEN_ALERT } } } },
+        { closedAt: null, promises: { some: { status: 'open' } } },
+        { closedAt: null, opportunities: { some: { status: 'active' } } },
+        { closedAt: null, updatedAt: { lt: staleBefore } },
+      ],
+    },
     include: { contact: true, agent: true, messages: { orderBy: { occurredAt: 'asc' } } },
   })
   const convIds = conversations.map((c) => c.id)
@@ -276,6 +292,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
         score: score.total,
         riskScore,
         potentialValue,
+        needsAnalysisAt: null,
       },
     })
     const existingScore = await db.conversationScore.findFirst({ where: { conversationId: conv.id } })

@@ -37,8 +37,9 @@ export async function setupCompany() {
     })
     if (r.status() !== 200) throw new Error(`ingest falhou ${r.status()} ${await r.text()}`)
   }
-  const tick = async () => {
-    const r = await gw.post('/api/gateway/tick', { data: {} })
+  const tick = async (opts: { onlyThisCompany?: boolean } = {}) => {
+    const organizationId = opts.onlyThisCompany ? ((await (await admin.get('/api/me')).json()).organizationId as string) : undefined
+    const r = await gw.post('/api/gateway/tick', { data: organizationId ? { organizationId } : {} })
     if (r.status() !== 200) throw new Error(`tick falhou ${r.status()} ${await r.text()}`)
     return r.json()
   }

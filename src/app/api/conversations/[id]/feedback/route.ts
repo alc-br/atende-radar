@@ -85,7 +85,7 @@ export async function POST(
 
     await db.conversation.update({
       where: { id },
-      data: updateData,
+      data: { ...updateData, needsAnalysisAt: new Date() },
     })
 
     return NextResponse.json({ success: true, feedback })

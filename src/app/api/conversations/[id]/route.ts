@@ -41,6 +41,7 @@ export async function PATCH(
       }
     }
 
+    data.needsAnalysisAt = new Date()
     const updated = await db.conversation.update({ where: { id }, data })
 
     return NextResponse.json({ success: true, conversation: updated })
