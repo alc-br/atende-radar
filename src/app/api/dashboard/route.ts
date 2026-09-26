@@ -57,6 +57,7 @@ interface PriorityItem {
 }
 
 interface TeamPerfItem {
+  id: string
   name: string
   team: string
   score: number
@@ -65,7 +66,7 @@ interface TeamPerfItem {
   criticalFailures: number
   promisesKept: number
   promisesTotal: number
-  trend: string
+  trend: 'up' | 'down' | 'stable'
 }
 
 function dateStr(d: Date): string {
@@ -271,7 +272,7 @@ export async function GET(request: Request) {
     const teamPerformance: TeamPerfItem[] = agentsWithMetrics.map((a) => {
       const latest = a.metrics[0]
       const prev = a.metrics[1]
-      const scoreTrend =
+      const scoreTrend: 'up' | 'down' | 'stable' =
         latest && prev
           ? latest.score > prev.score
             ? 'up'
@@ -284,6 +285,7 @@ export async function GET(request: Request) {
       // We'll approximate from today's agent metric
       return {
         id: a.id,
+        name: a.name,
         team: a.team || 'Sem equipe',
         score: latest ? Math.round(latest.score) : 0,
         avgResponseTime: latest ? +(latest.avgResponseTime).toFixed(1) : 0,

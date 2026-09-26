@@ -19,12 +19,17 @@ export function QrDialog({ connectionId, onOpenChange, onConnected }: Props) {
   const [qr, setQr] = useState<string | null>(null)
   const [status, setStatus] = useState<string>('qr_required')
   const [waitedTooLong, setWaitedTooLong] = useState(false)
-
-  useEffect(() => {
-    if (!connectionId) return
+  // Trocou a conexão: zera o estado durante a renderização (padrão recomendado pelo React, sem setState no effect).
+  const [shownFor, setShownFor] = useState(connectionId)
+  if (shownFor !== connectionId) {
+    setShownFor(connectionId)
     setQr(null)
     setStatus('qr_required')
     setWaitedTooLong(false)
+  }
+
+  useEffect(() => {
+    if (!connectionId) return
     const startedAt = Date.now()
     let stop = false
 

@@ -538,7 +538,7 @@ export default function AlertsView() {
               )}
               <span className="flex items-center gap-1">
                 <Percent className="h-3 w-3" />
-                {Math.round(alert.confidence * 100)}% confiança
+                {Math.round((alert.confidence ?? 0) * 100)}% confiança
               </span>
             </div>
 

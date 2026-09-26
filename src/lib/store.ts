@@ -1,7 +1,7 @@
 'use client'
 import { create } from 'zustand'
 
-type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'notifications' | 'admin' | 'landing' | 'login'
+export type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'notifications' | 'admin' | 'landing' | 'login'
 
 interface CurrentOrganization {
   id: string

@@ -212,7 +212,7 @@ export default function RecoveryView() {
 
   // Fetch agents for assign dialog
   useEffect(() => {
-    fetch('/api/team').then(r => r.ok ? r.json() : {}).then(d => setAgentList(d.agents || [])).catch(() => {})
+    fetch('/api/team').then(r => (r.ok ? r.json() : Promise.resolve({})) as Promise<any>).then(d => setAgentList(d.agents || [])).catch(() => {})
   }, [])
 
   const handleSort = useCallback(

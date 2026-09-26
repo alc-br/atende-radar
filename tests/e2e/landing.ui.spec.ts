@@ -27,8 +27,10 @@ test.describe('Página de vendas', () => {
   })
 
   test('menu do topo leva às seções (Funcionalidades, Preços) — no celular, pelo menu de seções', async ({ page, isMobile }) => {
+    // tablet (768 px) já mostra o menu do desktop; só telas estreitas têm o menu de seções
+    const compact = isMobile && (await page.getByRole('button', { name: 'Seções da página' }).isVisible())
     const go = async (name: string) => {
-      if (isMobile) {
+      if (compact) {
         await page.getByRole('button', { name: 'Seções da página' }).click()
         await page.getByRole('menuitem', { name }).click()
       } else {

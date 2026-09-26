@@ -1,6 +1,5 @@
 // Converte uma mensagem no formato do Baileys (proto.IWebMessageInfo) no evento que o sistema entende.
 // Função pura: não depende do Baileys em si, só do formato dos dados.
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 export interface MappedEvent {
   type: 'message.received' | 'message.sent'

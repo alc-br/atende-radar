@@ -136,7 +136,6 @@ export default function ConnectionsView() {
 
   useEffect(() => {
     connectionsData.forEach((c: any) => fetchDiagnostics(c.id))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionsData.length])
 
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)

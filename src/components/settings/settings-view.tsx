@@ -87,7 +87,7 @@ export default function SettingsView() {
   const [savingTab, setSavingTab] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/settings').then(r => r.ok ? r.json() : {}).then(data => {
+    fetch('/api/settings').then(r => (r.ok ? r.json() : Promise.resolve({})) as Promise<any>).then(data => {
       if (data.organization) {
         setEmpName(data.organization.name || '')
         setEmpDisplay(data.organization.displayName || '')
@@ -143,7 +143,7 @@ export default function SettingsView() {
       if (s.privLegalBasis !== undefined) setPrivLegalBasis(s.privLegalBasis)
       if (s.privDPO !== undefined) setPrivDPO(s.privDPO)
     }).catch(() => {})
-    fetch('/api/alert-rules').then(r => r.ok ? r.json() : {}).then(data => {
+    fetch('/api/alert-rules').then(r => (r.ok ? r.json() : Promise.resolve({})) as Promise<any>).then(data => {
       setRulesData(data.rules || [])
     }).catch(() => {}).finally(() => setIsLoading(false))
   }, [])
@@ -979,7 +979,7 @@ export default function SettingsView() {
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ active: checked }),
-                            }).then(() => fetch('/api/alert-rules').then(r => r.ok ? r.json() : {}).then(d => setRulesData(d.rules || [])).catch(() => {})).catch(() => {})
+                            }).then(() => fetch('/api/alert-rules').then(r => (r.ok ? r.json() : Promise.resolve({})) as Promise<any>).then(d => setRulesData(d.rules || [])).catch(() => {})).catch(() => {})
                           }}
                         />
                       </TableCell>

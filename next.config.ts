@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
   // Baileys é ESM com dependências nativas: fica de fora do empacotamento
   serverExternalPackages: ['@whiskeysockets/baileys', 'libsignal', 'sharp', 'pino'],
   /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   reactStrictMode: false,
   poweredByHeader: false,
   async headers() {

@@ -277,9 +277,9 @@ export default function DashboardView() {
       operationalStatus?: string; lastActivity?: string
     }[]
     teamPerformance: {
-      name: string; team: string; score: number; avgResponseTime: number
+      id: string; name: string; team: string; score: number; avgResponseTime: number
       opportunities: number; criticalFailures: number; promisesKept: number
-      promisesTotal: number; trend: string
+      promisesTotal: number; trend: 'up' | 'down' | 'stable'
     }[]
   } | null>(null)
 

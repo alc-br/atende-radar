@@ -67,10 +67,10 @@ export async function GET(request: Request) {
       where.alerts = { some: {} }
     }
     if (minValue) {
-      where.potentialValue = { ...(where.potentialValue as Prisma.FloatNullableFilter | undefined), gte: parseFloat(minValue) }
+      where.potentialValue = { ...(where.potentialValue as Prisma.FloatFilter | undefined), gte: parseFloat(minValue) }
     }
     if (maxValue) {
-      where.potentialValue = { ...(where.potentialValue as Prisma.FloatNullableFilter | undefined), lte: parseFloat(maxValue) }
+      where.potentialValue = { ...(where.potentialValue as Prisma.FloatFilter | undefined), lte: parseFloat(maxValue) }
     }
     if (minScore) {
       where.score = { gte: parseFloat(minScore) }

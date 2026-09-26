@@ -51,9 +51,12 @@ export function TourOverlay() {
   }, [activeTour, setMobileNavOpen])
 
   useEffect(() => {
-    setRect(null)
+    const raf = window.requestAnimationFrame(() => setRect(null)) // esconde o destaque antigo enquanto mede o novo
     const id = window.setTimeout(measure, 350) // dá tempo do scrollIntoView terminar
-    return () => window.clearTimeout(id)
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.clearTimeout(id)
+    }
   }, [measure])
 
   useEffect(() => {

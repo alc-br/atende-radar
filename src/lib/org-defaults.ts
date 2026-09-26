@@ -10,7 +10,6 @@ export async function createOrganizationDefaults(tx: Prisma.TransactionClient, o
 
   await tx.alertRule.createMany({
     data: alertRules.map((r) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, organizationId, ...rest } = r
       // O motor atual é por regras de palavras (confiança máx. ~0,75): limites acima disso silenciariam os alertas.
       return { ...rest, organizationId: orgId, recipients, minConfidence: Math.min(rest.minConfidence, 0.5) }
@@ -19,7 +18,6 @@ export async function createOrganizationDefaults(tx: Prisma.TransactionClient, o
 
   await tx.reportDefinition.createMany({
     data: reportDefinitions.map((d) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, organizationId, lastRunAt, ...rest } = d
       return { ...rest, organizationId: orgId, recipients, lastRunAt: null }
     }),

@@ -50,8 +50,8 @@ const features = [
   },
   {
     icon: Zap,
-    title: 'Alertas Inteligentes',
-    description: 'Regras configuráveis com severidade e cooldown para notificar sua equipe no momento certo.',
+    title: 'Alertas por regras claras',
+    description: 'Cliente sem resposta, pedido de preço parado, promessa vencida: regras configuráveis, com severidade e intervalo, que respeitam o seu horário comercial.',
   },
   {
     icon: TrendingUp,
@@ -60,8 +60,8 @@ const features = [
   },
   {
     icon: FileText,
-    title: 'Relatórios Automáticos',
-    description: '8 tipos de relatório com agendamento para manter gestores sempre informados.',
+    title: 'Relatórios prontos para baixar',
+    description: '8 tipos de relatório gerados na hora com os dados da sua operação, em planilha (CSV) ou para imprimir/PDF.',
   },
   {
     icon: Radio,
@@ -140,14 +140,18 @@ export default function LandingPage() {
     setView('dashboard')
   }
 
-  const loadPlans = () => {
-    setPlansError(false)
+  const fetchPlans = () =>
     fetch('/api/public/plans')
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => setPlans(d.plans))
       .catch(() => setPlansError(true))
+  const loadPlans = () => {
+    setPlansError(false)
+    void fetchPlans()
   }
-  useEffect(loadPlans, [])
+  useEffect(() => {
+    void fetchPlans()
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -217,7 +221,7 @@ export default function LandingPage() {
               no WhatsApp
             </h1>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Detecte receita perdida, audite a qualidade do atendimento e monitore sua operação em tempo real.{' '}
+              Detecte receita perdida, audite a qualidade do atendimento e acompanhe sua operação minuto a minuto.{' '}
               <span className="text-foreground font-medium">Transforme cada conversa em oportunidade.</span>
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

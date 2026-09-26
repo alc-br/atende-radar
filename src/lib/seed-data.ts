@@ -165,9 +165,20 @@ export function getMessagesForConversation(convIdx: number) {
 }
 
 // ─── Classifications ────────────────────────────────────────────────
-export function getClassificationsForConversation(convIdx: number) {
+export interface SeedClassification {
+  id: string
+  conversationId: string
+  classificationType: string
+  label: string
+  confidence: number
+  evidenceMessageId: string
+  rationale: string
+  source: string
+  reviewedStatus: string
+}
+export function getClassificationsForConversation(convIdx: number): SeedClassification[] {
   const conv = convConfigs[convIdx]
-  const cls = []
+  const cls: SeedClassification[] = []
   // Intent classification
   cls.push({
     id: `class_seed_${convIdx + 1}_intent`,

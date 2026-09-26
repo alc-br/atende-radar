@@ -65,8 +65,9 @@ function Inner({ kind }: { kind: Kind }) {
 
   // Confirmação de e-mail não pede nada: usa o link direto.
   useEffect(() => {
-    if (!copy.needsPassword) submit({ token })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (copy.needsPassword) return
+    const id = window.setTimeout(() => void submit({ token }), 0)
+    return () => window.clearTimeout(id)
   }, [])
 
   const onSubmit = (e: React.FormEvent) => {
