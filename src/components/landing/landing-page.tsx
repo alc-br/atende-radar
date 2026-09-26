@@ -111,9 +111,6 @@ function planBullets(p: PublicPlan): string[] {
     `${l.maxAlertRules} regras de alerta`,
     `Histórico de ${l.retentionDays} dias`,
   ]
-  if (p.features.daily_report) list.push('Relatório diário')
-  if (p.features.team_management) list.push('Gestão de equipes')
-  if (p.features.advanced_dashboard) list.push('Painel avançado')
   return list
 }
 

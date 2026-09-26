@@ -238,7 +238,8 @@ export default function ReportsView() {
                         <DialogHeader>
                           <DialogTitle>Configurar: {report.name}</DialogTitle>
                           <DialogDescription>
-                            Ajuste o agendamento e destinatários deste relatório.
+                            Ajuste o agendamento e destinatários deste relatório. O envio automático por e-mail ainda não está ativo
+                            (depende do provedor de e-mail): por enquanto, gere e baixe o relatório por aqui.
                           </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">

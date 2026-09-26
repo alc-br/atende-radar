@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select'
 import { Users, Plus, UserCircle, Activity } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAppStore } from '@/lib/store'
+import { can } from '@/lib/permissions'
 
 interface Team {
   id: string
@@ -42,6 +44,8 @@ const slugify = (name: string) =>
     .replace(/^_+|_+$/g, '')
 
 export default function TeamsView() {
+  const me = useAppStore((s) => s.me)
+  const canManage = can(me?.role, 'teams.manage')
   const [teams, setTeams] = useState<Team[]>([])
   const [agents, setAgents] = useState<AgentOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -134,7 +138,7 @@ export default function TeamsView() {
           <h1 className="text-2xl font-bold tracking-tight">Equipes</h1>
           <p className="text-muted-foreground mt-1">Gerencie equipes e unidades da organização.</p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        {canManage && <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button data-tour="teams-create"><Plus className="w-4 h-4 mr-2" />Criar equipe</Button>
           </DialogTrigger>
@@ -170,7 +174,7 @@ export default function TeamsView() {
               <Button onClick={handleCreate} disabled={!newName.trim() || !newSupervisorId}>Criar</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
 
       {/* Summary cards */}

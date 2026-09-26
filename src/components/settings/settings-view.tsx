@@ -405,7 +405,7 @@ export default function SettingsView() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Horário Comercial</CardTitle>
-              <CardDescription>Defina os horários de funcionamento para cálculo de SLA.</CardDescription>
+              <CardDescription>Vale para alertas e para a nota das conversas: fora do expediente, em fim de semana e em feriado o tempo de espera do cliente não conta (conforme a regra abaixo). Fuso horário: o da aba Empresa.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
@@ -471,9 +471,9 @@ export default function SettingsView() {
                     <Select value={outsideRule} onValueChange={setOutsideRule}>
                       <SelectTrigger aria-label="Regra para fora do expediente" className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ignora">Ignora (não conta SLA)</SelectItem>
-                        <SelectItem value="atraso">Conta como atraso</SelectItem>
-                        <SelectItem value="alerta">Alerta, mas não pune</SelectItem>
+                        <SelectItem value="ignora">Ignora (alertas e nota só contam o expediente)</SelectItem>
+                        <SelectItem value="atraso">Conta como atraso (tempo corrido, 24 h)</SelectItem>
+                        <SelectItem value="alerta">Alerta em tempo corrido, mas a nota não pune</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -496,7 +496,7 @@ export default function SettingsView() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Parâmetros de Atendimento</CardTitle>
-              <CardDescription>SLAs e regras de encerramento automático.</CardDescription>
+              <CardDescription>O SLA define as faixas da nota da conversa (responder em até metade do SLA = nota máxima; 12× o SLA = zero). Abandono, inatividade e reabertura encerram e reabrem conversas sozinhos, em horas corridas.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
@@ -510,15 +510,15 @@ export default function SettingsView() {
                     <Input type="number" value={slaContinuity} onChange={e => setSlaContinuity(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Tempo de abandono (horas)</Label>
+                    <Label className="text-xs">Tempo de abandono (horas) — cliente com oportunidade que não responde vira &quot;perdido por abandono&quot; e entra na Recuperação</Label>
                     <Input type="number" value={abandonTime} onChange={e => setAbandonTime(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Janela de reabertura (horas)</Label>
+                    <Label className="text-xs">Janela de reabertura (horas) — mensagem nova neste prazo reabre a mesma conversa (0 = nunca)</Label>
                     <Input type="number" value={reopenWindow} onChange={e => setReopenWindow(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Encerramento por inatividade (horas)</Label>
+                    <Label className="text-xs">Encerramento por inatividade (horas) — sem mensagem de ninguém neste prazo, a conversa é encerrada</Label>
                     <Input type="number" value={inactivityClose} onChange={e => setInactivityClose(e.target.value)} className="h-9" />
                   </div>
                 </div>
@@ -736,7 +736,7 @@ export default function SettingsView() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Relatórios Agendados</CardTitle>
-                <CardDescription>Configure relatórios automáticos por e-mail.</CardDescription>
+                <CardDescription>Os relatórios são gerados na hora, na tela Relatórios. O envio automático por e-mail ainda não está ativo (depende do provedor de e-mail); estes ajustes ficam guardados para quando estiver.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-start gap-4">
@@ -772,7 +772,7 @@ export default function SettingsView() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Alertas</CardTitle>
-                <CardDescription>Configure como os alertas são entregues.</CardDescription>
+                <CardDescription>Hoje os alertas aparecem dentro do sistema (sino e tela Alertas). Entrega por e-mail, resumo e horário de silêncio ainda não estão ativos (dependem do provedor de e-mail); os ajustes ficam guardados.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">

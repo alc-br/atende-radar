@@ -24,6 +24,8 @@ import {
 import { UserPlus, MoreHorizontal, Shield, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { timeAgo } from '@/lib/utils'
+import { useAppStore } from '@/lib/store'
+import { can } from '@/lib/permissions'
 
 type Role = 'admin' | 'gestor' | 'supervisor' | 'analista' | 'member' | 'atendente' | 'viewer'
 
@@ -74,6 +76,8 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function MembersView() {
+  const me = useAppStore((s) => s.me)
+  const canManage = can(me?.role, 'members.manage')
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -191,7 +195,7 @@ export default function MembersView() {
           <h1 className="text-2xl font-bold tracking-tight">Membros</h1>
           <p className="text-muted-foreground mt-1">Gerencie os membros da sua organização.</p>
         </div>
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        {canManage && <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
             <Button data-tour="members-add"><UserPlus className="w-4 h-4 mr-2" />Adicionar membro</Button>
           </DialogTrigger>
@@ -246,7 +250,7 @@ export default function MembersView() {
               <Button onClick={handleInvite} disabled={!inviteName.trim() || !inviteEmail.trim()}>Adicionar</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
 
       <Card data-tour="members-table">
@@ -324,7 +328,7 @@ export default function MembersView() {
                           {member.lastAccessAt ? timeAgo(member.lastAccessAt) : '—'}
                         </TableCell>
                         <TableCell>
-                          <DropdownMenu>
+                          {canManage && <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button aria-label="Mais ações" variant="ghost" size="icon" className="h-8 w-8">
                                 <MoreHorizontal className="w-4 h-4" />
@@ -346,7 +350,7 @@ export default function MembersView() {
                                 <Trash2 className="w-4 h-4 mr-2" />Remover
                               </DropdownMenuItem>
                             </DropdownMenuContent>
-                          </DropdownMenu>
+                          </DropdownMenu>}
                         </TableCell>
                       </TableRow>
                     ))

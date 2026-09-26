@@ -187,6 +187,26 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
       orderBy: { openedAt: 'desc' },
     })
     if (!conversation) {
+      // P2 · "Janela de reabertura": mensagem nova pouco depois de a conversa ter sido encerrada reabre a MESMA conversa
+      // (0 h = nunca reabre). Uma oportunidade perdida por abandono volta a valer.
+      const org = await tx.organization.findUnique({ where: { id: connection.organizationId }, select: { settingsJson: true } })
+      const reopenHours = (() => { try { const n = Number((JSON.parse(org?.settingsJson || '{}') as { reopenWindow?: unknown }).reopenWindow); return Number.isFinite(n) && n >= 0 ? n : 72 } catch { return 72 } })()
+      const recent = reopenHours > 0
+        ? await tx.conversation.findFirst({
+            where: { organizationId: connection.organizationId, connectionId: connection.id, contactId: contact.id, closedAt: { gte: new Date(occurredAt.getTime() - reopenHours * 3600000) } },
+            orderBy: { closedAt: 'desc' },
+          })
+        : null
+      if (recent) {
+        const tags = (() => { try { return JSON.parse(recent.tags || '[]') as string[] } catch { return [] } })()
+        if (tags.includes('abandono')) await tx.revenueOpportunity.updateMany({ where: { conversationId: recent.id, status: 'lost' }, data: { status: 'active' } })
+        conversation = await tx.conversation.update({
+          where: { id: recent.id },
+          data: { closedAt: null, operationalStatus: inbound ? 'waiting_company' : 'waiting_customer', waitingSince: null, tags: JSON.stringify(tags.filter((t) => t !== 'abandono')) },
+        })
+      }
+    }
+    if (!conversation) {
       conversation = await tx.conversation.create({
         data: {
           organizationId: connection.organizationId,

@@ -150,6 +150,15 @@ test.describe('nota da conversa (0–100, 5 dimensões)', () => {
     expect(scoreConversation({ ...base, messages: 1 }).eligible).toBe(false)
     expect(scoreConversation(base).eligible).toBe(true)
   })
+  test('P2 · a faixa de nota é relativa ao SLA da empresa', () => {
+    const demora25 = { ...base, firstResponseMinutes: 25 }
+    expect(scoreConversation({ ...demora25, slaFirstMinutes: 60 }).components.velocidade).toBe(100) // dentro de metade do SLA
+    expect(scoreConversation({ ...demora25, slaFirstMinutes: 10 }).components.velocidade).toBe(40) // 2,5× o SLA
+    expect(scoreConversation(demora25).components.velocidade).toBe(scoreConversation({ ...demora25, slaFirstMinutes: 10 }).components.velocidade) // padrão = 10 min
+    const espera45 = { ...base, hasOpportunity: true, waitingMinutes: 45 }
+    expect(scoreConversation({ ...espera45, slaContinuityMinutes: 120 }).components.oportunidades).toBe(100)
+    expect(scoreConversation({ ...espera45, slaContinuityMinutes: 15 }).components.oportunidades).toBe(20)
+  })
   test('sempre entre 0 e 100', () => {
     const pior = scoreConversation({ firstResponseMinutes: null, waitingMinutes: 99999, hasOpportunity: true, sentiment: 'frustrated', messages: 9, unansweredPromises: 5, recovered: false })
     expect(pior.total).toBeGreaterThanOrEqual(0)

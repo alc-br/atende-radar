@@ -6,6 +6,7 @@ import { scoreConversation } from './score'
 import { estimateOpportunity } from './opportunity'
 import { recomputeMetrics } from './metrics'
 import { purgeExpired } from '../privacy'
+import { businessMinutesBetween, outsideRuleFrom, scheduleFrom, type HoursSettings } from './business-hours'
 
 // Só conversas que vieram do WhatsApp de verdade (têm mensagem com externalId) entram no motor.
 // Dados de demonstração/seed ficam intocados.
@@ -39,6 +40,14 @@ const parseJson = <T,>(s: string | null | undefined, fallback: T): T => {
   }
 }
 const minutesBetween = (a: Date, b: Date) => Math.max(0, (b.getTime() - a.getTime()) / 60000)
+const positive = (v: unknown, fallback: number) => {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+const withTag = (tagsJson: string, tag: string) => {
+  const tags = (() => { try { return JSON.parse(tagsJson || '[]') as string[] } catch { return [] } })()
+  return JSON.stringify(tags.includes(tag) ? tags : [...tags, tag])
+}
 
 /** Roda o motor em todas as organizações com conversas reais ou conexões. */
 export async function analyzeAll(now = new Date()): Promise<AnalysisSummary> {
@@ -68,11 +77,25 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     db.whatsAppConnection.findMany({ where: { organizationId: orgId } }),
   ])
 
-  // A tela de Configurações grava os parâmetros financeiros na raiz de `settings` (avgTicket, convRate em %).
-  const settings = parseJson<{ avgTicket?: string | number; convRate?: string | number }>(org.settingsJson, {})
+  // A tela de Configurações grava tudo na raiz de `settings` (avgTicket, convRate em %, businessHours, slaFirst, …).
+  type OrgSettings = HoursSettings & { avgTicket?: string | number; convRate?: string | number; slaFirst?: string | number; slaContinuity?: string | number; abandonTime?: string | number; inactivityClose?: string | number }
+  const settings = parseJson<OrgSettings>(org.settingsJson, {})
   const avgTicket = Number(settings.avgTicket) > 0 ? Number(settings.avgTicket) : 1500
   const convRateRaw = Number(settings.convRate)
   const conversionRate = convRateRaw > 0 ? (convRateRaw > 1 ? convRateRaw / 100 : convRateRaw) : 0.18
+  // P2 · Horário comercial e regra fora do expediente:
+  //   ignora → alertas e nota só contam minutos de expediente · atraso → tudo em tempo corrido · alerta → alerta em tempo corrido, nota em expediente
+  const schedule = scheduleFrom(settings, org.timezone)
+  const outsideRule = outsideRuleFrom(settings)
+  const wall = (a: Date, b: Date) => minutesBetween(a, b)
+  const biz = (a: Date, b: Date) => businessMinutesBetween(a, b, schedule)
+  const forAlerts = outsideRule === 'ignora' ? biz : wall
+  const forScore = outsideRule === 'atraso' ? wall : biz
+  // P2 · SLA e encerramento automático (Configurações › Atendimento); horas corridas.
+  const slaFirst = positive(settings.slaFirst, 10)
+  const slaContinuity = positive(settings.slaContinuity, 30)
+  const abandonHours = positive(settings.abandonTime, 4)
+  const inactivityHours = positive(settings.inactivityClose, 48)
 
   const since = new Date(now.getTime() - 30 * 86400000)
   const conversations = await db.conversation.findMany({
@@ -163,16 +186,57 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     // --- tempos ---
     const firstIn = msgs.find((m) => m.direction === 'inbound')
     const firstOutAfter = firstIn ? msgs.find((m) => m.direction === 'outbound' && m.occurredAt > firstIn.occurredAt) : undefined
-    const firstResponseMinutes = firstIn && firstOutAfter ? minutesBetween(firstIn.occurredAt, firstOutAfter.occurredAt) : null
+    const firstResponseMinutes = firstIn && firstOutAfter ? forScore(firstIn.occurredAt, firstOutAfter.occurredAt) : null
     const hasAnyOutbound = msgs.some((m) => m.direction === 'outbound')
     const waitingCompany = conv.operationalStatus === 'waiting_company'
-    const waitingMinutes = waitingCompany && conv.waitingSince ? minutesBetween(conv.waitingSince, now) : 0
-    const closed = conv.closedAt != null || CLOSED_OUTCOMES.includes(conv.operationalStatus)
+    const waitingMinutes = waitingCompany && conv.waitingSince ? forAlerts(conv.waitingSince, now) : 0
+    const waitingForScore = waitingCompany && conv.waitingSince ? forScore(conv.waitingSince, now) : 0
+    let closed = conv.closedAt != null || CLOSED_OUTCOMES.includes(conv.operationalStatus)
+
+    const est = estimateOpportunity(intent, avgTicket, conversionRate)
+    let opp = opportunities.find((o) => o.conversationId === conv.id)
+    let oppId = opp?.id
+
+    // --- encerramento automático (P2) ---
+    if (!closed) {
+      const lastMsgAt = msgs.length ? msgs[msgs.length - 1].occurredAt : conv.openedAt
+      const customerSilentMinutes = conv.operationalStatus === 'waiting_customer' && conv.lastOutboundAt ? wall(conv.lastOutboundAt, now) : 0
+      if (wall(lastMsgAt, now) >= inactivityHours * 60) {
+        // ninguém fala há mais tempo que "Encerramento por inatividade"
+        await db.conversation.update({ where: { id: conv.id }, data: { closedAt: now, operationalStatus: 'closed', waitingSince: null } })
+        conv.closedAt = now
+        closed = true
+      } else if ((est || opp) && customerSilentMinutes >= abandonHours * 60) {
+        // a empresa respondeu, o cliente com oportunidade sumiu por mais que "Tempo de abandono": perdido por abandono
+        if (est && !opp) {
+          // registra a oportunidade perdida (valor que escapou), mesmo que o motor nunca a tenha visto ativa
+          opp = await db.revenueOpportunity.create({
+            data: {
+              conversationId: conv.id, status: 'lost', baseTicket: est.baseTicket, ticketSource: 'org_setting', probability: est.probability,
+              probabilitySource: 'org_setting', intentFactor: est.intentFactor, expectedValue: est.expectedValue, rangeLow: est.rangeLow, rangeHigh: est.rangeHigh, confidence: cls.confidence,
+            },
+          })
+          oppId = opp.id
+          opportunities.push(opp)
+        }
+        await db.conversation.update({ where: { id: conv.id }, data: { closedAt: now, operationalStatus: 'lost', waitingSince: null, tags: withTag(conv.tags, 'abandono') } })
+        await db.revenueOpportunity.updateMany({ where: { conversationId: conv.id, status: 'active' }, data: { status: 'lost' } })
+        for (const o of opportunities) if (o.conversationId === conv.id && o.status === 'active') o.status = 'lost'
+        if (!recoveries.some((r) => r.conversationId === conv.id && ['new', 'in_progress', 'assigned'].includes(r.status))) {
+          const item = await db.recoveryItem.create({
+            data: {
+              organizationId: orgId, conversationId: conv.id, opportunityId: oppId ?? null, agentId: agentId ?? null, reason: 'Abandono do cliente', priorityScore: 0.5,
+              dueAt: new Date(now.getTime() + 24 * 3600000), status: 'new', customerName: conv.contact?.displayName || 'Desconhecido', originalAgentName: agent?.name ?? null,
+            },
+          })
+          recoveries.push(item)
+        }
+        conv.closedAt = now
+        closed = true
+      }
+    }
 
     // --- oportunidade ---
-    const est = estimateOpportunity(intent, avgTicket, conversionRate)
-    const opp = opportunities.find((o) => o.conversationId === conv.id)
-    let oppId = opp?.id
     if (est && !opp && !closed) {
       const created = await db.revenueOpportunity.create({
         data: {
@@ -195,7 +259,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
 
     // --- nota e risco ---
     const recovered = recoveries.some((r) => r.conversationId === conv.id && r.status === 'recovered')
-    const score = scoreConversation({ firstResponseMinutes, waitingMinutes, hasOpportunity, sentiment, messages: msgs.length, unansweredPromises: overdueOpen, recovered })
+    const score = scoreConversation({ firstResponseMinutes, waitingMinutes: waitingForScore, hasOpportunity, sentiment, messages: msgs.length, unansweredPromises: overdueOpen, recovered, slaFirstMinutes: slaFirst, slaContinuityMinutes: slaContinuity })
     const waitFactor = Math.min(1, waitingMinutes / 120)
     const urgencyFactor = ({ low: 0, normal: 0.3, high: 0.7, critical: 1 } as Record<string, number>)[urgency] ?? 0.3
     const riskScore = closed ? 0 : +Math.min(1, 0.4 * waitFactor + 0.3 * urgencyFactor + 0.2 * (hasOpportunity ? 1 : 0) + 0.1 * (sentiment === 'frustrated' ? 1 : 0)).toFixed(2)

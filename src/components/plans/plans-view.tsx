@@ -71,16 +71,8 @@ const STATUS_LABELS: Record<string, string> = {
   unpaid: 'Não paga',
 }
 
-const FEATURE_LABELS: Record<string, string> = {
-  basic_dashboard: 'Dashboard básico',
-  conversation_audit: 'Auditoria de conversas',
-  daily_report: 'Relatórios diários',
-  alert_rules: 'Alertas configuráveis',
-  team_management: 'Gestão de equipes',
-  advanced_dashboard: 'Dashboard avançado',
-  custom_reports: 'Relatórios personalizados',
-  api_access: 'Acesso à API',
-}
+// Os planos se diferenciam pelos LIMITES (aplicados de verdade nas cotas). A lista de "recursos" do catálogo não é
+// aplicada a ninguém hoje, então não é exibida (nada de comparativo decorativo).
 
 const USAGE_METRICS: { key: 'conversations' | 'messages' | 'agents' | 'connections'; label: string; icon: React.ElementType; color: string }[] = [
   { key: 'conversations', label: 'Conversas', icon: MessageSquare, color: 'text-primary' },
@@ -93,7 +85,6 @@ export default function PlansView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [plans, setPlans] = useState<ApiPlan[]>([])
-  const [featureKeys, setFeatureKeys] = useState<string[]>([])
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
   const [usage, setUsage] = useState<Record<string, UsageEntry> | null>(null)
 
@@ -109,7 +100,6 @@ export default function PlansView() {
       const plansData = await plansRes.json()
       const subData = await subRes.json()
       setPlans(plansData.plans || [])
-      setFeatureKeys(plansData.featureKeys || [])
       setSubscription(subData.subscription || null)
       setUsage(subData.usage || null)
     } catch (e) {
@@ -266,9 +256,11 @@ export default function PlansView() {
                 const isCurrent = subscription?.plan.id === plan.id
                 const isHighlight = plan.highlight
                 const Icon = PLAN_ICONS[plan.code] || Zap
-                const includedFeatures = Object.entries(plan.features)
-                  .filter(([, v]) => v === true)
-                  .map(([key]) => FEATURE_LABELS[key] || key)
+                const includedFeatures = [
+                  `${plan.limits.maxConversationsMonthly.toLocaleString('pt-BR')} conversas por mês`,
+                  `${plan.limits.maxAlertRules} regras de alerta`,
+                  `Histórico de ${plan.limits.retentionDays} dias`,
+                ]
                 return (
                   <Card
                     key={plan.id}
@@ -381,16 +373,24 @@ export default function PlansView() {
                         </TableCell>
                       ))}
                     </TableRow>
-                    {featureKeys.map((key) => (
-                      <TableRow key={key}>
-                        <TableCell className="font-medium text-sm">{FEATURE_LABELS[key] || key}</TableCell>
-                        {plans.map((plan) => (
-                          <TableCell key={plan.id} className="text-center">
-                            {renderCell(Boolean(plan.features[key]))}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
+                    <TableRow>
+                      <TableCell className="font-medium text-sm">Conversas por mês</TableCell>
+                      {plans.map((plan) => (
+                        <TableCell key={plan.id} className="text-center">{renderCell(plan.limits.maxConversationsMonthly)}</TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium text-sm">Regras de alerta</TableCell>
+                      {plans.map((plan) => (
+                        <TableCell key={plan.id} className="text-center">{renderCell(plan.limits.maxAlertRules)}</TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium text-sm">Histórico (dias)</TableCell>
+                      {plans.map((plan) => (
+                        <TableCell key={plan.id} className="text-center">{renderCell(plan.limits.retentionDays)}</TableCell>
+                      ))}
+                    </TableRow>
                     <TableRow className="bg-muted/30">
                       <TableCell className="font-bold">Preço</TableCell>
                       {plans.map((plan) => (

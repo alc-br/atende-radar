@@ -17,6 +17,13 @@ export async function setupCompany() {
   const gw = await gatewayClient()
   const connectionId = (await (await admin.post('/api/connections', { data: { name: 'Recepção', phoneNumber: '+5511900001234' } })).json()).connection.id as string
   await gw.post('/api/gateway/events', { data: { eventId: `st-${uid()}`, connectionId, type: 'connection.status', payload: { status: 'connected' } } })
+  // Mesmo formato que a tela de Configurações grava (chaves na raiz de settings).
+  const settings = async (patch: Record<string, unknown>) => {
+    const r = await admin.patch('/api/settings', { data: { settings: patch } })
+    if (r.status() !== 200) throw new Error(`settings falhou ${r.status()} ${await r.text()}`)
+  }
+  // Os testes de tempo não podem depender da hora em que rodam: por padrão o tempo fora do expediente CONTA.
+  await settings({ outsideRule: 'atraso' })
 
   const send = async (chatId: string, text: string, opts: { minutes?: number; fromMe?: boolean; pushName?: string } = {}) => {
     const r = await gw.post('/api/gateway/events', {
@@ -44,5 +51,5 @@ export async function setupCompany() {
     await admin.dispose()
     await gw.dispose()
   }
-  return { email, admin, gw, connectionId, send, tick, alerts, conversations, dispose }
+  return { email, admin, gw, connectionId, send, tick, alerts, conversations, settings, dispose }
 }
