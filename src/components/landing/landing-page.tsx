@@ -10,8 +10,9 @@ import { Separator } from '@/components/ui/separator'
 import {
   Shield, Zap, BarChart3, MessageSquare, DollarSign, Clock,
   Users, ArrowRight, CheckCircle2, Star, Bot, FileText,
-  Radio, Sparkles, Target, TrendingUp, Eye, Phone, ChevronRight,
+  Radio, Sparkles, Target, TrendingUp, Eye, Phone, ChevronRight, Menu,
 } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 const painPoints = [
   {
@@ -183,9 +184,23 @@ export default function LandingPage() {
                 Entrar
               </Button>
             </div>
-            <Button size="sm" className="sm:hidden" onClick={handleLogin}>
-              Entrar
-            </Button>
+            <div className="flex sm:hidden items-center gap-1">
+              <Button size="sm" onClick={handleLogin}>
+                Entrar
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Seções da página">
+                    <Menu className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => scrollTo('funcionalidades')}>Funcionalidades</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => scrollTo('precos')}>Preços</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleLogin}>Entrar</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </nav>
 
           {/* Hero content */}

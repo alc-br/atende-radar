@@ -51,5 +51,5 @@ export async function setupCompany() {
     await admin.dispose()
     await gw.dispose()
   }
-  return { email, admin, gw, connectionId, send, tick, alerts, conversations, settings, dispose }
+  return { email, password, admin, gw, connectionId, send, tick, alerts, conversations, settings, dispose }
 }

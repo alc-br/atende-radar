@@ -26,11 +26,18 @@ test.describe('Página de vendas', () => {
     for (const fake of ['Starter', 'Profissional', 'Enterprise', 'R$297', 'R$697', 'Sob consulta']) expect(text).not.toContain(fake)
   })
 
-  test('menu do topo leva às seções (Funcionalidades, Preços)', async ({ page, isMobile }) => {
-    test.skip(!!isMobile, 'o menu de seções só aparece no desktop')
-    await page.getByRole('button', { name: 'Preços' }).click()
+  test('menu do topo leva às seções (Funcionalidades, Preços) — no celular, pelo menu de seções', async ({ page, isMobile }) => {
+    const go = async (name: string) => {
+      if (isMobile) {
+        await page.getByRole('button', { name: 'Seções da página' }).click()
+        await page.getByRole('menuitem', { name }).click()
+      } else {
+        await page.getByRole('button', { name }).click()
+      }
+    }
+    await go('Preços')
     await expect(page.locator('#precos')).toBeInViewport()
-    await page.getByRole('button', { name: 'Funcionalidades' }).click()
+    await go('Funcionalidades')
     await expect(page.locator('#funcionalidades')).toBeInViewport()
   })
 

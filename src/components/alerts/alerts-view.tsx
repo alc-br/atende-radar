@@ -495,7 +495,7 @@ export default function AlertsView() {
 
     return (
       <Card className={cn(
-        'transition-all hover:shadow-md',
+        'py-0 gap-0 transition-all hover:shadow-md',
         isInactive && 'opacity-60'
       )}>
         <CardContent className="p-4">
@@ -1012,7 +1012,7 @@ export default function AlertsView() {
   // ── Filter Bar (inline to access state) ──
   function FilterBar() {
     return (
-      <Card data-tour="alerts-filterbar" className="p-3">
+      <Card data-tour="alerts-filterbar" className="p-3 py-3 gap-0">
         <div className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
           <Filter className="h-3.5 w-3.5" />
           Filtros
@@ -1133,7 +1133,7 @@ export default function AlertsView() {
 
     return (
       <ScrollArea className="h-[calc(100vh-340px)] min-h-[300px]">
-        <div className="flex flex-col gap-2 pr-3">
+        <div className="flex flex-col gap-2 pr-0 sm:pr-3">
           {filteredAlerts.map((alert) => (
             <AlertCard key={alert.id} alert={alert} />
           ))}

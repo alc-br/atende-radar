@@ -17,11 +17,9 @@ import {
   CheckCircle2,
   CircleDot,
   MessageSquare,
-  Crosshair,
   HelpCircle,
   Handshake,
   Bell,
-  SmilePlus,
   Target,
   Eye,
   Flame,
@@ -92,27 +90,45 @@ import {
   ResizableHandle,
 } from '@/components/ui/resizable'
 
-// --- Audit event markers (synthetic for demo) ---
-const auditEventTypes = [
-  { type: 'intent_detected', label: 'Intenção detectada', icon: Crosshair, color: 'text-teal-700 dark:text-teal-400 bg-teal-100 dark:bg-teal-950', dotColor: 'bg-teal-500' },
-  { type: 'price_request', label: 'Pedido de preço', icon: DollarSign, color: 'text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950', dotColor: 'bg-amber-500' },
-  { type: 'question_asked', label: 'Pergunta feita', icon: HelpCircle, color: 'text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-950', dotColor: 'bg-sky-500' },
-  { type: 'promise_made', label: 'Promessa feita', icon: Handshake, color: 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950', dotColor: 'bg-orange-500' },
-  { type: 'alert_triggered', label: 'Alerta disparado', icon: Bell, color: 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950', dotColor: 'bg-red-500' },
-  { type: 'sentiment_change', label: 'Mudança de sentimento', icon: SmilePlus, color: 'text-purple-600 bg-purple-100 dark:bg-purple-950', dotColor: 'bg-purple-500' },
-] as const
+// --- Marcadores da linha do tempo: só o que aconteceu de verdade nesta conversa ---
+// (promessa detectada numa mensagem da empresa, promessa cumprida, alerta aberto entre duas mensagens)
+interface TimelineMarker {
+  key: string
+  label: string
+  title: string
+  icon: React.ComponentType<{ className?: string }>
+  color: string
+  dotColor: string
+}
+const MARKER_STYLE = {
+  promise_made: { label: 'Promessa feita', icon: Handshake, color: 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950', dotColor: 'bg-orange-500' },
+  promise_kept: { label: 'Promessa cumprida', icon: CheckCircle2, color: 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950', dotColor: 'bg-emerald-500' },
+  alert_triggered: { label: 'Alerta disparado', icon: Bell, color: 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950', dotColor: 'bg-red-500' },
+} as const
 
-function getAuditEventsBetweenMessages(convId: string, msgIndex: number, totalMessages: number) {
-  // Generate synthetic audit events for demo between messages
-  const seed = parseInt(convId.replace('conv_', '')) * 13 + msgIndex * 7
-  const events = []
-  if (msgIndex === 1 && totalMessages > 3) events.push(auditEventTypes[0]) // intent detected
-  if (msgIndex === 2 && totalMessages > 4) events.push(auditEventTypes[1]) // price request
-  if (msgIndex === 3 && totalMessages > 5) events.push(auditEventTypes[2]) // question asked
-  if (msgIndex === 4 && totalMessages > 6) events.push(auditEventTypes[3]) // promise made
-  if (seed % 5 === 0 && msgIndex > 0) events.push(auditEventTypes[4]) // alert triggered
-  if (seed % 7 === 0 && msgIndex > 1) events.push(auditEventTypes[5]) // sentiment change
-  return events
+/** Marcadores a exibir ANTES da mensagem `idx` (idx = messages.length → depois da última). */
+function timelineMarkersBefore(
+  idx: number,
+  messages: Array<{ id: string; occurredAt: string }>,
+  promises: Array<{ id: string; sourceMessage?: string | null; completionMessage?: string | null; action: string }>,
+  alerts: Array<{ id: string; title: string; createdAt: string }>
+): TimelineMarker[] {
+  const prev = idx > 0 ? messages[idx - 1] : null
+  const cur = idx < messages.length ? messages[idx] : null
+  const out: TimelineMarker[] = []
+  if (prev) {
+    for (const pr of promises) {
+      if (pr.sourceMessage === prev.id) out.push({ key: `pm-${pr.id}`, title: pr.action, ...MARKER_STYLE.promise_made })
+      if (pr.completionMessage === prev.id) out.push({ key: `pk-${pr.id}`, title: pr.action, ...MARKER_STYLE.promise_kept })
+    }
+  }
+  const lo = prev ? new Date(prev.occurredAt).getTime() : -Infinity
+  const hi = cur ? new Date(cur.occurredAt).getTime() : Infinity
+  for (const a of alerts) {
+    const t = new Date(a.createdAt).getTime()
+    if (t > lo && t <= hi) out.push({ key: `al-${a.id}`, title: a.title, ...MARKER_STYLE.alert_triggered })
+  }
+  return out
 }
 
 const statusBadgeColor: Record<string, string> = {
@@ -474,7 +490,7 @@ export default function ConversationDetail() {
                 <div className="flex flex-col gap-1 p-4 lg:p-6">
                   {messages.map((msg, idx) => {
                     const isOutbound = msg.direction === 'outbound'
-                    const auditEvents = getAuditEventsBetweenMessages(conversation.id, idx, messages.length)
+                    const auditEvents = timelineMarkersBefore(idx, messages, promises, conversationAlerts)
 
                     return (
                       <div key={msg.id}>
@@ -486,9 +502,11 @@ export default function ConversationDetail() {
                               {auditEvents.map((ev) => {
                                 const Icon = ev.icon
                                 return (
-                                  <Tooltip key={ev.type}>
+                                  <Tooltip key={ev.key}>
                                     <TooltipTrigger asChild>
                                       <div
+                                        role="note"
+                                        aria-label={`${ev.label}: ${ev.title}`}
                                         className={cn(
                                           'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
                                           ev.color
@@ -499,7 +517,7 @@ export default function ConversationDetail() {
                                         <span className="hidden sm:inline">{ev.label}</span>
                                       </div>
                                     </TooltipTrigger>
-                                    <TooltipContent>{ev.label}</TooltipContent>
+                                    <TooltipContent>{ev.label}: {ev.title}</TooltipContent>
                                   </Tooltip>
                                 )
                               })}
@@ -549,6 +567,28 @@ export default function ConversationDetail() {
                       </div>
                     )
                   })}
+                  {(() => {
+                    const tail = timelineMarkersBefore(messages.length, messages, promises, conversationAlerts)
+                    if (tail.length === 0) return null
+                    return (
+                      <div className="flex items-center justify-center gap-2 py-2">
+                        <Separator className="flex-1" />
+                        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                          {tail.map((ev) => {
+                            const Icon = ev.icon
+                            return (
+                              <div key={ev.key} role="note" aria-label={`${ev.label}: ${ev.title}`} className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium', ev.color)}>
+                                <span className={cn('h-1.5 w-1.5 rounded-full', ev.dotColor)} />
+                                <Icon className="h-3 w-3" />
+                                <span>{ev.label}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <Separator className="flex-1" />
+                      </div>
+                    )
+                  })()}
                 </div>
               </ScrollArea>
             </ResizablePanel>
