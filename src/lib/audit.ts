@@ -10,7 +10,7 @@ export type AuditAction =
   | 'alert_rule.created' | 'alert_rule.updated'
   | 'team.created' | 'team.updated' | 'team.removed'
   | 'connection.created' | 'connection.updated' | 'connection.removed'
-  | 'conversation.viewed' | 'privacy.exclude' | 'privacy.erase'
+  | 'conversation.viewed' | 'privacy.exclude' | 'privacy.erase' | 'privacy.export'
   | 'subscription.changed' | 'report.generated' | 'report.exported'
 
 export interface AuditEntryInput {
@@ -62,6 +62,7 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'conversation.viewed': 'Abriu o conteúdo de uma conversa',
   'privacy.exclude': 'Parou de monitorar um cliente',
   'privacy.erase': 'Apagou os dados de um cliente',
+  'privacy.export': 'Exportou os dados de um cliente (portabilidade)',
   'subscription.changed': 'Alterou a assinatura',
   'report.generated': 'Gerou relatório',
   'report.exported': 'Exportou dados',

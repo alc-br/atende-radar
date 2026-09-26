@@ -67,6 +67,9 @@ export function PrivacyMenu({ conversationId, onDone }: { conversationId: string
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <a href={`/api/conversations/${conversationId}/privacy/export`} download>Exportar dados deste cliente (JSON)</a>
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setPending('exclude')}>Parar de monitorar este contato</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setPending('erase')} className="text-red-700 dark:text-red-400">Apagar dados deste cliente</DropdownMenuItem>
         </DropdownMenuContent>

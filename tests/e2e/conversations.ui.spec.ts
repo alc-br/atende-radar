@@ -57,6 +57,7 @@ test('Detalhe da conversa: "Voltar" funciona e o menu de Privacidade aparece par
   await page.getByRole('button', { name: 'Privacidade do cliente' }).click()
   await expect(page.getByRole('menuitem', { name: /Parar de monitorar/ })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: /Apagar dados/ })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: /Exportar dados/ })).toHaveAttribute('href', /\/privacy\/export$/)
   await page.keyboard.press('Escape')
 
   // voltar para a lista

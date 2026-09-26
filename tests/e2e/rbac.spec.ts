@@ -72,6 +72,7 @@ const MATRIX: Row[] = [
   ['DELETE', '/api/connections/x', ADMIN],
 
   ['POST', '/api/conversations/x/privacy', CONFIG],
+  ['GET', '/api/conversations/x/privacy/export', CONFIG],
   ['GET', '/api/settings', CONFIG],
   ['PATCH', '/api/settings', CONFIG],
   ['GET', '/api/audit', CONFIG],

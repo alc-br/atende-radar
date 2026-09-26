@@ -105,3 +105,37 @@ test.describe('Privacidade · retenção', () => {
     await c.dispose()
   })
 })
+
+test.describe('Privacidade · portabilidade (exportar os dados de um cliente)', () => {
+  test('exporta em JSON só o que é daquele contato, com as mensagens; fica registrado na auditoria; papel sem permissão → 403', async () => {
+    const c = await setupCompany()
+    const chat = newChat()
+    await c.send(chat, 'Oi, quanto custa a limpeza?', { minutes: 40, pushName: 'Titular Portavel' })
+    await c.send(chat, 'Olá! R$ 200.', { minutes: 35, fromMe: true })
+    await c.send(newChat(), 'Mensagem de OUTRA pessoa', { minutes: 30, pushName: 'Outro Cliente' })
+    await c.tick()
+    const conv = await conversationOf(c, 'Titular Portavel')
+
+    const r = await c.admin.get(`/api/conversations/${conv.id}/privacy/export`)
+    expect(r.status()).toBe(200)
+    expect(r.headers()['content-disposition'] ?? '').toContain('attachment')
+    const data = await r.json()
+    expect(data.contact.displayName).toBe('Titular Portavel')
+    expect(data.conversations).toHaveLength(1)
+    const texts = data.conversations[0].messages.map((m: { text: string }) => m.text)
+    expect(texts).toEqual(['Oi, quanto custa a limpeza?', 'Olá! R$ 200.'])
+    expect(JSON.stringify(data)).not.toContain('OUTRA pessoa')
+    expect(JSON.stringify(data)).not.toMatch(/55119\d{8}/) // telefone completo nunca é guardado, logo nunca sai
+
+    const audit = (await (await c.admin.get('/api/audit?action=privacy.export')).json()).entries
+    expect(audit.some((e: { targetId: string }) => e.targetId === conv.id)).toBe(true)
+
+    const viewer = await loginAs('viewer.a@test.local')
+    expect((await viewer.get(`/api/conversations/${conv.id}/privacy/export`)).status()).toBe(403)
+    await viewer.dispose()
+    const admB = await loginAs('admin.b@test.local')
+    expect((await admB.get(`/api/conversations/${conv.id}/privacy/export`)).status()).toBe(404)
+    await admB.dispose()
+    await c.dispose()
+  })
+})
