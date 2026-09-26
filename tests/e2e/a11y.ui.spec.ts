@@ -80,6 +80,9 @@ test.describe('Acessibilidade e temas', () => {
     await open(page, 'members', !!isMobile)
     await page.getByRole('button', { name: 'Adicionar membro' }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
+    // espera a animação de entrada terminar: durante o fade-in o axe mede o texto misturado com o fundo escuro atrás
+    await page.getByRole('dialog').evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)))
+    await page.waitForTimeout(250)
     for (const p of await audit(page, `${info.project.name}-dialog-member`)) problems.push(`[diálogo adicionar membro] ${p}`)
     await page.keyboard.press('Escape')
 
