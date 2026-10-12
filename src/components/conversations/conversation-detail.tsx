@@ -1,32 +1,23 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 import { PrivacyMenu } from './privacy-menu'
 import {
   ArrowLeft,
   Phone,
   Clock,
-  User,
   Tag,
-  ShieldAlert,
   DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Minus,
   AlertTriangle,
   CheckCircle2,
-  CircleDot,
-  MessageSquare,
   HelpCircle,
   Handshake,
   Bell,
   Target,
-  Eye,
   Flame,
-  Lightbulb,
   Award,
   BarChart3,
-  Zap,
   RefreshCw,
   XCircle,
   HeartCrack,
@@ -37,12 +28,14 @@ import {
   CalendarClock,
   FileWarning,
   Lock,
+  Info,
+  MoreVertical,
+  RotateCcw,
 } from 'lucide-react'
 
 import {
   formatCurrency,
   timeAgo,
-  getSeverityColor,
   getStageLabel,
   getIntentLabel,
   getUrgencyLabel,
@@ -53,7 +46,6 @@ import {
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -70,25 +62,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from '@/components/ui/resizable'
+  INTENT_TAG,
+  STAGE_TAG,
+  URGENCY_TAG,
+  SENTIMENT_TAG,
+  STATUS_TAG,
+  SEVERITY_TAG,
+  scoreTextClass,
+  avatarTone,
+  initials,
+} from './tags'
 
 // --- Marcadores da linha do tempo: só o que aconteceu de verdade nesta conversa ---
 // (promessa detectada numa mensagem da empresa, promessa cumprida, alerta aberto entre duas mensagens)
@@ -96,14 +85,15 @@ interface TimelineMarker {
   key: string
   label: string
   title: string
-  icon: React.ComponentType<{ className?: string }>
-  color: string
-  dotColor: string
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
+  /** classes de cor sobre o `chat__evento` do pacote (o padrão do pacote é o vermelho do alerta) */
+  tone: string
+  pill: string
 }
 const MARKER_STYLE = {
-  promise_made: { label: 'Promessa feita', icon: Handshake, color: 'text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950', dotColor: 'bg-orange-500' },
-  promise_kept: { label: 'Promessa cumprida', icon: CheckCircle2, color: 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950', dotColor: 'bg-emerald-500' },
-  alert_triggered: { label: 'Alerta disparado', icon: Bell, color: 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950', dotColor: 'bg-red-500' },
+  promise_made: { label: 'Promessa feita', icon: Handshake, tone: 'text-[color:var(--laranja)]', pill: 'bg-[var(--laranja-fundo)]' },
+  promise_kept: { label: 'Promessa cumprida', icon: CheckCircle2, tone: 'text-[color:var(--verde-700)]', pill: 'bg-[var(--verde-50)]' },
+  alert_triggered: { label: 'Alerta disparado', icon: Bell, tone: '', pill: '' },
 } as const
 
 /** Marcadores a exibir ANTES da mensagem `idx` (idx = messages.length → depois da última). */
@@ -131,85 +121,55 @@ function timelineMarkersBefore(
   return out
 }
 
-const statusBadgeColor: Record<string, string> = {
-  new: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800',
-  waiting_company: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800',
-  waiting_customer: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800',
-  in_progress: 'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800',
-  follow_up_due: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800',
-  won: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800',
-  lost: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700',
-  closed: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-700',
-}
+const INTENT_OPTIONS = Object.keys(INTENT_TAG)
+const URGENCY_OPTIONS = Object.keys(URGENCY_TAG)
 
-const sentimentDotColor: Record<string, string> = {
-  positive: 'bg-emerald-500',
-  neutral: 'bg-slate-400',
-  confused: 'bg-amber-400',
-  anxious: 'bg-orange-400',
-  frustrated: 'bg-red-500',
-  irritated: 'bg-red-600',
-  desistindo: 'bg-gray-500',
-}
+const SEVERITY_LABEL: Record<string, string> = { critical: 'Crítica', high: 'Alta', medium: 'Média', low: 'Baixa' }
 
-const intentBadgeColor: Record<string, string> = {
-  consulta: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800',
-  preco: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800',
-  disponibilidade: 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800',
-  agendamento: 'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800',
-  compra: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800',
-  negociacao: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800',
-  suporte: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-950 dark:text-slate-300 dark:border-slate-800',
-  pos_venda: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800',
-  reclamacao: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800',
-  cancelamento: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300 dark:border-gray-800',
-}
+const SCORE_COMPONENTS: Array<{ key: string; label: string; weight: number }> = [
+  { key: 'velocidade', label: 'Velocidade', weight: 30 },
+  { key: 'oportunidades', label: 'Oportunidades', weight: 25 },
+  { key: 'pendencias', label: 'Pendências', weight: 20 },
+  { key: 'qualidade', label: 'Qualidade', weight: 15 },
+  { key: 'recuperacao', label: 'Recuperação', weight: 10 },
+]
 
-const stageBadgeColor: Record<string, string> = {
-  discovery: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300',
-  qualification: 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300',
-  evaluation: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
-  price: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300',
-  proposal: 'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300',
-  negotiation: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300',
-  decision: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
-  won: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
-  lost: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300',
-  post_sale: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
-}
-
-const urgencyBadgeVariant: Record<string, string> = {
-  critical: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800',
-  high: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800',
-  normal: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300',
-  low: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800',
-}
-
-const sentimentBadgeColor: Record<string, string> = {
-  positive: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800',
-  neutral: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300',
-  confused: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800',
-  anxious: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800',
-  frustrated: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800',
-  irritated: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-200 dark:border-red-800',
-  desistindo: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700',
-}
-
-function scoreColor(score: number) {
-  if (score >= 80) return 'text-emerald-700 dark:text-emerald-400'
-  if (score >= 70) return 'text-amber-700 dark:text-amber-400'
-  return 'text-red-700 dark:text-red-400'
-}
-
-function scoreBarColor(score: number) {
-  if (score >= 80) return 'bg-emerald-500'
-  if (score >= 70) return 'bg-amber-500'
-  return 'bg-red-500'
+function scoreBarClass(score: number) {
+  if (score >= 80) return 'barra'
+  if (score >= 70) return 'barra barra--laranja'
+  return 'barra [&>i]:bg-[var(--vermelho)]'
 }
 
 function formatMsgTime(iso: string) {
   const d = new Date(iso)
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatMsgDay(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function MarkerLine({ markers }: { markers: TimelineMarker[] }) {
+  return (
+    <>
+      {markers.map((ev) => {
+        const Icon = ev.icon
+        return (
+          <div key={ev.key} className={cn('chat__evento', ev.tone)}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span role="note" aria-label={`${ev.label}: ${ev.title}`} className={ev.pill}>
+                  <Icon className="ic" aria-hidden="true" />
+                  {ev.label}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{ev.label}: {ev.title}</TooltipContent>
+            </Tooltip>
+          </div>
+        )
+      })}
+    </>
+  )
 }
 
 export default function ConversationDetail() {
@@ -256,13 +216,23 @@ export default function ConversationDetail() {
 
   useEffect(() => { fetchData() }, [fetchData, refreshTrigger])
 
-  if (isLoading) {
+  // 1ª carga (ou troca de conversa): esqueleto; recargas depois de uma ação mantêm a tela
+  if (isLoading && (!data || data.id !== selectedConversationId)) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-96 w-full mt-4" />
+      <div className="conversa" aria-busy="true">
+        <div className="conversa__principal">
+          <Skeleton className="h-6 w-24" />
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-16 w-16 rounded-full" />
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-7 w-56" />
+              <Skeleton className="h-4 w-72" />
+            </div>
+          </div>
+          <Skeleton className="h-[420px] w-full rounded-[var(--raio)]" />
+        </div>
+        <div className="conversa__analise">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-[var(--raio)]" />)}
         </div>
       </div>
     )
@@ -270,9 +240,9 @@ export default function ConversationDetail() {
 
   if (error || !data) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive font-medium">{error || 'Conversa não encontrada'}</p>
-        <button onClick={() => setView('conversations')} className="text-sm text-primary underline">Voltar</button>
+      <div className="cartao vazio flex flex-col items-center gap-4">
+        <p className="vermelho font-medium">{error || 'Conversa não encontrada'}</p>
+        <button type="button" onClick={() => setView('conversations')} className="btn btn--sm">Voltar</button>
       </div>
     )
   }
@@ -294,19 +264,18 @@ export default function ConversationDetail() {
     potentialValue: data.potentialValue,
     confidence: data.confidence,
     waitingMinutes: data.waitingMinutes,
-    tags: data.tags || [],
+    tags: (data.tags || []) as string[],
     hasOpportunity: data.potentialValue > 0,
     lastActivity: data.lastActivity,
     openedAt: data.openedAt,
     closedAt: data.closedAt,
   }
-  const messages = data.messages || []
-  const classifications = data.classifications || []
-  const findings = data.findings || []
-  const opportunities = data.opportunities || []
-  const openQuestions = data.openQuestions || []
-  const promises = data.promises || []
-  const conversationAlerts = data.alerts || []
+  const messages: any[] = data.messages || []
+  const findings: any[] = data.findings || []
+  const opportunities: any[] = data.opportunities || []
+  const openQuestions: any[] = data.openQuestions || []
+  const promises: any[] = data.promises || []
+  const conversationAlerts: any[] = data.alerts || []
   const scoreDetail = data.scoreDetail
 
   const handleOutcome = (outcome: 'won' | 'lost', value?: number) => {
@@ -328,6 +297,29 @@ export default function ConversationDetail() {
   const handleBack = () => {
     selectConversation(null)
     setView('conversations')
+  }
+
+  const markReviewed = () => {
+    fetch(`/api/conversations/${selectedConversationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markReviewed: true }),
+    }).then((r) => {
+      if (!r.ok) throw new Error()
+      toast.success('Conversa marcada como revisada.')
+      fetchData()
+    }).catch(() => toast.error('Não foi possível marcar como revisada.'))
+  }
+
+  const sendToRecovery = () => {
+    fetch('/api/recovery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId: conversation.id, reason: 'Enviado manualmente para recuperação', customerName: conversation.customerName, originalAgentName: data.agent?.name, priorityScore: 0.5 }),
+    }).then((r) => {
+      if (!r.ok) throw new Error()
+      toast.success('Conversa enviada para a fila de Recuperação.')
+    }).catch(() => toast.error('Não foi possível enviar para a Recuperação.'))
   }
 
   const openCorrectionDialog = (kind: 'intent' | 'urgency' | 'agent') => {
@@ -375,23 +367,11 @@ export default function ConversationDetail() {
     }).then(() => fetchData()).catch(() => {})
   }
 
-  const findingsFromApi = findings.map((f: any) => ({
-    id: f.id, type: f.type, severity: f.severity, evidence: f.evidence, status: f.status, confidence: f.confidence,
-  }))
-
-  const scoreBreakdown = scoreDetail?.components ? {
-    velocidade: { weight: 30, score: Math.round((scoreDetail.components.velocidade || conversation.score) as number), label: 'Velocidade' },
-    oportunidades: { weight: 25, score: Math.round((scoreDetail.components.oportunidades || conversation.score) as number), label: 'Oportunidades' },
-    pendencias: { weight: 20, score: Math.round((scoreDetail.components.pendencias || conversation.score) as number), label: 'Pendências' },
-    qualidade: { weight: 15, score: Math.round((scoreDetail.components.qualidade || conversation.score) as number), label: 'Qualidade' },
-    recuperacao: { weight: 10, score: Math.round((scoreDetail.components.recuperacao || conversation.score) as number), label: 'Recuperação' },
-  } : {
-    velocidade: { weight: 30, score: Math.round(conversation.score * 0.95), label: 'Velocidade' },
-    oportunidades: { weight: 25, score: Math.round(conversation.score * 0.9), label: 'Oportunidades' },
-    pendencias: { weight: 20, score: Math.round(conversation.score * 0.85), label: 'Pendências' },
-    qualidade: { weight: 15, score: Math.round(conversation.score * 0.88), label: 'Qualidade' },
-    recuperacao: { weight: 10, score: Math.round(conversation.score * 0.8), label: 'Recuperação' },
-  }
+  // Composição da nota: só os componentes que o motor calculou de verdade
+  const components = (scoreDetail?.components || {}) as Record<string, unknown>
+  const scoreBreakdown = SCORE_COMPONENTS
+    .filter((c) => typeof components[c.key] === 'number')
+    .map((c) => ({ ...c, score: Math.round(components[c.key] as number) }))
 
   const primaryOpportunity = opportunities[0]
   const valueMemory = primaryOpportunity ? {
@@ -404,518 +384,394 @@ export default function ConversationDetail() {
     lastUpdated: primaryOpportunity.updatedAt,
   } : null
 
+  const pendingQuestions = openQuestions.filter((q) => q.status !== 'answered').length
+  const tailMarkers = timelineMarkersBefore(messages.length, messages, promises, conversationAlerts)
+
+  const scoreBlock = (
+    <section className="cartao bloco">
+      <header className="bloco__cab">
+        <h3><BarChart3 className="ic verde-txt" aria-hidden="true" />Composição da nota ({conversation.score})</h3>
+      </header>
+      {scoreBreakdown.length > 0 ? (
+        <ul className="composicao">
+          {scoreBreakdown.map((item) => (
+            <li key={item.key}>
+              <span>{item.label} ({item.weight}%)</span>
+              <b className={cn(item.score >= 80 && 'text-[color:var(--verde-700)]', item.score < 70 && 'text-[color:var(--vermelho)]')}>{item.score}</b>
+              <div className={scoreBarClass(item.score)} aria-hidden="true">
+                <i style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="bloco__texto suave">A composição aparece depois que a análise calcular a nota desta conversa.</p>
+      )}
+    </section>
+  )
+
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-full flex-col gap-0 overflow-hidden">
-        {/* Header */}
-        <div className="flex-shrink-0 border-b px-4 py-3 lg:px-6">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            {/* Left: back + name + phone + connection */}
-            <div className="flex items-start gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-0.5 h-8 w-8 p-0"
-                aria-label="Voltar para a lista de conversas"
-                onClick={handleBack}
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-lg font-bold">{conversation.customerName}</span>
-                  <span className="font-mono text-sm text-muted-foreground">***{conversation.customerPhone.slice(-4)}</span>
-                  <PrivacyMenu conversationId={selectedConversationId as string} onDone={handleBack} />
-                  {conversation.tags.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      {conversation.tags.map((t) => (
-                        <Badge key={t} variant="secondary" className="text-xs">
-                          <Tag className="mr-1 h-2.5 w-2.5" />
-                          {t}
-                        </Badge>
-                      ))}
-                    </div>
+      <div className="conversa">
+        {/* Coluna da conversa */}
+        <div className="conversa__principal">
+          <button type="button" className="voltar" aria-label="Voltar para a lista de conversas" onClick={handleBack}>
+            <ArrowLeft className="ic" aria-hidden="true" />
+            Voltar
+          </button>
+
+          <header className="contato">
+            <span className={cn('av av--lg', avatarTone(conversation.customerName))} aria-hidden="true">
+              {initials(conversation.customerName)}
+            </span>
+            <div className="contato__info">
+              <div className="linha-flex envolve">
+                <h1>{conversation.customerName}</h1>
+                <span className="mono suave contato__id">***{conversation.customerPhone.slice(-4)}</span>
+              </div>
+              <ul className="contato__meta">
+                {conversation.connectionName && (
+                  <li><Phone className="ic" aria-hidden="true" />{conversation.connectionName}</li>
+                )}
+                <li>
+                  {data.agent?.name && (
+                    <span className={cn('av av--sm', avatarTone(data.agent.name))} aria-hidden="true">{initials(data.agent.name)}</span>
                   )}
-                </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
-                  <span className="inline-flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    {conversation.connectionName}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <User className="h-3 w-3" />
-                    {conversation.agentName}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={cn('text-xs', statusBadgeColor[conversation.operationalStatus] || '')}
-                  >
-                    {getStatusLabel(conversation.operationalStatus)}
-                  </Badge>
-                  <span className="inline-flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {timeAgo(conversation.lastActivity)}
-                  </span>
-                  {conversation.potentialValue > 0 && (
-                    <span className="inline-flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400">
-                      <DollarSign className="h-3 w-3" />
-                      {formatCurrency(conversation.potentialValue)}
+                  {conversation.agentName}
+                </li>
+                {conversation.operationalStatus && (
+                  <li>
+                    <span className={cn('tag tag--lg', STATUS_TAG[conversation.operationalStatus] || 'tag--cinza')}>
+                      {getStatusLabel(conversation.operationalStatus)}
                     </span>
-                  )}
-                  <span className={cn('font-bold tabular-nums', scoreColor(conversation.score))}>
-                    {conversation.score}
-                  </span>
+                  </li>
+                )}
+                <li><Clock className="ic" aria-hidden="true" />{timeAgo(conversation.lastActivity)}</li>
+                {conversation.potentialValue > 0 && (
+                  <li className="verde-txt forte">
+                    <DollarSign className="ic" aria-hidden="true" />
+                    <span className="sr-only">Valor potencial: </span>
+                    {formatCurrency(conversation.potentialValue)}
+                  </li>
+                )}
+                <li>
+                  <span className="sr-only">Nota: </span>
+                  <b className={scoreTextClass(conversation.score)}>{conversation.score}</b>/100
+                </li>
+                <li>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="tag tag--laranja tag--contorno" tabIndex={0}>
+                        <Lock className="ic" aria-hidden="true" />
+                        Dados sensíveis
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Esta conversa contém dados pessoais sensíveis</TooltipContent>
+                  </Tooltip>
+                </li>
+                {conversation.tags.map((t) => (
+                  <li key={t}>
+                    <span className="tag tag--cinza">
+                      <Tag className="ic" aria-hidden="true" />
+                      {t}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="contato__acoes">
+              <PrivacyMenu conversationId={selectedConversationId as string} onDone={handleBack} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className="reticencias" aria-label="Mais opções">
+                    <MoreVertical className="ic" aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={sendToRecovery}>
+                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                    Enviar para recuperação
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={markReviewed}>
+                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    Marcar como revisada
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </header>
+
+          <section className="cartao chat" aria-label="Mensagens">
+            <div className="chat__mensagens" tabIndex={0} role="region" aria-label="Histórico de mensagens">
+              {messages.length === 0 && (
+                <div className="vazio">
+                  <strong>Nenhuma mensagem nesta conversa.</strong>
                 </div>
+              )}
+              {messages.map((msg, idx) => {
+                const isOutbound = msg.direction === 'outbound'
+                const markers = timelineMarkersBefore(idx, messages, promises, conversationAlerts)
+                const day = formatMsgDay(msg.occurredAt)
+                const newDay = idx === 0 || formatMsgDay(messages[idx - 1].occurredAt) !== day
+                const who = isOutbound ? 'Empresa' : 'Cliente'
+
+                return (
+                  <div key={msg.id} className="contents">
+                    {newDay && <span className="chat__data">{day}</span>}
+                    {markers.length > 0 && <MarkerLine markers={markers} />}
+                    <div className={cn('msg', isOutbound ? 'msg--empresa' : 'msg--cliente')}>
+                      {!isOutbound && <span className="msg__av" aria-hidden="true">C</span>}
+                      <div className="msg__balao">
+                        <p className="msg__cab">
+                          <b>{who}</b>
+                          <time dateTime={msg.occurredAt}>{formatMsgTime(msg.occurredAt)}</time>
+                        </p>
+                        <p>{msg.text}</p>
+                      </div>
+                      {isOutbound && <span className="msg__av" aria-hidden="true">E</span>}
+                    </div>
+                  </div>
+                )
+              })}
+              {tailMarkers.length > 0 && <MarkerLine markers={tailMarkers} />}
+            </div>
+            <p className="chat__aviso">
+              <Info className="ic" aria-hidden="true" />
+              As mensagens são exibidas apenas para consulta e análise.
+            </p>
+          </section>
+        </div>
+
+        {/* Coluna da análise */}
+        <aside className="conversa__analise" aria-label="Análise da conversa">
+          {/* Classificação */}
+          <section className="cartao bloco">
+            <header className="bloco__cab">
+              <h2><Target className="ic verde-txt" aria-hidden="true" />Classificação</h2>
+            </header>
+            <div className="classificacao">
+              <div>
+                <span>Intenção principal</span>
+                <span className={cn('tag tag--lg', INTENT_TAG[conversation.primaryIntent] || 'tag--cinza')}>
+                  {conversation.primaryIntent ? getIntentLabel(conversation.primaryIntent) : '-'}
+                </span>
+              </div>
+              <div>
+                <span>Urgência</span>
+                <span className={cn('tag tag--lg', URGENCY_TAG[conversation.urgency] || 'tag--cinza')}>
+                  {conversation.urgency ? getUrgencyLabel(conversation.urgency) : '-'}
+                </span>
+              </div>
+              <div>
+                <span>Sentimento</span>
+                <span className={cn('tag tag--lg', SENTIMENT_TAG[conversation.sentiment] || 'tag--cinza')}>
+                  {conversation.sentiment ? getSentimentLabel(conversation.sentiment) : '-'}
+                </span>
+              </div>
+              <div>
+                <span>Etapa inferida</span>
+                <span className={cn('tag tag--lg', STAGE_TAG[conversation.inferredStage] || 'tag--cinza')}>
+                  {conversation.inferredStage ? getStageLabel(conversation.inferredStage) : '-'}
+                </span>
               </div>
             </div>
+          </section>
 
-            {/* Right: Sensitive data indicator */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
-                  <Lock className="h-3.5 w-3.5" />
-                  Dados sensíveis
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Esta conversa contém dados pessoais sensíveis</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
+          {/* Perguntas em aberto */}
+          <section className="cartao bloco">
+            <header className="bloco__cab">
+              <h2><HelpCircle className="ic text-[color:var(--azul)]" aria-hidden="true" />Perguntas em aberto</h2>
+              {pendingQuestions > 0 && (
+                <span className="tag tag--cinza tag--contorno">
+                  {pendingQuestions} pendente{pendingQuestions !== 1 ? 's' : ''}
+                </span>
+              )}
+            </header>
+            {openQuestions.length > 0 ? (
+              <ul className="perguntas">
+                {openQuestions.map((q) => {
+                  const answered = q.status === 'answered'
+                  return (
+                    <li key={q.id}>
+                      {answered ? (
+                        <CheckCircle2 className="ic verde-txt shrink-0 text-[16px]" aria-hidden="true" />
+                      ) : (
+                        <span className="circulo-vazio shrink-0" aria-hidden="true" />
+                      )}
+                      <span className={cn('min-w-0 flex-1', answered && 'suave line-through')}>
+                        {q.normalizedQuestion || q.text}
+                      </span>
+                      {!answered && (
+                        <button
+                          type="button"
+                          className="reticencias"
+                          aria-label="Marcar como respondida"
+                          title="Marcar como respondida"
+                          onClick={() => markQuestionAnswered(q.id)}
+                        >
+                          <CheckCircle2 className="ic" aria-hidden="true" />
+                        </button>
+                      )}
+                      <span className={cn('tag shrink-0', answered ? 'tag--verde' : 'tag--cinza')}>
+                        {answered ? 'Respondida' : 'Pendente'}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : (
+              <p className="bloco__texto suave">Nenhuma pergunta em aberto.</p>
+            )}
+          </section>
 
-        {/* Main content: Resizable panels */}
-        <div className="flex-1 overflow-hidden">
-          <ResizablePanelGroup direction="horizontal" className="h-full">
-            {/* LEFT: Message Timeline */}
-            <ResizablePanel defaultSize={60} minSize={35}>
-              <ScrollArea className="custom-scrollbar h-full">
-                <div className="flex flex-col gap-1 p-4 lg:p-6">
-                  {messages.map((msg, idx) => {
-                    const isOutbound = msg.direction === 'outbound'
-                    const auditEvents = timelineMarkersBefore(idx, messages, promises, conversationAlerts)
-
-                    return (
-                      <div key={msg.id}>
-                        {/* Audit event markers before this message */}
-                        {auditEvents.length > 0 && (
-                          <div className="flex items-center justify-center gap-2 py-2">
-                            <Separator className="flex-1" />
-                            <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                              {auditEvents.map((ev) => {
-                                const Icon = ev.icon
-                                return (
-                                  <Tooltip key={ev.key}>
-                                    <TooltipTrigger asChild>
-                                      <div
-                                        role="note"
-                                        aria-label={`${ev.label}: ${ev.title}`}
-                                        className={cn(
-                                          'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
-                                          ev.color
-                                        )}
-                                      >
-                                        <span className={cn('h-1.5 w-1.5 rounded-full', ev.dotColor)} />
-                                        <Icon className="h-3 w-3" />
-                                        <span className="hidden sm:inline">{ev.label}</span>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>{ev.label}: {ev.title}</TooltipContent>
-                                  </Tooltip>
-                                )
-                              })}
-                            </div>
-                            <Separator className="flex-1" />
-                          </div>
+          {/* Promessas */}
+          <section className="cartao bloco">
+            <header className="bloco__cab">
+              <h2><Handshake className="ic laranja-txt" aria-hidden="true" />Promessas</h2>
+            </header>
+            {promises.length > 0 ? (
+              <ul className="perguntas">
+                {promises.map((p) => {
+                  const isKept = p.status === 'kept'
+                  const isCancelled = p.status === 'cancelled'
+                  const isOverdue = !isKept && !isCancelled && p.dueAt && new Date(p.dueAt) < new Date()
+                  return (
+                    <li key={p.id} className="!items-start">
+                      {isKept ? (
+                        <CheckCircle2 className="ic verde-txt mt-0.5 shrink-0 text-[16px]" aria-hidden="true" />
+                      ) : isCancelled ? (
+                        <XCircle className="ic suave mt-0.5 shrink-0 text-[16px]" aria-hidden="true" />
+                      ) : isOverdue ? (
+                        <AlertTriangle className="ic vermelho mt-0.5 shrink-0 text-[16px]" aria-hidden="true" />
+                      ) : (
+                        <Clock className="ic laranja-txt mt-0.5 shrink-0 text-[16px]" aria-hidden="true" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className={cn((isKept || isCancelled) && 'suave')}>{p.action || p.text}</span>
+                        {p.dueAt && (
+                          <span className="suave mt-0.5 flex items-center gap-1 text-xs">
+                            <CalendarClock className="ic" aria-hidden="true" />
+                            Prazo: {new Date(p.dueAt).toLocaleDateString('pt-BR')} {new Date(p.dueAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         )}
-
-                        {/* Message bubble */}
-                        <div
-                          className={cn(
-                            'flex gap-2',
-                            isOutbound ? 'flex-row-reverse' : 'flex-row'
-                          )}
-                        >
-                          <Avatar className="h-7 w-7 flex-shrink-0 mt-1">
-                            <AvatarFallback
-                              className={cn(
-                                'text-xs',
-                                isOutbound
-                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                  : 'bg-muted text-muted-foreground'
-                              )}
-                            >
-                              {isOutbound ? 'E' : 'C'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div
-                            className={cn(
-                              'max-w-[75%] rounded-2xl px-4 py-2.5',
-                              isOutbound
-                                ? 'bg-emerald-700 text-white rounded-tr-md dark:bg-emerald-700'
-                                : 'bg-muted text-foreground rounded-tl-md'
-                            )}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className={cn('text-xs font-semibold', isOutbound ? 'text-emerald-100' : 'text-muted-foreground')}>
-                                {isOutbound ? 'Empresa' : 'Cliente'}
-                              </span>
-                              <span className={cn('text-xs', isOutbound ? 'text-emerald-50' : 'text-muted-foreground')}>
-                                {formatMsgTime(msg.occurredAt)}
-                              </span>
-                            </div>
-                            <p className="text-sm leading-relaxed">{msg.text}</p>
-                          </div>
+                      </div>
+                      {!isKept && !isCancelled && (
+                        <div className="flex shrink-0 items-center">
+                          <button type="button" className="reticencias" aria-label="Confirmar cumprida" title="Confirmar cumprida" onClick={() => setPromiseStatus(p.id, 'kept')}>
+                            <CheckCircle2 className="ic verde-txt" aria-hidden="true" />
+                          </button>
+                          <button type="button" className="reticencias" aria-label="Cancelar promessa" title="Cancelar promessa" onClick={() => setPromiseStatus(p.id, 'cancelled')}>
+                            <XCircle className="ic" aria-hidden="true" />
+                          </button>
                         </div>
-                      </div>
-                    )
-                  })}
-                  {(() => {
-                    const tail = timelineMarkersBefore(messages.length, messages, promises, conversationAlerts)
-                    if (tail.length === 0) return null
-                    return (
-                      <div className="flex items-center justify-center gap-2 py-2">
-                        <Separator className="flex-1" />
-                        <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                          {tail.map((ev) => {
-                            const Icon = ev.icon
-                            return (
-                              <div key={ev.key} role="note" aria-label={`${ev.label}: ${ev.title}`} className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium', ev.color)}>
-                                <span className={cn('h-1.5 w-1.5 rounded-full', ev.dotColor)} />
-                                <Icon className="h-3 w-3" />
-                                <span>{ev.label}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        <Separator className="flex-1" />
-                      </div>
-                    )
-                  })()}
-                </div>
-              </ScrollArea>
-            </ResizablePanel>
-
-            <ResizableHandle withHandle />
-
-            {/* RIGHT: Audit Panel */}
-            <ResizablePanel defaultSize={40} minSize={25}>
-              <ScrollArea className="custom-scrollbar h-full">
-                <div className="flex flex-col gap-4 p-4 lg:p-6">
-
-                  {/* Summary */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <Lightbulb className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                        Resumo da conversa
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Cliente entrou em contato solicitando informações sobre clareamento dental.
-                        Demonstrou interesse no tratamento completo e perguntou sobre aceitação
-                        de plano Unimed. Atendente respondeu prontamente sobre valores e confirmou
-                        aceitação do plano. Agendamento proposto para sexta-feira, pendente confirmação.
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  {/* Classification */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <Target className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-                        Classificação
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">Intenção principal:</span>
-                        <Badge variant="outline" className={cn('text-xs', intentBadgeColor[conversation.primaryIntent] || '')}>
-                          {getIntentLabel(conversation.primaryIntent)}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">Urgência:</span>
-                        <Badge variant="outline" className={cn('text-xs', urgencyBadgeVariant[conversation.urgency] || '')}>
-                          {getUrgencyLabel(conversation.urgency)}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">Sentimento:</span>
-                        <Badge variant="outline" className={cn('text-xs', sentimentBadgeColor[conversation.sentiment] || '')}>
-                          <span className={cn('mr-1.5 h-2 w-2 rounded-full inline-block', sentimentDotColor[conversation.sentiment] || 'bg-slate-400')} />
-                          {getSentimentLabel(conversation.sentiment)}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">Etapa inferida:</span>
-                        <Badge variant="outline" className={cn('text-xs', stageBadgeColor[conversation.inferredStage] || '')}>
-                          {getStageLabel(conversation.inferredStage)}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Open Questions */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <HelpCircle className="h-4 w-4 text-sky-700 dark:text-sky-400" />
-                        Perguntas em aberto
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {openQuestions.map((q) => (
-                        <div key={q.id} className="flex items-start gap-2 text-sm group">
-                          {q.status === 'answered' ? (
-                            <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-700 dark:text-emerald-400 flex-shrink-0" />
-                          ) : (
-                            <CircleDot className="h-4 w-4 mt-0.5 text-amber-700 dark:text-amber-400 flex-shrink-0" />
-                          )}
-                          <span className={cn(q.status === 'answered' ? 'text-muted-foreground line-through' : 'text-foreground')}>
-                            {q.text}
-                          </span>
-                          <div className="ml-auto flex items-center gap-1 flex-shrink-0">
-                            {q.status !== 'answered' && (
-                              <Button aria-label="Marcar como respondida"
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                title="Marcar como respondida"
-                                onClick={() => markQuestionAnswered(q.id)}
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            <Badge variant={q.status === 'answered' ? 'secondary' : 'outline'} className="text-xs">
-                              {q.status === 'answered' ? 'Respondida' : 'Pendente'}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                      {openQuestions.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Nenhuma pergunta em aberto.</p>
                       )}
-                    </CardContent>
-                  </Card>
+                      <span className={cn('tag shrink-0', isKept ? 'tag--verde' : isOverdue ? 'tag--vermelho' : 'tag--cinza')}>
+                        {isKept ? 'Cumprida' : isCancelled ? 'Cancelada' : isOverdue ? 'Vencida' : 'Pendente'}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : (
+              <p className="bloco__texto suave">Nenhuma promessa registrada.</p>
+            )}
+          </section>
 
-                  {/* Promises */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <Handshake className="h-4 w-4 text-orange-700 dark:text-orange-400" />
-                        Promessas
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {promises.map((p) => {
-                        const isKept = p.status === 'kept'
-                        const isCancelled = p.status === 'cancelled'
-                        const isOverdue = !isKept && !isCancelled && p.dueAt && new Date(p.dueAt) < new Date()
-                        return (
-                          <div key={p.id} className="flex items-start gap-2 text-sm group">
-                            {isKept ? (
-                              <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-700 dark:text-emerald-400 flex-shrink-0" />
-                            ) : isCancelled ? (
-                              <XCircle className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                            ) : isOverdue ? (
-                              <AlertTriangle className="h-4 w-4 mt-0.5 text-red-700 dark:text-red-400 flex-shrink-0" />
-                            ) : (
-                              <Clock className="h-4 w-4 mt-0.5 text-amber-700 dark:text-amber-400 flex-shrink-0" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <span className={cn(isKept || isCancelled ? 'text-muted-foreground' : 'text-foreground')}>
-                                {p.text}
-                              </span>
-                              {p.dueAt && (
-                                <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                                  <CalendarClock className="h-3 w-3" />
-                                  Prazo: {new Date(p.dueAt).toLocaleDateString('pt-BR')} {new Date(p.dueAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                              )}
-                            </div>
-                            {!isKept && !isCancelled && (
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 flex-shrink-0">
-                                <Button aria-label="Confirmar cumprida" variant="ghost" size="icon" className="h-6 w-6" title="Confirmar cumprida" onClick={() => setPromiseStatus(p.id, 'kept')}>
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
-                                </Button>
-                                <Button aria-label="Cancelar promessa" variant="ghost" size="icon" className="h-6 w-6" title="Cancelar promessa" onClick={() => setPromiseStatus(p.id, 'cancelled')}>
-                                  <XCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                                </Button>
-                              </div>
-                            )}
-                            <Badge
-                              variant={isKept ? 'secondary' : isOverdue ? 'destructive' : 'outline'}
-                              className="text-xs flex-shrink-0"
-                            >
-                              {isKept ? 'Cumprida' : isCancelled ? 'Cancelada' : isOverdue ? 'Vencida' : 'Pendente'}
-                            </Badge>
-                          </div>
-                        )
-                      })}
-                      {promises.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Nenhuma promessa registrada.</p>
-                      )}
-                    </CardContent>
-                  </Card>
+          {/* Falhas encontradas */}
+          <section className="cartao bloco">
+            <header className="bloco__cab">
+              <h2><FileWarning className="ic vermelho" aria-hidden="true" />Falhas encontradas</h2>
+            </header>
+            {findings.length > 0 ? (
+              <div className="grid gap-3">
+                {findings.map((f) => (
+                  <div key={f.id} className="falha flex-wrap">
+                    <span className={cn('tag tag--lg', SEVERITY_TAG[f.severity] || 'tag--cinza')}>
+                      {SEVERITY_LABEL[f.severity] || 'Baixa'}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <strong>{f.type}</strong>
+                      {f.evidence && <small>{f.evidence}</small>}
+                    </div>
+                    {f.falsePositive ? (
+                      <span className="tag tag--cinza">Falso positivo</span>
+                    ) : (
+                      <button type="button" className="btn btn--sm" onClick={() => markFindingFalsePositive(f.id)}>
+                        <Ban className="ic" aria-hidden="true" />
+                        Falso positivo
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="bloco__texto suave">Nenhuma falha detectada.</p>
+            )}
+          </section>
 
-                  {/* Findings / Falhas */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <FileWarning className="h-4 w-4 text-red-700 dark:text-red-400" />
-                        Falhas encontradas
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {findings.map((f) => (
-                        <div key={f.id} className="space-y-1 group">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className={cn('text-xs', getSeverityColor(f.severity))}>
-                              {f.severity === 'critical' ? 'Crítica' : f.severity === 'high' ? 'Alta' : f.severity === 'medium' ? 'Média' : 'Baixa'}
-                            </Badge>
-                            <span className="text-sm font-medium">{f.type}</span>
-                            {f.falsePositive && (
-                              <Badge variant="secondary" className="text-xs">Falso positivo</Badge>
-                            )}
-                            {!f.falsePositive && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 text-xs gap-1 ml-auto opacity-0 group-hover:opacity-100"
-                                onClick={() => markFindingFalsePositive(f.id)}
-                              >
-                                <Ban className="h-3 w-3" />
-                                Falso positivo
-                              </Button>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground pl-2 border-l-2 border-muted-foreground/30">
-                            {f.evidence}
-                          </p>
-                        </div>
-                      ))}
-                      {findings.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Nenhuma falha detectada.</p>
-                      )}
-                    </CardContent>
-                  </Card>
+          {/* Composição da nota + cálculo do valor potencial */}
+          {valueMemory ? (
+            <div className="grade grade-2 conversa__duas">
+              {scoreBlock}
+              <section className="cartao bloco">
+                <header className="bloco__cab">
+                  <h3><Calculator className="ic verde-txt" aria-hidden="true" />Cálculo do valor potencial</h3>
+                </header>
+                <dl className="calculo">
+                  <div><dt>Ticket usado</dt><dd className="forte">{formatCurrency(valueMemory.ticketUsed)}</dd></div>
+                  <div><dt>Fonte do ticket</dt><dd className="suave">{valueMemory.ticketSource}</dd></div>
+                  <div><dt>Probabilidade</dt><dd className="forte">{(valueMemory.probability * 100).toFixed(0)}%</dd></div>
+                  <div><dt>Fonte prob.</dt><dd className="suave">{valueMemory.probabilitySource}</dd></div>
+                  <div><dt>Faixa</dt><dd className="forte">{formatCurrency(valueMemory.range[0])} – {formatCurrency(valueMemory.range[1])}</dd></div>
+                  <div><dt>Confiança</dt><dd className="forte">{(valueMemory.confidence * 100).toFixed(0)}%</dd></div>
+                  <div><dt>Atualizado</dt><dd className="suave">{timeAgo(valueMemory.lastUpdated)}</dd></div>
+                </dl>
+              </section>
+            </div>
+          ) : (
+            scoreBlock
+          )}
 
-                  {/* Recommendation */}
-                  {/* Score Composition */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-                        Composição da nota ({conversation.score})
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2.5">
-                      {Object.entries(scoreBreakdown).map(([key, item]) => (
-                        <div key={key} className="space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">
-                              {item.label} <span className="text-xs">({item.weight}%)</span>
-                            </span>
-                            <span className={cn('font-medium tabular-nums', scoreColor(item.score))}>
-                              {item.score}
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                            <div
-                              className={cn('h-full rounded-full transition-all', scoreBarColor(item.score))}
-                              style={{ width: `${item.score}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-
-                  {/* Potential Value Memory */}
-                  {valueMemory && (
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                          <Calculator className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-                          Cálculo do valor potencial
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2 text-sm">
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                          <span className="text-muted-foreground">Ticket usado</span>
-                          <span className="text-right font-medium">{formatCurrency(valueMemory.ticketUsed)}</span>
-                          <span className="text-muted-foreground">Fonte do ticket</span>
-                          <span className="text-right text-xs text-muted-foreground">{valueMemory.ticketSource}</span>
-                          <span className="text-muted-foreground">Probabilidade</span>
-                          <span className="text-right font-medium">{(valueMemory.probability * 100).toFixed(0)}%</span>
-                          <span className="text-muted-foreground">Fonte prob.</span>
-                          <span className="text-right text-xs text-muted-foreground">{valueMemory.probabilitySource}</span>
-                          <span className="text-muted-foreground">Faixa</span>
-                          <span className="text-right font-medium">
-                            {formatCurrency(valueMemory.range[0])} – {formatCurrency(valueMemory.range[1])}
-                          </span>
-                          <span className="text-muted-foreground">Confiança</span>
-                          <span className="text-right font-medium">{(valueMemory.confidence * 100).toFixed(0)}%</span>
-                          <span className="text-muted-foreground">Atualizado</span>
-                          <span className="text-right text-xs text-muted-foreground">{timeAgo(valueMemory.lastUpdated)}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Correction Actions */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-                        Ações de correção
-                      </CardTitle>
-                      <CardDescription className="text-xs">
-                        Ajuste as classificações ou registre ações do gestor.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => openCorrectionDialog('intent')}>
-                          <ArrowRightLeft className="h-3 w-3" />
-                          Alterar intenção
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => openCorrectionDialog('urgency')}>
-                          <Flame className="h-3 w-3" />
-                          Alterar urgência
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => openCorrectionDialog('agent')}>
-                          <UserCog className="h-3 w-3" />
-                          Mudar responsável
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700"
-                          onClick={() => { setOutcomeValue(primaryOpportunity ? String(Math.round(primaryOpportunity.expectedValue)) : ''); setOutcomeDialogOpen('won') }}
-                        >
-                          <Award className="h-3 w-3" />
-                          Confirmar venda
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1.5 text-xs text-red-700 dark:text-red-400 border-red-300 dark:border-red-700"
-                          onClick={() => { setOutcomeValue(''); setOutcomeDialogOpen('lost') }}
-                        >
-                          <HeartCrack className="h-3 w-3" />
-                          Confirmar perda
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                </div>
-              </ScrollArea>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </div>
+          {/* Ações de correção */}
+          <section className="cartao bloco">
+            <header className="bloco__cab">
+              <div>
+                <h3><RefreshCw className="ic verde-txt" aria-hidden="true" />Ações de correção</h3>
+                <p className="suave bloco__sub">Ajuste as classificações ou registre ações do gestor.</p>
+              </div>
+            </header>
+            <div className="acoes-correcao">
+              <button type="button" className="btn btn--sm" onClick={() => openCorrectionDialog('intent')}>
+                <ArrowRightLeft className="ic" aria-hidden="true" />
+                Alterar intenção
+              </button>
+              <button type="button" className="btn btn--sm" onClick={() => openCorrectionDialog('urgency')}>
+                <Flame className="ic" aria-hidden="true" />
+                Alterar urgência
+              </button>
+              <button type="button" className="btn btn--sm" onClick={() => openCorrectionDialog('agent')}>
+                <UserCog className="ic" aria-hidden="true" />
+                Mudar responsável
+              </button>
+              <button
+                type="button"
+                className="btn btn--sm btn--verde-claro"
+                onClick={() => { setOutcomeValue(primaryOpportunity ? String(Math.round(primaryOpportunity.expectedValue)) : ''); setOutcomeDialogOpen('won') }}
+              >
+                <Award className="ic" aria-hidden="true" />
+                Confirmar venda
+              </button>
+              <button
+                type="button"
+                className="btn btn--sm btn--perigo"
+                onClick={() => { setOutcomeValue(''); setOutcomeDialogOpen('lost') }}
+              >
+                <HeartCrack className="ic" aria-hidden="true" />
+                Confirmar perda
+              </button>
+            </div>
+          </section>
+        </aside>
       </div>
 
       {/* Correction dialog: intent / urgency / agent */}
@@ -931,10 +787,10 @@ export default function ConversationDetail() {
             <Select value={correctionValue} onValueChange={setCorrectionValue}>
               <SelectTrigger aria-label="Selecione..."><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
-                {correctionDialogOpen === 'intent' && Object.keys(intentBadgeColor).map((v) => (
+                {correctionDialogOpen === 'intent' && INTENT_OPTIONS.map((v) => (
                   <SelectItem key={v} value={v}>{getIntentLabel(v)}</SelectItem>
                 ))}
-                {correctionDialogOpen === 'urgency' && Object.keys(urgencyBadgeVariant).map((v) => (
+                {correctionDialogOpen === 'urgency' && URGENCY_OPTIONS.map((v) => (
                   <SelectItem key={v} value={v}>{getUrgencyLabel(v)}</SelectItem>
                 ))}
                 {correctionDialogOpen === 'agent' && agentOptions.map((a) => (
@@ -943,6 +799,7 @@ export default function ConversationDetail() {
               </SelectContent>
             </Select>
             <Textarea
+              aria-label="Justificativa (opcional)"
               placeholder="Justificativa (opcional)"
               value={correctionJustification}
               onChange={(e) => setCorrectionJustification(e.target.value)}
@@ -966,8 +823,9 @@ export default function ConversationDetail() {
           </DialogHeader>
           {outcomeDialogOpen === 'won' && (
             <div className="py-4">
-              <Label>Valor da venda (R$)</Label>
+              <Label htmlFor="cd-valor-venda">Valor da venda (R$)</Label>
               <Input
+                id="cd-valor-venda"
                 type="text"
                 placeholder="0,00"
                 value={outcomeValue}

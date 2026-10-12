@@ -3,12 +3,11 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { Shield, Mail, Lock, Eye, EyeOff, Loader2, User, Building2, ArrowLeft } from 'lucide-react'
+import {
+  Mail, Lock, Eye, EyeOff, Loader2, User, Building2, ArrowLeft, ArrowRight, Play, Zap, Coins, CalendarCheck,
+  ShieldCheck, KeyRound,
+} from 'lucide-react'
 
 type Mode = 'login' | 'signup' | 'forgot'
 
@@ -23,6 +22,8 @@ async function postJson(url: string, body: unknown): Promise<{ ok: boolean; erro
   }
 }
 
+// Visual das páginas de conta do pacote de design (entrar, cadastro, recuperar-senha). A raiz `.ar.conta` faz o
+// papel do `<body class="conta">` do pacote; o `.conta` interno ativa as regras descendentes (`.ar .conta …`).
 export default function LoginPage() {
   const { setShowLanding, setShowLogin, setView } = useAppStore()
   const [email, setEmail] = useState('')
@@ -103,210 +104,243 @@ export default function LoginPage() {
     handleLogin('demo@atenderadar.com', 'demo123')
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative">
-      {/* Background */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-background to-teal-50 dark:from-emerald-950/30 dark:via-background dark:to-teal-950/20" />
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-400/5 rounded-full blur-3xl" />
-        <div
-          className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03]"
-          style={{
-            backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-          }}
+  const goHome = () => {
+    setShowLogin(false)
+    setShowLanding(true)
+  }
+
+  const logo = (big: boolean) => (
+    <button
+      type="button"
+      onClick={goHome}
+      className={`conta-logo${big ? ' conta-logo--grande' : ''} border-0 bg-transparent p-0`}
+      aria-label="AtendeRadar — página inicial"
+    >
+      <img src="/brand/logo-atenderadar.webp" alt="AtendeRadar" width={560} height={109} />
+    </button>
+  )
+
+  const emailField = (big: boolean) => (
+    <div className="campo">
+      <label htmlFor="login-email">E-mail</label>
+      <div className="campo-ic">
+        <Mail className="ic" aria-hidden="true" />
+        <input
+          className={`entrada${big ? ' entrada--grande' : ''}`}
+          id="login-email"
+          type="email"
+          placeholder="seu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+          disabled={loading}
         />
       </div>
+    </div>
+  )
 
-      <div className="w-full max-w-md">
-        {/* Logo / Branding */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-700 flex items-center justify-center mb-4 shadow-lg shadow-emerald-600/25">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Atende<span className="text-emerald-700 dark:text-emerald-400">Radar</span>
-          </h1>
-        </div>
+  const passwordField = (big: boolean) => (
+    <div className="campo">
+      <label htmlFor="login-password">Senha</label>
+      <div className="campo-ic">
+        <Lock className="ic" aria-hidden="true" />
+        <input
+          className={`entrada entrada--lado${big ? ' entrada--grande' : ''}`}
+          id="login-password"
+          type={showPassword ? 'text' : 'password'}
+          placeholder={mode === 'signup' ? 'Mínimo de 10 caracteres' : '••••••••'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+          aria-describedby={mode === 'signup' ? 'signup-password-hint' : undefined}
+          disabled={loading}
+        />
+        <button
+          type="button"
+          className="campo-ic__acao"
+          onClick={() => setShowPassword(!showPassword)}
+          aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+        >
+          {showPassword ? <EyeOff className="ic" aria-hidden="true" /> : <Eye className="ic" aria-hidden="true" />}
+        </button>
+      </div>
+      {mode === 'signup' && (
+        <p id="signup-password-hint" className="text-xs text-[var(--suave)]">Mínimo de 10 caracteres, com letras e números.</p>
+      )}
+    </div>
+  )
 
-        {/* Login Card */}
-        <Card className="shadow-lg border-border/50">
-          <CardHeader className="text-center pb-2">
-            <h2 className="text-xl font-semibold text-foreground">
-              {mode === 'login' ? 'Bem-vindo de volta' : mode === 'signup' ? 'Crie a sua conta' : 'Recuperar senha'}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {mode === 'login'
-                ? 'Entre na sua conta para acessar o painel'
-                : mode === 'signup'
-                  ? 'Teste grátis por 14 dias. Sem cartão de crédito.'
-                  : 'Enviaremos um link para você criar uma nova senha'}
-            </p>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {mode === 'signup' && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Seu nome</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} autoComplete="name" disabled={loading} className="h-11 pl-10" />
+  const spinner = <Loader2 className="ic animate-spin" aria-hidden="true" />
+  const year = new Date().getFullYear()
+
+  // ---------- Cadastro (cadastro.html) ----------
+  if (mode === 'signup') {
+    return (
+      <div className="ar conta">
+        <div className="conta">
+          <div className="conta-envoltorio">
+            <header className="conta-topo conta-topo--centro">
+              {logo(false)}
+              <div className="seguro">
+                <span className="seguro__ic"><Lock className="ic" aria-hidden="true" /></span>
+                <span><b>Ambiente 100% seguro</b><small>Seus dados estão protegidos</small></span>
+              </div>
+            </header>
+
+            <main className="conta-cartao cadastro">
+              <section className="cadastro__lado" aria-label="Sobre o teste grátis">
+                <span className="selo-conta justify-self-start"><Zap className="ic" aria-hidden="true" />Teste grátis por 14 dias</span>
+                <div>
+                  <h1 className="titulo-conta">Comece seu teste grátis de <span className="verde">14 dias</span></h1>
+                  <p className="sub-conta">Crie sua conta e comece a usar o AtendeRadar em minutos. Sem cartão de crédito.</p>
+                </div>
+                <ul className="beneficios-conta">
+                  <li>
+                    <span className="ic-bola"><Coins className="ic" aria-hidden="true" /></span>
+                    <span><b>Sem cartão de crédito</b><span>Teste todos os recursos por 14 dias sem pagar nada.</span></span>
+                  </li>
+                  <li>
+                    <span className="ic-bola"><Zap className="ic" aria-hidden="true" /></span>
+                    <span><b>Ativação imediata</b><span>Crie sua conta e comece a usar agora mesmo.</span></span>
+                  </li>
+                  <li>
+                    <span className="ic-bola"><CalendarCheck className="ic" aria-hidden="true" /></span>
+                    <span><b>Sem compromisso</b><span>Ao fim do teste, você decide se quer assinar um plano.</span></span>
+                  </li>
+                </ul>
+                <div className="cartao px-5 py-4">
+                  <ul className="linha-tempo">
+                    <li className="feito">
+                      <span className="lt-ponto" />
+                      <span><b>Hoje: acesso liberado</b><span>Sua conta é criada e você já pode usar o AtendeRadar.</span></span>
+                    </li>
+                    <li>
+                      <span className="lt-ponto" />
+                      <span><b className="text-[var(--texto)]">Em 14 dias: fim do teste grátis</b><span>Para continuar, escolha um plano na tela Planos.</span></span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="nota-segura">
+                  <ShieldCheck className="ic" aria-hidden="true" />
+                  <span><b>Nenhum dado de pagamento agora.</b>Você só informa um cartão se decidir assinar.</span>
+                </div>
+              </section>
+
+              <form className="cadastro__form" onSubmit={handleSubmit}>
+                <div className="passo-form">
+                  <span className="passo-form__num" aria-hidden="true">1</span>
+                  <div><h2>Crie sua conta</h2><p>Seus dados para acessar o AtendeRadar.</p></div>
+                </div>
+                <div className="grade-form">
+                  <div className="campo">
+                    <label htmlFor="signup-name">Nome completo</label>
+                    <div className="campo-ic">
+                      <User className="ic" aria-hidden="true" />
+                      <input className="entrada" id="signup-name" placeholder="Seu nome completo" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} autoComplete="name" disabled={loading} />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-org">Nome da empresa</Label>
-                    <div className="relative">
-                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input id="signup-org" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} required minLength={2} autoComplete="organization" disabled={loading} className="h-11 pl-10" />
+                  {emailField(false)}
+                  {passwordField(false)}
+                  <div className="campo">
+                    <label htmlFor="signup-org">Empresa</label>
+                    <div className="campo-ic">
+                      <Building2 className="ic" aria-hidden="true" />
+                      <input className="entrada" id="signup-org" placeholder="Nome da sua empresa" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} required minLength={2} autoComplete="organization" disabled={loading} />
                     </div>
                   </div>
-                </>
-              )}
-              {/* Email */}
-              <div className="space-y-2">
-                <Label htmlFor="login-email">E-mail</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                    disabled={loading}
-                    className="h-11 pl-10"
-                  />
                 </div>
-              </div>
-
-              {/* Password */}
-              {mode !== 'forgot' && (
-              <div className="space-y-2">
-                <Label htmlFor="login-password">Senha</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="login-password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                    disabled={loading}
-                    className="h-11 pl-10 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-              )}
-
-              {mode === 'signup' && (
-                <p className="text-xs text-muted-foreground">Mínimo de 10 caracteres, com letras e números.</p>
-              )}
-
-              {/* Forgot password link */}
-              {mode === 'login' && (
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => switchMode('forgot')}
-                  className="text-sm text-emerald-700 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors"
-                >
-                  Esqueceu sua senha?
+                <button className="btn btn--verde btn--xl btn--bloco" type="submit" disabled={loading}>
+                  {loading ? <>{spinner}Criando conta...</> : <><Lock className="ic" aria-hidden="true" />Iniciar teste grátis <ArrowRight className="ic" aria-hidden="true" /></>}
                 </button>
-              </div>
-              )}
-
-              {mode === 'forgot' && forgotSent && (
-                <p role="status" className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 p-3 text-sm text-emerald-800 dark:text-emerald-300">
-                  Se este e-mail tiver uma conta, enviamos um link para criar uma nova senha. O link vale por 1 hora.
+                <p className="nota-rodape">
+                  Ao continuar, você cria sua conta e ativa seu período gratuito. Já tem conta?{' '}
+                  <button type="button" className="link-verde border-0 bg-transparent p-0" onClick={() => switchMode('login')}>Entrar</button>
                 </p>
-              )}
+              </form>
+            </main>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
-              {/* Submit button */}
-              <Button
-                type="submit"
-                className="w-full h-11 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-md shadow-emerald-600/20"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    {mode === 'login' ? 'Entrando...' : mode === 'signup' ? 'Criando conta...' : 'Enviando...'}
-                  </>
-                ) : mode === 'login' ? (
-                  'Entrar'
-                ) : mode === 'signup' ? (
-                  'Criar conta grátis'
-                ) : (
-                  'Enviar link de recuperação'
-                )}
-              </Button>
-            </form>
-
-            {mode === 'login' && (<>
-            {/* Divider */}
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
+  // ---------- Recuperar acesso (recuperar-senha.html) ----------
+  if (mode === 'forgot') {
+    return (
+      <div className="ar conta">
+        <div className="conta">
+          <main className="acesso">
+            {logo(true)}
+            <section className="conta-cartao acesso__cartao" aria-labelledby="t-rec">
+              <div className="icone-email" aria-hidden="true">
+                <Mail className="ic" />
+                <span className="mini"><KeyRound className="ic" /></span>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">ou</span>
-              </div>
-            </div>
+              <h1 id="t-rec">Recuperar acesso</h1>
+              <p>Informe seu e-mail para receber um link de redefinição.</p>
 
-            {/* Demo login button */}
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-11 border-dashed"
-              onClick={handleDemoLogin}
-              disabled={loading}
-            >
-              <Shield className="w-4 h-4 mr-2 text-emerald-700 dark:text-emerald-400" />
-              Entrar como demonstração
-            </Button>
-            </>)}
-
-            {/* Footer inside card */}
-            <p className="text-center text-sm text-muted-foreground mt-6">
-              {mode === 'login' ? (
-                <>
-                  Não tem uma conta?{' '}
-                  <button type="button" onClick={() => switchMode('signup')} className="text-emerald-700 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors">
-                    Criar conta grátis
-                  </button>
-                </>
-              ) : (
-                <button type="button" onClick={() => switchMode('login')} className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-medium transition-colors">
-                  <ArrowLeft className="w-3.5 h-3.5" /> Voltar para o login
+              <form onSubmit={handleSubmit}>
+                {emailField(true)}
+                <button className="btn btn--verde btn--xl btn--bloco" type="submit" disabled={loading}>
+                  {loading ? <>{spinner}Enviando...</> : <>{forgotSent ? 'Reenviar link' : 'Enviar link de recuperação'} <ArrowRight className="ic" aria-hidden="true" /></>}
                 </button>
-              )}
-            </p>
-          </CardContent>
-        </Card>
+                {forgotSent && (
+                  <div className="confirmacao" role="status">
+                    <span className="bola"><ShieldCheck className="ic" aria-hidden="true" /></span>
+                    <span>Se este e-mail tiver uma conta, enviamos um link para criar uma nova senha. O link vale por 1 hora. Confira também o spam.</span>
+                  </div>
+                )}
+                <div className="voltar-login">
+                  <button type="button" className="inline-flex items-center gap-2.5 border-0 bg-transparent p-0 text-[15px] font-medium text-[var(--verde-600)]" onClick={() => switchMode('login')}>
+                    <ArrowLeft className="ic" aria-hidden="true" />Voltar para o login
+                  </button>
+                </div>
+              </form>
+            </section>
+          </main>
+        </div>
+      </div>
+    )
+  }
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          © 2026 AtendeRadar · Todos os direitos reservados
-        </p>
+  // ---------- Entrar (entrar.html) ----------
+  return (
+    <div className="ar conta">
+      <div className="conta">
+        <main className="acesso">
+          {logo(true)}
+          <section className="conta-cartao acesso__cartao" aria-labelledby="t-entrar">
+            <h1 id="t-entrar">Bem-vindo de volta</h1>
+            <p>Entre na sua conta para acessar o painel.</p>
+
+            <form onSubmit={handleSubmit}>
+              {emailField(true)}
+              {passwordField(true)}
+              <button type="button" className="link-verde esqueceu border-0 bg-transparent p-0" onClick={() => switchMode('forgot')}>
+                Esqueceu sua senha?
+              </button>
+              <button className="btn btn--verde btn--xl btn--bloco" type="submit" disabled={loading}>
+                {loading ? <>{spinner}Entrando...</> : <>Entrar <ArrowRight className="ic" aria-hidden="true" /></>}
+              </button>
+              <button type="button" className="btn btn--demo btn--bloco" onClick={handleDemoLogin} disabled={loading}>
+                <span className="play" aria-hidden="true"><Play className="ic" /></span>Entrar como demonstração
+              </button>
+              <div className="divisor-ou">ou</div>
+              <p className="convite">
+                Ainda não começou?{' '}
+                <button type="button" className="link-verde inline-flex items-center gap-1.5 border-0 bg-transparent p-0" onClick={() => switchMode('signup')}>
+                  Inicie seu teste grátis <ArrowRight className="ic" aria-hidden="true" />
+                </button>
+              </p>
+            </form>
+          </section>
+
+          <footer className="rodape-conta">
+            © {year} AtendeRadar. Todos os direitos reservados.
+          </footer>
+        </main>
       </div>
     </div>
   )

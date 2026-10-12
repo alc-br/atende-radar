@@ -1,4 +1,11 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+
+// No celular/tablet estreito o "Entrar" fica dentro do menu do topo ("Abrir menu").
+async function clickEntrar(page: Page) {
+  const entrar = page.getByRole('button', { name: 'Entrar', exact: true })
+  if (!(await entrar.first().isVisible())) await page.getByRole('button', { name: 'Abrir menu' }).click()
+  await entrar.first().click()
+}
 
 // V1–V7 · Página de vendas: nada inventado, preços reais, todo botão faz alguma coisa, sem quebra de layout.
 test.describe('Página de vendas', () => {
@@ -15,7 +22,7 @@ test.describe('Página de vendas', () => {
 
   test('mostra os planos reais do banco, com os preços certos', async ({ page, request }) => {
     const { plans } = await (await request.get('/api/public/plans')).json()
-    const section = page.locator('#precos')
+    const section = page.locator('#planos')
     await expect(section).toBeVisible()
     for (const plan of plans) {
       await expect(section.getByRole('heading', { name: plan.name })).toBeVisible()
@@ -26,45 +33,44 @@ test.describe('Página de vendas', () => {
     for (const fake of ['Starter', 'Profissional', 'Enterprise', 'R$297', 'R$697', 'Sob consulta']) expect(text).not.toContain(fake)
   })
 
-  test('menu do topo leva às seções (Funcionalidades, Preços) — no celular, pelo menu de seções', async ({ page, isMobile }) => {
-    // tablet (768 px) já mostra o menu do desktop; só telas estreitas têm o menu de seções
-    const compact = isMobile && (await page.getByRole('button', { name: 'Seções da página' }).isVisible())
+  test('menu do topo leva às seções (Como Funciona, Planos) — em telas estreitas, pelo botão "Abrir menu"', async ({ page }) => {
+    const menuButton = page.getByRole('button', { name: 'Abrir menu' })
     const go = async (name: string) => {
-      if (compact) {
-        await page.getByRole('button', { name: 'Seções da página' }).click()
-        await page.getByRole('menuitem', { name }).click()
-      } else {
-        await page.getByRole('button', { name }).click()
-      }
+      if (await menuButton.isVisible()) await menuButton.click()
+      await page.locator('#menu').getByRole('link', { name }).click()
     }
-    await go('Preços')
-    await expect(page.locator('#precos')).toBeInViewport()
-    await go('Funcionalidades')
-    await expect(page.locator('#funcionalidades')).toBeInViewport()
+    await go('Planos')
+    await expect(page.locator('#planos')).toBeInViewport()
+    await go('Como Funciona')
+    await expect(page.locator('#como-funciona')).toBeInViewport()
   })
 
-  test('"Entrar" abre o login e "Começar" abre o cadastro', async ({ page }) => {
-    await page.getByRole('button', { name: 'Entrar' }).first().click()
+  test('"Entrar" abre o login; "Teste Grátis" e "Quero parar de perder receita" abrem o cadastro', async ({ page }) => {
+    await clickEntrar(page)
     await expect(page.getByRole('heading', { name: 'Bem-vindo de volta' })).toBeVisible()
 
     await page.goto('/')
-    await page.getByRole('button', { name: /Começar Agora/ }).click()
-    await expect(page.getByRole('heading', { name: 'Crie a sua conta' })).toBeVisible()
+    await page.getByRole('button', { name: /Teste Grátis/ }).click()
+    await expect(page.getByRole('heading', { name: 'Crie sua conta' })).toBeVisible()
+
+    await page.goto('/')
+    await page.getByRole('button', { name: /Quero parar de perder receita/ }).click()
+    await expect(page.getByRole('heading', { name: 'Crie sua conta' })).toBeVisible()
   })
 
   test('cada plano leva ao cadastro', async ({ page }) => {
-    const buttons = page.locator('#precos').getByRole('button')
+    const buttons = page.locator('#planos').getByRole('button')
     await expect(buttons).toHaveCount(3) // os planos chegam por fetch: espera carregar
     for (let i = 0; i < 3; i++) {
       await page.goto('/')
-      await expect(page.locator('#precos').getByRole('button')).toHaveCount(3)
-      await page.locator('#precos').getByRole('button').nth(i).click()
-      await expect(page.getByRole('heading', { name: 'Crie a sua conta' })).toBeVisible()
+      await expect(page.locator('#planos').getByRole('button')).toHaveCount(3)
+      await page.locator('#planos').getByRole('button').nth(i).click()
+      await expect(page.getByRole('heading', { name: 'Crie sua conta' })).toBeVisible()
     }
   })
 
-  test('"Ver Demonstração" entra no painel de demonstração', async ({ page }) => {
-    await page.getByRole('button', { name: /Ver Demonstração/ }).click()
+  test('"Ver demonstração" entra no painel de demonstração', async ({ page }) => {
+    await page.getByRole('button', { name: /Ver demonstração/i }).click()
     await expect(page.getByText('Visão Geral').first()).toBeVisible({ timeout: 20000 })
   })
 
@@ -81,16 +87,25 @@ test.describe('Página de vendas', () => {
     }
   })
 
-  test('cartões de plano com a mesma altura e botões alinhados embaixo', async ({ page, isMobile }) => {
+  // No design, o plano em destaque é um pouco maior e fica centralizado na linha;
+  // os comuns têm a mesma altura, e em todos o botão fica no fim do cartão.
+  test('cartões de plano comuns com a mesma altura, destaque centralizado e botões no fim do cartão', async ({ page, isMobile }) => {
     test.skip(!!isMobile, 'no celular os cartões ficam empilhados')
-    const buttons = page.locator('#precos').getByRole('button')
-    await expect(buttons).toHaveCount(3)
-    const boxes = await Promise.all([0, 1, 2].map((i) => buttons.nth(i).boundingBox()))
-    const bottoms = boxes.map((b) => Math.round(b!.y + b!.height))
-    expect(Math.max(...bottoms) - Math.min(...bottoms), `botões desalinhados: ${bottoms}`).toBeLessThanOrEqual(2)
-    const cards = page.locator('#precos [data-slot="card"]')
-    const heights = await Promise.all([0, 1, 2].map(async (i) => Math.round((await cards.nth(i).boundingBox())!.height)))
+    await expect(page.locator('#planos').getByRole('button')).toHaveCount(3)
+    const cards = page.locator('#planos .plano')
+    const info = await Promise.all([0, 1, 2].map(async (i) => {
+      const card = cards.nth(i)
+      const box = (await card.boundingBox())!
+      const btn = (await card.getByRole('button').boundingBox())!
+      const highlight = await card.evaluate((n) => n.classList.contains('plano--destaque'))
+      return { highlight, height: Math.round(box.height), center: Math.round(box.y + box.height / 2), btnGap: Math.round(box.y + box.height - (btn.y + btn.height)) }
+    }))
+    const heights = info.filter((c) => !c.highlight).map((c) => c.height)
     expect(Math.max(...heights) - Math.min(...heights), `alturas diferentes: ${heights}`).toBeLessThanOrEqual(2)
+    const centers = info.map((c) => c.center)
+    expect(Math.max(...centers) - Math.min(...centers), `cartões fora do centro da linha: ${centers}`).toBeLessThanOrEqual(2)
+    const gaps = info.map((c) => c.btnGap)
+    expect(Math.max(...gaps) - Math.min(...gaps), `botões fora do fim do cartão: ${gaps}`).toBeLessThanOrEqual(8)
   })
 
   test('sem barra de rolagem horizontal e sem texto vazando (layout)', async ({ page }, info) => {

@@ -91,6 +91,10 @@ jobs:
             /usr/local/bin/bun run db:push
           fi
 
+      - name: "Catálogo de planos (nome e descrição iguais ao site; preços e assinaturas não mudam)"
+        working-directory: /opt/atende-radar/current
+        run: /usr/local/bin/bun scripts/sync-plan-catalog.ts
+
       - name: Build
         working-directory: /opt/atende-radar/current
         env:

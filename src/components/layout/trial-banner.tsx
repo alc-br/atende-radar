@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { Clock, AlertTriangle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/lib/store'
 
 interface Sub {
@@ -49,32 +48,35 @@ export function TrialBanner() {
         ? `Você já usou ${conv!.current} de ${conv!.limit} conversas do plano ${sub.planName} neste mês (${pct}%).`
         : null
 
+  const danger = inactive || quotaLevel === 'exceeded'
+  // Mesmo componente "aviso" do pacote de design (painel/configuracoes.html); vermelho quando bloqueia
   return (
-    <div
-      data-testid="trial-banner"
-      className={`flex flex-col sm:flex-row sm:items-center gap-2 px-4 lg:px-6 py-2 text-sm border-b ${
-        inactive || quotaLevel === 'exceeded' ? 'bg-red-50 text-red-900 dark:bg-red-950/30 dark:text-red-200' : 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200'
-      }`}
-    >
-      <span className="flex flex-col gap-1 flex-1">
-        {(trialing || inactive) && (
-          <span className="flex items-center gap-2">
-            {inactive ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Clock className="w-4 h-4 shrink-0" />}
-            {inactive
-              ? 'Seu teste grátis terminou ou a assinatura não está ativa. Contrate um plano para continuar cadastrando.'
-              : `Teste grátis: ${sub.trialDaysLeft} ${sub.trialDaysLeft === 1 ? 'dia restante' : 'dias restantes'}.`}
-          </span>
-        )}
-        {quotaText && (
-          <span data-testid="quota-warning" className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            {quotaText}
-          </span>
-        )}
-      </span>
-      <Button size="sm" variant="outline" className="self-start sm:self-auto bg-background" onClick={() => setView('plans')}>
-        Ver planos
-      </Button>
+    <div className="px-4 pt-4 sm:px-7">
+      <div
+        data-testid="trial-banner"
+        className={
+          danger
+            ? 'aviso flex-col sm:flex-row sm:items-center border border-[var(--vermelho-borda)] bg-[var(--vermelho-fundo)] text-[var(--vermelho)]'
+            : 'aviso aviso--ambar flex-col sm:flex-row sm:items-center'
+        }
+      >
+        <span className={danger ? 'aviso__ic grid size-7 shrink-0 place-items-center rounded-full bg-[var(--vermelho)] text-white' : 'aviso__ic'}>
+          {inactive || quotaLevel !== 'none' ? <AlertTriangle className="ic" aria-hidden="true" /> : <Clock className="ic" aria-hidden="true" />}
+        </span>
+        <span className="flex flex-1 flex-col gap-1">
+          {(trialing || inactive) && (
+            <span>
+              {inactive
+                ? 'Seu teste grátis terminou ou a assinatura não está ativa. Contrate um plano para continuar cadastrando.'
+                : <>Teste grátis: <b>{sub.trialDaysLeft} {sub.trialDaysLeft === 1 ? 'dia restante' : 'dias restantes'}</b>.</>}
+            </span>
+          )}
+          {quotaText && <span data-testid="quota-warning">{quotaText}</span>}
+        </span>
+        <button type="button" className="btn btn--sm self-start sm:self-auto" onClick={() => setView('plans')}>
+          Ver planos
+        </button>
+      </div>
     </div>
   )
 }

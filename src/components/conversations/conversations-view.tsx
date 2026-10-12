@@ -14,20 +14,19 @@ import {
   Filter,
   Clock,
   ShieldAlert,
-  AlertTriangle,
-  Phone,
   ChevronLeft,
   ChevronRight,
   X,
+  Eye,
+  MessagesSquare,
+  RotateCcw,
 } from 'lucide-react'
 
 import {
   formatCurrency,
   timeAgo,
-  getSeverityColor,
   getStageLabel,
   getIntentLabel,
-  getUrgencyLabel,
   getSentimentLabel,
   cn,
 } from '@/lib/utils'
@@ -35,9 +34,7 @@ import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -53,17 +50,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { INTENT_TAG, STAGE_TAG, SENTIMENT_TAG, scoreBadgeClass, avatarTone, initials } from './tags'
 
 type SortField =
   | 'customerName'
@@ -82,61 +71,12 @@ type SortDir = 'asc' | 'desc'
 
 const PER_PAGE = 15
 
-const sentimentDotColor: Record<string, string> = {
-  positive: 'bg-emerald-500',
-  neutral: 'bg-slate-400',
-  confused: 'bg-amber-400',
-  anxious: 'bg-orange-400',
-  frustrated: 'bg-red-500',
-  irritated: 'bg-red-600',
-  desistindo: 'bg-gray-500',
-}
-
-const urgencyBadgeVariant: Record<string, 'destructive' | 'secondary' | 'outline' | 'default'> = {
-  critical: 'destructive',
-  high: 'destructive',
-  normal: 'secondary',
-  low: 'outline',
-}
-
-const intentBadgeColor: Record<string, string> = {
-  consulta: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800',
-  preco: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800',
-  disponibilidade: 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800',
-  agendamento: 'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800',
-  compra: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800',
-  negociacao: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800',
-  suporte: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-950 dark:text-slate-300 dark:border-slate-800',
-  pos_venda: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800',
-  reclamacao: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800',
-  cancelamento: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300 dark:border-gray-800',
-}
-
-const stageBadgeColor: Record<string, string> = {
-  discovery: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300',
-  qualification: 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300',
-  evaluation: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
-  price: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300',
-  proposal: 'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300',
-  negotiation: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300',
-  decision: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
-  won: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
-  lost: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300',
-  post_sale: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
-}
-
-function scoreColor(score: number) {
-  if (score >= 80) return 'text-emerald-700 dark:text-emerald-400'
-  if (score >= 70) return 'text-amber-700 dark:text-amber-400'
-  return 'text-red-700 dark:text-red-400'
-}
-
 function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
-  if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />
+  if (sortField !== field) return <ArrowUpDown className="ic" aria-hidden="true" />
   return sortDir === 'asc' ? (
-    <ArrowUp className="ml-1 h-3 w-3" />
+    <ArrowUp className="ic" aria-hidden="true" />
   ) : (
-    <ArrowDown className="ml-1 h-3 w-3" />
+    <ArrowDown className="ic" aria-hidden="true" />
   )
 }
 
@@ -187,6 +127,7 @@ export default function ConversationsView() {
   const [error, setError] = useState<string | null>(null)
   const [allConversations, setAllConversations] = useState<any[]>([])
   const [totalCount, setTotalCount] = useState(0)
+  const [hasLoaded, setHasLoaded] = useState(false) // depois da 1ª carga, refazer a busca não desmonta a tela (o campo de busca mantém o foco)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -209,6 +150,8 @@ export default function ConversationsView() {
       const data = await res.json()
       setAllConversations(data.conversations || [])
       setTotalCount(data.pagination?.total || 0)
+      setHasLoaded(true)
+      setHasLoaded(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido')
     } finally {
@@ -340,7 +283,7 @@ export default function ConversationsView() {
         return /[;"\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
       }
       const lines = [head.join(';'), ...chosen.map((c) => [c.customerName, c.customerPhone, c.agentName, c.operationalStatus, c.primaryIntent, c.inferredStage, c.potentialValue, c.score, c.lastActivity].map(cell).join(';'))]
-      const url = URL.createObjectURL(new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }))
+      const url = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }))
       const a = document.createElement('a')
       a.href = url
       a.download = 'atenderadar-conversas.csv'
@@ -358,613 +301,599 @@ export default function ConversationsView() {
     () => [...new Set(allConversations.map((c) => c.inferredStage).filter(Boolean))].sort(),
     [allConversations]
   )
+  const agentList = useMemo(
+    () =>
+      allConversations
+        .filter((c) => c.agentId)
+        .reduce((acc, c) => {
+          if (!acc.find((a: { id: string }) => a.id === c.agentId)) acc.push({ id: c.agentId, name: c.agentName, team: c.agentTeam })
+          return acc
+        }, [] as { id: string; name: string; team: string }[]),
+    [allConversations]
+  )
+
+  const hasActiveFilters =
+    period !== '7d' || agentFilter !== 'all' || intentFilter !== 'all' || urgencyFilter !== 'all' ||
+    sentimentFilter !== 'all' || stageFilter !== 'all' || failureFilter !== 'all' || hasPotentialValue || unreadByManager
+
+  const clearFilters = () => {
+    setPeriod('7d')
+    setAgentFilter('all')
+    setIntentFilter('all')
+    setUrgencyFilter('all')
+    setSentimentFilter('all')
+    setStageFilter('all')
+    setFailureFilter('all')
+    setHasPotentialValue(false)
+    setUnreadByManager(false)
+    setPage(1)
+  }
 
   // Loading skeleton
-  if (isLoading) {
+  if (isLoading && !hasLoaded) {
     return (
-      <TooltipProvider delayDuration={300}>
-        <div className="flex flex-col gap-4 p-4 lg:p-6">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-10 w-full max-w-sm" />
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-9" />)}
-          </div>
+      <div className="flex flex-col gap-[18px]">
+        <Skeleton className="h-9 w-56" />
+        <Skeleton className="h-28 w-full rounded-[var(--raio)]" />
+        <div className="flex flex-col gap-2">
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
         </div>
-      </TooltipProvider>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive font-medium">{error}</p>
-        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
+      <div className="cartao vazio flex flex-col items-center gap-4">
+        <p className="font-medium vermelho">{error}</p>
+        <button type="button" onClick={fetchData} className="btn btn--sm">Tentar novamente</button>
       </div>
     )
   }
 
+  const shownCount = totalCount || allConversations.length
+
+  const sortHeader = (field: SortField, label: string, className?: string) => (
+    <th
+      data-ordenar
+      className={className}
+      aria-sort={sortField === field ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+    >
+      <button type="button" className="inline-flex items-center font-[inherit]" onClick={() => handleSort(field)}>
+        {label}
+        <SortIcon field={field} sortField={sortField} sortDir={sortDir} />
+      </button>
+    </th>
+  )
+
+  const pageItems = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter((p) => {
+      if (totalPages <= 7) return true
+      if (p === 1 || p === totalPages) return true
+      if (Math.abs(p - safePage) <= 1) return true
+      return false
+    })
+    .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
+      if (i > 0) {
+        const prev = arr[i - 1]
+        if (p - prev > 1) acc.push('ellipsis')
+      }
+      acc.push(p)
+      return acc
+    }, [])
+
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-full flex-col gap-4 p-4 lg:p-6">
-        {/* Header */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Conversas</h1>
-            <p className="text-sm text-muted-foreground">
-              {totalCount || allConversations.length} conversa{(totalCount || allConversations.length) !== 1 ? 's' : ''} encontrada{(totalCount || allConversations.length) !== 1 ? 's' : ''}
-            </p>
+      <div className="flex flex-col gap-[18px]">
+        {/* Cabeçalho */}
+        <div className="cab-pagina">
+          <div className="cab-pagina__titulo">
+            <MessagesSquare className="ic cab-pagina__icone" aria-hidden="true" />
+            <div>
+              <h1>Conversas</h1>
+              <p>
+                {shownCount} conversa{shownCount !== 1 ? 's' : ''} encontrada{shownCount !== 1 ? 's' : ''}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Search + Filters */}
-        <div className="flex flex-col gap-3">
-          {/* Search bar */}
-          <div data-tour="conversations-search" className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por cliente, telefone ou atendente..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              className="pl-9"
-            />
+        {/* Busca + filtros */}
+        <section className="cartao px-4 py-4 sm:px-[18px]" aria-label="Busca e filtros">
+          <div className="flex flex-wrap items-end gap-3">
+            <div data-tour="conversations-search" className="campo min-w-0 flex-1 basis-[260px] max-w-[520px]">
+              <span className="rotulo !text-[12.5px] !font-medium !text-[color:var(--texto-2)] inline-flex items-center gap-1.5">
+                <Filter className="ic" aria-hidden="true" /> Filtros
+              </span>
+              <label className="entrada-ic">
+                <Search className="ic" aria-hidden="true" />
+                <span className="sr-only">Buscar conversas</span>
+                <input
+                  className="entrada !bg-[var(--superficie-2)]"
+                  type="search"
+                  placeholder="Buscar por cliente, telefone ou atendente..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    setPage(1)
+                  }}
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              className="btn md:hidden"
+              data-testid="conversations-filters-toggle"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((o) => !o)}
+            >
+              <Filter className="ic" aria-hidden="true" />
+              {filtersOpen ? 'Ocultar filtros' : 'Filtros'}
+            </button>
+            {hasActiveFilters && (
+              <button type="button" className="btn btn--link filtros__limpar hidden md:inline-flex" onClick={clearFilters}>
+                <RotateCcw className="ic" aria-hidden="true" />
+                Limpar filtros
+              </button>
+            )}
           </div>
 
-          {/* Filters row */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="md:hidden self-start gap-1.5"
-            aria-expanded={filtersOpen}
-            onClick={() => setFiltersOpen((o) => !o)}
+          <div
+            data-tour="conversations-filters"
+            className={cn(
+              'filtros !p-0 mt-4 !gap-3 !grid-cols-2 sm:!grid-cols-3 lg:!grid-cols-5 2xl:!grid-cols-9',
+              filtersOpen ? 'grid' : 'hidden md:grid'
+            )}
           >
-            <Filter className="h-4 w-4" />
-            {filtersOpen ? 'Ocultar filtros' : 'Filtros'}
-          </Button>
-          <div data-tour="conversations-filters" className={cn('gap-2 grid-cols-2 sm:grid-cols-3 md:grid md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9', filtersOpen ? 'grid' : 'hidden')}>
-            {/* Período */}
-            <Select
-              value={period}
-              onValueChange={(v) => {
-                setPeriod(v)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger aria-label="Período" className="h-9">
-                <SelectValue placeholder="Período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Hoje</SelectItem>
-                <SelectItem value="yesterday">Ontem</SelectItem>
-                <SelectItem value="7d">7 dias</SelectItem>
-                <SelectItem value="30d">30 dias</SelectItem>
-                <SelectItem value="custom">Personalizado</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="campo">
+              <label htmlFor="cv-periodo">Período</label>
+              <select
+                id="cv-periodo"
+                className="selecao"
+                value={period}
+                onChange={(e) => {
+                  setPeriod(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="today">Hoje</option>
+                <option value="yesterday">Ontem</option>
+                <option value="7d">7 dias</option>
+                <option value="30d">30 dias</option>
+                <option value="custom">Personalizado</option>
+              </select>
+            </div>
 
-            {/* Responsável */}
-            <Select
-              value={agentFilter}
-              onValueChange={(v) => {
-                setAgentFilter(v)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger aria-label="Responsável" className="h-9">
-                <SelectValue placeholder="Responsável" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {allConversations
-                  .filter((c) => c.agentId)
-                  .reduce((acc, c) => {
-                    if (!acc.find((a: any) => a.id === c.agentId)) acc.push({ id: c.agentId, name: c.agentName })
-                    return acc
-                  }, [] as { id: string; name: string }[])
-                  .map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+            <div className="campo">
+              <label htmlFor="cv-responsavel">Responsável</label>
+              <select
+                id="cv-responsavel"
+                className="selecao"
+                value={agentFilter}
+                onChange={(e) => {
+                  setAgentFilter(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todos</option>
+                {agentList.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
 
-            {/* Intenção */}
-            <Select
-              value={intentFilter}
-              onValueChange={(v) => {
-                setIntentFilter(v)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger aria-label="Intenção" className="h-9">
-                <SelectValue placeholder="Intenção" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
+            <div className="campo">
+              <label htmlFor="cv-intencao">Intenção</label>
+              <select
+                id="cv-intencao"
+                className="selecao"
+                value={intentFilter}
+                onChange={(e) => {
+                  setIntentFilter(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todas</option>
                 {uniqueIntents.map((i) => (
-                  <SelectItem key={i} value={i}>
-                    {getIntentLabel(i)}
-                  </SelectItem>
+                  <option key={i} value={i}>{getIntentLabel(i)}</option>
                 ))}
-              </SelectContent>
-            </Select>
+              </select>
+            </div>
 
-            {/* Urgência */}
-            <Select
-              value={urgencyFilter}
-              onValueChange={(v) => {
-                setUrgencyFilter(v)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger aria-label="Urgência" className="h-9">
-                <SelectValue placeholder="Urgência" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="low">Baixa</SelectItem>
-                <SelectItem value="normal">Normal</SelectItem>
-                <SelectItem value="high">Alta</SelectItem>
-                <SelectItem value="critical">Crítica</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="campo">
+              <label htmlFor="cv-urgencia">Urgência</label>
+              <select
+                id="cv-urgencia"
+                className="selecao"
+                value={urgencyFilter}
+                onChange={(e) => {
+                  setUrgencyFilter(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todas</option>
+                <option value="low">Baixa</option>
+                <option value="normal">Normal</option>
+                <option value="high">Alta</option>
+                <option value="critical">Crítica</option>
+              </select>
+            </div>
 
-            {/* Sentimento */}
-            <Select
-              value={sentimentFilter}
-              onValueChange={(v) => {
-                setSentimentFilter(v)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger aria-label="Sentimento" className="h-9">
-                <SelectValue placeholder="Sentimento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="positive">Positivo</SelectItem>
-                <SelectItem value="neutral">Neutro</SelectItem>
-                <SelectItem value="confused">Confuso</SelectItem>
-                <SelectItem value="anxious">Ansioso</SelectItem>
-                <SelectItem value="frustrated">Frustrado</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="campo">
+              <label htmlFor="cv-sentimento">Sentimento</label>
+              <select
+                id="cv-sentimento"
+                className="selecao"
+                value={sentimentFilter}
+                onChange={(e) => {
+                  setSentimentFilter(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todos</option>
+                <option value="positive">Positivo</option>
+                <option value="neutral">Neutro</option>
+                <option value="confused">Confuso</option>
+                <option value="anxious">Ansioso</option>
+                <option value="frustrated">Frustrado</option>
+              </select>
+            </div>
 
-            {/* Etapa */}
-            <Select
-              value={stageFilter}
-              onValueChange={(v) => {
-                setStageFilter(v)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger aria-label="Etapa" className="h-9">
-                <SelectValue placeholder="Etapa" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
+            <div className="campo">
+              <label htmlFor="cv-etapa">Etapa</label>
+              <select
+                id="cv-etapa"
+                className="selecao"
+                value={stageFilter}
+                onChange={(e) => {
+                  setStageFilter(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todas</option>
                 {uniqueStages.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {getStageLabel(s)}
-                  </SelectItem>
+                  <option key={s} value={s}>{getStageLabel(s)}</option>
                 ))}
-              </SelectContent>
-            </Select>
+              </select>
+            </div>
 
-            {/* Falha */}
-            <Select
-              value={failureFilter}
-              onValueChange={(v) => {
-                setFailureFilter(v)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger aria-label="Falha" className="h-9">
-                <SelectValue placeholder="Falha" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="with_failures">Com falhas</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="campo">
+              <label htmlFor="cv-falha">Falha</label>
+              <select
+                id="cv-falha"
+                className="selecao"
+                value={failureFilter}
+                onChange={(e) => {
+                  setFailureFilter(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todas</option>
+                <option value="with_failures">Com falhas</option>
+              </select>
+            </div>
 
-            {/* Com valor potencial checkbox */}
-            <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm cursor-pointer">
-              <Checkbox
+            <label className="flex h-10 cursor-pointer items-center gap-2 self-end rounded-[var(--raio-sm)] border border-[var(--borda-forte)] bg-[var(--superficie-2)] px-3 text-[13.5px]">
+              <input
+                type="checkbox"
+                className="caixa"
                 checked={hasPotentialValue}
-                onCheckedChange={(v) => {
-                  setHasPotentialValue(!!v)
+                onChange={(e) => {
+                  setHasPotentialValue(e.target.checked)
                   setPage(1)
                 }}
               />
               <span className="whitespace-nowrap">Com valor</span>
             </label>
 
-            {/* Não lidas pelo gestor checkbox */}
-            <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm cursor-pointer">
-              <Checkbox
+            <label className="flex h-10 cursor-pointer items-center gap-2 self-end rounded-[var(--raio-sm)] border border-[var(--borda-forte)] bg-[var(--superficie-2)] px-3 text-[13.5px]">
+              <input
+                type="checkbox"
+                className="caixa"
                 checked={unreadByManager}
-                onCheckedChange={(v) => {
-                  setUnreadByManager(!!v)
+                onChange={(e) => {
+                  setUnreadByManager(e.target.checked)
                   setPage(1)
                 }}
               />
               <span className="whitespace-nowrap">Não lidas</span>
             </label>
-          </div>
-        </div>
 
-        {/* Batch actions toolbar */}
+            {hasActiveFilters && (
+              <button type="button" className="btn btn--link filtros__limpar col-span-full justify-self-start md:hidden" onClick={clearFilters}>
+                <RotateCcw className="ic" aria-hidden="true" />
+                Limpar filtros
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* Ações em lote */}
         {selectedIds.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950 px-4 py-2">
-            <span className="mr-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          <div className="cartao flex flex-wrap items-center gap-2 !border-[var(--verde-300)] !bg-[var(--verde-50)] px-4 py-2.5">
+            <span className="mr-2 text-[13.5px] font-semibold text-[color:var(--verde-700)]">
               {selectedIds.size} selecionada{selectedIds.size !== 1 ? 's' : ''}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => handleBatchAction('assign')}
-            >
-              <UserPlus className="h-3.5 w-3.5" />
+            <button type="button" className="btn btn--sm" onClick={() => handleBatchAction('assign')}>
+              <UserPlus className="ic" aria-hidden="true" />
               Atribuir atendente
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => handleBatchAction('tag')}
-            >
-              <Tag className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" className="btn btn--sm" onClick={() => handleBatchAction('tag')}>
+              <Tag className="ic" aria-hidden="true" />
               Adicionar tag
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => handleBatchAction('recovery')}
-            >
-              <Send className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" className="btn btn--sm" onClick={() => handleBatchAction('recovery')}>
+              <Send className="ic" aria-hidden="true" />
               Enviar à recuperação
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => handleBatchAction('export')}
-            >
-              <Download className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" className="btn btn--sm" onClick={() => handleBatchAction('export')}>
+              <Download className="ic" aria-hidden="true" />
               Exportar metadados
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => handleBatchAction('review')}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" className="btn btn--sm" onClick={() => handleBatchAction('review')}>
+              <CheckCircle2 className="ic" aria-hidden="true" />
               Marcar como revisada
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto h-8 text-xs"
-              onClick={clearSelection}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
+            </button>
+            <button type="button" className="reticencias ml-auto" aria-label="Limpar seleção" onClick={clearSelection}>
+              <X className="ic" aria-hidden="true" />
+            </button>
           </div>
         )}
 
-        {/* Celular: cada conversa é um cartão com o que importa (a tabela larga fica para telas maiores) */}
-        <div className="md:hidden flex flex-col gap-2" data-testid="conversation-cards">
-          {paged.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">Nenhuma conversa encontrada.</p>
-          ) : (
-            paged.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => selectConversation(c.id)}
-                className="text-left rounded-lg border bg-card p-3 flex flex-col gap-2 active:bg-muted/50"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{c.customerName}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{c.customerPhone}</p>
+        <section className="cartao overflow-hidden" aria-label="Conversas encontradas">
+          {/* Celular: cada conversa é um cartão com o que importa (a tabela larga fica para telas maiores) */}
+          <div className="md:hidden flex flex-col" data-testid="conversation-cards">
+            {paged.length === 0 ? (
+              <div className="vazio">
+                <MessagesSquare className="ic" aria-hidden="true" />
+                <strong>Nenhuma conversa encontrada.</strong>
+              </div>
+            ) : (
+              paged.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => selectConversation(c.id)}
+                  className="flex flex-col gap-2 border-t border-[var(--borda)] px-4 py-3 text-left first:border-t-0 active:bg-[var(--superficie-2)]"
+                >
+                  <div className="flex w-full items-start justify-between gap-2">
+                    <div className="pessoa">
+                      <span className={cn('av', avatarTone(c.customerName))} aria-hidden="true">{initials(c.customerName)}</span>
+                      <span className="min-w-0">
+                        <strong className="truncate">{c.customerName}</strong>
+                        <small className="mono">{c.customerPhone}</small>
+                      </span>
+                    </div>
+                    {c.waitingMinutes > 0 ? (
+                      <span className="vermelho inline-flex shrink-0 items-center gap-1 text-xs font-semibold">
+                        <Clock className="ic" aria-hidden="true" />
+                        espera {c.waitingMinutes}min
+                      </span>
+                    ) : (
+                      <span className="suave shrink-0 text-xs">{timeAgo(c.lastActivity)}</span>
+                    )}
                   </div>
-                  {c.waitingMinutes > 0 ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 dark:text-red-400 shrink-0">
-                      <Clock className="h-3 w-3" />
-                      espera {c.waitingMinutes}min
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground shrink-0">{timeAgo(c.lastActivity)}</span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {c.primaryIntent && (
-                    <Badge variant="outline" className={cn('text-xs font-normal', intentBadgeColor[c.primaryIntent] || '')}>
-                      {getIntentLabel(c.primaryIntent)}
-                    </Badge>
-                  )}
-                  {c.potentialValue > 0 && <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">{formatCurrency(c.potentialValue)}</span>}
-                  <span className="text-xs text-muted-foreground ml-auto">{c.agentName}</span>
-                </div>
-              </button>
-            ))
-          )}
-        </div>
+                  <div className="flex w-full flex-wrap items-center gap-1.5">
+                    {c.primaryIntent && (
+                      <span className={cn('tag', INTENT_TAG[c.primaryIntent] || 'tag--cinza')}>
+                        {getIntentLabel(c.primaryIntent)}
+                      </span>
+                    )}
+                    {c.potentialValue > 0 && <span className="verde-txt text-xs font-semibold">{formatCurrency(c.potentialValue)}</span>}
+                    <span className="suave ml-auto text-xs">{c.agentName}</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
 
-        {/* Table (a partir de telas médias) */}
-        <ScrollArea className="hidden md:block custom-scrollbar max-h-[calc(100vh-280px)]">
-          <div className="min-w-[1200px]">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-10 px-3">
-                    <Checkbox
+          {/* Tabela (a partir de telas médias) */}
+          <div className="tabela-wrap hidden md:block" tabIndex={0} role="region" aria-label="Lista de conversas">
+            <table className="tabela tabela--cab-cinza">
+              <thead>
+                <tr>
+                  <th className="chk">
+                    <input
+                      type="checkbox"
+                      className="caixa"
                       aria-label="Selecionar todas as conversas da página"
                       checked={paged.length > 0 && selectedIds.size === paged.length}
-                      onCheckedChange={toggleSelectAll}
+                      onChange={toggleSelectAll}
                     />
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none px-3"
-                    onClick={() => handleSort('customerName')}
-                  >
-                    <span className="inline-flex items-center">
-                      Cliente
-                      <SortIcon field="customerName" sortField={sortField} sortDir={sortDir} />
-                    </span>
-                  </TableHead>
-                  <TableHead className="px-3 hidden lg:table-cell">Conexão</TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none px-3"
-                    onClick={() => handleSort('agentName')}
-                  >
-                    <span className="inline-flex items-center">
-                      Responsável
-                      <SortIcon field="agentName" sortField={sortField} sortDir={sortDir} />
-                    </span>
-                  </TableHead>
-                  <TableHead className="px-3 hidden xl:table-cell">Última mensagem</TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none px-3 hidden md:table-cell"
-                    onClick={() => handleSort('waitingMinutes')}
-                  >
-                    <span className="inline-flex items-center">
-                      Espera
-                      <SortIcon field="waitingMinutes" sortField={sortField} sortDir={sortDir} />
-                    </span>
-                  </TableHead>
-                  <TableHead className="px-3 hidden lg:table-cell">Intenção</TableHead>
-                  <TableHead className="px-3 hidden lg:table-cell">Etapa</TableHead>
-                  <TableHead className="px-3 hidden md:table-cell">Sent.</TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none px-3"
-                    onClick={() => handleSort('alertCount')}
-                  >
-                    <span className="inline-flex items-center">
-                      Alertas
-                      <SortIcon field="alertCount" sortField={sortField} sortDir={sortDir} />
-                    </span>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none px-3 hidden sm:table-cell"
-                    onClick={() => handleSort('potentialValue')}
-                  >
-                    <span className="inline-flex items-center">
-                      Valor
-                      <SortIcon field="potentialValue" sortField={sortField} sortDir={sortDir} />
-                    </span>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none px-3"
-                    onClick={() => handleSort('score')}
-                  >
-                    <span className="inline-flex items-center">
-                      Nota
-                      <SortIcon field="score" sortField={sortField} sortDir={sortDir} />
-                    </span>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none px-3"
-                    onClick={() => handleSort('lastActivity')}
-                  >
-                    <span className="inline-flex items-center">
-                      Atividade
-                      <SortIcon field="lastActivity" sortField={sortField} sortDir={sortDir} />
-                    </span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                  </th>
+                  {sortHeader('customerName', 'Cliente')}
+                  <th className="hidden lg:table-cell">Conexão</th>
+                  {sortHeader('agentName', 'Responsável')}
+                  <th className="hidden xl:table-cell">Última mensagem</th>
+                  {sortHeader('waitingMinutes', 'Espera')}
+                  <th className="hidden lg:table-cell">Intenção</th>
+                  <th className="hidden lg:table-cell">Etapa</th>
+                  <th>Sentimento</th>
+                  {sortHeader('alertCount', 'Alertas')}
+                  {sortHeader('potentialValue', 'Valor')}
+                  {sortHeader('score', 'Nota', 'centro')}
+                  {sortHeader('lastActivity', 'Atividade')}
+                  <th><span className="sr-only">Ações</span></th>
+                </tr>
+              </thead>
+              <tbody>
                 {paged.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={13} className="h-32 text-center text-muted-foreground">
-                      Nenhuma conversa encontrada.
-                    </TableCell>
-                  </TableRow>
+                  <tr>
+                    <td colSpan={14}>
+                      <div className="vazio">
+                        <MessagesSquare className="ic" aria-hidden="true" />
+                        <strong>Nenhuma conversa encontrada.</strong>
+                      </div>
+                    </td>
+                  </tr>
                 ) : (
                   paged.map((c) => (
-                    <TableRow
-                      key={c.id}
-                      className="cursor-pointer group"
-                      onClick={() => selectConversation(c.id)}
-                    >
-                      <TableCell className="px-3" onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
+                    <tr key={c.id} className="cursor-pointer" onClick={() => selectConversation(c.id)}>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="caixa"
                           aria-label={`Selecionar conversa de ${c.customerName}`}
                           checked={selectedIds.has(c.id)}
-                          onCheckedChange={() => toggleSelect(c.id)}
+                          onChange={() => toggleSelect(c.id)}
                         />
-                      </TableCell>
-                      <TableCell className="px-3 py-2">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-medium text-sm">{c.customerName}</span>
-                          <span className="text-xs text-muted-foreground font-mono">{c.customerPhone}</span>
+                      </td>
+                      <td>
+                        <div className="pessoa">
+                          <span className={cn('av', avatarTone(c.customerName))} aria-hidden="true">{initials(c.customerName)}</span>
+                          <span>
+                            <strong>{c.customerName}</strong>
+                            <small className="mono">{c.customerPhone}</small>
+                          </span>
                         </div>
-                      </TableCell>
-                      <TableCell className="px-3 hidden lg:table-cell">
-                        <span className="text-xs text-muted-foreground">{c.connectionName}</span>
-                      </TableCell>
-                      <TableCell className="px-3">
-                        <span className="text-sm">{c.agentName}</span>
-                      </TableCell>
-                      <TableCell className="px-3 hidden xl:table-cell">
-                        <span className="text-xs text-muted-foreground max-w-[180px] truncate block">
+                      </td>
+                      <td className="hidden lg:table-cell">
+                        <span className="suave text-xs">{c.connectionName}</span>
+                      </td>
+                      <td>
+                        {c.agentName ? (
+                          <div className="pessoa">
+                            <span className={cn('av av--sm', avatarTone(c.agentName))} aria-hidden="true">{initials(c.agentName)}</span>
+                            <span>{c.agentName}</span>
+                          </div>
+                        ) : (
+                          <span className="suave">-</span>
+                        )}
+                      </td>
+                      <td className="hidden xl:table-cell">
+                        <span className="suave block max-w-[180px] truncate text-xs">
                           {c.messagesCount > 0 ? `${c.messagesCount} mensagens` : '-'}
                         </span>
-                      </TableCell>
-                      <TableCell className="px-3 hidden md:table-cell">
+                      </td>
+                      <td>
                         {c.waitingMinutes > 0 ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="inline-flex items-center gap-1 text-sm font-medium text-red-700 dark:text-red-400">
-                                <Clock className="h-3 w-3" />
+                              <span className="vermelho forte inline-flex items-center gap-1 whitespace-nowrap">
+                                <Clock className="ic" aria-hidden="true" />
                                 {c.waitingMinutes}min
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>Aguardando há {c.waitingMinutes} minutos</TooltipContent>
                           </Tooltip>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span className="suave">-</span>
                         )}
-                      </TableCell>
-                      <TableCell className="px-3 hidden lg:table-cell">
-                        <Badge
-                          variant="outline"
-                          className={cn('text-xs font-normal', intentBadgeColor[c.primaryIntent] || '')}
-                        >
-                          {getIntentLabel(c.primaryIntent)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-3 hidden lg:table-cell">
-                        <Badge
-                          variant="outline"
-                          className={cn('text-xs font-normal', stageBadgeColor[c.inferredStage] || '')}
-                        >
-                          {getStageLabel(c.inferredStage)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-3 hidden md:table-cell">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span
-                              className={cn(
-                                'inline-block h-2.5 w-2.5 rounded-full',
-                                sentimentDotColor[c.sentiment] || 'bg-slate-400'
-                              )}
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent>{getSentimentLabel(c.sentiment)}</TooltipContent>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell className="px-3">
-                        {c.alertCount > 0 ? (
-                          <Badge
-                            variant={c.alertCount >= 2 ? 'destructive' : 'secondary'}
-                            className="text-xs"
-                          >
-                            <ShieldAlert className="mr-1 h-3 w-3" />
-                            {c.alertCount}
-                          </Badge>
+                      </td>
+                      <td className="hidden lg:table-cell">
+                        {c.primaryIntent ? (
+                          <span className={cn('tag', INTENT_TAG[c.primaryIntent] || 'tag--cinza')}>{getIntentLabel(c.primaryIntent)}</span>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span className="suave">-</span>
                         )}
-                      </TableCell>
-                      <TableCell className="px-3 hidden sm:table-cell">
-                        {c.potentialValue > 0 ? (
-                          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                            {formatCurrency(c.potentialValue)}
+                      </td>
+                      <td className="hidden lg:table-cell">
+                        {c.inferredStage ? (
+                          <span className={cn('tag', STAGE_TAG[c.inferredStage] || 'tag--cinza')}>{getStageLabel(c.inferredStage)}</span>
+                        ) : (
+                          <span className="suave">-</span>
+                        )}
+                      </td>
+                      <td>
+                        {c.sentiment ? (
+                          <span className={cn('tag', SENTIMENT_TAG[c.sentiment] || 'tag--cinza')}>
+                            <span className="ponto" aria-hidden="true" />
+                            {getSentimentLabel(c.sentiment)}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span className="suave">-</span>
                         )}
-                      </TableCell>
-                      <TableCell className="px-3">
-                        <span className={cn('text-sm font-bold tabular-nums', scoreColor(c.score))}>
-                          {c.score}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-3">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {timeAgo(c.lastActivity)}
-                        </span>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                      <td>
+                        {c.alertCount > 0 ? (
+                          <span className={cn('tag', c.alertCount >= 2 ? 'tag--vermelho' : 'tag--ambar')}>
+                            <ShieldAlert className="ic" aria-hidden="true" />
+                            {c.alertCount}
+                          </span>
+                        ) : (
+                          <span className="suave">-</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap">
+                        {c.potentialValue > 0 ? (
+                          <span className="verde-txt font-semibold">{formatCurrency(c.potentialValue)}</span>
+                        ) : (
+                          <span className="suave">-</span>
+                        )}
+                      </td>
+                      <td className="centro">
+                        <span className={scoreBadgeClass(c.score)}>{c.score}</span>
+                      </td>
+                      <td>
+                        <span className="suave whitespace-nowrap text-xs">{timeAgo(c.lastActivity)}</span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="ver-conversa"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            selectConversation(c.id)
+                          }}
+                        >
+                          <Eye className="ic" aria-hidden="true" />
+                          Ver conversa<span className="sr-only"> de {c.customerName}</span>
+                        </button>
+                      </td>
+                    </tr>
                   ))
                 )}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
-        </ScrollArea>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Mostrando {(safePage - 1) * PER_PAGE + 1}–{Math.min(safePage * PER_PAGE, filtered.length)} de {filtered.length}
-            </span>
-            <div className="flex items-center gap-1">
-              <Button aria-label="Página anterior"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1"
-                disabled={safePage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => {
-                  if (totalPages <= 7) return true
-                  if (p === 1 || p === totalPages) return true
-                  if (Math.abs(p - safePage) <= 1) return true
-                  return false
-                })
-                .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
-                  if (i > 0) {
-                    const prev = arr[i - 1]
-                    if (p - prev > 1) acc.push('ellipsis')
-                  }
-                  acc.push(p)
-                  return acc
-                }, [])
-                .map((item, i) =>
-                  item === 'ellipsis' ? (
-                    <span key={`e${i}`} className="px-2 text-muted-foreground">
-                      ...
-                    </span>
-                  ) : (
-                    <Button
-                      key={item}
-                      variant={safePage === item ? 'default' : 'outline'}
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => setPage(item)}
-                    >
-                      {item}
-                    </Button>
-                  )
-                )}
-              <Button aria-label="Próxima página"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1"
-                disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+          {/* Paginação */}
+          {filtered.length > 0 && (
+            <div className="paginacao">
+              <span className="suave">
+                Mostrando {(safePage - 1) * PER_PAGE + 1}–{Math.min(safePage * PER_PAGE, filtered.length)} de {filtered.length}
+              </span>
+              {totalPages > 1 && (
+                <div className="linha-flex flex-wrap !gap-1.5">
+                  <button
+                    type="button"
+                    className="pag"
+                    aria-label="Página anterior"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="ic" aria-hidden="true" />
+                  </button>
+                  {pageItems.map((item, i) =>
+                    item === 'ellipsis' ? (
+                      <span key={`e${i}`} className="suave px-1" aria-hidden="true">...</span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        className={cn('pag', safePage === item && 'pag--atual')}
+                        aria-current={safePage === item ? 'page' : undefined}
+                        aria-label={`Página ${item}`}
+                        onClick={() => setPage(item)}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+                  <button
+                    type="button"
+                    className="pag"
+                    aria-label="Próxima página"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    <ChevronRight className="ic" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </section>
 
         {/* Assign Dialog */}
         <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
@@ -980,17 +909,11 @@ export default function ConversationsView() {
                 <SelectValue placeholder="Selecione o atendente" />
               </SelectTrigger>
               <SelectContent>
-                {allConversations
-                  .filter((c) => c.agentId)
-                  .reduce((acc, c) => {
-                    if (!acc.find((a: any) => a.id === c.agentId)) acc.push({ id: c.agentId, name: c.agentName, team: c.agentTeam })
-                    return acc
-                  }, [] as { id: string; name: string; team: string }[])
-                  .map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name} — {a.team}
-                    </SelectItem>
-                  ))}
+                {agentList.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name} — {a.team}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <DialogFooter>
@@ -1014,6 +937,7 @@ export default function ConversationsView() {
               </DialogDescription>
             </DialogHeader>
             <Input
+              aria-label="Tag"
               placeholder="Ex: prioritario, vip, retorno..."
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}

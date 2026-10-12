@@ -1,16 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   AlertTriangle, Bell, BellOff, CheckCheck, FileBarChart, Clock,
   AlertCircle, RotateCcw, Settings,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { timeAgo } from '@/lib/utils'
+import { timeAgo, cn } from '@/lib/utils'
 
 interface Notification {
   id: string
@@ -30,13 +27,14 @@ const ICON_MAP: Record<string, React.ElementType> = {
   system: Settings,
 }
 
-const ICON_COLORS: Record<string, string> = {
-  alert: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  promise_overdue: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  report_ready: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  report_failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  recovery: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-  system: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+// Tons do pacote de design (classes tom-* de painel.css)
+const ICON_TONES: Record<string, string> = {
+  alert: 'tom-vermelho',
+  promise_overdue: 'tom-ambar',
+  report_ready: 'tom-verde',
+  report_failed: 'tom-vermelho',
+  recovery: 'tom-teal',
+  system: 'tom-roxo',
 }
 
 export default function NotificationsView() {
@@ -90,101 +88,132 @@ export default function NotificationsView() {
     }
   }
 
+  const subtitle = unreadCount > 0
+    ? `Você tem ${unreadCount} ${unreadCount > 1 ? 'notificações não lidas' : 'notificação não lida'}.`
+    : 'Todas as notificações foram lidas.'
+
+  const header = (
+    <div className="cab-pagina">
+      <div className="cab-pagina__titulo">
+        <span className="cab-pagina__icone cab-pagina__icone--caixa">
+          <Bell className="ic" aria-hidden="true" />
+        </span>
+        <div>
+          <h1>Notificações</h1>
+          <p>{error ? 'Não foi possível carregar as notificações.' : subtitle}</p>
+        </div>
+      </div>
+      {!error && unreadCount > 0 && (
+        <div className="cab-pagina__acoes">
+          <button type="button" className="btn" onClick={markAllRead}>
+            <CheckCheck className="ic" aria-hidden="true" />
+            Marcar todas como lidas
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive font-medium">{error}</p>
-        <button onClick={fetchNotifications} className="text-sm text-primary underline">Tentar novamente</button>
-      </div>
+      <>
+        {header}
+        <div className="cartao vazio" role="alert">
+          <AlertCircle className="ic mx-auto block" aria-hidden="true" />
+          <strong>{error}</strong>
+          <button type="button" onClick={fetchNotifications} className="btn btn--contorno-verde mt-3">
+            Tentar novamente
+          </button>
+        </div>
+      </>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Notificações</h1>
-          <p className="text-muted-foreground mt-1">
-            {unreadCount > 0
-              ? `Você tem ${unreadCount} ${unreadCount > 1 ? 'notificações não lidas' : 'notificação não lida'}.`
-              : 'Todas as notificações foram lidas.'}
-          </p>
-        </div>
-        {unreadCount > 0 && (
-          <Button variant="outline" onClick={markAllRead}>
-            <CheckCheck className="w-4 h-4 mr-2" />
-            Marcar todas como lidas
-          </Button>
-        )}
-      </div>
+    <>
+      {header}
 
-      {loading ? (
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex gap-3">
-                <Skeleton className="w-10 h-10 rounded-lg shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-full" />
+      <section className="cartao" aria-labelledby="t-notificacoes">
+        <div className="cartao__cab">
+          <div>
+            <h2 id="t-notificacoes">
+              <Bell className="ic verde-txt" aria-hidden="true" />
+              Todas as notificações
+              {!loading && unreadCount > 0 && <span className="contador-pill">{unreadCount}</span>}
+            </h2>
+            <p>Clique em uma notificação para marcá-la como lida ou não lida.</p>
+          </div>
+        </div>
+        <div className="cartao__corpo">
+          {loading ? (
+            <div className="grid gap-4 py-2" aria-hidden="true">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex gap-3">
+                  <Skeleton className="h-10 w-10 shrink-0 rounded-[11px]" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ) : (
-        <ScrollArea className="max-h-[calc(100vh-280px)]">
-          <div className="space-y-2">
-            {notifications.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <BellOff className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-muted-foreground">Nenhuma notificação.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              notifications.map((notif) => {
+              ))}
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="vazio">
+              <BellOff className="ic mx-auto block" aria-hidden="true" />
+              <strong>Nenhuma notificação.</strong>
+              Avisos de alertas, promessas vencidas e relatórios aparecem aqui.
+            </div>
+          ) : (
+            <ul className="grid gap-2">
+              {notifications.map((notif) => {
                 const Icon = ICON_MAP[notif.type] || Bell
-                const colorClass = ICON_COLORS[notif.type] || 'bg-muted text-muted-foreground'
+                const tone = ICON_TONES[notif.type] || 'tom-cinza'
                 return (
-                  <Card
-                    key={notif.id}
-                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${!notif.read ? 'border-l-4 border-l-primary bg-primary/[0.02]' : ''}`}
-                    onClick={() => toggleRead(notif)}
-                  >
-                    <CardContent className="p-4 flex gap-3 items-start">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className={`text-sm font-medium ${!notif.read ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  <li key={notif.id}>
+                    <button
+                      type="button"
+                      onClick={() => toggleRead(notif)}
+                      aria-pressed={notif.read}
+                      className={cn(
+                        'flex w-full items-start gap-3 rounded-[var(--raio-sm)] border p-3.5 text-left transition-colors hover:bg-[var(--superficie-2)]',
+                        notif.read
+                          ? 'border-[var(--borda)] bg-[var(--superficie)]'
+                          : 'border-[var(--verde-300)] border-l-4 border-l-[var(--verde-600)] bg-[var(--verde-50)]',
+                      )}
+                    >
+                      <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-[11px] text-[20px]', tone)}>
+                        <Icon className="ic" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-start justify-between gap-2">
+                          <span className={cn('text-[14px]', notif.read ? 'font-medium text-[var(--texto-2)]' : 'font-semibold text-[var(--texto)]')}>
+                            {!notif.read && <span className="sr-only">Não lida: </span>}
                             {notif.title}
-                          </p>
-                          <div className="flex items-center gap-2 shrink-0">
+                          </span>
+                          <span className="flex shrink-0 items-center gap-2">
                             {!notif.read && (
-                              <span className="w-2 h-2 rounded-full bg-primary" />
+                              <span className="h-2 w-2 rounded-full bg-[var(--verde-600)]" aria-hidden="true" />
                             )}
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
+                            <span className="suave flex items-center gap-1 text-[12px]">
+                              <Clock className="ic" aria-hidden="true" />
                               {timeAgo(notif.createdAt)}
                             </span>
-                          </div>
-                        </div>
+                          </span>
+                        </span>
                         {notif.message && (
-                          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+                          <span className="suave mt-0.5 line-clamp-2 block text-[13px]">
                             {notif.message}
-                          </p>
+                          </span>
                         )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </span>
+                    </button>
+                  </li>
                 )
-              })
-            )}
-          </div>
-        </ScrollArea>
-      )}
-    </div>
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
+    </>
   )
 }

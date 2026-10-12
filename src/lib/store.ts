@@ -23,6 +23,7 @@ interface Me {
   email: string
   team?: string | null
   isPlatformOperator: boolean
+  organizationName?: string | null
 }
 
 interface AppState {

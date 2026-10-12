@@ -1,11 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -14,7 +12,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Users, Plus, UserCircle, Activity } from 'lucide-react'
+import { Users, UsersRound, Plus, UserCircle, Activity } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/lib/store'
 import { can } from '@/lib/permissions'
@@ -124,164 +122,133 @@ export default function TeamsView() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive font-medium">{error}</p>
-        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
+      <div className="cartao vazio" role="alert">
+        <strong>{error}</strong>
+        <button type="button" onClick={fetchData} className="btn btn--sm mt-3">Tentar novamente</button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Equipes</h1>
-          <p className="text-muted-foreground mt-1">Gerencie equipes e unidades da organização.</p>
+    <>
+      <div className="cab-pagina">
+        <div className="cab-pagina__titulo">
+          <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><UsersRound className="ic" /></span>
+          <div>
+            <h1>Equipes</h1>
+            <p>Gerencie equipes e unidades da organização.</p>
+          </div>
         </div>
-        {canManage && <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button data-tour="teams-create"><Plus className="w-4 h-4 mr-2" />Criar equipe</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Criar equipe</DialogTitle>
-              <DialogDescription>Adicione uma nova equipe à sua organização.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="team-name">Nome da equipe</Label>
-                <Input
-                  id="team-name"
-                  placeholder="Ex: Vendas Premium"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Supervisor</Label>
-                <Select value={newSupervisorId} onValueChange={setNewSupervisorId}>
-                  <SelectTrigger aria-label="Selecione o supervisor"><SelectValue placeholder="Selecione o supervisor" /></SelectTrigger>
-                  <SelectContent>
-                    {agents.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button onClick={handleCreate} disabled={!newName.trim() || !newSupervisorId}>Criar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>}
+        {canManage && (
+          <div className="cab-pagina__acoes">
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <button type="button" className="btn btn--primario" data-tour="teams-create"><Plus className="ic" aria-hidden="true" />Criar equipe</button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Criar equipe</DialogTitle>
+                  <DialogDescription>Adicione uma nova equipe à sua organização.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="team-name">Nome da equipe</Label>
+                    <Input
+                      id="team-name"
+                      placeholder="Ex: Vendas Premium"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Supervisor</Label>
+                    <Select value={newSupervisorId} onValueChange={setNewSupervisorId}>
+                      <SelectTrigger aria-label="Selecione o supervisor"><SelectValue placeholder="Selecione o supervisor" /></SelectTrigger>
+                      <SelectContent>
+                        {agents.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                  <Button onClick={handleCreate} disabled={!newName.trim() || !newSupervisorId}>Criar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-muted/30">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 text-foreground flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{teams.length}</p>
-              <p className="text-xs text-muted-foreground">Equipes totais</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-muted/30">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
-              <Activity className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{activeTeams}</p>
-              <p className="text-xs text-muted-foreground">Equipes ativas</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-muted/30">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center">
-              <UserCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{totalMembers}</p>
-              <p className="text-xs text-muted-foreground">Membros totais</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="grade grade-3" aria-label="Resumo das equipes">
+        <article className="cartao kpi-h kpi-h--grande">
+          <span className="kpi__icone tom-verde" aria-hidden="true"><Users className="ic" /></span>
+          <div><p className="kpi-h__rotulo">Equipes totais</p><p className="kpi-h__valor">{teams.length}</p></div>
+        </article>
+        <article className="cartao kpi-h kpi-h--grande">
+          <span className="kpi__icone tom-azul" aria-hidden="true"><Activity className="ic" /></span>
+          <div><p className="kpi-h__rotulo">Equipes ativas</p><p className="kpi-h__valor">{activeTeams}</p></div>
+        </article>
+        <article className="cartao kpi-h kpi-h--grande">
+          <span className="kpi__icone tom-laranja" aria-hidden="true"><UserCircle className="ic" /></span>
+          <div><p className="kpi-h__rotulo">Membros totais</p><p className="kpi-h__valor">{totalMembers}</p></div>
+        </article>
+      </section>
 
-      {/* Team cards */}
-      <div data-tour="teams-list" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div data-tour="teams-list" className="grade grade-3">
         {loading
           ? Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-4 w-48" />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </CardContent>
-              </Card>
+              <div className="cartao cartao--pad space-y-3" key={i}>
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-full" />
+              </div>
             ))
-          : teams.map((team) => (
-              <Card key={team.id} className={!team.active ? 'opacity-60' : ''}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 text-foreground flex items-center justify-center">
-                        <Users className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base">{team.name}</CardTitle>
-                        <CardDescription className="text-xs mt-0.5">
-                          Supervisor: {team.supervisorName || 'Não definido'}
-                        </CardDescription>
-                      </div>
+          : teams.length === 0
+            ? (
+              <div className="cartao vazio col-span-full">
+                <UsersRound className="ic" aria-hidden="true" />
+                <strong>Nenhuma equipe cadastrada</strong>
+                {canManage ? 'Use "Criar equipe" para organizar os atendentes.' : 'Ainda não há equipes nesta organização.'}
+              </div>
+            )
+            : teams.map((team) => (
+              <section key={team.id} className={`cartao flex flex-col ${!team.active ? 'opacity-70' : ''}`} aria-labelledby={`equipe-${team.id}`}>
+                <div className="cartao__cab">
+                  <div className="linha-flex">
+                    <span className="cab-pagina__icone cab-pagina__icone--caixa mini-caixa" aria-hidden="true"><Users className="ic" /></span>
+                    <div>
+                      <h2 id={`equipe-${team.id}`}>{team.name}</h2>
+                      <p>Supervisor: {team.supervisorName || 'Não definido'}</p>
                     </div>
-                    <Badge
-                      variant="secondary"
-                      className={team.active
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400'
-                      }
-                    >
-                      {team.active ? 'Ativa' : 'Inativa'}
-                    </Badge>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Membros</span>
-                    <span className="font-medium">{team.memberCount}</span>
+                  <span className={`tag ${team.active ? 'tag--verde' : 'tag--cinza'}`}>
+                    {team.active && <span className="ponto" aria-hidden="true" />}
+                    {team.active ? 'Ativa' : 'Inativa'}
+                  </span>
+                </div>
+                <div className="cartao__corpo flex flex-1 flex-col gap-3">
+                  <div className="linha-flex entre text-[13.5px]">
+                    <span className="suave">Membros</span>
+                    <span className="forte">{team.memberCount}</span>
                   </div>
                   {team.members.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <ul className="flex flex-wrap gap-1.5" aria-label={`Membros de ${team.name}`}>
                       {team.members.map((m) => (
-                        <Badge key={m} variant="outline" className="text-xs font-normal">
-                          {m}
-                        </Badge>
+                        <li key={m} className="tag tag--contorno">{m}</li>
                       ))}
-                    </div>
+                    </ul>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => toggleActive(team)}
-                  >
+                  <button type="button" className="btn btn--sm mt-auto w-full justify-center" onClick={() => toggleActive(team)}>
                     {team.active ? 'Desativar' : 'Ativar'} equipe
-                  </Button>
-                </CardContent>
-              </Card>
+                  </button>
+                </div>
+              </section>
             ))
         }
       </div>
-    </div>
+    </>
   )
 }

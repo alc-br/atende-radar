@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Circle, Rocket } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { useAppStore } from '@/lib/store'
 import type { View } from '@/lib/store'
 
@@ -36,55 +34,62 @@ export function SetupChecklist() {
   const next = status.steps.find((s) => !s.done)
 
   return (
-    <Card data-testid="setup-checklist" className="border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20">
-      <CardContent className="p-4 sm:p-6">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 shrink-0 rounded-lg bg-emerald-700 flex items-center justify-center">
-            <Rocket className="w-5 h-5 text-white" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground">Primeiros passos</h2>
-            <p className="text-sm text-muted-foreground">
-              {doneCount} de {status.steps.length} concluídos. Faça na ordem: o próximo passo está destacado.
-            </p>
-          </div>
+    <section data-testid="setup-checklist" className="cartao border-[var(--verde-300)]" aria-labelledby="t-primeiros-passos">
+      <div className="cartao__cab">
+        <div>
+          <h2 id="t-primeiros-passos">
+            <span className="selo-icone tom-verde">
+              <Rocket className="ic" aria-hidden="true" />
+            </span>
+            Primeiros passos
+          </h2>
+          <p>
+            {doneCount} de {status.steps.length} concluídos. Faça na ordem: o próximo passo está destacado.
+          </p>
         </div>
-        <ol className="space-y-3">
+      </div>
+      <div className="cartao__corpo">
+        <ol className="grid gap-2.5">
           {status.steps.map((step) => {
             const isNext = next?.id === step.id
             return (
               <li
                 key={step.id}
-                className={`flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border p-3 ${
-                  isNext ? 'border-emerald-500 bg-background shadow-sm' : 'border-border/60 bg-background/60'
+                className={`flex flex-col gap-3 rounded-[var(--raio-sm)] border p-3 sm:flex-row sm:items-center ${
+                  isNext ? 'border-[var(--verde-300)] bg-[var(--verde-50)]' : 'border-[var(--borda)] bg-[var(--superficie-2)]'
                 }`}
               >
-                <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
                   {step.done ? (
-                    <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-label="Concluído" />
+                    <>
+                      <CheckCircle2 className="ic mt-0.5 text-[20px] verde-txt" aria-hidden="true" />
+                      <span className="sr-only">Concluído:</span>
+                    </>
                   ) : (
-                    <Circle className="w-5 h-5 mt-0.5 shrink-0 text-muted-foreground" aria-label="Pendente" />
+                    <>
+                      <Circle className="ic mt-0.5 text-[20px] suave" aria-hidden="true" />
+                      <span className="sr-only">Pendente:</span>
+                    </>
                   )}
                   <div className="min-w-0">
-                    <p className={`font-medium ${step.done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{step.title}</p>
-                    <p className="text-sm text-muted-foreground">{step.description}</p>
+                    <p className={`font-semibold ${step.done ? 'suave line-through' : ''}`}>{step.title}</p>
+                    <p className="suave text-[13px]">{step.description}</p>
                   </div>
                 </div>
                 {!step.done && (
-                  <Button
-                    size="sm"
-                    variant={isNext ? 'default' : 'outline'}
-                    className={isNext ? 'bg-emerald-700 hover:bg-emerald-800 text-white shrink-0' : 'shrink-0'}
+                  <button
+                    type="button"
+                    className={`btn btn--sm shrink-0 ${isNext ? 'btn--primario' : ''}`}
                     onClick={() => setView(step.view as View)}
                   >
                     {step.action}
-                  </Button>
+                  </button>
                 )}
               </li>
             )
           })}
         </ol>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }

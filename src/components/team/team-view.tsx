@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
-  ArrowUpDown,
+  ChevronsUpDown,
   ArrowUp,
   ArrowDown,
   Users,
@@ -11,29 +11,13 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  BarChart3,
+  MoreVertical,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
-
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 // --- Types ---
 
@@ -52,21 +36,41 @@ type SortField =
 
 type SortDir = 'asc' | 'desc'
 
+const AVATAR_TONES = ['av--laranja', 'av--verde', 'av--roxo', 'av--azul', 'av--vermelho']
+
+function avatarTone(name: string): string {
+  let h = 0
+  for (const ch of name || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return AVATAR_TONES[h % AVATAR_TONES.length]
+}
+
+function notaClass(score: number): string {
+  if (score >= 80) return 'nota--alta'
+  if (score >= 70) return 'nota--media'
+  return 'nota--baixa'
+}
+
+function scoreTextClass(score: number): string {
+  if (score >= 80) return 'verde-txt'
+  if (score >= 70) return 'laranja-txt'
+  return 'vermelho'
+}
+
 // --- Component ---
 
 function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
-  if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
+  if (sortField !== field) return <ChevronsUpDown className="ic" aria-hidden="true" />
   return sortDir === 'asc' ? (
-    <ArrowUp className="ml-1 h-3 w-3" />
+    <ArrowUp className="ic" aria-hidden="true" />
   ) : (
-    <ArrowDown className="ml-1 h-3 w-3" />
+    <ArrowDown className="ic" aria-hidden="true" />
   )
 }
 
 function TrendIcon({ trend }: { trend: string }) {
-  if (trend === 'up') return <TrendingUp className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-  if (trend === 'down') return <TrendingDown className="h-4 w-4 text-red-700 dark:text-red-400" />
-  return <Minus className="h-4 w-4 text-muted-foreground" />
+  if (trend === 'up') return <span className="verde-txt"><TrendingUp className="ic ic-tend" aria-hidden="true" /><span className="sr-only">Em alta</span></span>
+  if (trend === 'down') return <span className="vermelho"><TrendingDown className="ic ic-tend" aria-hidden="true" /><span className="sr-only">Em queda</span></span>
+  return <span className="suave"><Minus className="ic ic-tend" aria-hidden="true" /><span className="sr-only">Estável</span></span>
 }
 
 export default function TeamView() {
@@ -146,21 +150,41 @@ export default function TeamView() {
   const avgScore = agentsData.length > 0 ? Math.round(agentsData.reduce((sum: number, a: any) => sum + (a.score || 0), 0) / agentsData.length) : 0
   const avgResponseTime = agentsData.length > 0 ? (agentsData.reduce((sum: number, a: any) => sum + (a.avgResponseTime || 0), 0) / agentsData.length).toFixed(1) : '0.0'
 
+  const pageHeader = (
+    <div className="cab-pagina">
+      <div className="cab-pagina__titulo">
+        <span className="cab-pagina__icone cab-pagina__icone--caixa"><Users className="ic" aria-hidden="true" /></span>
+        <div>
+          <h1>Equipe</h1>
+          <p>Acompanhe o desempenho da sua equipe de atendimento no WhatsApp.</p>
+        </div>
+      </div>
+    </div>
+  )
+
   if (isLoading) {
-    return <div className="flex flex-col gap-4 p-4 lg:p-6"><Skeleton className="h-8 w-48" />{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
+    return (
+      <>
+        {pageHeader}
+        <div className="grade grade-3">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        </div>
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+        </div>
+      </>
+    )
   }
-  if (error) return <div className="flex flex-col items-center justify-center h-96 gap-4"><p className="text-destructive font-medium">{error}</p><button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button></div>
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-700 dark:text-emerald-400'
-    if (score >= 70) return 'text-amber-700 dark:text-amber-400'
-    return 'text-red-700 dark:text-red-400'
-  }
-
-  const getScoreBg = (score: number) => {
-    if (score >= 80) return 'bg-emerald-50 dark:bg-emerald-900/20'
-    if (score >= 70) return 'bg-amber-50 dark:bg-amber-900/20'
-    return 'bg-red-50 dark:bg-red-900/20'
+  if (error) {
+    return (
+      <>
+        {pageHeader}
+        <section className="cartao vazio" role="alert">
+          <strong>{error}</strong>
+          <button type="button" onClick={fetchData} className="btn mt-3">Tentar novamente</button>
+        </section>
+      </>
+    )
   }
 
   const getStatusLabel = (status: string) => {
@@ -168,195 +192,161 @@ export default function TeamView() {
     return labels[status] || status
   }
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-      inactive: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
-      away: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    }
-    return colors[status] || 'bg-muted text-muted-foreground'
+  const getStatusTag = (status: string) => {
+    const tags: Record<string, string> = { active: 'tag--verde', inactive: 'tag--cinza', away: 'tag--ambar' }
+    return tags[status] || 'tag--cinza'
   }
 
   const getRoleLabel = (role: string) => {
-    const labels: Record<string, string> = { gestor: 'Gestor', supervisor: 'Supervisor', atendente: 'Atendente' }
+    const labels: Record<string, string> = { admin: 'Administrador', gestor: 'Gestor', supervisor: 'Supervisor', atendente: 'Atendente' }
     return labels[role] || role
   }
 
+  const sortHeader = (field: SortField, label: string, centered = false) => (
+    <th
+      data-ordenar=""
+      className={centered ? 'centro' : undefined}
+      aria-sort={sortField === field ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button type="button" onClick={() => handleSort(field)} className="inline-flex items-center font-semibold">
+        {label}
+        <SortIcon field={field} sortField={sortField} sortDir={sortDir} />
+      </button>
+    </th>
+  )
+
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6">
-      {/* Page title */}
-      <div className="flex items-center gap-2">
-        <Users className="h-6 w-6 text-emerald-700 dark:text-emerald-400" />
-        <h1 className="text-2xl font-bold tracking-tight">Equipe</h1>
-      </div>
+    <>
+      {pageHeader}
 
       {/* Summary stats */}
-      <div data-tour="team-summary" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total de agentes</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalAgents}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Nota média</CardTitle>
-            <Star className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-          </CardHeader>
-          <CardContent>
-            <div className={cn('text-2xl font-bold', getScoreColor(avgScore))}>{avgScore}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tempo médio de resposta</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgResponseTime} min</div>
-          </CardContent>
-        </Card>
-      </div>
+      <section data-tour="team-summary" className="grade grade-3" aria-label="Resumo da equipe">
+        <article className="cartao kpi-h kpi-h--grande">
+          <span className="kpi__icone tom-verde"><Users className="ic" aria-hidden="true" /></span>
+          <div>
+            <p className="kpi-h__rotulo">Total de agentes</p>
+            <p className="kpi-h__valor">{totalAgents}</p>
+          </div>
+        </article>
+        <article className="cartao kpi-h kpi-h--grande">
+          <span className="kpi__icone tom-laranja"><Star className="ic" aria-hidden="true" /></span>
+          <div>
+            <p className="kpi-h__rotulo">Nota média</p>
+            <p className={cn('kpi-h__valor', scoreTextClass(avgScore))}>{avgScore}</p>
+          </div>
+        </article>
+        <article className="cartao kpi-h kpi-h--grande">
+          <span className="kpi__icone tom-azul"><Clock className="ic" aria-hidden="true" /></span>
+          <div>
+            <p className="kpi-h__rotulo">Tempo médio de resposta</p>
+            <p className="kpi-h__valor">{avgResponseTime.replace('.', ',')} min</p>
+          </div>
+        </article>
+      </section>
 
       {/* Table */}
-      <Card data-tour="team-table">
-        <CardContent className="p-0">
-          <ScrollArea className="max-h-[calc(100vh-300px)]">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="min-w-[180px]">
-                    <button onClick={() => handleSort('name')} className="flex items-center font-semibold">
-                      Nome
-                      <SortIcon field="name" sortField={sortField} sortDir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="min-w-[100px] hidden md:table-cell">
-                    <button onClick={() => handleSort('team')} className="flex items-center font-semibold">
-                      Equipe
-                      <SortIcon field="team" sortField={sortField} sortDir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="min-w-[130px] hidden lg:table-cell">Identidade WhatsApp</TableHead>
-                  <TableHead className="w-[80px] hidden sm:table-cell">Estado</TableHead>
-                  <TableHead className="w-[80px]">
-                    <button onClick={() => handleSort('conversations')} className="flex items-center font-semibold">
-                      Conversas
-                      <SortIcon field="conversations" sortField={sortField} sortDir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[70px]">
-                    <button onClick={() => handleSort('score')} className="flex items-center font-semibold">
-                      Nota
-                      <SortIcon field="score" sortField={sortField} sortDir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[100px] hidden md:table-cell">
-                    <button onClick={() => handleSort('avgResponseTime')} className="flex items-center font-semibold">
-                      Tempo mediano
-                      <SortIcon field="avgResponseTime" sortField={sortField} sortDir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[90px] hidden lg:table-cell">
-                    <button onClick={() => handleSort('opportunities')} className="flex items-center font-semibold">
-                      Oport. atendidas
-                      <SortIcon field="opportunities" sortField={sortField} sortDir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[90px] hidden lg:table-cell">
-                    <button onClick={() => handleSort('opportunitiesLost')} className="flex items-center font-semibold">
-                      Oport. perdidas
-                      <SortIcon field="opportunitiesLost" sortField={sortField} sortDir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[100px] hidden md:table-cell">
-                    <button onClick={() => handleSort('promises')} className="flex items-center font-semibold">
-                      Promessas
-                      <SortIcon field="promises" sortField={sortField} sortDir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[60px]">
-                    <button onClick={() => handleSort('trend')} className="flex items-center font-semibold">
-                      Tendência
-                      <SortIcon field="trend" sortField={sortField} sortDir={sortDir} />
-                    </button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedAgents.map((agent) => {
-                  const initials = agent.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .slice(0, 2)
-                    .toUpperCase()
-                  return (
-                    <TableRow
-                      key={agent.id}
-                      className="cursor-pointer hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10"
-                      onClick={() => selectAgent(agent.id)}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className={cn('text-xs font-medium', getScoreBg(agent.score), getScoreColor(agent.score))}>
-                              {initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">{agent.name}</div>
-                            <div className="text-xs text-muted-foreground">{getRoleLabel(agent.role)}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant="outline" className="border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
-                          {agent.team}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground font-mono text-xs">
-                        {agent.whatsappIdentity || '—'}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <Badge variant="outline" className={cn('border', getStatusColor(agent.status))}>
-                          {getStatusLabel(agent.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{agent.conversations}</TableCell>
-                      <TableCell>
-                        <span className={cn('font-bold text-lg', getScoreColor(agent.score))}>{agent.score}</span>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {agent.avgResponseTime} min
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell font-medium text-emerald-700 dark:text-emerald-400">
-                        {agent.opportunities}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <span className={agent.opportunitiesLost > 5 ? 'text-red-700 dark:text-red-400 font-medium' : 'text-muted-foreground'}>
-                          {agent.opportunitiesLost}
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <span className={agent.promisesKept === agent.promisesTotal ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
-                          {agent.promisesKept}/{agent.promisesTotal}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <TrendIcon trend={agent.trend} />
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        </CardContent>
-      </Card>
-    </div>
+      <section className="cartao" data-tour="team-table" aria-labelledby="team-t-desemp">
+        <div className="cartao__cab cab-equipe">
+          <div className="linha-flex">
+            <span className="cab-pagina__icone cab-pagina__icone--caixa mini-caixa"><BarChart3 className="ic" aria-hidden="true" /></span>
+            <div>
+              <h2 id="team-t-desemp">Desempenho da Equipe</h2>
+              <p>Visão detalhada do desempenho de cada agente.</p>
+            </div>
+          </div>
+        </div>
+        <div className="cartao__corpo">
+          <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Desempenho dos agentes">
+            <table className="tabela tabela--cab-cinza tabela--equipe">
+              <thead>
+                <tr>
+                  {sortHeader('name', 'Nome')}
+                  {sortHeader('team', 'Equipe')}
+                  <th>Identidade WhatsApp</th>
+                  {sortHeader('status', 'Estado')}
+                  {sortHeader('conversations', 'Conversas', true)}
+                  {sortHeader('score', 'Nota', true)}
+                  {sortHeader('avgResponseTime', 'Tempo mediano', true)}
+                  {sortHeader('opportunities', 'Oport. atendidas', true)}
+                  {sortHeader('opportunitiesLost', 'Oport. perdidas', true)}
+                  {sortHeader('promises', 'Promessas', true)}
+                  {sortHeader('trend', 'Tendência', true)}
+                  <th><span className="sr-only">Ações</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedAgents.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="vazio">Nenhum agente encontrado.</td>
+                  </tr>
+                ) : (
+                  sortedAgents.map((agent) => {
+                    const initials = agent.name
+                      .split(' ')
+                      .map((n: string) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()
+                    const promisesOk = agent.promisesKept === agent.promisesTotal
+                    return (
+                      <tr
+                        key={agent.id}
+                        className="cursor-pointer"
+                        onClick={() => selectAgent(agent.id)}
+                      >
+                        <td>
+                          <button
+                            type="button"
+                            className="pessoa pessoa--forte text-left"
+                            onClick={(e) => { e.stopPropagation(); selectAgent(agent.id) }}
+                          >
+                            <span className={cn('av', avatarTone(agent.name))} aria-hidden="true">{initials}</span>
+                            <span><strong>{agent.name}</strong><small>{getRoleLabel(agent.role)}</small></span>
+                          </button>
+                        </td>
+                        <td>
+                          {agent.team ? <span className="tag tag--azul tag--lg">{agent.team}</span> : <span className="suave">—</span>}
+                        </td>
+                        <td className="mono suave">{agent.whatsappIdentity || '—'}</td>
+                        <td>
+                          <span className={cn('tag tag--lg', getStatusTag(agent.status))}>
+                            <span className="ponto" />{getStatusLabel(agent.status)}
+                          </span>
+                        </td>
+                        <td className="centro">{agent.conversations}</td>
+                        <td className="centro">
+                          <span className={cn('nota nota--lg', notaClass(agent.score))}>{agent.score}</span>
+                        </td>
+                        <td className="centro">{String(agent.avgResponseTime).replace('.', ',')} min</td>
+                        <td className="centro verde-txt forte">{agent.opportunities}</td>
+                        <td className={cn('centro', agent.opportunitiesLost > 5 && 'vermelho forte')}>{agent.opportunitiesLost}</td>
+                        <td className="centro">
+                          <span className={cn('nota', promisesOk ? 'nota--alta' : 'nota--media')}>
+                            {agent.promisesKept}/{agent.promisesTotal}
+                          </span>
+                        </td>
+                        <td className="centro">
+                          <TrendIcon trend={agent.trend} />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="reticencias"
+                            aria-label={`Ver perfil de ${agent.name}`}
+                            onClick={(e) => { e.stopPropagation(); selectAgent(agent.id) }}
+                          >
+                            <MoreVertical className="ic" aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </>
   )
 }

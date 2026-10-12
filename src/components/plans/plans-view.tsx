@@ -1,10 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -12,10 +9,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
-import {
-  Check, X, Crown, Zap, Rocket, MessageSquare, Users, Wifi,
+  Check, Crown, Zap, Rocket, MessageSquare, Users, Wifi,
   CreditCard, ArrowRight, Sparkles, AlertTriangle, Loader2, Receipt,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -101,17 +95,17 @@ const STATUS_LABELS: Record<string, string> = {
   expired: 'Teste encerrado',
 }
 
-const STATUS_CLASSES: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  trialing: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-  past_due: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+const STATUS_TAGS: Record<string, string> = {
+  active: 'tag--verde',
+  trialing: 'tag--azul',
+  past_due: 'tag--ambar',
 }
 
-const INVOICE_STATUS: Record<string, { label: string; className: string }> = {
-  paid: { label: 'Paga', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  pending: { label: 'Pendente', className: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
-  failed: { label: 'Recusada', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-  canceled: { label: 'Cancelada', className: 'bg-muted text-muted-foreground' },
+const INVOICE_STATUS: Record<string, { label: string; tag: string }> = {
+  paid: { label: 'Paga', tag: 'tag--verde' },
+  pending: { label: 'Pendente', tag: 'tag--azul' },
+  failed: { label: 'Recusada', tag: 'tag--vermelho' },
+  canceled: { label: 'Cancelada', tag: 'tag--cinza' },
 }
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—')
@@ -119,12 +113,17 @@ const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(
 // Os planos se diferenciam pelos LIMITES (aplicados de verdade nas cotas). A lista de "recursos" do catálogo não é
 // aplicada a ninguém hoje, então não é exibida (nada de comparativo decorativo).
 
-const USAGE_METRICS: { key: 'conversations' | 'messages' | 'agents' | 'connections'; label: string; icon: React.ElementType; color: string }[] = [
-  { key: 'conversations', label: 'Conversas', icon: MessageSquare, color: 'text-primary' },
-  { key: 'messages', label: 'Mensagens', icon: MessageSquare, color: 'text-emerald-700 dark:text-emerald-400' },
-  { key: 'agents', label: 'Agentes', icon: Users, color: 'text-amber-700 dark:text-amber-400' },
-  { key: 'connections', label: 'Conexões', icon: Wifi, color: 'text-purple-500' },
+const USAGE_METRICS: { key: 'conversations' | 'messages' | 'agents' | 'connections'; label: string; icon: React.ElementType; tone: string }[] = [
+  { key: 'conversations', label: 'Conversas', icon: MessageSquare, tone: 'tom-verde' },
+  { key: 'messages', label: 'Mensagens', icon: MessageSquare, tone: 'tom-azul' },
+  { key: 'agents', label: 'Agentes', icon: Users, tone: 'tom-laranja' },
+  { key: 'connections', label: 'Conexões', icon: Wifi, tone: 'tom-roxo' },
 ]
+
+function PlanIcon({ code }: { code: string }) {
+  const Icon = PLAN_ICONS[code] || Zap
+  return <Icon className="ic" aria-hidden="true" />
+}
 
 export default function PlansView() {
   const startCheckout = useAppStore((s) => s.startCheckout)
@@ -208,20 +207,11 @@ export default function PlansView() {
     }
   }
 
-  const renderCell = (value: boolean | string | number) => {
-    if (typeof value === 'boolean') {
-      return value
-        ? <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 mx-auto" />
-        : <X className="w-4 h-4 text-muted-foreground/30 mx-auto" />
-    }
-    return <span className="text-sm font-medium">{value}</span>
-  }
-
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive font-medium">{error}</p>
-        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
+      <div className="cartao vazio" role="alert">
+        <strong>{error}</strong>
+        <button type="button" onClick={fetchData} className="btn btn--sm mt-3">Tentar novamente</button>
       </div>
     )
   }
@@ -236,111 +226,119 @@ export default function PlansView() {
   const priceOf = (p: { monthlyPrice: number; annualPrice: number }, c: Cycle) => (c === 'annual' ? p.annualPrice : p.monthlyPrice)
   const currentCycle: Cycle = recurring && bsub ? bsub.billingCycle : 'monthly'
 
+  const COMPARE_ROWS: { label: string; value: (p: ApiPlan) => string | number }[] = [
+    { label: 'Conversas/mês', value: (p) => p.limits.maxConversationsMonthly.toLocaleString('pt-BR') },
+    { label: 'Agentes', value: (p) => p.limits.maxAgents },
+    { label: 'Conexões WhatsApp', value: (p) => p.limits.maxConnections },
+    { label: 'Mensagens/mês', value: (p) => p.limits.maxMessagesMonthly.toLocaleString('pt-BR') },
+    { label: 'Regras de alerta', value: (p) => p.limits.maxAlertRules },
+    { label: 'Histórico (dias)', value: (p) => p.limits.retentionDays },
+  ]
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Planos e Faturamento</h1>
-        <p className="text-muted-foreground mt-1">Gerencie sua assinatura e acompanhe o uso.</p>
+    <>
+      <div className="cab-pagina">
+        <div className="cab-pagina__titulo">
+          <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><CreditCard className="ic" /></span>
+          <div>
+            <h1>Planos e Faturamento</h1>
+            <p>Gerencie sua assinatura e acompanhe o uso.</p>
+          </div>
+        </div>
       </div>
 
-      {/* Current plan + usage */}
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grade grade-2">
           <Skeleton className="h-48 rounded-xl" />
           <Skeleton className="h-48 rounded-xl" />
         </div>
       ) : (
         <>
           {billing?.mode === 'test' && (
-            <p className="text-xs text-muted-foreground" data-testid="billing-test-mode">Pagamentos em ambiente de testes do Pagar.me: nenhuma cobrança real é feita.</p>
+            <p className="suave text-xs" data-testid="billing-test-mode">Pagamentos em ambiente de testes do Pagar.me: nenhuma cobrança real é feita.</p>
           )}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Current plan card */}
-            <Card data-testid="current-plan">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <CreditCard className="w-5 h-5" />
-                    Plano atual
-                  </CardTitle>
-                  {subscription && (
-                    <Badge className={STATUS_CLASSES[status] || 'bg-muted text-muted-foreground'} data-testid="subscription-status">
-                      {bsub?.cancelAtPeriodEnd && active ? 'Não renova' : STATUS_LABELS[status] || status}
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <div className="grade grade-2">
+            {/* Plano atual */}
+            <section className="cartao" data-testid="current-plan" aria-labelledby="t-plano-atual">
+              <div className="cartao__cab">
+                <div><h2 id="t-plano-atual"><CreditCard className="ic verde-txt" aria-hidden="true" />Plano atual</h2></div>
+                {subscription && (
+                  <span className={`tag tag--lg ${STATUS_TAGS[status] || 'tag--cinza'}`} data-testid="subscription-status">
+                    {bsub?.cancelAtPeriodEnd && active ? 'Não renova' : STATUS_LABELS[status] || status}
+                  </span>
+                )}
+              </div>
+              <div className="cartao__corpo space-y-4">
                 {subscription ? (
                   <>
-                    <div>
-                      <p className="text-3xl font-bold">
-                        {formatCurrency(priceOf(subscription.plan, currentCycle))}
-                        <span className="text-base font-normal text-muted-foreground">{currentCycle === 'annual' ? '/ano' : '/mês'}</span>
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">Plano {subscription.plan.name}</p>
+                    <div className="resumo-plano__nome">
+                      <span className="coroa coroa--sm" aria-hidden="true"><PlanIcon code={subscription.plan.code} /></span>
+                      <div>
+                        <b>Plano {subscription.plan.name}</b>
+                        <span className="preco text-2xl">
+                          {formatCurrency(priceOf(subscription.plan, currentCycle))}
+                          <small className="inline">{currentCycle === 'annual' ? '/ano' : '/mês'}</small>
+                        </span>
+                      </div>
                     </div>
                     {bsub?.lastPaymentError && status === 'past_due' && (
-                      <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <span>A última cobrança foi recusada: {bsub.lastPaymentError} Troque o cartão: as próximas tentativas de cobrança usam o cartão novo.</span>
+                      <div className="aviso aviso--ambar" role="alert">
+                        <span className="aviso__ic" aria-hidden="true"><AlertTriangle className="ic" /></span>
+                        <p>A última cobrança foi recusada: {bsub.lastPaymentError} Troque o cartão: as próximas tentativas de cobrança usam o cartão novo.</p>
                       </div>
                     )}
                     {bsub?.pending && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Troca de plano aguardando a confirmação do pagamento.</p>
+                      <p className="suave text-[13px] flex items-center gap-2"><Loader2 className="ic animate-spin" aria-hidden="true" /> Troca de plano aguardando a confirmação do pagamento.</p>
                     )}
-                    <div className="border-t pt-3 space-y-2">
+                    <dl className="border-t border-[var(--borda)] pt-3 space-y-2 text-[13.5px]">
                       {status === 'trialing' ? (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Teste grátis até</span>
-                          <span className="font-medium">{fmtDate(subscription.trialEnd)}</span>
+                        <div className="linha-flex entre">
+                          <dt className="suave">Teste grátis até</dt>
+                          <dd className="forte">{fmtDate(subscription.trialEnd)}</dd>
                         </div>
                       ) : (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">{recurring && !bsub?.cancelAtPeriodEnd ? 'Próxima cobrança' : 'Vale até'}</span>
-                          <span className="font-medium" data-testid="period-end">{fmtDate(subscription.currentPeriodEnd)}</span>
+                        <div className="linha-flex entre">
+                          <dt className="suave">{recurring && !bsub?.cancelAtPeriodEnd ? 'Próxima cobrança' : 'Vale até'}</dt>
+                          <dd className="forte" data-testid="period-end">{fmtDate(subscription.currentPeriodEnd)}</dd>
                         </div>
                       )}
                       {recurring && (
                         <>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Ciclo</span>
-                            <span className="font-medium">{currentCycle === 'annual' ? 'Anual' : 'Mensal'}</span>
+                          <div className="linha-flex entre">
+                            <dt className="suave">Ciclo</dt>
+                            <dd className="forte">{currentCycle === 'annual' ? 'Anual' : 'Mensal'}</dd>
                           </div>
                           {bsub?.cardLast4 && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Cartão</span>
-                              <span className="font-medium" data-testid="card-on-file">{bsub.cardBrand ?? 'Cartão'} final {bsub.cardLast4}</span>
+                            <div className="linha-flex entre">
+                              <dt className="suave">Cartão</dt>
+                              <dd className="forte" data-testid="card-on-file">{bsub.cardBrand ?? 'Cartão'} final {bsub.cardLast4}</dd>
                             </div>
                           )}
                         </>
                       )}
-                    </div>
+                    </dl>
                     {recurring && !bsub?.cancelAtPeriodEnd && (
                       <div className="flex flex-col sm:flex-row gap-2">
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => setCardOpen(true)}>Trocar cartão</Button>
-                        <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={() => setCancelOpen(true)}>Cancelar renovação</Button>
+                        <button type="button" className="btn btn--sm flex-1" onClick={() => setCardOpen(true)}>Trocar cartão</button>
+                        <button type="button" className="btn btn--sm btn--perigo flex-1" onClick={() => setCancelOpen(true)}>Cancelar renovação</button>
                       </div>
                     )}
                     {!recurring && online && status !== 'active' && (
-                      <p className="text-sm text-muted-foreground">Escolha um plano abaixo para contratar com cartão de crédito.</p>
+                      <p className="suave text-[13px]">Escolha um plano abaixo para contratar com cartão de crédito.</p>
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Nenhuma assinatura ativa encontrada.</p>
+                  <p className="suave text-[13px]">Nenhuma assinatura ativa encontrada.</p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            {/* Usage metrics */}
-            <Card data-tour="plans-usage">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Sparkles className="w-5 h-5" />
-                  Uso este mês
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
+            {/* Uso no mês */}
+            <section className="cartao" data-tour="plans-usage" aria-labelledby="t-uso">
+              <div className="cartao__cab">
+                <div><h2 id="t-uso"><Sparkles className="ic verde-txt" aria-hidden="true" />Uso este mês</h2></div>
+              </div>
+              <div className="cartao__corpo space-y-5">
                 {usage && USAGE_METRICS.map((metric) => {
                   const entry = usage[metric.key]
                   if (!entry) return null
@@ -349,42 +347,53 @@ export default function PlansView() {
                   const isNear = pct > 80
                   return (
                     <div key={metric.key} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon className={`w-4 h-4 ${metric.color}`} />
-                          <span className="text-sm font-medium">{metric.label}</span>
-                        </div>
-                        <span className={`text-xs font-medium ${isNear ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                      <div className="linha-flex entre">
+                        <span className="linha-flex text-[13.5px] forte">
+                          <span className={`dado-ic ${metric.tone} !w-7 !h-7 !text-[15px]`} aria-hidden="true"><Icon className="ic" /></span>
+                          {metric.label}
+                        </span>
+                        <span className={`text-xs forte ${isNear ? 'laranja-txt' : 'suave'}`}>
                           {entry.current.toLocaleString('pt-BR')} / {entry.limit.toLocaleString('pt-BR')}
                         </span>
                       </div>
-                      <Progress value={pct} className="h-2" aria-label={`Uso de ${metric.label}`} />
+                      <div
+                        className={`barra ${isNear ? 'barra--laranja' : ''}`}
+                        role="progressbar"
+                        aria-label={`Uso de ${metric.label}`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={Math.round(pct)}
+                      >
+                        <i style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
                   )
                 })}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           </div>
 
-          {/* Plan comparison cards */}
-          <div>
+          {/* Comparativo de planos */}
+          <section aria-labelledby="t-compare">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <h2 className="text-lg font-semibold">Compare os planos</h2>
+              <h2 id="t-compare" className="text-lg font-bold">Compare os planos</h2>
               {online && (
                 <ToggleGroup type="single" variant="outline" value={cycle} onValueChange={(v) => v && setCycle(v as Cycle)} aria-label="Ciclo de cobrança">
                   <ToggleGroupItem value="monthly" className="px-4">Mensal</ToggleGroupItem>
-                  <ToggleGroupItem value="annual" className="px-4">Anual <span className="ml-1 text-xs text-emerald-700 dark:text-emerald-400">2 meses grátis</span></ToggleGroupItem>
+                  <ToggleGroupItem value="annual" className="px-4">Anual <span className="ml-1 text-xs verde-txt">2 meses grátis</span></ToggleGroupItem>
                 </ToggleGroup>
               )}
             </div>
-            <div data-tour="plans-compare" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div data-tour="plans-compare" className="grade grade-3 items-stretch">
               {plans.map((plan) => {
                 const showCycle: Cycle = online ? cycle : 'monthly'
                 const isCurrent = subscription?.plan.id === plan.id
                 const isPaidCurrent = paidPlanId === plan.id && (!recurring || currentCycle === showCycle)
                 const isHighlight = plan.highlight
-                const Icon = PLAN_ICONS[plan.code] || Zap
                 const includedFeatures = [
+                  `Até ${plan.limits.maxConversationsMonthly.toLocaleString('pt-BR')} conversas/mês`,
+                  `${plan.limits.maxAgents} agentes`,
+                  `${plan.limits.maxConnections} conexão(ões) WhatsApp`,
                   `${plan.limits.maxAlertRules} regras de alerta`,
                   `Histórico de ${plan.limits.retentionDays} dias`,
                 ]
@@ -394,199 +403,148 @@ export default function PlansView() {
                     ? isCurrent ? `Mudar para ${showCycle === 'annual' ? 'anual' : 'mensal'}` : 'Mudar para este plano'
                     : 'Assinar'
                 return (
-                  <Card
+                  <article
                     key={plan.id}
                     data-testid={`plan-${plan.code}`}
-                    className={`relative ${isHighlight ? 'border-primary shadow-lg shadow-primary/5' : ''} ${isCurrent ? 'ring-2 ring-primary' : ''}`}
+                    aria-labelledby={`plano-${plan.code}`}
+                    className={`cartao cartao--pad flex flex-col gap-4 ${isHighlight ? 'border-[var(--verde-500)] border-2' : ''} ${isCurrent ? 'ring-2 ring-[var(--verde-600)]' : ''}`}
                   >
-                    {isHighlight && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <Badge className="bg-primary text-primary-foreground shadow-sm">
-                          <Rocket className="w-3 h-3 mr-1" /> Mais popular
-                        </Badge>
+                    <div className="linha-flex entre">
+                      {isHighlight ? (
+                        <span className="tag tag--verde"><Rocket className="ic" aria-hidden="true" />Mais popular</span>
+                      ) : <span />}
+                      {isCurrent && <span className="tag tag--azul">Seu plano</span>}
+                    </div>
+                    <div className="resumo-plano__nome">
+                      <span className="coroa coroa--sm" aria-hidden="true"><PlanIcon code={plan.code} /></span>
+                      <div>
+                        <b id={`plano-${plan.code}`}>{plan.name}</b>
+                        <span className="preco text-xl">
+                          {formatCurrency(priceOf(plan, showCycle))}
+                          <small className="inline">{showCycle === 'annual' ? '/ano' : '/mês'}</small>
+                        </span>
+                        {showCycle === 'annual' && <small>equivale a {formatCurrency(plan.annualPrice / 12)}/mês</small>}
                       </div>
-                    )}
-                    <CardHeader className="text-center pt-6">
-                      <div className="mx-auto w-10 h-10 rounded-lg bg-primary/10 text-foreground flex items-center justify-center mb-2">
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <CardTitle className="text-lg">{plan.name}</CardTitle>
-                      {plan.description && (
-                        <CardDescription>{plan.description}</CardDescription>
-                      )}
-                      <div className="mt-2">
-                        <span className="text-3xl font-bold">{formatCurrency(priceOf(plan, showCycle))}</span>
-                        <span className="text-muted-foreground">{showCycle === 'annual' ? '/ano' : '/mês'}</span>
-                      </div>
-                      {showCycle === 'annual' && (
-                        <p className="text-xs text-muted-foreground">equivale a {formatCurrency(plan.annualPrice / 12)}/mês</p>
-                      )}
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <ul className="space-y-2">
-                        <li className="flex items-start gap-2 text-sm">
-                          <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
-                          <span>Até {plan.limits.maxConversationsMonthly.toLocaleString('pt-BR')} conversas/mês</span>
-                        </li>
-                        <li className="flex items-start gap-2 text-sm">
-                          <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
-                          <span>{plan.limits.maxAgents} agentes</span>
-                        </li>
-                        <li className="flex items-start gap-2 text-sm">
-                          <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
-                          <span>{plan.limits.maxConnections} conexão(ões) WhatsApp</span>
-                        </li>
-                        {includedFeatures.map((f) => (
-                          <li key={f} className="flex items-start gap-2 text-sm">
-                            <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                    <CardFooter>
+                    </div>
+                    {plan.description && <p className="suave text-[13px]">{plan.description}</p>}
+                    <ul className="lista-ok">
+                      {includedFeatures.map((f) => (
+                        <li key={f}><Check className="ic" aria-hidden="true" /><span>{f}</span></li>
+                      ))}
+                    </ul>
+                    <div className="mt-auto pt-2">
                       {isPaidCurrent ? (
-                        <Button variant="outline" className="w-full" disabled>
+                        <button type="button" className="btn w-full" disabled>
                           Plano atual
-                        </Button>
+                        </button>
                       ) : (
-                        <Button
-                          className="w-full"
-                          variant={isHighlight ? 'default' : 'outline'}
+                        <button
+                          type="button"
+                          className={`btn w-full ${isHighlight ? 'btn--primario' : 'btn--contorno-verde'}`}
                           disabled={changingPlanId === plan.id || !!bsub?.pending}
                           onClick={() => (online ? startCheckout(plan.id, showCycle) : handleRequest(plan.id, plan.name))}
                         >
                           {changingPlanId === plan.id ? 'Enviando...' : actionLabel}
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </Button>
+                          <ArrowRight className="ic" aria-hidden="true" />
+                        </button>
                       )}
-                    </CardFooter>
-                  </Card>
+                    </div>
+                  </article>
                 )
               })}
             </div>
-          </div>
+          </section>
 
-          {/* Invoices */}
+          {/* Faturas */}
           {online && (
-            <Card data-testid="invoices">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg"><Receipt className="w-5 h-5" /> Faturas</CardTitle>
-                <CardDescription>Cobranças feitas no cartão pelo Pagar.me.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
+            <section className="cartao" data-testid="invoices" aria-labelledby="t-faturas">
+              <div className="cartao__cab">
+                <div>
+                  <h2 id="t-faturas"><Receipt className="ic verde-txt" aria-hidden="true" />Faturas</h2>
+                  <p>Cobranças feitas no cartão pelo Pagar.me.</p>
+                </div>
+              </div>
+              <div className="cartao__corpo">
                 {(billing?.invoices ?? []).length === 0 ? (
-                  <p className="px-6 pb-6 text-sm text-muted-foreground">Nenhuma fatura ainda.</p>
+                  <p className="suave text-[13px]">Nenhuma fatura ainda.</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Data</TableHead>
-                          <TableHead>Plano</TableHead>
-                          <TableHead>Período</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                          <TableHead>Situação</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                  <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Faturas">
+                    <table className="tabela tabela--cab-cinza">
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>Plano</th>
+                          <th>Período</th>
+                          <th className="direita">Valor</th>
+                          <th>Situação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
                         {(billing?.invoices ?? []).map((inv) => {
-                          const st = INVOICE_STATUS[inv.status] ?? { label: inv.status, className: 'bg-muted text-muted-foreground' }
+                          const st = INVOICE_STATUS[inv.status] ?? { label: inv.status, tag: 'tag--cinza' }
                           return (
-                            <TableRow key={inv.id}>
-                              <TableCell className="text-sm whitespace-nowrap">{fmtDate(inv.paidAt ?? inv.dueAt ?? inv.createdAt)}</TableCell>
-                              <TableCell className="text-sm">{inv.planName ?? '—'}{inv.billingCycle === 'annual' ? ' (anual)' : ''}</TableCell>
-                              <TableCell className="text-sm whitespace-nowrap">{inv.periodStart ? `${fmtDate(inv.periodStart)} a ${fmtDate(inv.periodEnd)}` : '—'}</TableCell>
-                              <TableCell className="text-sm text-right font-medium">{formatCurrency(inv.amount)}</TableCell>
-                              <TableCell>
-                                <Badge className={st.className}>{st.label}</Badge>
-                                {inv.failureMessage && inv.status === 'failed' && <p className="text-xs text-muted-foreground mt-1">{inv.failureMessage}</p>}
-                              </TableCell>
-                            </TableRow>
+                            <tr key={inv.id}>
+                              <td className="whitespace-nowrap">{fmtDate(inv.paidAt ?? inv.dueAt ?? inv.createdAt)}</td>
+                              <td>{inv.planName ?? '—'}{inv.billingCycle === 'annual' ? ' (anual)' : ''}</td>
+                              <td className="whitespace-nowrap">{inv.periodStart ? `${fmtDate(inv.periodStart)} a ${fmtDate(inv.periodEnd)}` : '—'}</td>
+                              <td className="direita forte">{formatCurrency(inv.amount)}</td>
+                              <td>
+                                <span className={`tag ${st.tag}`}>{st.label}</span>
+                                {inv.failureMessage && inv.status === 'failed' && <p className="suave text-xs mt-1">{inv.failureMessage}</p>}
+                              </td>
+                            </tr>
                           )
                         })}
-                      </TableBody>
-                    </Table>
+                      </tbody>
+                    </table>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           )}
 
-          {/* Feature comparison table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Comparação detalhada de recursos</CardTitle>
-              <CardDescription>Veja o que cada plano oferece em detalhes.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-1/3">Recurso</TableHead>
-                      {plans.map((plan) => (
-                        <TableHead key={plan.id} className="text-center">{plan.name}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium text-sm">Conversas/mês</TableCell>
-                      {plans.map((plan) => (
-                        <TableCell key={plan.id} className="text-center">
-                          {renderCell(plan.limits.maxConversationsMonthly.toLocaleString('pt-BR'))}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium text-sm">Agentes</TableCell>
-                      {plans.map((plan) => (
-                        <TableCell key={plan.id} className="text-center">
-                          {renderCell(plan.limits.maxAgents)}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium text-sm">Conexões WhatsApp</TableCell>
-                      {plans.map((plan) => (
-                        <TableCell key={plan.id} className="text-center">
-                          {renderCell(plan.limits.maxConnections)}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium text-sm">Mensagens/mês</TableCell>
-                      {plans.map((plan) => (
-                        <TableCell key={plan.id} className="text-center">{renderCell(plan.limits.maxMessagesMonthly.toLocaleString('pt-BR'))}</TableCell>
-                      ))}
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium text-sm">Regras de alerta</TableCell>
-                      {plans.map((plan) => (
-                        <TableCell key={plan.id} className="text-center">{renderCell(plan.limits.maxAlertRules)}</TableCell>
-                      ))}
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium text-sm">Histórico (dias)</TableCell>
-                      {plans.map((plan) => (
-                        <TableCell key={plan.id} className="text-center">{renderCell(plan.limits.retentionDays)}</TableCell>
-                      ))}
-                    </TableRow>
-                    <TableRow className="bg-muted/30">
-                      <TableCell className="font-bold">Preço</TableCell>
-                      {plans.map((plan) => (
-                        <TableCell key={plan.id} className="text-center font-bold">
-                          {formatCurrency(plan.monthlyPrice)}/mês
-                          <span className="block text-xs font-normal text-muted-foreground">ou {formatCurrency(plan.annualPrice)}/ano</span>
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </TableBody>
-                </Table>
+          {/* Comparação detalhada */}
+          <section className="cartao" aria-labelledby="t-recursos">
+            <div className="cartao__cab">
+              <div>
+                <h2 id="t-recursos">Comparação detalhada de recursos</h2>
+                <p>Veja o que cada plano oferece em detalhes.</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="cartao__corpo">
+              <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Comparação detalhada de recursos">
+                <table className="tabela tabela--cab-cinza">
+                  <thead>
+                    <tr>
+                      <th className="w-1/3">Recurso</th>
+                      {plans.map((plan) => (
+                        <th key={plan.id} className="centro">{plan.name}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {COMPARE_ROWS.map((row) => (
+                      <tr key={row.label}>
+                        <td className="forte">{row.label}</td>
+                        {plans.map((plan) => (
+                          <td key={plan.id} className="centro">{row.value(plan)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                    <tr className="bg-[var(--superficie-2)]">
+                      <td className="forte">Preço</td>
+                      {plans.map((plan) => (
+                        <td key={plan.id} className="centro forte">
+                          {formatCurrency(plan.monthlyPrice)}/mês
+                          <span className="block text-xs font-normal suave">ou {formatCurrency(plan.annualPrice)}/ano</span>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
         </>
       )}
 
@@ -610,7 +568,7 @@ export default function PlansView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   )
 }
 

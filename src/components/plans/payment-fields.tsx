@@ -1,19 +1,25 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { CreditCard } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { cardBrand, formatCardNumber, formatCep, formatExpiry, luhnValid, onlyDigits, parseExpiry, UFS } from '@/lib/billing/format'
 
-// Campos de cartão e endereço do checkout (padrão visual do sistema). O cartão é trocado por um token DIRETO no
-// Pagar.me, pelo navegador, com a chave pública: número e CVV nunca chegam ao nosso servidor.
+// Campos de cartão e endereço do checkout. `variant="conta"` usa o desenho das páginas de conta do pacote
+// (campo/entrada; só funciona dentro de `.ar`). O padrão usa os componentes do sistema, para servir também dentro de
+// diálogos (portais, fora de `.ar`). O cartão é trocado por um token DIRETO no Pagar.me, pelo navegador, com a chave
+// pública: número e CVV nunca chegam ao nosso servidor.
 
 export interface CardValue { number: string; holder: string; expiry: string; cvv: string }
 export interface AddressValue { zipCode: string; street: string; number: string; complement: string; neighborhood: string; city: string; state: string }
 
 export const EMPTY_CARD: CardValue = { number: '', holder: '', expiry: '', cvv: '' }
 export const EMPTY_ADDRESS: AddressValue = { zipCode: '', street: '', number: '', complement: '', neighborhood: '', city: '', state: '' }
+
+type Variant = 'padrao' | 'conta'
 
 /** Problema no cartão antes de enviar (ou null se está ok). */
 export function cardProblem(c: CardValue): string | null {
@@ -50,13 +56,55 @@ export async function tokenizeCard(publicKey: string, c: CardValue): Promise<str
   return body.id as string
 }
 
-export function CardFields({ value, onChange, disabled }: { value: CardValue; onChange: (v: CardValue) => void; disabled?: boolean }) {
+/** Rótulo + entrada nos dois visuais; ids e atributos iguais em ambos. */
+function Field({ variant, id, label, className, ...input }: { variant: Variant; id: string; label: React.ReactNode; className?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  if (variant === 'conta') {
+    return (
+      <div className={cn('campo', className)}>
+        <label htmlFor={id}>{label}</label>
+        <input id={id} className="entrada" {...input} />
+      </div>
+    )
+  }
+  return (
+    <div className={cn('space-y-1.5', className)}>
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} {...input} />
+    </div>
+  )
+}
+
+export function CardFields({ value, onChange, disabled, variant = 'padrao' }: { value: CardValue; onChange: (v: CardValue) => void; disabled?: boolean; variant?: Variant }) {
   const brand = cardBrand(value.number)
   const set = (k: keyof CardValue) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value
     const v = k === 'number' ? formatCardNumber(raw) : k === 'expiry' ? formatExpiry(raw) : k === 'cvv' ? onlyDigits(raw).slice(0, 4) : raw.toUpperCase().replace(/[^A-ZÀ-Ú ]/g, '')
     onChange({ ...value, [k]: v })
   }
+  const holder = { id: 'card-holder', autoComplete: 'cc-name', placeholder: 'COMO ESTÁ NO CARTÃO', value: value.holder, onChange: set('holder'), disabled }
+  const expiry = { id: 'card-expiry', inputMode: 'numeric' as const, autoComplete: 'cc-exp', placeholder: 'MM/AA', value: value.expiry, onChange: set('expiry'), disabled }
+  const cvv = { id: 'card-cvv', inputMode: 'numeric' as const, autoComplete: 'cc-csc', placeholder: brand === 'American Express' ? '4 dígitos' : '3 dígitos', value: value.cvv, onChange: set('cvv'), disabled }
+
+  if (variant === 'conta') {
+    return (
+      <div className="grid gap-3.5">
+        <div className="campo">
+          <label htmlFor="card-number">Número do cartão</label>
+          <div className="campo-ic">
+            <CreditCard className="ic" aria-hidden="true" />
+            <input id="card-number" className="entrada pr-28" inputMode="numeric" autoComplete="cc-number" placeholder="0000 0000 0000 0000" value={value.number} onChange={set('number')} disabled={disabled} />
+            {brand && <span className="marcas detectada"><span className="marca ativa" data-testid="card-brand">{brand}</span></span>}
+          </div>
+        </div>
+        <div className="grade-cartao">
+          <Field variant="conta" label="Nome impresso no cartão" {...holder} />
+          <Field variant="conta" label="Validade" {...expiry} />
+          <Field variant="conta" label="CVV" {...cvv} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="grid grid-cols-2 gap-3">
       <div className="col-span-2 space-y-1.5">
@@ -66,23 +114,14 @@ export function CardFields({ value, onChange, disabled }: { value: CardValue; on
           {brand && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground" data-testid="card-brand">{brand}</span>}
         </div>
       </div>
-      <div className="col-span-2 space-y-1.5">
-        <Label htmlFor="card-holder">Nome impresso no cartão</Label>
-        <Input id="card-holder" autoComplete="cc-name" placeholder="COMO ESTÁ NO CARTÃO" value={value.holder} onChange={set('holder')} disabled={disabled} />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="card-expiry">Validade</Label>
-        <Input id="card-expiry" inputMode="numeric" autoComplete="cc-exp" placeholder="MM/AA" value={value.expiry} onChange={set('expiry')} disabled={disabled} />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="card-cvv">CVV</Label>
-        <Input id="card-cvv" inputMode="numeric" autoComplete="cc-csc" placeholder={brand === 'American Express' ? '4 dígitos' : '3 dígitos'} value={value.cvv} onChange={set('cvv')} disabled={disabled} />
-      </div>
+      <Field variant="padrao" className="col-span-2" label="Nome impresso no cartão" {...holder} />
+      <Field variant="padrao" label="Validade" {...expiry} />
+      <Field variant="padrao" label="CVV" {...cvv} />
     </div>
   )
 }
 
-export function AddressFields({ value, onChange, disabled, idPrefix = 'addr' }: { value: AddressValue; onChange: (v: AddressValue) => void; disabled?: boolean; idPrefix?: string }) {
+export function AddressFields({ value, onChange, disabled, idPrefix = 'addr', variant = 'padrao' }: { value: AddressValue; onChange: (v: AddressValue) => void; disabled?: boolean; idPrefix?: string; variant?: Variant }) {
   const [lookingUp, setLookingUp] = useState(false)
   // valor mais recente: a resposta do ViaCEP chega depois e não pode apagar o que a pessoa digitou enquanto isso
   const latest = useRef(value)
@@ -107,37 +146,21 @@ export function AddressFields({ value, onChange, disabled, idPrefix = 'addr' }: 
   }
 
   const id = (k: string) => `${idPrefix}-${k}`
+  const conta = variant === 'conta'
+  const muted = conta ? 'text-[var(--suave)]' : 'text-muted-foreground'
   return (
-    <div className="grid grid-cols-6 gap-3">
-      <div className="col-span-3 sm:col-span-2 space-y-1.5">
-        <Label htmlFor={id('zip')}>CEP</Label>
-        <Input id={id('zip')} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={value.zipCode} onChange={set('zipCode')} onBlur={(e) => lookup(e.target.value)} disabled={disabled} />
-      </div>
-      <div className="col-span-3 sm:col-span-4 flex items-end pb-2 text-xs text-muted-foreground">{lookingUp ? 'Buscando endereço…' : ''}</div>
-      <div className="col-span-6 sm:col-span-4 space-y-1.5">
-        <Label htmlFor={id('street')}>Rua</Label>
-        <Input id={id('street')} autoComplete="address-line1" value={value.street} onChange={set('street')} disabled={disabled} />
-      </div>
-      <div className="col-span-2 space-y-1.5">
-        <Label htmlFor={id('number')}>Número</Label>
-        <Input id={id('number')} value={value.number} onChange={set('number')} disabled={disabled} />
-      </div>
-      <div className="col-span-4 sm:col-span-3 space-y-1.5">
-        <Label htmlFor={id('complement')}>Complemento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-        <Input id={id('complement')} autoComplete="address-line2" value={value.complement} onChange={set('complement')} disabled={disabled} />
-      </div>
-      <div className="col-span-6 sm:col-span-3 space-y-1.5">
-        <Label htmlFor={id('neighborhood')}>Bairro</Label>
-        <Input id={id('neighborhood')} value={value.neighborhood} onChange={set('neighborhood')} disabled={disabled} />
-      </div>
-      <div className="col-span-4 space-y-1.5">
-        <Label htmlFor={id('city')}>Cidade</Label>
-        <Input id={id('city')} autoComplete="address-level2" value={value.city} onChange={set('city')} disabled={disabled} />
-      </div>
-      <div className="col-span-2 space-y-1.5">
-        <Label htmlFor={id('state')}>UF</Label>
+    <div className={cn('grid grid-cols-6', conta ? 'gap-x-[18px] gap-y-3.5' : 'gap-3')}>
+      <Field variant={variant} className="col-span-3 sm:col-span-2" id={id('zip')} label="CEP" inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={value.zipCode} onChange={set('zipCode')} onBlur={(e) => lookup(e.target.value)} disabled={disabled} />
+      <div className={cn('col-span-3 sm:col-span-4 flex items-end pb-2 text-xs', muted)}>{lookingUp ? 'Buscando endereço…' : ''}</div>
+      <Field variant={variant} className="col-span-6 sm:col-span-4" id={id('street')} label="Rua" autoComplete="address-line1" value={value.street} onChange={set('street')} disabled={disabled} />
+      <Field variant={variant} className="col-span-2" id={id('number')} label="Número" value={value.number} onChange={set('number')} disabled={disabled} />
+      <Field variant={variant} className="col-span-4 sm:col-span-3" id={id('complement')} label={<>Complemento <span className={cn('font-normal', muted)}>(opcional)</span></>} autoComplete="address-line2" value={value.complement} onChange={set('complement')} disabled={disabled} />
+      <Field variant={variant} className="col-span-6 sm:col-span-3" id={id('neighborhood')} label="Bairro" value={value.neighborhood} onChange={set('neighborhood')} disabled={disabled} />
+      <Field variant={variant} className="col-span-4" id={id('city')} label="Cidade" autoComplete="address-level2" value={value.city} onChange={set('city')} disabled={disabled} />
+      <div className={cn('col-span-2', conta ? 'campo' : 'space-y-1.5')}>
+        {conta ? <label htmlFor={id('state')}>UF</label> : <Label htmlFor={id('state')}>UF</Label>}
         <Select value={value.state} onValueChange={(v) => onChange({ ...value, state: v })} disabled={disabled}>
-          <SelectTrigger id={id('state')} className="w-full" aria-label="UF"><SelectValue placeholder="UF" /></SelectTrigger>
+          <SelectTrigger id={id('state')} className={cn('w-full', conta && 'h-[42px] rounded-[10px]')} aria-label="UF"><SelectValue placeholder="UF" /></SelectTrigger>
           <SelectContent>
             {UFS.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
           </SelectContent>

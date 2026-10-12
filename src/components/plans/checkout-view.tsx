@@ -1,16 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Check, CheckCircle2, FlaskConical, Loader2, Lock } from 'lucide-react'
+import {
+  ArrowLeft, ArrowRight, Check, CalendarClock, CreditCard, Crown, FlaskConical, Loader2, Lock, PiggyBank, RefreshCw,
+  ShieldCheck, TriangleAlert, Users, Wallet, Wifi, XCircle, type LucideIcon,
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, type View } from '@/lib/store'
+import { canOpenView } from '@/lib/permissions'
 import { formatCurrency } from '@/lib/utils'
 import { formatDocument, formatPhone, isValidDocument, onlyDigits } from '@/lib/billing/format'
 import { AddressFields, CardFields, EMPTY_ADDRESS, EMPTY_CARD, addressProblem, cardProblem, tokenizeCard, type AddressValue, type CardValue } from './payment-fields'
@@ -34,8 +32,15 @@ interface BillingSummary {
 
 type Cycle = 'monthly' | 'annual'
 
+const NEXT_STEPS: { view: View; icon: LucideIcon; title: string; text: string }[] = [
+  { view: 'connections', icon: Wifi, title: 'Conecte seu WhatsApp', text: 'Conecte o número da empresa para começar a auditar as conversas.' },
+  { view: 'members', icon: Users, title: 'Configure sua equipe', text: 'Convide as pessoas e defina as permissões de acesso.' },
+  { view: 'alerts', icon: TriangleAlert, title: 'Acompanhe os alertas', text: 'Monitore os atendimentos e aja nos casos que precisam de atenção.' },
+]
+
 // Checkout transparente: a pessoa não sai do sistema. O cartão vira token no Pagar.me (navegador → Pagar.me) e só o
 // token chega ao nosso servidor, que cria a assinatura com cobrança automática no cartão.
+// Visual: assinatura.html do pacote (estado concluído: ativado.html), dentro do conteúdo do painel.
 export default function CheckoutView() {
   const { checkout, setView, me, currentOrganization, incrementRefresh } = useAppStore()
   const [plans, setPlans] = useState<Plan[] | null>(null)
@@ -82,6 +87,7 @@ export default function CheckoutView() {
   const annualSaving = plan ? plan.monthlyPrice * 12 - plan.annualPrice : 0
   const sub = billing?.subscription
   const isChange = !!sub?.recurring && sub.status === 'active'
+  const per = cycle === 'annual' ? '/ano' : '/mês'
 
   const back = () => setView('plans')
 
@@ -122,22 +128,22 @@ export default function CheckoutView() {
   }
 
   const header = (
-    <div className="flex items-center gap-3">
-      <Button variant="ghost" size="icon" onClick={back} aria-label="Voltar para Planos"><ArrowLeft className="w-4 h-4" /></Button>
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{isChange ? 'Mudar de plano' : 'Contratar plano'}</h1>
-        <p className="text-muted-foreground mt-1">Pagamento com cartão de crédito e renovação automática.</p>
-      </div>
+    <div>
+      <button type="button" className="voltar link-verde inline-flex items-center gap-2 border-0 bg-transparent p-0 no-underline" onClick={back}>
+        <ArrowLeft className="ic" aria-hidden="true" />Voltar para Planos
+      </button>
+      <h1 className="titulo-conta mt-2 text-[clamp(26px,3vw,34px)]">{isChange ? 'Mudar de plano' : 'Contratar plano'}</h1>
+      <p className="sub-conta mt-1 text-base">Pagamento com cartão de crédito e renovação automática.</p>
     </div>
   )
 
   if (loadError) {
     return (
-      <div className="space-y-6">
+      <div className="conta grid gap-5">
         {header}
-        <div className="flex flex-col items-center justify-center h-64 gap-4">
-          <p className="text-destructive font-medium">{loadError}</p>
-          <Button variant="outline" onClick={back}>Voltar para Planos</Button>
+        <div className="conta-cartao flex flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+          <p className="font-medium text-[var(--vermelho)]">{loadError}</p>
+          <button type="button" className="btn btn--lg" onClick={back}>Voltar para Planos</button>
         </div>
       </div>
     )
@@ -145,11 +151,11 @@ export default function CheckoutView() {
 
   if (!plans || !billing) {
     return (
-      <div className="space-y-6">
+      <div className="conta grid gap-5">
         {header}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-[480px] rounded-xl lg:col-span-2" />
-          <Skeleton className="h-72 rounded-xl" />
+        <div className="assinatura">
+          <Skeleton className="h-[480px] rounded-3xl" />
+          <Skeleton className="h-72 rounded-3xl" />
         </div>
       </div>
     )
@@ -157,40 +163,76 @@ export default function CheckoutView() {
 
   if (!plan || !billing.enabled) {
     return (
-      <div className="space-y-6">
+      <div className="conta grid gap-5">
         {header}
-        <Card>
-          <CardContent className="py-10 text-center space-y-4">
-            <p className="text-muted-foreground">{!billing.enabled ? 'O pagamento on-line ainda não está disponível. Use "Solicitar troca" na tela Planos.' : 'Escolha um plano na tela Planos.'}</p>
-            <Button variant="outline" onClick={back}>Voltar para Planos</Button>
-          </CardContent>
-        </Card>
+        <div className="conta-cartao grid justify-items-center gap-4 px-6 py-10 text-center">
+          <p className="text-[var(--texto-2)]">{!billing.enabled ? 'O pagamento on-line ainda não está disponível. Use "Solicitar troca" na tela Planos.' : 'Escolha um plano na tela Planos.'}</p>
+          <button type="button" className="btn btn--lg" onClick={back}>Voltar para Planos</button>
+        </div>
       </div>
     )
   }
 
   if (done) {
+    const active = done.status === 'active'
+    const steps = NEXT_STEPS.filter((s) => !!me && canOpenView(me.role, s.view))
     return (
-      <div className="space-y-6">
-        {header}
-        <Card className="max-w-xl mx-auto" data-testid="checkout-done">
-          <CardContent className="py-10 text-center space-y-4">
-            {done.status === 'active' ? (
-              <>
-                <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-600 dark:text-emerald-400" />
-                <h2 className="text-xl font-semibold">Pagamento aprovado</h2>
-                <p className="text-muted-foreground">O plano {done.planName} já está ativo, com os novos limites. A renovação é automática no mesmo cartão; você pode cancelar quando quiser em Planos.</p>
-              </>
-            ) : (
-              <>
-                <Loader2 className="w-12 h-12 mx-auto animate-spin text-primary" />
-                <h2 className="text-xl font-semibold">Pagamento em análise</h2>
-                <p className="text-muted-foreground">O Pagar.me ainda está confirmando a cobrança. Esta tela atualiza sozinha; o plano {done.planName} é ativado assim que o pagamento for aprovado.</p>
-              </>
+      <div className="conta">
+        <div className="conta-cartao ativado mt-0" data-testid="checkout-done">
+          <div className="sucesso" aria-hidden="true">
+            {active && (
+              <span className="confete">
+                {[[18, 40, -50], [40, 96, 30], [60, 12, -20], [150, 6, 30], [178, 54, -40], [196, 104, 60], [10, 120, 70], [204, 24, 10], [84, 140, -30], [140, 138, 40]].map(([l, t, r]) => (
+                  <i key={`${l}-${t}`} style={{ left: l, top: t, '--r': `${r}deg` } as React.CSSProperties} />
+                ))}
+              </span>
             )}
-            <Button onClick={back}>Ir para Planos</Button>
-          </CardContent>
-        </Card>
+            <span className="sucesso__bola">{active ? <Check className="ic" /> : <Loader2 className="ic animate-spin" />}</span>
+          </div>
+          {active ? (
+            <>
+              <h1>Pagamento <span className="verde">aprovado</span></h1>
+              <p className="ativado__sub">O plano {done.planName} já está ativo, com os novos limites. A renovação é automática no mesmo cartão; você pode cancelar quando quiser em Planos.</p>
+            </>
+          ) : (
+            <>
+              <h1>Pagamento <span className="verde">em análise</span></h1>
+              <p className="ativado__sub">O Pagar.me ainda está confirmando a cobrança. Esta tela atualiza sozinha; o plano {done.planName} é ativado assim que o pagamento for aprovado.</p>
+            </>
+          )}
+
+          <div className="resumo-ativo">
+            <div><span className="ic-bola"><Crown className="ic" aria-hidden="true" /></span><span><small>Plano</small><b>{done.planName}</b></span></div>
+            <div><span className="ic-bola"><Wallet className="ic" aria-hidden="true" /></span><span><small>Valor</small><b className="verde">{formatCurrency(price)}<span className="text-sm font-semibold">{per}</span></b></span></div>
+            <div><span className="ic-bola"><CalendarClock className="ic" aria-hidden="true" /></span><span><small>Renovação</small><b>{cycle === 'annual' ? 'anual, automática' : 'mensal, automática'}</b></span></div>
+            <div><span className="ic-bola"><CreditCard className="ic" aria-hidden="true" /></span><span><small>Método</small><b className="menor">cartão cadastrado com segurança</b></span></div>
+          </div>
+
+          {active && !isChange && steps.length === NEXT_STEPS.length && (
+            <section className="proximos" aria-labelledby="t-prox">
+              <h2 id="t-prox">Próximos passos</h2>
+              <p>Siga estes passos para começar a receber alertas e insights no AtendeRadar.</p>
+              <div className="proximos__lista">
+                {steps.map((s, i) => {
+                  const Icon = s.icon
+                  return [
+                    i > 0 && <ArrowRight key={`seta-${s.view}`} className="ic proximos__seta self-center" aria-hidden="true" />,
+                    <button key={s.view} type="button" className="proximo text-left" onClick={() => setView(s.view)}>
+                      <span className="num" aria-hidden="true">{i + 1}</span>
+                      <span className="ic-bola"><Icon className="ic" aria-hidden="true" /></span>
+                      <span><b>{s.title}</b><span>{s.text}</span></span>
+                    </button>,
+                  ]
+                })}
+              </div>
+            </section>
+          )}
+
+          <div className="ativado__acoes">
+            <button type="button" className="btn btn--verde btn--xl" onClick={back}>Ir para Planos <ArrowRight className="ic" aria-hidden="true" /></button>
+            <button type="button" className="btn btn--contorno-forte btn--xl" onClick={() => setView('dashboard')}>Acessar painel</button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -203,101 +245,120 @@ export default function CheckoutView() {
     `Histórico de ${plan.limits.retentionDays} dias`,
   ]
 
+  const cycles: { value: Cycle; label: string; detail: string }[] = [
+    { value: 'monthly', label: 'Mensal', detail: `${formatCurrency(plan.monthlyPrice)}/mês` },
+    { value: 'annual', label: 'Anual', detail: annualSaving > 0 ? `${formatCurrency(plan.annualPrice)}/ano · economize ${formatCurrency(annualSaving)}` : `${formatCurrency(plan.annualPrice)}/ano` },
+  ]
+
   return (
-    <div className="space-y-6">
+    <div className="conta grid gap-4">
       {header}
 
       {billing.mode === 'test' && (
-        <Alert data-testid="checkout-test-mode">
-          <FlaskConical className="w-4 h-4" />
-          <AlertTitle>Ambiente de testes do Pagar.me</AlertTitle>
-          <AlertDescription>Nenhuma cobrança real é feita. Use o cartão 4000 0000 0000 0010, qualquer validade futura e CVV 123.</AlertDescription>
-        </Alert>
+        <div className="nota-segura" role="note" data-testid="checkout-test-mode">
+          <FlaskConical className="ic" aria-hidden="true" />
+          <span><b>Ambiente de testes do Pagar.me</b>Nenhuma cobrança real é feita. Use o cartão 4000 0000 0000 0010, qualquer validade futura e CVV 123.</span>
+        </div>
       )}
 
-      <form onSubmit={submit} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start" noValidate>
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Dados de cobrança</CardTitle>
-              <CardDescription>Aparecem na fatura e no recibo do Pagar.me.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="sm:col-span-2 space-y-1.5">
-                <Label htmlFor="holder-name">Nome ou razão social</Label>
-                <Input id="holder-name" autoComplete="organization" value={holder.name} onChange={(e) => setHolder({ ...holder, name: e.target.value })} disabled={submitting} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="holder-document">CPF ou CNPJ</Label>
-                <Input id="holder-document" inputMode="numeric" value={holder.document} onChange={(e) => setHolder({ ...holder, document: formatDocument(e.target.value) })} disabled={submitting} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="holder-phone">Celular</Label>
-                <Input id="holder-phone" inputMode="tel" autoComplete="tel" placeholder="(11) 99999-9999" value={holder.phone} onChange={(e) => setHolder({ ...holder, phone: formatPhone(e.target.value) })} disabled={submitting} />
-              </div>
-              <div className="sm:col-span-2 space-y-1.5">
-                <Label htmlFor="holder-email">E-mail para recibos</Label>
-                <Input id="holder-email" type="email" autoComplete="email" value={holder.email} onChange={(e) => setHolder({ ...holder, email: e.target.value })} disabled={submitting} />
-              </div>
-            </CardContent>
-          </Card>
+      <form onSubmit={submit} className="assinatura mt-0" noValidate>
+        <div className="conta-cartao assinatura__form">
+          <div className="passo-form">
+            <span className="passo-form__num" aria-hidden="true">1</span>
+            <div><h2>Ciclo de cobrança</h2><p>Escolha de quanto em quanto tempo o cartão é cobrado.</p></div>
+          </div>
+          <div className="forma-pag" role="radiogroup" aria-label="Ciclo de cobrança">
+            {cycles.map((c) => (
+              <label key={c.value} className="forma">
+                <input type="radio" name="cycle" value={c.value} checked={cycle === c.value} onChange={() => setCycle(c.value)} disabled={submitting} aria-label={c.label} />
+                {c.value === 'annual' ? <PiggyBank className="ic" aria-hidden="true" /> : <RefreshCw className="ic" aria-hidden="true" />}
+                <span><b>{c.label}</b><small>{c.detail}</small></span>
+              </label>
+            ))}
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Endereço de cobrança</CardTitle>
-              <CardDescription>O do titular do cartão. Digite o CEP para preencher o resto.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AddressFields value={address} onChange={setAddress} disabled={submitting} />
-            </CardContent>
-          </Card>
+          <div className="passo-form">
+            <span className="passo-form__num" aria-hidden="true">2</span>
+            <div><h2>Dados de cobrança</h2><p>Aparecem na fatura e no recibo do Pagar.me.</p></div>
+          </div>
+          <div className="grade-form">
+            <div className="campo todo">
+              <label htmlFor="holder-name">Nome ou razão social</label>
+              <input className="entrada" id="holder-name" autoComplete="organization" value={holder.name} onChange={(e) => setHolder({ ...holder, name: e.target.value })} disabled={submitting} />
+            </div>
+            <div className="campo">
+              <label htmlFor="holder-document">CPF ou CNPJ</label>
+              <input className="entrada" id="holder-document" inputMode="numeric" placeholder="000.000.000-00 ou 00.000.000/0001-00" value={holder.document} onChange={(e) => setHolder({ ...holder, document: formatDocument(e.target.value) })} disabled={submitting} />
+            </div>
+            <div className="campo">
+              <label htmlFor="holder-phone">Celular</label>
+              <input className="entrada" id="holder-phone" inputMode="tel" autoComplete="tel" placeholder="(11) 99999-9999" value={holder.phone} onChange={(e) => setHolder({ ...holder, phone: formatPhone(e.target.value) })} disabled={submitting} />
+            </div>
+            <div className="campo todo">
+              <label htmlFor="holder-email">E-mail para recibos</label>
+              <input className="entrada" id="holder-email" type="email" autoComplete="email" value={holder.email} onChange={(e) => setHolder({ ...holder, email: e.target.value })} disabled={submitting} />
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Cartão de crédito</CardTitle>
-              <CardDescription className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Os dados do cartão vão direto ao Pagar.me; não ficam no Atende Radar.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CardFields value={card} onChange={setCard} disabled={submitting} />
-            </CardContent>
-          </Card>
+          <div className="passo-form">
+            <span className="passo-form__num" aria-hidden="true">3</span>
+            <div><h2>Endereço de cobrança</h2><p>O do titular do cartão. Digite o CEP para preencher o resto.</p></div>
+          </div>
+          <AddressFields value={address} onChange={setAddress} disabled={submitting} variant="conta" />
+
+          <div className="passo-form">
+            <span className="passo-form__num" aria-hidden="true">4</span>
+            <div><h2>Cartão de crédito</h2><p>Os dados do cartão vão direto ao Pagar.me; não ficam no AtendeRadar.</p></div>
+          </div>
+          <CardFields value={card} onChange={setCard} disabled={submitting} variant="conta" />
+
+          {formError && (
+            <p className="rounded-xl border border-[var(--vermelho-borda)] bg-[var(--vermelho-fundo)] px-4 py-3 text-sm font-medium text-[var(--vermelho)]" role="alert" data-testid="checkout-error">{formError}</p>
+          )}
+          <button type="submit" className="btn btn--escuro btn--xl btn--bloco" disabled={submitting}>
+            {submitting
+              ? <><Loader2 className="ic animate-spin" aria-hidden="true" />Processando…</>
+              : <><Lock className="ic" aria-hidden="true" />Pagar {formatCurrency(price)}</>}
+          </button>
+          <p className="flex items-center justify-center gap-1.5 text-center text-[12.5px] text-[var(--suave)]">
+            <Lock className="ic" aria-hidden="true" /> Pagamento seguro: o cartão é processado pelo Pagar.me.
+          </p>
         </div>
 
-        <Card className="lg:sticky lg:top-4">
-          <CardHeader>
-            <CardTitle className="text-lg">Resumo</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <aside className="conta-cartao resumo-plano" aria-label="Seu plano">
+          <div className="resumo-plano__cab"><span>Seu plano</span><span className="tag tag--verde">{cycle === 'annual' ? 'Anual' : 'Mensal'}</span></div>
+          <div className="resumo-plano__nome">
+            <span className="coroa coroa--sm"><Crown className="ic" aria-hidden="true" /></span>
             <div>
-              <p className="text-sm text-muted-foreground">Plano</p>
-              <p className="text-xl font-semibold" data-testid="checkout-plan">{plan.name}</p>
+              <b>Plano <span data-testid="checkout-plan">{plan.name}</span></b>
+              <span className="preco" data-testid="checkout-price">{formatCurrency(price)}{per}</span>
+              <small>Renovação automática • Cancele quando quiser</small>
             </div>
-            <ToggleGroup type="single" variant="outline" value={cycle} onValueChange={(v) => v && setCycle(v as Cycle)} className="w-full" disabled={submitting} aria-label="Ciclo de cobrança">
-              <ToggleGroupItem value="monthly" className="flex-1">Mensal</ToggleGroupItem>
-              <ToggleGroupItem value="annual" className="flex-1">Anual</ToggleGroupItem>
-            </ToggleGroup>
-            <div>
-              <p className="text-3xl font-bold" data-testid="checkout-price">
-                {formatCurrency(price)}
-                <span className="text-base font-normal text-muted-foreground">{cycle === 'annual' ? '/ano' : '/mês'}</span>
-              </p>
-              {cycle === 'annual' && annualSaving > 0 && <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-1">Economia de {formatCurrency(annualSaving)} por ano</p>}
+          </div>
+          <ul className="lista-ok">
+            {features.map((f) => (
+              <li key={f}><Check className="ic" aria-hidden="true" />{f}</li>
+            ))}
+          </ul>
+          {cycle === 'annual' && annualSaving > 0 && (
+            <div className="presente">
+              <PiggyBank className="ic" aria-hidden="true" />
+              <div><b>Economia de {formatCurrency(annualSaving)} por ano</b>Comparado a 12 mensalidades do plano mensal.</div>
             </div>
-            <ul className="space-y-1.5 border-t pt-3">
-              {features.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm"><Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />{f}</li>
-              ))}
-            </ul>
-            <div className="border-t pt-3 text-xs text-muted-foreground space-y-1.5">
-              <p>Cobrança hoje de {formatCurrency(price)} e renovação automática a cada {cycle === 'annual' ? 'ano' : 'mês'} no mesmo cartão. Cancele quando quiser em Planos; o plano vale até o fim do período pago.</p>
-              {isChange && <p>O plano atual ({sub!.plan.name}) é encerrado quando este pagamento for aprovado. Não há desconto proporcional pelo período restante.</p>}
-            </div>
-            {formError && <p className="text-sm text-destructive" role="alert" data-testid="checkout-error">{formError}</p>}
-            <Button type="submit" className="w-full" size="lg" disabled={submitting}>
-              {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processando…</> : <>Pagar {formatCurrency(price)}</>}
-            </Button>
-          </CardContent>
-        </Card>
+          )}
+          <div className="totais">
+            <div><span>Plano {plan.name}</span><span>{formatCurrency(price)}</span></div>
+            <div className="total-hoje"><b>Total hoje</b><strong>{formatCurrency(price)}</strong></div>
+            <small>Renova a cada {cycle === 'annual' ? 'ano' : 'mês'} no mesmo cartão</small>
+          </div>
+          {isChange && (
+            <p className="text-xs text-[var(--texto-2)]">O plano atual ({sub!.plan.name}) é encerrado quando este pagamento for aprovado. Não há desconto proporcional pelo período restante.</p>
+          )}
+          <ul className="garantias">
+            <li><span className="ic-bola"><ShieldCheck className="ic" aria-hidden="true" /></span><span><b>Pagamento seguro</b>Número e CVV do cartão vão direto ao Pagar.me.</span></li>
+            <li><span className="ic-bola"><XCircle className="ic" aria-hidden="true" /></span><span><b>Cancele quando quiser</b>Em Planos; o plano vale até o fim do período pago.</span></li>
+          </ul>
+        </aside>
       </form>
     </div>
   )

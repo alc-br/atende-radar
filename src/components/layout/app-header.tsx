@@ -1,125 +1,220 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { useSession, signOut } from 'next-auth/react'
-import { Moon, Sun, Menu, Search, ChevronDown, User, LogOut, HelpCircle, ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  Moon, Sun, Menu, Search, ChevronDown, LogOut, CircleHelp, Crown, Settings, PanelLeft, Palette,
+  Bell, CalendarDays, ArrowRight, TriangleAlert, Home,
+} from 'lucide-react'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup,
+  DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTheme } from 'next-themes'
-import { toast } from 'sonner'
+import { canOpenView } from '@/lib/permissions'
+
+// Mesmas opções do pacote de design; o valor é o que a API do painel entende
+export const PERIOD_OPTIONS = [
+  { value: 'today', label: 'Hoje' },
+  { value: '7d', label: 'Últimos 7 dias' },
+  { value: '14d', label: 'Últimos 14 dias' },
+  { value: '30d', label: 'Últimos 30 dias' },
+  { value: '90d', label: 'Últimos 90 dias' },
+]
+
+type Notice = { id: string; title: string; message: string; read: boolean }
+
+/** Estilo do menu lateral (escuro, padrão, ou claro), guardado neste navegador como no pacote de design. */
+function useSidebarStyle() {
+  // O rótulo só aparece com o menu aberto, então ler o navegador já na criação não causa diferença de hidratação
+  const [style, setStyle] = useState<'escuro' | 'claro'>(() => {
+    if (typeof window === 'undefined') return 'escuro'
+    try { return localStorage.getItem('ar-estilo') === 'claro' ? 'claro' : 'escuro' } catch { return 'escuro' }
+  })
+  useEffect(() => {
+    document.documentElement.setAttribute('data-estilo', style)
+  }, [style])
+  const toggle = () => {
+    const next = style === 'claro' ? 'escuro' : 'claro'
+    setStyle(next)
+    try { localStorage.setItem('ar-estilo', next) } catch {}
+  }
+  return { style, toggle }
+}
 
 export function AppHeader() {
-  const { setSidebarOpen, setMobileNavOpen, currentOrganization, setView, setShowLanding, setPendingSearch, currentView, startTour } = useAppStore()
+  const { setMobileNavOpen, mobileNavOpen, setView, setPendingSearch, currentView, startTour, period, setPeriod, refreshTrigger, setShowLanding } = useAppStore()
+  const me = useAppStore((s) => s.me)
   const { data: session } = useSession()
-  const orgName = currentOrganization?.displayName || 'AtendeRadar'
-  const { theme, setTheme } = useTheme()
+  const orgName = me?.organizationName || 'AtendeRadar'
+  const { resolvedTheme, setTheme } = useTheme()
+  const dark = resolvedTheme === 'dark'
+  const { style, toggle: toggleStyle } = useSidebarStyle()
   const [headerSearch, setHeaderSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+  const [notices, setNotices] = useState<Notice[]>([])
+  const [unread, setUnread] = useState(0)
 
-  const userName = (session?.user as any)?.name || 'Demo User'
-  const userInitials = userName
-    .split(' ')
-    .map((n: string) => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
+  const userName: string = me?.name || (session?.user as { name?: string } | undefined)?.name || 'Usuário'
+  const firstName = userName.split(' ')[0]
+  const initial = userName.trim().charAt(0).toUpperCase() || 'U'
+  const can = (v: Parameters<typeof canOpenView>[1]) => !!me && canOpenView(me.role, v)
+
+  // ⌘K / Ctrl+K leva à busca, como no pacote
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  useEffect(() => {
+    if (!me) return
+    let cancelled = false
+    fetch('/api/notifications?limit=4')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return
+        setNotices(d.notifications || [])
+        setUnread(d.unreadCount || 0)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [me, refreshTrigger, currentView])
+
+  const showPeriod = currentView === 'dashboard'
 
   return (
-    <header className='sticky top-0 z-30 h-16 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between gap-1 px-2 sm:px-4 lg:px-6'>
-      <div className='flex items-center gap-1 sm:gap-3 min-w-0'>
-        <Button
-          variant='ghost'
-          size='icon'
-          className='lg:hidden'
-          aria-label='Abrir menu'
-          onClick={() => {
-            setSidebarOpen(true) // na gaveta do celular o menu sempre aparece com os textos
-            setMobileNavOpen(true)
+    <header className="topo">
+      <button
+        className="icone-btn topo__menu"
+        type="button"
+        aria-label="Abrir menu"
+        aria-controls="lateral"
+        aria-expanded={mobileNavOpen}
+        onClick={() => setMobileNavOpen(!mobileNavOpen)}
+      >
+        <Menu className="ic" aria-hidden="true" />
+      </button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="org" type="button">
+            <span className="ponto" />
+            {orgName}
+            <ChevronDown className="ic" aria-hidden="true" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuRadioGroup value="atual">
+            <DropdownMenuRadioItem value="atual">{orgName}</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <label className="busca">
+        <span className="sr-only">Buscar</span>
+        <Search className="ic ic-lupa" aria-hidden="true" />
+        <input
+          ref={searchRef}
+          type="search"
+          data-tour="header-search"
+          placeholder="Buscar conversas, contatos, alertas..."
+          autoComplete="off"
+          value={headerSearch}
+          onChange={(e) => setHeaderSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && headerSearch.trim()) {
+              setPendingSearch(headerSearch.trim())
+              setView('conversations')
+            }
           }}
-        >
-          <Menu className='w-5 h-5' />
-        </Button>
+        />
+        <kbd>⌘ K</kbd>
+      </label>
+
+      {showPeriod && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant='ghost' className='gap-2 font-medium min-w-0 px-2 sm:px-3'>
-              <div className='w-2 h-2 rounded-full bg-emerald-500 shrink-0' />
-              <span className='truncate max-w-[30vw] sm:max-w-[40vw] lg:max-w-none'>{orgName}</span>
-              <ChevronDown className='w-4 h-4 text-muted-foreground shrink-0' />
-            </Button>
+            <button className="seletor periodo-topo" type="button" aria-label="Período" data-tour="dashboard-period">
+              <CalendarDays className="ic" aria-hidden="true" />
+              <span className="rotulo-periodo">{PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'Últimos 7 dias'}</span>
+              <ChevronDown className="ic" aria-hidden="true" />
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align='start'>
-            <DropdownMenuLabel>Organizações</DropdownMenuLabel>
-            <DropdownMenuItem className='font-medium'>
-              <div className='w-2 h-2 rounded-full bg-emerald-500 mr-2' />
-              {orgName}
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end">
+            <DropdownMenuRadioGroup value={period} onValueChange={setPeriod}>
+              {PERIOD_OPTIONS.map((p) => (
+                <DropdownMenuRadioItem key={p.value} value={p.value}>{p.label}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+      )}
 
-      <div className='hidden md:flex items-center gap-2 flex-1 max-w-md mx-8'>
-        <div className='relative w-full'>
-          <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground' />
-          <Input
-            data-tour='header-search'
-            placeholder='Buscar conversas, contatos, alertas...'
-            className='pl-9 bg-muted/50 border-0 focus-visible:ring-1'
-            value={headerSearch}
-            onChange={(e) => setHeaderSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && headerSearch.trim()) {
-                setPendingSearch(headerSearch.trim())
-                setView('conversations')
-              }
-            }}
-          />
-        </div>
-      </div>
+      <button className="icone-btn tema-btn" type="button" aria-label="Alternar tema" onClick={() => setTheme(dark ? 'light' : 'dark')}>
+        {dark ? <Sun className="ic" aria-hidden="true" /> : <Moon className="ic" aria-hidden="true" />}
+      </button>
 
-      <div className='flex items-center gap-0 sm:gap-2 shrink-0'>
-        <Button aria-label="Alternar tema" variant='ghost' size='icon' onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-          {theme === 'dark' ? <Sun className='w-4 h-4' /> : <Moon className='w-4 h-4' />}
-        </Button>
-        <Button aria-label='Notificações' variant='ghost' size='icon' className='relative' onClick={() => setView('notifications')}>
-          <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className='w-4 h-4'><path d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/><path d='M10.3 21a1.94 1.94 0 0 0 3.4 0'/></svg>
-          <span className='absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive' />
-        </Button>
-        <Button aria-label="Voltar"
-          variant='ghost'
-          size='icon'
-          className='text-muted-foreground hover:text-foreground'
-          title='Voltar para início'
-          onClick={() => setShowLanding(true)}
-        >
-          <ArrowLeft className='w-4 h-4' />
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button data-tour='header-help' aria-label='Menu do usuário' variant='ghost' className='gap-2 h-9'>
-              <Avatar className='h-7 w-7'>
-                <AvatarFallback className='bg-primary text-primary-foreground text-xs'>{userInitials}</AvatarFallback>
-              </Avatar>
-              <span className='hidden lg:inline text-sm font-medium'>{userName}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align='end'>
-            <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setView('settings')}><User className='mr-2 h-4 w-4' />Perfil</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => startTour(currentView)}><HelpCircle className='mr-2 h-4 w-4' />Tour desta tela</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => startTour('welcome')}><HelpCircle className='mr-2 h-4 w-4' />Tour de boas-vindas</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className='text-destructive' onClick={() => signOut({ callbackUrl: '/login' })}>
-              <LogOut className='mr-2 h-4 w-4' />Sair
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="icone-btn" type="button" aria-label="Notificações">
+            <Bell className="ic" aria-hidden="true" />
+            {unread > 0 && <span className="bolinha" />}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[340px] max-w-[calc(100vw-32px)]">
+          <DropdownMenuLabel className="text-[13px]">Notificações</DropdownMenuLabel>
+          {notices.length === 0 && <p className="px-2 pb-2 text-[12.5px] text-muted-foreground">Nenhuma notificação por enquanto.</p>}
+          {notices.map((n) => (
+            <DropdownMenuItem key={n.id} className="items-start" onClick={() => setView('notifications')}>
+              <TriangleAlert className="mt-0.5" aria-hidden="true" />
+              <span className="min-w-0">
+                <span className={n.read ? '' : 'font-semibold'}>{n.title}</span>
+                <small className="block truncate text-xs text-muted-foreground">{n.message}</small>
+              </span>
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setView('notifications')}>
+            <ArrowRight aria-hidden="true" />
+            Ver todas as notificações
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="usuario" type="button" data-tour="header-help" aria-label="Menu do usuário">
+            <span className="avatar-u">{initial}</span>
+            <span className="nome-u">{firstName}</span>
+            <ChevronDown className="ic" aria-hidden="true" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[220px]">
+          {can('plans') && (
+            <DropdownMenuItem onClick={() => setView('plans')}><Crown aria-hidden="true" />Meu plano e teste grátis</DropdownMenuItem>
+          )}
+          {can('settings') && (
+            <DropdownMenuItem onClick={() => setView('settings')}><Settings aria-hidden="true" />Configurações</DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => startTour(currentView)}><CircleHelp aria-hidden="true" />Tour desta tela</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => startTour('welcome')}><CircleHelp aria-hidden="true" />Tour de boas-vindas</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={toggleStyle}><PanelLeft aria-hidden="true" />{style === 'claro' ? 'Menu lateral escuro' : 'Menu lateral claro'}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setTheme(dark ? 'light' : 'dark')}><Palette aria-hidden="true" />{dark ? 'Tema claro' : 'Tema escuro'}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowLanding(true)}><Home aria-hidden="true" />Página inicial do site</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={() => signOut({ callbackUrl: '/login' })}>
+            <LogOut aria-hidden="true" />Sair
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   )
 }

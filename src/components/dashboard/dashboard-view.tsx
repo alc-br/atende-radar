@@ -2,61 +2,38 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
-  MessageSquare,
-  Clock,
+  MessageSquareMore,
   Users,
-  AlertTriangle,
-  ShieldAlert,
+  Clock,
+  Target,
+  CircleAlert,
+  CalendarX,
   DollarSign,
   Star,
-  Timer,
   TrendingUp,
   TrendingDown,
   Minus,
-  ChevronRight,
   Eye,
-  ArrowUpRight,
-  ArrowDownRight,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
   CalendarDays,
-  BarChart3,
-  Activity,
-  AlertOctagon,
+  ChartBarBig,
+  TriangleAlert,
+  ChartLine,
 } from 'lucide-react'
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Cell,
+  LabelList,
 } from 'recharts'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Tooltip,
   TooltipContent,
@@ -67,223 +44,259 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart'
-
-import {
-  formatCurrency,
-  timeAgo,
-  getSeverityColor,
-  getIntentLabel,
-  cn,
-} from '@/lib/utils'
-import { useAppStore } from '@/lib/store'
-import { SetupChecklist } from './setup-checklist'
 import { Skeleton } from '@/components/ui/skeleton'
 
-// ─── Types ───────────────────────────────────────────────────────────
+import { formatCurrency, getIntentLabel, cn } from '@/lib/utils'
+import { useAppStore } from '@/lib/store'
+import { canOpenView } from '@/lib/permissions'
+import { SetupChecklist } from './setup-checklist'
+
+// ─── Tipos ───────────────────────────────────────────────────────────
+
+interface Summary {
+  conversationsStarted: number; conversationsStartedChange: number
+  customersWaiting: number; customersWaitingChange: number
+  medianFirstResponse: number; medianFirstResponseChange: number
+  opportunitiesDetected: number; opportunitiesDetectedChange: number
+  opportunitiesAtRisk: number; opportunitiesAtRiskChange: number
+  overduePromises: number; overduePromisesChange: number
+  potentialValueAtRisk: number; potentialValueAtRiskChange: number
+  overallScore: number; overallScoreChange: number
+}
+
+interface DashboardData {
+  summary: Summary | null
+  funnel: { stage: string; count: number; color: string }[]
+  failures: { type: string; count: number; severity: string }[]
+  evolution: { date: string; score: number; responseTime: number; abandonment: number; valueAtRisk: number }[]
+  priorities: {
+    id: string; customerName: string; customerPhone: string; agentName: string
+    agentTeam: string; primaryIntent: string; urgency: string; waitingMinutes: number
+    potentialValue: number; score: number; riskScore: number
+  }[]
+  teamPerformance: {
+    id: string; name: string; team: string; score: number; avgResponseTime: number
+    opportunities: number; criticalFailures: number; promisesKept: number
+    promisesTotal: number; trend: 'up' | 'down' | 'stable'
+  }[]
+}
 
 interface KpiCardData {
   label: string
-  value: string | number
+  value: string
+  unit?: string
   change: number
+  /** Métricas em que cair é bom (tempo de espera, risco...). */
+  lowerIsBetter?: boolean
   icon: React.ElementType
+  tone: string
   tooltip: string
-  href?: string
-  prefix?: string
-  suffix?: string
 }
 
-// ─── Period options ──────────────────────────────────────────────────
+// ─── Formatação ──────────────────────────────────────────────────────
 
-const periodOptions = [
-  { value: 'today', label: 'Hoje' },
-  { value: 'yesterday', label: 'Ontem' },
-  { value: '7d', label: '7 dias' },
-  { value: '30d', label: '30 dias' },
-  { value: 'custom', label: 'Personalizado' },
-] as const
+const fmt = (n: number) => n.toLocaleString('pt-BR')
 
-// ─── Severity color mapping for failures chart ───────────────────────
-
-const severityChartColor: Record<string, string> = {
-  critical: 'var(--destructive)',
-  high: 'var(--chart-4)',
-  medium: 'var(--chart-2)',
-  low: 'var(--chart-3)',
+function formatWait(minutes: number): string {
+  if (minutes <= 0) return '—'
+  if (minutes < 60) return `${minutes}min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m ? `${h}h ${m}min` : `${h}h`
 }
 
-// ─── KPI definitions ─────────────────────────────────────────────────
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  const first = parts[0][0] ?? ''
+  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? '' : ''
+  return (first + last).toUpperCase()
+}
 
-function buildKpiCards(s: {
-  conversationsStarted: number
-  conversationsStartedChange: number
-  customersWaiting: number
-  customersWaitingChange: number
-  medianFirstResponse: number
-  medianFirstResponseChange: number
-  opportunitiesDetected: number
-  opportunitiesDetectedChange: number
-  opportunitiesAtRisk: number
-  opportunitiesAtRiskChange: number
-  overduePromises: number
-  overduePromisesChange: number
-  potentialValueAtRisk: number
-  potentialValueAtRiskChange: number
-  overallScore: number
-  overallScoreChange: number
-}): KpiCardData[] {
+const AVATAR_TONES = ['av--azul', 'av--verde', 'av--laranja', 'av--roxo', 'av--vermelho']
+function avatarTone(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return AVATAR_TONES[h % AVATAR_TONES.length]
+}
+
+function urgencyTag(urgency: string): string {
+  if (urgency === 'critical') return 'tag--vermelho'
+  if (urgency === 'high') return 'tag--laranja'
+  return 'tag--ambar'
+}
+
+function scoreClass(score: number): string {
+  if (score >= 80) return 'nota--alta'
+  if (score >= 70) return 'nota--media'
+  return 'nota--baixa'
+}
+
+// ─── Cores dos gráficos (paleta do pacote de design) ─────────────────
+
+const FUNNEL_COLORS: Record<string, string> = {
+  Conversas: '#0f7a4a',
+  Oportunidades: '#34b977',
+  'Pedidos de preço': '#f2803a',
+  Propostas: '#f5c84a',
+  'Vendas confirmadas': '#1aa89a',
+  'Perdas confirmadas': '#e5383f',
+  'Sem desfecho': '#7b847f',
+}
+
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: '#e8343d',
+  high: '#e76d2c',
+  medium: '#e98a3f',
+  low: '#7b847f',
+}
+
+const EVOLUTION_COLORS = {
+  score: '#13865a',
+  responseTime: '#2f74e8',
+  abandonment: '#e5383f',
+  valueAtRisk: '#f2803a',
+}
+
+const AXIS_TICK = { fontSize: 11.5, fill: 'var(--suave)' }
+
+// ─── KPIs ────────────────────────────────────────────────────────────
+
+function buildKpiCards(s: Summary): KpiCardData[] {
   return [
     {
-      label: 'Conversas Iniciadas',
-      value: s.conversationsStarted,
+      label: 'Conversas iniciadas',
+      value: fmt(s.conversationsStarted),
       change: s.conversationsStartedChange,
-      icon: MessageSquare,
+      icon: MessageSquareMore,
+      tone: 'tom-verde',
       tooltip: 'Total de conversas iniciadas por clientes no período selecionado.',
-      href: '/conversations',
     },
     {
-      label: 'Clientes Aguardando',
-      value: s.customersWaiting,
+      label: 'Clientes aguardando',
+      value: fmt(s.customersWaiting),
       change: s.customersWaitingChange,
-      icon: Clock,
+      lowerIsBetter: true,
+      icon: Users,
+      tone: 'tom-azul',
       tooltip: 'Clientes aguardando resposta da equipe há mais de 5 minutos.',
-      href: '/conversations?filter=waiting',
     },
     {
-      label: 'Tempo Mediano 1ª Resposta',
-      value: s.medianFirstResponse,
+      label: 'Tempo mediano da 1ª resposta',
+      value: fmt(s.medianFirstResponse),
+      unit: 'min',
       change: s.medianFirstResponseChange,
-      icon: Timer,
+      lowerIsBetter: true,
+      icon: Clock,
+      tone: 'tom-azul',
       tooltip: 'Tempo mediano entre a primeira mensagem do cliente e a primeira resposta do atendente.',
-      suffix: 'min',
     },
     {
-      label: 'Oportunidades Detectadas',
-      value: s.opportunitiesDetected,
+      label: 'Oportunidades detectadas',
+      value: fmt(s.opportunitiesDetected),
       change: s.opportunitiesDetectedChange,
-      icon: TrendingUp,
+      icon: Target,
+      tone: 'tom-verde',
       tooltip: 'Conversas onde foi identificada intenção de compra ou contratação.',
-      href: '/conversations?filter=opportunities',
     },
     {
-      label: 'Oportunidades em Risco',
-      value: s.opportunitiesAtRisk,
+      label: 'Oportunidades em risco',
+      value: fmt(s.opportunitiesAtRisk),
       change: s.opportunitiesAtRiskChange,
-      icon: AlertTriangle,
+      lowerIsBetter: true,
+      icon: CircleAlert,
+      tone: 'tom-vermelho',
       tooltip: 'Oportunidades com alto risco de perda por demora, falha ou abandono.',
-      href: '/alerts',
     },
     {
-      label: 'Promessas Vencidas',
-      value: s.overduePromises,
+      label: 'Promessas vencidas',
+      value: fmt(s.overduePromises),
       change: s.overduePromisesChange,
-      icon: ShieldAlert,
+      lowerIsBetter: true,
+      icon: CalendarX,
+      tone: 'tom-ambar',
       tooltip: 'Promessas de retorno/orçamento não cumpridas dentro do prazo combinado.',
-      href: '/alerts?filter=overdue',
     },
     {
-      label: 'Valor em Risco',
+      label: 'Valor em risco',
       value: formatCurrency(s.potentialValueAtRisk),
       change: s.potentialValueAtRiskChange,
+      lowerIsBetter: true,
       icon: DollarSign,
+      tone: 'tom-laranja',
       tooltip: 'Soma do valor potencial das oportunidades em risco de perda.',
     },
     {
-      label: 'Nota Geral',
-      value: s.overallScore,
+      label: 'Nota geral',
+      value: fmt(s.overallScore),
+      unit: '/ 100',
       change: s.overallScoreChange,
       icon: Star,
+      tone: 'tom-verde',
       tooltip: 'Nota composta (0-100) baseada em tempo de resposta, taxa de conversão e qualidade do atendimento.',
-      suffix: '/100',
     },
   ]
 }
 
-// ─── Contextual change color (green when improvement) ────────────────
-
-function contextualChangeColor(label: string, change: number): boolean {
-  // These metrics are "lower is better"
-  const lowerIsBetter = [
-    'Clientes Aguardando',
-    'Tempo Mediano 1ª Resposta',
-    'Oportunidades em Risco',
-    'Promessas Vencidas',
-    'Valor em Risco',
-  ]
-  if (lowerIsBetter.includes(label)) {
-    return change <= 0 // green when decrease
+function TrendCell({ trend }: { trend: 'up' | 'down' | 'stable' }) {
+  if (trend === 'up') {
+    return (
+      <span className="verde-txt">
+        <TrendingUp className="ic ic-tend" aria-hidden="true" />
+        <span className="sr-only">Em alta</span>
+      </span>
+    )
   }
-  return change >= 0 // green when increase
+  if (trend === 'down') {
+    return (
+      <span className="vermelho">
+        <TrendingDown className="ic ic-tend" aria-hidden="true" />
+        <span className="sr-only">Em queda</span>
+      </span>
+    )
+  }
+  return (
+    <span className="suave">
+      <Minus className="ic ic-tend" aria-hidden="true" />
+      <span className="sr-only">Estável</span>
+    </span>
+  )
 }
 
-// ─── Trend arrow ─────────────────────────────────────────────────────
+// ─── Configuração dos gráficos (rótulos do tooltip) ──────────────────
 
-function TrendArrow({ trend }: { trend: 'up' | 'down' | 'stable' }) {
-  if (trend === 'up') return <TrendingUp className="size-3.5 text-emerald-700 dark:text-emerald-400" />
-  if (trend === 'down') return <TrendingDown className="size-3.5 text-red-700 dark:text-red-400" />
-  return <Minus className="size-3.5 text-muted-foreground" />
-}
-
-// ─── Chart configs ───────────────────────────────────────────────────
-
-const funnelChartConfig = {
-  count: { label: 'Quantidade' },
-  Conversas: { label: 'Conversas', color: 'var(--chart-1)' },
-  Oportunidades: { label: 'Oportunidades', color: 'var(--chart-3)' },
-  'Pedidos de preço': { label: 'Pedidos de preço', color: 'var(--chart-2)' },
-  Propostas: { label: 'Propostas', color: 'var(--chart-1)' },
-  'Vendas confirmadas': { label: 'Vendas', color: 'var(--chart-3)' },
-  'Perdas confirmadas': { label: 'Perdas', color: 'var(--destructive)' },
-  'Sem desfecho': { label: 'Sem desfecho', color: 'var(--muted-foreground)' },
-}
-
-const failuresChartConfig = {
-  count: { label: 'Ocorrências' },
-}
-
+const funnelChartConfig = { count: { label: 'Conversas' } }
+const failuresChartConfig = { count: { label: 'Ocorrências' } }
 const evolutionChartConfig = {
-  score: { label: 'Nota Geral', color: 'var(--chart-1)' },
-  responseTime: { label: 'Tempo Resposta (min)', color: 'var(--chart-3)' },
-  abandonment: { label: 'Abandonos', color: 'var(--destructive)' },
-  valueAtRisk: { label: 'Valor em Risco (R$)', color: 'var(--chart-2)' },
+  score: { label: 'Nota geral', color: EVOLUTION_COLORS.score },
+  responseTime: { label: 'Tempo de resposta (min)', color: EVOLUTION_COLORS.responseTime },
+  abandonment: { label: 'Abandonos', color: EVOLUTION_COLORS.abandonment },
+  valueAtRisk: { label: 'Valor em risco (R$)', color: EVOLUTION_COLORS.valueAtRisk },
 }
 
-// ─── Component ───────────────────────────────────────────────────────
+type EvolutionMode = 'indicadores' | 'risco'
+
+const EVOLUTION_SERIES: Record<EvolutionMode, (keyof typeof EVOLUTION_COLORS)[]> = {
+  indicadores: ['score', 'responseTime', 'abandonment'],
+  risco: ['valueAtRisk'],
+}
+
+// ─── Componente ──────────────────────────────────────────────────────
 
 export default function DashboardView() {
-  const { period, setPeriod, selectConversation, refreshTrigger } = useAppStore()
+  const { period, selectConversation, selectAgent, setView, refreshTrigger } = useAppStore()
   const me = useAppStore((s) => s.me)
-  const teamScoped = me?.role === 'supervisor' && !!me.team
-  const [prioridadesCount] = useState(10)
+  const role = me?.role
+  const teamScoped = role === 'supervisor' && !!me?.team
+  const canOpenConversation = canOpenView(role, 'conversation-detail')
+  const canOpenAlerts = canOpenView(role, 'alerts')
+  const canOpenTeam = canOpenView(role, 'team')
+  const canOpenAgent = canOpenView(role, 'agent-profile')
 
-  // API state
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [apiData, setApiData] = useState<{
-    summary: {
-      conversationsStarted: number; conversationsStartedChange: number
-      customersWaiting: number; customersWaitingChange: number
-      medianFirstResponse: number; medianFirstResponseChange: number
-      opportunitiesDetected: number; opportunitiesDetectedChange: number
-      opportunitiesAtRisk: number; opportunitiesAtRiskChange: number
-      overduePromises: number; overduePromisesChange: number
-      potentialValueAtRisk: number; potentialValueAtRiskChange: number
-      overallScore: number; overallScoreChange: number
-    } | null
-    funnel: { stage: string; count: number; color: string }[]
-    failures: { type: string; count: number; severity: string }[]
-    evolution: { date: string; score: number; responseTime: number; abandonment: number; valueAtRisk: number }[]
-    priorities: {
-      id: string; customerName: string; customerPhone: string; agentName: string
-      agentTeam: string; primaryIntent: string; urgency: string; waitingMinutes: number
-      potentialValue: number; score: number; riskScore: number; hasOpportunity?: boolean
-      operationalStatus?: string; lastActivity?: string
-    }[]
-    teamPerformance: {
-      id: string; name: string; team: string; score: number; avgResponseTime: number
-      opportunities: number; criticalFailures: number; promisesKept: number
-      promisesTotal: number; trend: 'up' | 'down' | 'stable'
-    }[]
-  } | null>(null)
+  const [apiData, setApiData] = useState<DashboardData | null>(null)
+  const [evolutionMode, setEvolutionMode] = useState<EvolutionMode>('indicadores')
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -307,18 +320,8 @@ export default function DashboardView() {
     return buildKpiCards(apiData.summary)
   }, [apiData?.summary])
 
-  // Top conversations by risk (from API priorities)
-  const priorityConversations = useMemo(() => {
-    if (!apiData?.priorities) return []
-    return apiData.priorities.slice(0, prioridadesCount).map((p) => ({
-      ...p,
-      hasOpportunity: true,
-      operationalStatus: 'active',
-      lastActivity: new Date().toISOString(),
-    }))
-  }, [apiData?.priorities, prioridadesCount])
+  const priorities = useMemo(() => apiData?.priorities.slice(0, 10) ?? [], [apiData?.priorities])
 
-  // Evolution data formatted for pt-BR dates
   const formattedEvolution = useMemo(() => {
     if (!apiData?.evolution) return []
     return apiData.evolution.map((d) => ({
@@ -330,136 +333,98 @@ export default function DashboardView() {
     }))
   }, [apiData?.evolution])
 
-  // Agent performance from API
-  const agentPerformance = useMemo(() => {
-    if (!apiData?.teamPerformance) return []
-    return apiData.teamPerformance.map((a) => ({
-      ...a,
-      unfulfilledPromises: a.promisesTotal - a.promisesKept,
-    }))
-  }, [apiData?.teamPerformance])
+  const funnelHeight = Math.max(160, (apiData?.funnel.length ?? 0) * 34 + 30)
+  const failuresHeight = Math.max(160, (apiData?.failures.length ?? 0) * 34 + 30)
 
-  // Loading skeleton
+  const header = (
+    <div className="cab-pagina">
+      <div>
+        <h1>Visão Geral</h1>
+        <p>Acompanhe o desempenho do atendimento, identifique oportunidades e recupere mais vendas pelo WhatsApp.</p>
+      </div>
+    </div>
+  )
+
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-6 p-4 md:p-6">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-10 w-40" />
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8">
+      <>
+        {header}
+        <div className="kpis kpis--8" aria-hidden="true">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+            <Skeleton key={i} className="h-[150px] w-full rounded-[14px]" />
           ))}
         </div>
-        <Skeleton className="h-80 w-full rounded-lg" />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Skeleton className="h-80 w-full rounded-lg" />
-          <Skeleton className="h-80 w-full rounded-lg" />
+        <Skeleton className="h-80 w-full rounded-[14px]" />
+        <div className="grade grade-2">
+          <Skeleton className="h-80 w-full rounded-[14px]" />
+          <Skeleton className="h-80 w-full rounded-[14px]" />
         </div>
-        <Skeleton className="h-80 w-full rounded-lg" />
-      </div>
+        <Skeleton className="h-80 w-full rounded-[14px]" />
+      </>
     )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4 p-4">
-        <p className="text-destructive font-medium">{error}</p>
-        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
-      </div>
+      <>
+        {header}
+        <div className="cartao vazio" role="alert">
+          <TriangleAlert className="ic mx-auto block" aria-hidden="true" />
+          <strong>{error}</strong>
+          <button type="button" onClick={fetchData} className="btn btn--contorno-verde mt-3">
+            Tentar novamente
+          </button>
+        </div>
+      </>
     )
   }
 
   if (!apiData) return null
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
-      {/* ─── Header + Period Filter ──────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Visão Geral</h1>
-          <p className="text-muted-foreground text-sm">
-            Métricas de atendimento da organização, atualizadas a cada minuto.
+    <>
+      {header}
+
+      {teamScoped && (
+        <div role="note" data-testid="team-scope-note" className="aviso aviso--ambar">
+          <span className="aviso__ic">
+            <CircleAlert className="ic" aria-hidden="true" />
+          </span>
+          <p>
+            Os números desta tela são da organização inteira. Conversas, Alertas, Recuperação e Equipe mostram só a sua equipe ({me?.team}) e o que ainda não tem atendente.
           </p>
-          {teamScoped && (
-            <p role="note" data-testid="team-scope-note" className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              Os números desta tela são da organização inteira. Conversas, Alertas, Recuperação e Equipe mostram só a sua equipe ({me?.team}) e o que ainda não tem atendente.
-            </p>
-          )}
         </div>
-        <div className="flex items-center gap-2">
-          <CalendarDays className="text-muted-foreground size-4" />
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger aria-label="Período" data-tour="dashboard-period" className="w-[160px]">
-              <SelectValue placeholder="Período" />
-            </SelectTrigger>
-            <SelectContent>
-              {periodOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      )}
 
       <SetupChecklist />
 
-      {/* ─── KPI Cards ───────────────────────────────────────────── */}
-      <div data-tour="dashboard-kpis" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8">
+      {/* ─── Indicadores ─────────────────────────────────────────── */}
+      <section className="kpis kpis--8" aria-label="Indicadores do período" data-tour="dashboard-kpis">
         {kpiCards.map((kpi) => {
           const Icon = kpi.icon
-          const isImproved = contextualChangeColor(kpi.label, kpi.change)
+          const improved = kpi.lowerIsBetter ? kpi.change <= 0 : kpi.change >= 0
+          const trendClass = kpi.change === 0 ? 'neutro' : improved ? 'sobe' : 'desce'
           return (
             <Tooltip key={kpi.label}>
               <TooltipTrigger asChild>
-                <Card
-                  className="group relative cursor-pointer gap-0 py-4 transition-shadow hover:shadow-md"
-                >
-                  <CardContent className="flex flex-col gap-1 p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground text-xs font-medium leading-none">
-                        {kpi.label}
-                      </span>
-                      <Icon className="text-muted-foreground/60 size-3.5" />
-                    </div>
-                    <div className="flex items-end justify-between gap-2">
-                      <span className="text-xl font-bold tabular-nums leading-tight">
-                        {kpi.prefix}
-                        {kpi.value}
-                        {kpi.suffix && (
-                          <span className="text-xs font-normal text-muted-foreground">
-                            {kpi.suffix}
-                          </span>
-                        )}
-                      </span>
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-0.5 text-xs font-medium',
-                          kpi.change === 0 && 'text-muted-foreground',
-                          kpi.change !== 0 && isImproved && 'text-emerald-700 dark:text-emerald-400',
-                          kpi.change !== 0 && !isImproved && 'text-red-700 dark:text-red-400'
-                        )}
-                      >
-                        {kpi.change > 0 && (
-                          <ArrowUpRight className="size-3" />
-                        )}
-                        {kpi.change < 0 && (
-                          <ArrowDownRight className="size-3" />
-                        )}
-                        {kpi.change === 0 && <Minus className="size-3" />}
-                        {Math.abs(kpi.change)}%
-                      </span>
-                    </div>
-                  </CardContent>
-                  {kpi.href && (
-                    <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
-                      <ChevronRight className="text-muted-foreground size-3.5" />
-                    </div>
-                  )}
-                </Card>
+                <article className="cartao kpi">
+                  <span className={cn('kpi__icone', kpi.tone)}>
+                    <Icon className="ic" aria-hidden="true" />
+                  </span>
+                  <p className="kpi__rotulo">{kpi.label}</p>
+                  <p className="kpi__valor">
+                    {kpi.value}
+                    {kpi.unit && <small> {kpi.unit}</small>}
+                  </p>
+                  <p className={cn('kpi__variacao', trendClass)}>
+                    {kpi.change > 0 && <ArrowUp className="ic" aria-hidden="true" />}
+                    {kpi.change < 0 && <ArrowDown className="ic" aria-hidden="true" />}
+                    {kpi.change === 0 && <Minus className="ic" aria-hidden="true" />}
+                    {kpi.change > 0 ? '+' : kpi.change < 0 ? '-' : ''}
+                    {fmt(Math.abs(kpi.change))}%
+                  </p>
+                  <p className="kpi__ref">vs. período anterior</p>
+                </article>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[240px]">
                 {kpi.tooltip}
@@ -467,364 +432,372 @@ export default function DashboardView() {
             </Tooltip>
           )
         })}
-      </div>
+      </section>
 
-      {/* ─── Prioridades Agora Table ─────────────────────────────── */}
-      <Card data-tour="dashboard-priorities">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <AlertOctagon className="text-destructive size-4" />
-            <CardTitle className="text-base">Prioridades Agora</CardTitle>
+      {/* ─── Prioridades ─────────────────────────────────────────── */}
+      <section className="cartao" aria-labelledby="t-prioridades" data-tour="dashboard-priorities">
+        <div className="cartao__cab">
+          <div>
+            <h2 id="t-prioridades">
+              <span className="selo-icone tom-vermelho-solido">
+                <TriangleAlert className="ic" aria-hidden="true" />
+              </span>
+              Prioridades Agora
+              <span className="contador-pill">{priorities.length}</span>
+            </h2>
+            <p>Conversas com maior risco de perda que precisam de atenção imediata.</p>
           </div>
-          <CardDescription>
-            Top {prioridadesCount} conversas com maior risco de perda
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead className="hidden md:table-cell">Atendente</TableHead>
-                <TableHead className="hidden lg:table-cell">Motivo</TableHead>
-                <TableHead>Espera</TableHead>
-                <TableHead className="hidden sm:table-cell">Valor Potencial</TableHead>
-                <TableHead className="text-right">Ação</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {priorityConversations.map((conv) => (
-                <TableRow key={conv.id}>
-                  <TableCell>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">{conv.customerName}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {conv.customerPhone}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    {conv.agentName}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <Badge
-                      variant="outline"
-                      className={cn('text-[10px]', getSeverityColor(conv.urgency === 'critical' || conv.urgency === 'high' ? conv.urgency : 'medium'))}
-                    >
-                      {getIntentLabel(conv.primaryIntent)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        'text-xs font-medium',
-                        conv.waitingMinutes > 30
-                          ? 'text-red-700 dark:text-red-400'
-                          : conv.waitingMinutes > 10
-                            ? 'text-amber-700 dark:text-amber-400'
-                            : 'text-muted-foreground'
-                      )}
-                    >
-                      {conv.waitingMinutes > 0
-                        ? `${conv.waitingMinutes}min`
-                        : timeAgo(conv.lastActivity)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {conv.potentialValue > 0
-                      ? formatCurrency(conv.potentialValue)
-                      : '—'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 text-xs"
-                      onClick={() => selectConversation(conv.id)}
-                    >
-                      <Eye className="size-3.5" />
-                      Ver
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* ─── Charts Row: Funil + Falhas ───────────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Funil Auditado */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="text-primary size-4" />
-              <CardTitle className="text-base">Funil Auditado</CardTitle>
+          {canOpenAlerts && (
+            <button type="button" className="btn" onClick={() => setView('alerts')}>
+              Ver todas <ArrowRight className="ic" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <div className="cartao__corpo">
+          {priorities.length === 0 ? (
+            <div className="vazio">
+              <strong>Nenhuma conversa em risco agora.</strong>
+              Quando um cliente estiver perto de ser perdido, ele aparece aqui.
             </div>
-            <CardDescription>
-              Distribuição das conversas por estágio
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={funnelChartConfig} className="h-[280px] w-full">
-              <BarChart
-                data={apiData.funnel}
-                layout="vertical"
-                margin={{ left: 0, right: 20, top: 4, bottom: 4 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 12 }} />
-                <YAxis
-                  dataKey="stage"
-                  type="category"
-                  width={120}
-                  tick={{ fontSize: 11 }}
-                />
-                <ChartTooltip
-                  content={<ChartTooltipContent hideLabel />}
-                  cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
-                />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
-                  {apiData.funnel.map((entry, index) => (
-                    <Cell key={`funnel-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Falhas por Tipo */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="text-chart-4 size-4" />
-              <CardTitle className="text-base">Falhas por Tipo</CardTitle>
-            </div>
-            <CardDescription>
-              Principais falhas detectadas no período
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={failuresChartConfig} className="h-[280px] w-full">
-              <BarChart
-                data={apiData.failures}
-                layout="vertical"
-                margin={{ left: 0, right: 20, top: 4, bottom: 4 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 12 }} />
-                <YAxis
-                  dataKey="type"
-                  type="category"
-                  width={120}
-                  tick={{ fontSize: 11 }}
-                />
-                <ChartTooltip
-                  content={<ChartTooltipContent hideLabel />}
-                  cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
-                />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
-                  {apiData.failures.map((entry, index) => (
-                    <Cell
-                      key={`failure-${index}`}
-                      fill={severityChartColor[entry.severity] || 'var(--chart-1)'}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ─── Team Performance Table ───────────────────────────────── */}
-      <Card data-tour="dashboard-team-perf">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Users className="text-primary size-4" />
-            <CardTitle className="text-base">Desempenho da Equipe</CardTitle>
-          </div>
-          <CardDescription>
-            Comparativo de indicadores por atendente
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead className="hidden sm:table-cell">Equipe</TableHead>
-                <TableHead>Nota</TableHead>
-                <TableHead className="hidden md:table-cell">Tempo Mediano</TableHead>
-                <TableHead className="hidden lg:table-cell">Oportunidades</TableHead>
-                <TableHead className="hidden lg:table-cell">Falhas Críticas</TableHead>
-                <TableHead className="hidden md:table-cell">Promessas</TableHead>
-                <TableHead className="w-12">Tendência</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {agentPerformance.map((agent) => (
-                <TableRow key={agent.id}>
-                  <TableCell>
-                    <span className="font-medium">{agent.name}</span>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badge variant="outline" className="text-[10px]">
-                      {agent.team}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        'font-semibold tabular-nums',
-                        agent.score >= 80
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : agent.score >= 70
-                            ? 'text-amber-700 dark:text-amber-400'
-                            : 'text-red-700 dark:text-red-400'
-                      )}
-                    >
-                      {agent.score}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell tabular-nums">
-                    {agent.avgResponseTime}min
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell tabular-nums">
-                    {agent.opportunities}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {agent.criticalFailures > 0 ? (
-                      <Badge
-                        variant="destructive"
-                        className="text-[10px]"
+          ) : (
+            <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Conversas prioritárias">
+              <table className="tabela tabela--prioridades">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Atendente</th>
+                    <th>Motivo</th>
+                    <th>Tempo de espera</th>
+                    <th>Valor potencial</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {priorities.map((conv) => (
+                    <tr key={conv.id}>
+                      <td>
+                        <div className="pessoa">
+                          <span className={cn('av', avatarTone(conv.customerName))} aria-hidden="true">
+                            {initials(conv.customerName)}
+                          </span>
+                          <span>
+                            <strong>{conv.customerName}</strong>
+                            <small className="mono">{conv.customerPhone}</small>
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="pessoa">
+                          <span className={cn('av av--sm', avatarTone(conv.agentName))} aria-hidden="true">
+                            {initials(conv.agentName)}
+                          </span>
+                          <span>{conv.agentName}</span>
+                        </div>
+                      </td>
+                      <td>
+                        {conv.primaryIntent ? (
+                          <span className={cn('tag', urgencyTag(conv.urgency))}>
+                            {getIntentLabel(conv.primaryIntent)}
+                          </span>
+                        ) : (
+                          <span className="suave">—</span>
+                        )}
+                      </td>
+                      <td
+                        className={cn(
+                          'num',
+                          conv.waitingMinutes > 30 && 'vermelho forte',
+                          conv.waitingMinutes <= 0 && 'suave',
+                        )}
                       >
-                        {agent.criticalFailures}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">0</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell tabular-nums">
-                    <span
-                      className={cn(
-                        'text-xs',
-                        agent.unfulfilledPromises > 0
-                          ? 'text-red-700 dark:text-red-400 font-medium'
-                          : 'text-muted-foreground'
-                      )}
-                    >
-                      {agent.promisesKept}/{agent.promisesTotal}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <TrendArrow trend={agent.trend} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        {formatWait(conv.waitingMinutes)}
+                      </td>
+                      <td className="num">
+                        {conv.potentialValue > 0 ? formatCurrency(conv.potentialValue) : <span className="suave">—</span>}
+                      </td>
+                      <td>
+                        {canOpenConversation ? (
+                          <button
+                            type="button"
+                            className="ver-conversa"
+                            onClick={() => selectConversation(conv.id)}
+                            aria-label={`Ver conversa de ${conv.customerName}`}
+                          >
+                            <Eye className="ic" aria-hidden="true" />
+                            Ver conversa
+                          </button>
+                        ) : (
+                          <span className="suave">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
 
-      {/* ─── Evolution Chart ──────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Activity className="text-primary size-4" />
-            <CardTitle className="text-base">Evolução</CardTitle>
-          </div>
-          <CardDescription>
-            Tendência dos últimos 14 dias
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={evolutionChartConfig} className="h-[300px] w-full">
-            <LineChart
-              data={formattedEvolution}
-              margin={{ left: 0, right: 10, top: 4, bottom: 4 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="dateLabel"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-              />
-              <YAxis
-                yAxisId="score"
-                orientation="left"
-                domain={[50, 100]}
-                tick={{ fontSize: 11 }}
-              />
-              <YAxis
-                yAxisId="time"
-                orientation="right"
-                domain={[0, 'auto']}
-                tick={{ fontSize: 11 }}
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Line
-                yAxisId="score"
-                type="monotone"
-                dataKey="score"
-                stroke="var(--chart-1)"
-                strokeWidth={2}
-                dot={{ r: 3, fill: 'var(--chart-1)' }}
-                activeDot={{ r: 5 }}
-              />
-              <Line
-                yAxisId="time"
-                type="monotone"
-                dataKey="responseTime"
-                stroke="var(--chart-3)"
-                strokeWidth={2}
-                dot={{ r: 3, fill: 'var(--chart-3)' }}
-                activeDot={{ r: 5 }}
-                strokeDasharray="5 5"
-              />
-              <Line
-                yAxisId="time"
-                type="monotone"
-                dataKey="abandonment"
-                stroke="var(--destructive)"
-                strokeWidth={2}
-                dot={{ r: 3, fill: 'var(--destructive)' }}
-                activeDot={{ r: 5 }}
-              />
-              <Line
-                yAxisId="time"
-                type="monotone"
-                dataKey="valueAtRisk"
-                stroke="var(--chart-2)"
-                strokeWidth={1.5}
-                dot={false}
-                strokeDasharray="2 4"
-              />
-            </LineChart>
-          </ChartContainer>
-          {/* Legend */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <div className="size-2 rounded-[2px]" style={{ backgroundColor: 'var(--chart-1)' }} />
-              Nota Geral
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="size-2 rounded-[2px]" style={{ backgroundColor: 'var(--chart-3)' }} />
-              Tempo de Resposta
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="size-2 rounded-[2px]" style={{ backgroundColor: 'var(--destructive)' }} />
-              Abandonos
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="size-2 rounded-[2px] border border-dashed" style={{ backgroundColor: 'var(--chart-2)' }} />
-              Valor em Risco
+      {/* ─── Funil e falhas ──────────────────────────────────────── */}
+      <div className="grade grade-2">
+        <section className="cartao" aria-labelledby="t-funil">
+          <div className="cartao__cab">
+            <div>
+              <h2 id="t-funil">
+                <ChartBarBig className="ic verde-txt" aria-hidden="true" />
+                Funil Auditado
+              </h2>
+              <p>Distribuição das conversas por estágio no atendimento.</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <div className="cartao__corpo">
+            <div className="grafico">
+              <ChartContainer config={funnelChartConfig} className="aspect-auto w-full" style={{ height: funnelHeight }}>
+                <BarChart data={apiData.funnel} layout="vertical" margin={{ left: 0, right: 44, top: 4, bottom: 4 }}>
+                  <CartesianGrid horizontal={false} stroke="var(--borda)" strokeDasharray="3 4" />
+                  <XAxis type="number" tick={AXIS_TICK} axisLine={{ stroke: 'var(--borda-forte)' }} tickLine={false} allowDecimals={false} />
+                  <YAxis
+                    dataKey="stage"
+                    type="category"
+                    width={130}
+                    tick={{ ...AXIS_TICK, fill: 'var(--texto-2)', fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={{ fill: 'var(--superficie-2)' }} />
+                  <Bar dataKey="count" radius={4} barSize={18}>
+                    {apiData.funnel.map((entry) => (
+                      <Cell key={entry.stage} fill={FUNNEL_COLORS[entry.stage] ?? '#16a063'} />
+                    ))}
+                    <LabelList dataKey="count" position="right" fill="var(--texto)" fontSize={12} fontWeight={700} />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            </div>
+          </div>
+        </section>
+
+        <section className="cartao" aria-labelledby="t-falhas">
+          <div className="cartao__cab">
+            <div>
+              <h2 id="t-falhas">
+                <TriangleAlert className="ic vermelho" aria-hidden="true" />
+                Falhas por Tipo
+              </h2>
+              <p>Principais falhas detectadas no período.</p>
+            </div>
+          </div>
+          <div className="cartao__corpo">
+            {apiData.failures.length === 0 ? (
+              <div className="vazio">
+                <strong>Nenhuma falha detectada.</strong>
+                As falhas encontradas nas conversas aparecem aqui.
+              </div>
+            ) : (
+              <div className="grafico">
+                <ChartContainer config={failuresChartConfig} className="aspect-auto w-full" style={{ height: failuresHeight }}>
+                  <BarChart data={apiData.failures} layout="vertical" margin={{ left: 0, right: 44, top: 4, bottom: 4 }}>
+                    <CartesianGrid horizontal={false} stroke="var(--borda)" strokeDasharray="3 4" />
+                    <XAxis type="number" tick={AXIS_TICK} axisLine={{ stroke: 'var(--borda-forte)' }} tickLine={false} allowDecimals={false} />
+                    <YAxis
+                      dataKey="type"
+                      type="category"
+                      width={130}
+                      tick={{ ...AXIS_TICK, fill: 'var(--texto-2)', fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={{ fill: 'var(--superficie-2)' }} />
+                    <Bar dataKey="count" radius={4} barSize={18}>
+                      {apiData.failures.map((entry, index) => (
+                        <Cell key={`${entry.type}-${index}`} fill={SEVERITY_COLORS[entry.severity] ?? '#e98a3f'} />
+                      ))}
+                      <LabelList dataKey="count" position="right" fill="var(--texto)" fontSize={12} fontWeight={700} />
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* ─── Desempenho da equipe ────────────────────────────────── */}
+      <section className="cartao" aria-labelledby="t-equipe" data-tour="dashboard-team-perf">
+        <div className="cartao__cab">
+          <div>
+            <h2 id="t-equipe">
+              <Users className="ic verde-txt" aria-hidden="true" />
+              Desempenho da Equipe
+            </h2>
+            <p>Comparativo de indicadores por atendente.</p>
+          </div>
+          {canOpenTeam && (
+            <button type="button" className="btn btn--contorno-verde" onClick={() => setView('team')}>
+              Ver relatório completo <ArrowRight className="ic" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <div className="cartao__corpo">
+          {apiData.teamPerformance.length === 0 ? (
+            <div className="vazio">
+              <strong>Nenhum atendente para comparar.</strong>
+              Os indicadores por atendente aparecem aqui quando houver equipe ativa.
+            </div>
+          ) : (
+            <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Desempenho por atendente">
+              <table className="tabela">
+                <thead>
+                  <tr>
+                    <th>Atendente</th>
+                    <th>Equipe</th>
+                    <th className="centro">Nota</th>
+                    <th>Tempo médio de resposta</th>
+                    <th className="centro">Oportunidades</th>
+                    <th className="centro">Oportunidades perdidas</th>
+                    <th className="centro">Promessas</th>
+                    <th className="centro">Tendência</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {apiData.teamPerformance.map((agent) => {
+                    const person = (
+                      <>
+                        <span className={cn('av av--sm', avatarTone(agent.name))} aria-hidden="true">
+                          {initials(agent.name)}
+                        </span>
+                        <span>{agent.name}</span>
+                      </>
+                    )
+                    const unfulfilled = agent.promisesTotal - agent.promisesKept
+                    return (
+                      <tr key={agent.id}>
+                        <td>
+                          {canOpenAgent ? (
+                            <button
+                              type="button"
+                              className="pessoa border-0 bg-transparent p-0 text-left hover:underline"
+                              onClick={() => selectAgent(agent.id)}
+                            >
+                              {person}
+                            </button>
+                          ) : (
+                            <div className="pessoa">{person}</div>
+                          )}
+                        </td>
+                        <td><span className="tag tag--azul">{agent.team}</span></td>
+                        <td className="centro">
+                          <span className={cn('nota', scoreClass(agent.score))}>{agent.score}</span>
+                        </td>
+                        <td className="num">{fmt(agent.avgResponseTime)} min</td>
+                        <td className="centro num">{agent.opportunities}</td>
+                        <td className="centro">
+                          {agent.criticalFailures > 0 ? (
+                            <span className="nota nota--critica">{agent.criticalFailures}</span>
+                          ) : (
+                            <span className="suave">0</span>
+                          )}
+                        </td>
+                        <td className={cn('centro num', unfulfilled > 0 && 'vermelho forte')}>
+                          {agent.promisesKept}/{agent.promisesTotal}
+                        </td>
+                        <td className="centro"><TrendCell trend={agent.trend} /></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ─── Evolução ────────────────────────────────────────────── */}
+      <section className="cartao" aria-labelledby="t-evolucao">
+        <div className="cartao__cab flex-wrap">
+          <div>
+            <h2 id="t-evolucao">
+              <ChartLine className="ic verde-txt" aria-hidden="true" />
+              Evolução
+            </h2>
+            <p>Tendência dos principais indicadores nos últimos 14 dias.</p>
+          </div>
+          <div className="linha-flex envolve">
+            <div className="segmentado" role="group" aria-label="Escolha a métrica">
+              <button
+                type="button"
+                aria-pressed={evolutionMode === 'indicadores'}
+                onClick={() => setEvolutionMode('indicadores')}
+              >
+                Indicadores
+              </button>
+              <button
+                type="button"
+                aria-pressed={evolutionMode === 'risco'}
+                onClick={() => setEvolutionMode('risco')}
+              >
+                Valor em risco
+              </button>
+            </div>
+            <span className="seletor seletor--sm">
+              <CalendarDays className="ic" aria-hidden="true" />
+              Últimos 14 dias
+            </span>
+          </div>
+        </div>
+        <div className="cartao__corpo">
+          <div className="grafico">
+            <ChartContainer config={evolutionChartConfig} className="aspect-auto h-[230px] w-full">
+              <AreaChart data={formattedEvolution} margin={{ left: 0, right: 14, top: 12, bottom: 4 }}>
+                <defs>
+                  {EVOLUTION_SERIES[evolutionMode].map((key) => (
+                    <linearGradient key={key} id={`evo-${key}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stopColor={EVOLUTION_COLORS[key]} stopOpacity={evolutionMode === 'risco' ? 0.22 : 0.14} />
+                      <stop offset="1" stopColor={EVOLUTION_COLORS[key]} stopOpacity={0} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid vertical={false} stroke="var(--borda)" strokeDasharray="3 4" />
+                <XAxis dataKey="dateLabel" tick={AXIS_TICK} tickLine={false} axisLine={{ stroke: 'var(--borda-forte)' }} minTickGap={16} />
+                <YAxis
+                  tick={AXIS_TICK}
+                  tickLine={false}
+                  axisLine={false}
+                  width={evolutionMode === 'risco' ? 56 : 36}
+                  domain={[0, 'auto']}
+                  tickFormatter={
+                    evolutionMode === 'risco'
+                      ? (v: number) => (v ? `R$ ${fmt(Math.round(v / 100) / 10)}k` : 'R$ 0')
+                      : (v: number) => fmt(v)
+                  }
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                {EVOLUTION_SERIES[evolutionMode].map((key) => (
+                  <Area
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    stroke={EVOLUTION_COLORS[key]}
+                    strokeWidth={2.2}
+                    fill={`url(#evo-${key})`}
+                    dot={{ r: 3.6, fill: EVOLUTION_COLORS[key], stroke: 'var(--superficie)', strokeWidth: 1.5 }}
+                    activeDot={{ r: 5.5, stroke: 'var(--superficie)', strokeWidth: 2 }}
+                  />
+                ))}
+              </AreaChart>
+            </ChartContainer>
+          </div>
+          <div className="legenda">
+            {EVOLUTION_SERIES[evolutionMode].map((key) => (
+              <span key={key}>
+                <i style={{ background: EVOLUTION_COLORS[key] }} aria-hidden="true" />
+                {evolutionChartConfig[key].label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
   )
 }

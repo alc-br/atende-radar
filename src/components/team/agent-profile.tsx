@@ -5,21 +5,23 @@ import {
   ArrowLeft,
   Star,
   MessageSquare,
+  MessageCircle,
   Clock,
   Target,
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  ExternalLink,
+  ChevronRight,
   TrendingUp,
   TrendingDown,
   Minus,
   Mail,
-  Users,
   Handshake,
-  DollarSign,
-  CalendarClock,
+  HeartHandshake,
   CircleDot,
+  Zap,
+  FileText,
+  RotateCcw,
 } from 'lucide-react'
 import {
   LineChart,
@@ -30,29 +32,9 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
-import { cn } from '@/lib/utils'
+import { cn, getIntentLabel, getStageLabel } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
-
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 
 // --- Types ---
 
@@ -66,43 +48,58 @@ interface ScoreDimension {
 // --- Helpers ---
 
 const getRoleLabel = (role: string) => {
-  const labels: Record<string, string> = { gestor: 'Gestor', supervisor: 'Supervisor', atendente: 'Atendente' }
+  const labels: Record<string, string> = { admin: 'Administrador', gestor: 'Gestor', supervisor: 'Supervisor', atendente: 'Atendente' }
   return labels[role] || role
 }
 
-const getRoleColor = (role: string) => {
-  const colors: Record<string, string> = {
-    gestor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    supervisor: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-    atendente: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  }
-  return colors[role] || 'bg-muted text-muted-foreground'
+const getRoleTag = (role: string) => {
+  const tags: Record<string, string> = { admin: 'tag--roxo', gestor: 'tag--verde', supervisor: 'tag--roxo', atendente: 'tag--laranja' }
+  return tags[role] || 'tag--cinza'
 }
 
-const getScoreColor = (score: number) => {
-  if (score >= 80) return 'text-emerald-700 dark:text-emerald-400'
-  if (score >= 70) return 'text-amber-700 dark:text-amber-400'
-  return 'text-red-700 dark:text-red-400'
+const getScoreText = (score: number) => {
+  if (score >= 80) return 'verde-txt'
+  if (score >= 70) return 'laranja-txt'
+  return 'vermelho'
 }
 
-const getScoreBg = (score: number) => {
-  if (score >= 80) return 'bg-emerald-50 dark:bg-emerald-900/20'
-  if (score >= 70) return 'bg-amber-50 dark:bg-amber-900/20'
-  return 'bg-red-50 dark:bg-red-900/20'
+const getNotaClass = (score: number) => {
+  if (score >= 80) return 'nota--alta'
+  if (score >= 70) return 'nota--media'
+  return 'nota--baixa'
 }
 
-const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    inactive: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
-    away: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  }
-  return colors[status] || 'bg-muted text-muted-foreground'
+const AVATAR_TONES = ['av--laranja', 'av--verde', 'av--roxo', 'av--azul', 'av--vermelho']
+
+const avatarTone = (name: string) => {
+  let h = 0
+  for (const ch of name || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return AVATAR_TONES[h % AVATAR_TONES.length]
+}
+
+const getStatusTag = (status: string) => {
+  const tags: Record<string, string> = { active: 'tag--verde', inactive: 'tag--cinza', away: 'tag--ambar' }
+  return tags[status] || 'tag--cinza'
 }
 
 const getStatusLabel = (status: string) => {
   const labels: Record<string, string> = { active: 'Ativo', inactive: 'Inativo', away: 'Ausente' }
   return labels[status] || status
+}
+
+const formatShortDateTime = (iso?: string | null) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+const DIMENSION_ICONS: Record<string, { icon: typeof Zap; tone: string }> = {
+  velocidade: { icon: Zap, tone: 'tom-verde' },
+  oportunidades: { icon: Target, tone: 'tom-laranja' },
+  pendencias: { icon: FileText, tone: 'tom-azul' },
+  qualidade: { icon: Star, tone: 'tom-laranja' },
+  recuperacao: { icon: RotateCcw, tone: 'tom-verde' },
 }
 
 const FINDING_TYPE_LABELS: Record<string, string> = {
@@ -129,7 +126,7 @@ interface AgentStats {
 function getStrengths(stats: AgentStats): string[] {
   const items: string[] = []
   if (stats.avgResponseTime > 0 && stats.avgResponseTime <= 5) {
-    items.push(`Tempo de resposta rápido (${stats.avgResponseTime.toFixed(1)} min em média)`)
+    items.push(`Tempo de resposta rápido (${stats.avgResponseTime.toFixed(1).replace('.', ',')} min em média)`)
   }
   if (stats.promisesTotal > 0 && stats.promisesKept / stats.promisesTotal >= 0.8) {
     items.push(`Alta taxa de promessas cumpridas (${Math.round((stats.promisesKept / stats.promisesTotal) * 100)}%)`)
@@ -156,11 +153,20 @@ function getFailures(findings: { type: string }[]): string[] {
     .map(([type, count]) => `${count}x ${FINDING_TYPE_LABELS[type] || type}`)
 }
 
+const toConversationItem = (c: any) => ({
+  id: c.id as string,
+  name: (c.customerName as string) || 'Desconhecido',
+  topic: c.primaryIntent ? getIntentLabel(c.primaryIntent) : c.inferredStage ? getStageLabel(c.inferredStage) : 'Conversa',
+  score: c.score as number,
+  at: (c.openedAt as string | undefined) ?? null,
+})
+
 // --- Component ---
 
 export default function AgentProfile() {
   const selectedAgentId = useAppStore((s) => s.selectedAgentId)
   const setView = useAppStore((s) => s.setView)
+  const selectConversation = useAppStore((s) => s.selectConversation)
   const refreshTrigger = useAppStore((s) => s.refreshTrigger)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -229,7 +235,7 @@ export default function AgentProfile() {
       .filter((c) => c.score >= 80)
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
-      .map((c) => ({ id: c.id, title: `${c.customerName} — ${c.primaryIntent || c.inferredStage || 'conversa'}`, score: c.score }))
+      .map(toConversationItem)
   }, [recentConversations])
 
   const toReviewConversations = useMemo(() => {
@@ -237,7 +243,7 @@ export default function AgentProfile() {
       .filter((c) => c.score < 70)
       .sort((a, b) => a.score - b.score)
       .slice(0, 3)
-      .map((c) => ({ id: c.id, title: `${c.customerName} — ${c.primaryIntent || c.inferredStage || 'conversa'}`, reason: `Nota ${c.score}` }))
+      .map(toConversationItem)
   }, [recentConversations])
 
   const promises = useMemo(() => {
@@ -278,8 +284,24 @@ export default function AgentProfile() {
   const failures = getFailures(findings)
 
   // --- Early returns AFTER all hooks ---
-  if (isLoading) return <div className="flex flex-col gap-4 p-4 md:p-6"><Skeleton className="h-8 w-40" /><Skeleton className="h-64 w-full rounded-lg" /><Skeleton className="h-64 w-full rounded-lg" /></div>
-  if (error) return <div className="flex flex-col items-center justify-center h-96 gap-4"><p className="text-destructive font-medium">{error}</p><button onClick={() => setView('team')} className="text-sm text-primary underline">Voltar</button></div>
+  if (isLoading) {
+    return (
+      <>
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-20 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </>
+    )
+  }
+  if (error) {
+    return (
+      <section className="cartao vazio" role="alert">
+        <strong>{error}</strong>
+        <button type="button" onClick={() => setView('team')} className="btn mt-3">Voltar</button>
+      </section>
+    )
+  }
   if (!profileData) return null
 
   const getOpportunityStatusLabel = (status: string) => {
@@ -291,21 +313,21 @@ export default function AgentProfile() {
     return labels[status] || status
   }
 
-  const getOpportunityStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      won: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-      lost: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-      negotiation: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-      price: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  const getOpportunityStatusTag = (status: string) => {
+    const tags: Record<string, string> = {
+      won: 'tag--verde',
+      lost: 'tag--vermelho',
+      negotiation: 'tag--ambar',
+      price: 'tag--laranja',
     }
-    return colors[status] || 'bg-muted text-muted-foreground'
+    return tags[status] || 'tag--cinza'
   }
 
   const getPromiseStatusIcon = (status: string) => {
     switch (status) {
-      case 'fulfilled': return <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-      case 'overdue': return <XCircle className="h-4 w-4 text-red-700 dark:text-red-400" />
-      default: return <CircleDot className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+      case 'fulfilled': return <CheckCircle2 className="ic verde-txt shrink-0" aria-hidden="true" />
+      case 'overdue': return <XCircle className="ic vermelho shrink-0" aria-hidden="true" />
+      default: return <CircleDot className="ic laranja-txt shrink-0" aria-hidden="true" />
     }
   }
 
@@ -314,333 +336,303 @@ export default function AgentProfile() {
     return labels[status] || status
   }
 
-  const getPromiseStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      fulfilled: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-      overdue: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-      pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    }
-    return colors[status] || 'bg-muted text-muted-foreground'
+  const getPromiseStatusTag = (status: string) => {
+    const tags: Record<string, string> = { fulfilled: 'tag--verde', overdue: 'tag--vermelho', pending: 'tag--ambar' }
+    return tags[status] || 'tag--cinza'
   }
 
-  const TrendIcon = () => {
-    if (agent.trend === 'up') return <TrendingUp className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
-    if (agent.trend === 'down') return <TrendingDown className="h-5 w-5 text-red-700 dark:text-red-400" />
-    return <Minus className="h-5 w-5 text-muted-foreground" />
-  }
+  const trendInfo =
+    agent.trend === 'up'
+      ? { Icon: TrendingUp, cls: 'verde-txt', label: 'Nota em alta' }
+      : agent.trend === 'down'
+        ? { Icon: TrendingDown, cls: 'vermelho', label: 'Nota em queda' }
+        : { Icon: Minus, cls: 'suave', label: 'Nota estável' }
 
-  if (!agent) {
-    return (
-      <div className="flex items-center justify-center h-96 text-muted-foreground">
-        Nenhum agente selecionado.
-      </div>
+  const conversationList = (
+    list: { id: string; name: string; topic: string; score: number; at?: string | null }[],
+    emptyText: string,
+  ) =>
+    list.length === 0 ? (
+      <p className="vazio">{emptyText}</p>
+    ) : (
+      <ul className="lista-conversas">
+        {list.map((c) => (
+          <li key={c.id}>
+            <a
+              href="#"
+              onClick={(e) => { e.preventDefault(); selectConversation(c.id) }}
+            >
+              <MessageCircle className="ic verde-txt" aria-hidden="true" />
+              <b>{c.name}</b>
+              <q>{c.topic}</q>
+              <span className={cn('nota', getNotaClass(c.score))}>{c.score}</span>
+              <time dateTime={c.at || undefined}>{formatShortDateTime(c.at)}</time>
+              <ChevronRight className="ic suave" aria-hidden="true" />
+            </a>
+          </li>
+        ))}
+      </ul>
     )
-  }
 
   return (
-    <TooltipProvider>
-      <ScrollArea className="h-[calc(100vh-80px)]">
-        <div className="flex flex-col gap-6 p-4 md:p-6 max-w-6xl mx-auto">
-          {/* Back button */}
-          <Button variant="ghost" size="sm" className="w-fit" onClick={() => setView('team')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar para Equipe
-          </Button>
+    <>
+      <button type="button" className="voltar" onClick={() => setView('team')}>
+        <ArrowLeft className="ic" aria-hidden="true" />
+        Voltar para Equipe
+      </button>
 
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarFallback className={cn('text-xl font-bold', getScoreBg(agent.score), getScoreColor(agent.score))}>
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">{agent.name}</h1>
-                <Badge className={cn('border', getRoleColor(agent.role))} variant="outline">
-                  {getRoleLabel(agent.role)}
-                </Badge>
-                <Badge variant="outline" className="border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
-                  {agent.team}
-                </Badge>
-                <Badge variant="outline" className={cn('border', getStatusColor(agent.status))}>
-                  {getStatusLabel(agent.status)}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                <Mail className="h-3.5 w-3.5" />
-                {agent.email}
-              </div>
+      {/* Header */}
+      <header className="perfil">
+        <span className={cn('av av--lg', avatarTone(agent.name))} aria-hidden="true">{initials}</span>
+        <div className="min-w-0">
+          <div className="linha-flex envolve">
+            <h1>{agent.name}</h1>
+            <span className={cn('tag tag--lg', getRoleTag(agent.role))}>{getRoleLabel(agent.role)}</span>
+            {agent.team && <span className="tag tag--azul tag--lg">{agent.team}</span>}
+            <span className={cn('tag tag--lg', getStatusTag(agent.status))}>{getStatusLabel(agent.status)}</span>
+            <span className={cn('inline-flex items-center', trendInfo.cls)} title={trendInfo.label}>
+              <trendInfo.Icon className="ic ic-tend" aria-hidden="true" />
+              <span className="sr-only">{trendInfo.label}</span>
+            </span>
+          </div>
+          {agent.email && (
+            <p className="perfil__email"><Mail className="ic" aria-hidden="true" />{agent.email}</p>
+          )}
+        </div>
+      </header>
+
+      {/* Summary cards row */}
+      <section className="kpis kpis--6" aria-label={`Indicadores de ${agent.name}`}>
+        <article className="cartao kpi kpi--spark">
+          <span className="kpi__icone tom-laranja"><Star className="ic" aria-hidden="true" /></span>
+          <p className={cn('kpi__valor', getScoreText(agent.score))}>{agent.score}</p>
+          <p className="kpi__rotulo-b">Nota atual</p>
+        </article>
+        <article className="cartao kpi kpi--spark">
+          <span className="kpi__icone tom-azul"><MessageSquare className="ic" aria-hidden="true" /></span>
+          <p className="kpi__valor">{agent.conversations}</p>
+          <p className="kpi__rotulo-b">Conversas no período</p>
+        </article>
+        <article className="cartao kpi kpi--spark">
+          <span className="kpi__icone tom-azul"><Clock className="ic" aria-hidden="true" /></span>
+          <p className="kpi__valor">{String(agent.avgResponseTime).replace('.', ',')} min</p>
+          <p className="kpi__rotulo-b">Tempo mediano resp.</p>
+        </article>
+        <article className="cartao kpi kpi--spark">
+          <span className="kpi__icone tom-verde"><Target className="ic" aria-hidden="true" /></span>
+          <p className="kpi__valor verde-txt">{agent.opportunities}</p>
+          <p className="kpi__rotulo-b">Oportunidades</p>
+        </article>
+        <article className="cartao kpi kpi--spark">
+          <span className="kpi__icone tom-vermelho"><AlertTriangle className="ic" aria-hidden="true" /></span>
+          <p className={cn('kpi__valor', agent.opportunitiesLost > 5 ? 'vermelho' : 'laranja-txt')}>{agent.opportunitiesLost}</p>
+          <p className="kpi__rotulo-b">Falhas críticas</p>
+        </article>
+        <article className="cartao kpi kpi--spark">
+          <span className="kpi__icone tom-verde"><HeartHandshake className="ic" aria-hidden="true" /></span>
+          <p className={cn('kpi__valor', agent.promisesKept === agent.promisesTotal ? 'verde-txt' : 'laranja-txt')}>
+            {agent.promisesKept}/{agent.promisesTotal}
+          </p>
+          <p className="kpi__rotulo-b">Promessas cumpridas</p>
+        </article>
+      </section>
+
+      {/* Evolution chart + Score breakdown */}
+      <div className="grade membro__meio">
+        <section className="cartao" aria-labelledby="ap-t-evol">
+          <div className="cartao__cab">
+            <div>
+              <h2 id="ap-t-evol">Evolução da nota (14 dias)</h2>
+              <p>Score geral por dia</p>
             </div>
-            <TrendIcon />
           </div>
-
-          <Separator />
-
-          {/* Summary cards row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <Card>
-              <CardContent className="pt-4 pb-3 text-center">
-                <div className={cn('text-3xl font-bold', getScoreColor(agent.score))}>{agent.score}</div>
-                <p className="text-xs text-muted-foreground mt-1">Nota atual</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-3 text-center">
-                <div className="text-3xl font-bold">{agent.conversations}</div>
-                <p className="text-xs text-muted-foreground mt-1">Conversas no período</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-3 text-center">
-                <div className="text-3xl font-bold">{agent.avgResponseTime}<span className="text-sm font-normal text-muted-foreground">min</span></div>
-                <p className="text-xs text-muted-foreground mt-1">Tempo mediano resp.</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-3 text-center">
-                <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">{agent.opportunities}</div>
-                <p className="text-xs text-muted-foreground mt-1">Oportunidades</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-3 text-center">
-                <div className={cn('text-3xl font-bold', agent.opportunitiesLost > 5 ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400')}>{agent.opportunitiesLost}</div>
-                <p className="text-xs text-muted-foreground mt-1">Falhas críticas</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-3 text-center">
-                <div className={cn('text-3xl font-bold', agent.promisesKept === agent.promisesTotal ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400')}>
-                  {agent.promisesKept}/{agent.promisesTotal}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Promessas cumpridas</p>
-              </CardContent>
-            </Card>
+          <div className="cartao__corpo">
+            {chartData.length === 0 ? (
+              <p className="vazio">Ainda não há notas diárias para este agente.</p>
+            ) : (
+              <div className="grafico h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(v: string) => v.slice(5)}
+                      stroke="var(--suave)"
+                    />
+                    <YAxis
+                      domain={[30, 100]}
+                      tick={{ fontSize: 11 }}
+                      stroke="var(--suave)"
+                    />
+                    <RechartsTooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--superficie)',
+                        border: '1px solid var(--borda)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: 'var(--texto)',
+                      }}
+                      labelFormatter={(v: string) => new Date(v + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      formatter={(value: number) => [value.toFixed(0), 'Nota']}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="score"
+                      stroke="var(--chart-1)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4, fill: 'var(--chart-1)' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
+        </section>
 
-          {/* Evolution mini chart + Score breakdown side by side */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Evolution chart */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Evolução da nota (14 dias)</CardTitle>
-                <CardDescription>Score geral por dia</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[200px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 11 }}
-                        tickFormatter={(v: string) => v.slice(5)}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
-                      <YAxis
-                        domain={[30, 100]}
-                        tick={{ fontSize: 11 }}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
-                      <RechartsTooltip
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--popover))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                        labelFormatter={(v: string) => new Date(v + 'T12:00:00').toLocaleDateString('pt-BR')}
-                        formatter={(value: number) => [value.toFixed(0), 'Nota']}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="score"
-                        stroke="hsl(var(--chart-1))"
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{ r: 4, fill: 'hsl(var(--chart-1))' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Score breakdown */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Composição da nota</CardTitle>
-                <CardDescription>Detalhamento por dimensão</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {scoreDimensions.map((dim) => (
-                  <div key={dim.key} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{dim.label}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{dim.weight}%</span>
-                        <span className={cn('font-semibold', getScoreColor(dim.score))}>{dim.score}</span>
+        <section className="cartao" aria-labelledby="ap-t-comp">
+          <div className="cartao__cab">
+            <div>
+              <h2 id="ap-t-comp">Composição da nota</h2>
+              <p>Detalhamento por dimensão</p>
+            </div>
+          </div>
+          <div className="cartao__corpo">
+            <ul className="dimensoes">
+              {scoreDimensions.map((dim) => {
+                const meta = DIMENSION_ICONS[dim.key]
+                const Icon = meta?.icon ?? Star
+                return (
+                  <li key={dim.key}>
+                    <span className={cn('dado-ic', meta?.tone)}><Icon className="ic" aria-hidden="true" /></span>
+                    <div>
+                      <p>{dim.label}</p>
+                      <div
+                        className="barra"
+                        role="progressbar"
+                        aria-label={`${dim.label}: ${dim.score} de 100`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={dim.score}
+                      >
+                        <i style={{ width: `${Math.max(0, Math.min(100, dim.score))}%` }} />
                       </div>
                     </div>
-                    <Progress value={dim.score} aria-label={`${dim.label}: ${dim.score} de 100`} className="h-2" />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                    <span className="dimensoes__peso">{dim.weight}%</span>
+                    <b className={getScoreText(dim.score)}>{dim.score}</b>
+                  </li>
+                )
+              })}
+            </ul>
           </div>
+        </section>
+      </div>
 
-          {/* Strengths + Failures */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Strengths */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-                  Pontos fortes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {strengths.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400 mt-0.5 shrink-0" />
-                      <span className="text-sm">{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+      {/* Strengths + Failures */}
+      <div className="grade grade-2 membro__resumo">
+        <section className="cartao destaque destaque--verde">
+          <span className="destaque__ic"><CheckCircle2 className="ic" aria-hidden="true" /></span>
+          <h2>Pontos fortes</h2>
+          <ul className="lista-check">
+            {strengths.map((s, i) => (
+              <li key={i}><CheckCircle2 className="ic" aria-hidden="true" />{s}</li>
+            ))}
+          </ul>
+        </section>
+        <section className="cartao destaque destaque--vermelho">
+          <span className="destaque__ic"><AlertTriangle className="ic" aria-hidden="true" /></span>
+          <h2>Falhas recorrentes</h2>
+          <ul className="lista-check">
+            {failures.map((f, i) => (
+              <li key={i}><XCircle className="ic" aria-hidden="true" />{f}</li>
+            ))}
+          </ul>
+        </section>
+      </div>
 
-            {/* Failures */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-700 dark:text-red-400" />
-                  Falhas recorrentes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {failures.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <XCircle className="h-4 w-4 text-red-700 dark:text-red-400 mt-0.5 shrink-0" />
-                      <span className="text-sm">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+      {/* Exemplary conversations + Conversations to review */}
+      <div className="grade grade-2">
+        <section className="cartao" aria-labelledby="ap-t-exemplares">
+          <div className="cartao__cab">
+            <div>
+              <h2 id="ap-t-exemplares"><Star className="ic laranja-txt" aria-hidden="true" />Conversas exemplares</h2>
+              <p>Exemplos de atendimentos bem avaliados</p>
+            </div>
           </div>
-
-          {/* Exemplary conversations + Conversations to review */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                  Conversas exemplares
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {exemplaryConversations.map((c) => (
-                    <li key={c.id}>
-                      <button className="flex items-center gap-2 text-sm text-teal-700 dark:text-teal-400 hover:underline w-full text-left">
-                        <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                        <span>{c.title}</span>
-                        <Badge variant="outline" className={cn('border ml-auto shrink-0', getScoreBg(c.score), getScoreColor(c.score))}>
-                          {c.score}
-                        </Badge>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                  Conversas para revisar
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {toReviewConversations.map((c) => (
-                    <li key={c.id}>
-                      <button className="flex items-center gap-2 text-sm text-teal-700 dark:text-teal-400 hover:underline w-full text-left">
-                        <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                        <span className="flex-1">{c.title}</span>
-                        <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400 shrink-0">
-                          {c.reason}
-                        </Badge>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+          {conversationList(exemplaryConversations, 'Nenhuma conversa com nota 80 ou mais.')}
+        </section>
+        <section className="cartao" aria-labelledby="ap-t-revisar">
+          <div className="cartao__cab">
+            <div>
+              <h2 id="ap-t-revisar"><AlertTriangle className="ic vermelho" aria-hidden="true" />Conversas para revisar</h2>
+              <p>Exemplos de atendimentos que precisam de atenção</p>
+            </div>
           </div>
+          {conversationList(toReviewConversations, 'Nenhuma conversa com nota abaixo de 70.')}
+        </section>
+      </div>
 
-          {/* Promises section */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Handshake className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-                Promessas
-              </CardTitle>
-              <CardDescription>Acompanhamento de promessas feitas ao cliente</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+      {/* Promises + Opportunities */}
+      <div className="grade grade-2">
+        <section className="cartao" aria-labelledby="ap-t-promessas">
+          <div className="cartao__cab">
+            <div>
+              <h2 id="ap-t-promessas"><Handshake className="ic verde-txt" aria-hidden="true" />Promessas</h2>
+              <p>Acompanhamento de promessas feitas ao cliente</p>
+            </div>
+          </div>
+          <div className="cartao__corpo">
+            {promises.length === 0 ? (
+              <p className="vazio">Nenhuma promessa registrada.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
                 {promises.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-lg border p-3">
+                  <li key={p.id} className="flex items-center gap-3 rounded-lg border border-[var(--borda)] p-3">
                     {getPromiseStatusIcon(p.status)}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{p.text}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Prazo: {new Date(p.dueDate).toLocaleDateString('pt-BR')}
+                      <p className="suave text-xs">
+                        Prazo: {p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '—'}
                       </p>
                     </div>
-                    <Badge variant="outline" className={cn('border shrink-0', getPromiseStatusColor(p.status))}>
+                    <span className={cn('tag shrink-0', getPromiseStatusTag(p.status))}>
                       {getPromiseStatusLabel(p.status)}
-                    </Badge>
-                  </div>
+                    </span>
+                  </li>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
+              </ul>
+            )}
+          </div>
+        </section>
 
-          {/* Opportunities section */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Target className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-                Oportunidades
-              </CardTitle>
-              <CardDescription>Oportunidades identificadas nas conversas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+        <section className="cartao" aria-labelledby="ap-t-oport">
+          <div className="cartao__cab">
+            <div>
+              <h2 id="ap-t-oport"><Target className="ic verde-txt" aria-hidden="true" />Oportunidades</h2>
+              <p>Oportunidades identificadas nas conversas</p>
+            </div>
+          </div>
+          <div className="cartao__corpo">
+            {opportunities.length === 0 ? (
+              <p className="vazio">Nenhuma oportunidade identificada.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
                 {opportunities.map((o) => (
-                  <div key={o.id} className="flex items-center gap-3 rounded-lg border p-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{o.intent}</p>
-                    </div>
-                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
+                  <li key={o.id} className="flex items-center gap-3 rounded-lg border border-[var(--borda)] p-3">
+                    <p className="flex-1 min-w-0 text-sm font-medium truncate">{getIntentLabel(o.intent)}</p>
+                    <span className="verde-txt forte text-sm shrink-0">
                       R$ {o.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
-                    <Badge variant="outline" className={cn('border shrink-0', getOpportunityStatusColor(o.status))}>
+                    <span className={cn('tag shrink-0', getOpportunityStatusTag(o.status))}>
                       {getOpportunityStatusLabel(o.status)}
-                    </Badge>
-                  </div>
+                    </span>
+                  </li>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </ScrollArea>
-    </TooltipProvider>
+              </ul>
+            )}
+          </div>
+        </section>
+      </div>
+    </>
   )
 }

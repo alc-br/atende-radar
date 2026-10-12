@@ -54,7 +54,7 @@ test.describe('B8 · limites do plano', () => {
     await c.dispose()
   })
 
-  test('a organização de demonstração (plano Gestão) não é afetada pelos limites de teste', async () => {
+  test('a organização de demonstração (plano Growth) não é afetada pelos limites de teste', async () => {
     const adm = await loginAs('admin.a@test.local')
     expect((await adm.post('/api/connections', { data: { name: 'Demo extra', phoneNumber: '+5511900000004' } })).status()).toBe(201)
     await adm.dispose()
@@ -85,7 +85,7 @@ test.describe('B8 · troca de plano', () => {
     expect(notifs.some((n: { title: string }) => n.title.includes('Pedido de troca de plano'))).toBe(true)
     const mail = await testDb.emailOutbox.findFirst({ where: { toEmail: 'vendas@atenderadar.test' }, orderBy: { createdAt: 'desc' } })
     expect(mail!.body).toContain(email)
-    expect(mail!.body).toContain('Gestão')
+    expect(mail!.body).toContain('Growth')
     await c.dispose()
   })
 

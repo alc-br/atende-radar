@@ -22,7 +22,7 @@ async function openView(page: import('@playwright/test').Page, view: string, isM
 test('gestor vê Membros sem "Adicionar membro" nem menu de ações; em Equipes pode criar (é dele a configuração)', async ({ page, context, isMobile }) => {
   await enterAs(context, 'gestor')
   await openView(page, 'members', !!isMobile)
-  await expect(page.locator('main').getByRole('heading', { name: 'Membros' })).toBeVisible()
+  await expect(page.locator('main').getByRole('heading', { name: 'Membros', exact: true })).toBeVisible()
   await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 15000 })
   await expect(page.getByRole('button', { name: 'Adicionar membro' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Mais ações' })).toHaveCount(0)

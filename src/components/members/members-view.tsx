@@ -1,15 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, DialogTrigger,
@@ -21,7 +16,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { UserPlus, MoreHorizontal, Shield, Trash2, Users, UsersRound } from 'lucide-react'
+import { UserPlus, MoreHorizontal, Shield, Trash2, Users, UsersRound, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { timeAgo } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
@@ -49,14 +44,14 @@ const ROLE_LABELS: Record<string, string> = {
   viewer: 'Visualizador',
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  gestor: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-  supervisor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  analista: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-  member: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-  atendente: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-  viewer: 'bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400',
+const ROLE_TAGS: Record<string, string> = {
+  admin: 'tag--roxo',
+  gestor: 'tag--azul',
+  supervisor: 'tag--ambar',
+  analista: 'tag--verde',
+  member: 'tag--azul',
+  atendente: 'tag--azul',
+  viewer: 'tag--cinza',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -67,12 +62,12 @@ const STATUS_LABELS: Record<string, string> = {
   inactive: 'Inativo',
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  invited: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  suspended: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  inactive: 'bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400',
+const STATUS_TAGS: Record<string, string> = {
+  active: 'tag--verde',
+  pending: 'tag--ambar',
+  invited: 'tag--ambar',
+  suspended: 'tag--vermelho',
+  inactive: 'tag--cinza',
 }
 
 export default function MembersView() {
@@ -200,158 +195,152 @@ export default function MembersView() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive font-medium">{error}</p>
-        <button onClick={fetchMembers} className="text-sm text-primary underline">Tentar novamente</button>
+      <div className="cartao vazio" role="alert">
+        <strong>{error}</strong>
+        <button type="button" onClick={fetchMembers} className="btn btn--sm mt-3">Tentar novamente</button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Membros</h1>
-          <p className="text-muted-foreground mt-1">Gerencie os membros da sua organização.</p>
+    <>
+      <div className="cab-pagina">
+        <div className="cab-pagina__titulo">
+          <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Users className="ic" /></span>
+          <div>
+            <h1>Membros</h1>
+            <p>Gerencie os membros da sua organização.</p>
+          </div>
         </div>
-        {canManage && <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogTrigger asChild>
-            <Button data-tour="members-add"><UserPlus className="w-4 h-4 mr-2" />Adicionar membro</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Adicionar membro</DialogTitle>
-              <DialogDescription>Adicione um novo membro à organização.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="invite-name">Nome</Label>
-                <Input
-                  id="invite-name"
-                  placeholder="Nome completo"
-                  value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="invite-email">E-mail</Label>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  placeholder="colaborador@empresa.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Função</Label>
-                <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>
-                  <SelectTrigger aria-label="Função"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="invite-team">Equipe</Label>
-                <Input
-                  id="invite-team"
-                  placeholder="Ex.: Recepção"
-                  value={inviteTeam}
-                  onChange={(e) => setInviteTeam(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancelar</Button>
-              <Button onClick={handleInvite} disabled={!inviteName.trim() || !inviteEmail.trim()}>Adicionar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>}
+        {canManage && (
+          <div className="cab-pagina__acoes">
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogTrigger asChild>
+                <button type="button" className="btn btn--primario" data-tour="members-add"><UserPlus className="ic" aria-hidden="true" />Adicionar membro</button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Adicionar membro</DialogTitle>
+                  <DialogDescription>Adicione um novo membro à organização.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-name">Nome</Label>
+                    <Input
+                      id="invite-name"
+                      placeholder="Nome completo"
+                      value={inviteName}
+                      onChange={(e) => setInviteName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-email">E-mail</Label>
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      placeholder="colaborador@empresa.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Função</Label>
+                    <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>
+                      <SelectTrigger aria-label="Função"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-team">Equipe</Label>
+                    <Input
+                      id="invite-team"
+                      placeholder="Ex.: Recepção"
+                      value={inviteTeam}
+                      onChange={(e) => setInviteTeam(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancelar</Button>
+                  <Button onClick={handleInvite} disabled={!inviteName.trim() || !inviteEmail.trim()}>Adicionar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
       </div>
 
-      <Card data-tour="members-table">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Users className="w-4 h-4" />Membros da organização
-            </CardTitle>
-            <div className="flex items-center gap-2 sm:ml-auto">
-              <Input
-                placeholder="Buscar membro..."
-                className="w-full sm:w-64"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+      <section className="cartao" data-tour="members-table" aria-labelledby="t-membros">
+        <div className="cartao__cab flex-wrap">
+          <div className="linha-flex">
+            <span className="cab-pagina__icone cab-pagina__icone--caixa mini-caixa" aria-hidden="true"><Users className="ic" /></span>
+            <div><h2 id="t-membros">Membros da organização</h2><p>{loading ? 'Carregando…' : `${members.length} ${members.length === 1 ? 'membro' : 'membros'}`}</p></div>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
+          <label className="entrada-ic w-full sm:w-64">
+            <Search className="ic" aria-hidden="true" />
+            <span className="sr-only">Buscar membro</span>
+            <input
+              className="entrada"
+              type="search"
+              placeholder="Buscar membro..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="cartao__corpo">
           {loading ? (
-            <div className="p-6 space-y-3">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+            <div className="space-y-3">
+              {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead className="hidden md:table-cell">E-mail</TableHead>
-                    <TableHead>Função</TableHead>
-                    <TableHead className="hidden sm:table-cell">Equipe</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Último acesso</TableHead>
-                    <TableHead className="w-10">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Membros da organização">
+              <table className="tabela tabela--cab-cinza tabela--equipe">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th className="hidden md:table-cell">E-mail</th>
+                    <th>Função</th>
+                    <th className="hidden sm:table-cell">Equipe</th>
+                    <th>Status</th>
+                    <th className="hidden lg:table-cell">Último acesso</th>
+                    <th className="centro w-10">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {filtered.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        Nenhum membro encontrado.
-                      </TableCell>
-                    </TableRow>
+                    <tr>
+                      <td colSpan={7} className="centro suave py-8">Nenhum membro encontrado.</td>
+                    </tr>
                   ) : (
                     filtered.map((member) => (
-                      <TableRow key={member.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 text-foreground flex items-center justify-center text-xs font-bold">
-                              {initials(member.name)}
-                            </div>
-                            <span className="font-medium">{member.name}</span>
+                      <tr key={member.id}>
+                        <td>
+                          <div className="pessoa pessoa--forte">
+                            <span className="av av--verde" aria-hidden="true">{initials(member.name)}</span>
+                            <span><strong>{member.name}</strong><small className="md:hidden">{member.email}</small></span>
                           </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                          {member.email}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className={ROLE_COLORS[member.role] || ROLE_COLORS.member}>
-                            {ROLE_LABELS[member.role] || member.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">{member.team || '—'}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className={STATUS_COLORS[member.status] || STATUS_COLORS.active}>
+                        </td>
+                        <td className="hidden md:table-cell suave">{member.email}</td>
+                        <td><span className={`tag ${ROLE_TAGS[member.role] || ROLE_TAGS.member}`}>{ROLE_LABELS[member.role] || member.role}</span></td>
+                        <td className="hidden sm:table-cell">{member.team ? <span className="tag tag--azul">{member.team}</span> : '—'}</td>
+                        <td>
+                          <span className={`tag ${STATUS_TAGS[member.status] || STATUS_TAGS.active}`}>
+                            {member.status === 'active' && <span className="ponto" aria-hidden="true" />}
                             {STATUS_LABELS[member.status] || member.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
-                          {member.lastAccessAt ? timeAgo(member.lastAccessAt) : '—'}
-                        </TableCell>
-                        <TableCell>
+                          </span>
+                        </td>
+                        <td className="hidden lg:table-cell suave">{member.lastAccessAt ? timeAgo(member.lastAccessAt) : '—'}</td>
+                        <td className="centro">
                           {canManage && <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button aria-label="Mais ações" variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
+                              <button type="button" aria-label="Mais ações" className="reticencias">
+                                <MoreHorizontal className="ic" aria-hidden="true" />
+                              </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {Object.entries(ROLE_LABELS)
@@ -374,16 +363,16 @@ export default function MembersView() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ))
                   )}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       <Dialog open={!!teamEdit} onOpenChange={(o) => !o && setTeamEdit(null)}>
         <DialogContent>
@@ -404,6 +393,6 @@ export default function MembersView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }

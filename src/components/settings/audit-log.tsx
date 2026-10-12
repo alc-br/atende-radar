@@ -1,11 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { History, RefreshCw } from 'lucide-react'
 
 // Registro de auditoria da organização: quem fez o quê, quando. Só metadados (nunca texto de mensagem ou telefone).
@@ -62,67 +58,67 @@ export function AuditLog() {
   }, [load])
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4 pb-4">
+    <section className="cartao" aria-labelledby="t-auditoria">
+      <div className="cartao__cab">
         <div>
-          <CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" />Registro de auditoria</CardTitle>
-          <CardDescription>
+          <h2 id="t-auditoria"><History className="ic verde-txt" aria-hidden="true" />Registro de auditoria</h2>
+          <p>
             Quem fez o quê nesta organização: papéis, configurações, regras, conexões, privacidade e quem abriu o conteúdo de cada conversa.
             Guarda só metadados — nunca o texto das mensagens nem telefones.
-          </CardDescription>
+          </p>
         </div>
-        <Button aria-label="Atualizar registro" variant="outline" size="icon" className="shrink-0" onClick={() => void load()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+        <button className="btn btn--sm shrink-0" type="button" aria-label="Atualizar registro" onClick={() => void load()}>
+          <RefreshCw className="ic" aria-hidden="true" />
+        </button>
+      </div>
+      <div className="cartao__corpo">
+        {error && <p role="alert" className="text-sm text-[var(--vermelho)]">{error}</p>}
         {!error && entries === null && (
           <div className="space-y-2">
             {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
           </div>
         )}
-        {entries && entries.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma ação registrada ainda.</p>}
+        {entries && entries.length === 0 && <p className="suave text-[13px]">Nenhuma ação registrada ainda.</p>}
         {entries && entries.length > 0 && (
           <>
-            <div className="overflow-x-auto">
-              <Table data-testid="audit-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs whitespace-nowrap">Quando</TableHead>
-                    <TableHead className="text-xs">Quem</TableHead>
-                    <TableHead className="text-xs">O quê</TableHead>
-                    <TableHead className="text-xs hidden md:table-cell">Detalhes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Registro de auditoria">
+              <table className="tabela tabela--folgada" data-testid="audit-table">
+                <thead>
+                  <tr>
+                    <th className="whitespace-nowrap">Quando</th>
+                    <th>Quem</th>
+                    <th>O quê</th>
+                    <th className="hidden md:table-cell">Detalhes</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {entries.map((e) => (
-                    <TableRow key={e.id}>
-                      <TableCell className="text-xs whitespace-nowrap text-muted-foreground">{fmt.format(new Date(e.createdAt))}</TableCell>
-                      <TableCell className="text-xs">
-                        <div className="font-medium break-all">{e.actorEmail}</div>
-                        <Badge variant="secondary" className="mt-0.5 text-[10px]">{ROLE[e.actorRole] ?? e.actorRole}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">
+                    <tr key={e.id}>
+                      <td className="whitespace-nowrap suave">{fmt.format(new Date(e.createdAt))}</td>
+                      <td>
+                        <div className="forte break-all">{e.actorEmail}</div>
+                        <span className="tag tag--cinza mt-1">{ROLE[e.actorRole] ?? e.actorRole}</span>
+                      </td>
+                      <td>
                         <div>{e.actionLabel}</div>
-                        <div className="md:hidden text-muted-foreground">{describeDetails(e)}</div>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{describeDetails(e)}</TableCell>
-                    </TableRow>
+                        <div className="md:hidden suave">{describeDetails(e)}</div>
+                      </td>
+                      <td className="suave hidden md:table-cell">{describeDetails(e)}</td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
             {nextBefore && (
               <div className="mt-3 flex justify-center">
-                <Button variant="outline" size="sm" disabled={loadingMore} onClick={async () => { setLoadingMore(true); await load(nextBefore); setLoadingMore(false) }}>
+                <button className="btn btn--sm" type="button" disabled={loadingMore} onClick={async () => { setLoadingMore(true); await load(nextBefore); setLoadingMore(false) }}>
                   {loadingMore ? 'Carregando…' : 'Carregar mais antigos'}
-                </Button>
+                </button>
               </div>
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }

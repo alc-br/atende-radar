@@ -1,95 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { signIn } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import {
-  Shield, Zap, BarChart3, MessageSquare, DollarSign, Clock,
-  Users, ArrowRight, CheckCircle2, Star, Bot, FileText,
-  Radio, Sparkles, Target, TrendingUp, Eye, Phone, ChevronRight, Menu,
-} from 'lucide-react'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-
-const painPoints = [
-  {
-    icon: Eye,
-    title: 'Falta de visibilidade',
-    description: 'Sem saber o que acontece nas conversas do WhatsApp, sua equipe opera no escuro e perde oportunidades diariamente.',
-  },
-  {
-    icon: DollarSign,
-    title: 'Receita escorrendo',
-    description: 'Clientes com intenção de compra são esquecidos, agendamentos não confirmados e vendas fechadas desperdiçadas.',
-  },
-  {
-    icon: Clock,
-    title: 'Tempo de resposta lento',
-    description: 'Cada minuto de atraso na primeira resposta reduz drasticamente a chance de conversão.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Sem métricas de qualidade',
-    description: 'Impossível melhorar o que não se mede. Sem scores de qualidade, não há como treinar a equipe de forma objetiva.',
-  },
-]
-
-const features = [
-  {
-    icon: Bot,
-    title: 'Análise Automática',
-    description: 'Identifica intenções, oportunidades e falhas de atendimento nas conversas, com regras claras e explicáveis.',
-  },
-  {
-    icon: Target,
-    title: 'Notas de Qualidade',
-    description: 'Score composto por 5 dimensões: velocidade, oportunidades, pendências, qualidade e recuperação.',
-  },
-  {
-    icon: Zap,
-    title: 'Alertas por regras claras',
-    description: 'Cliente sem resposta, pedido de preço parado, promessa vencida: regras configuráveis, com severidade e intervalo, que respeitam o seu horário comercial.',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Recuperação de Receita',
-    description: 'Fila priorizada de oportunidades perdidas, prontas para serem recuperadas por sua equipe.',
-  },
-  {
-    icon: FileText,
-    title: 'Relatórios prontos para baixar',
-    description: '8 tipos de relatório gerados na hora com os dados da sua operação, em planilha (CSV) ou para imprimir/PDF.',
-  },
-  {
-    icon: Radio,
-    title: 'Conexões Multi-WhatsApp',
-    description: 'Conecte mais de um número de WhatsApp, conforme o seu plano.',
-  },
-]
-
-const steps = [
-  {
-    number: '01',
-    icon: Phone,
-    title: 'Conecte seu WhatsApp',
-    description: 'Integre em minutos com QR Code. Sem alteração na operação atual da sua equipe.',
-  },
-  {
-    number: '02',
-    icon: Sparkles,
-    title: 'AtendeRadar analisa',
-    description: 'O AtendeRadar analisa cada conversa e detecta oportunidades, falhas e riscos automaticamente.',
-  },
-  {
-    number: '03',
-    icon: ArrowRight,
-    title: 'Aja com dados',
-    description: 'Receba alertas, acesse relatórios e recupere receita que antes era invisível.',
-  },
-]
+import { Icon } from './icons'
 
 interface PublicPlan {
   code: string
@@ -102,29 +16,60 @@ interface PublicPlan {
   features: Record<string, boolean>
 }
 
-// Só lista o que o produto de fato entrega hoje (sem "API" nem "relatórios personalizados", que ainda não existem).
+// Textos de cada plano (pacote de design), pelo código do plano no banco. Preço e nome vêm sempre do banco.
+const PLAN_COPY: Record<string, { desc: string; bullets: string[]; cta: string }> = {
+  essencial: {
+    desc: 'Para começar a ter visibilidade da sua operação.',
+    bullets: ['1 número de WhatsApp', 'Visão operacional', 'Alertas essenciais', 'Relatórios básicos'],
+    cta: 'Testar grátis por 14 dias',
+  },
+  gestao: {
+    desc: 'Para empresas que querem mais resultados.',
+    bullets: ['Até 3 números de WhatsApp', 'Alertas avançados', 'Comparativos por equipe', 'Relatórios completos'],
+    cta: 'Começar agora',
+  },
+  performance: {
+    desc: 'Para operações maiores e mais complexas.',
+    bullets: ['Operação mais robusta', 'Múltiplas unidades', 'Mais volume analisado', 'Visão estratégica'],
+    cta: 'Falar com especialista',
+  },
+}
+
+// Plano sem texto no pacote (código desconhecido): mostra só o que o produto de fato entrega, pelos limites do banco.
 function planBullets(p: PublicPlan): string[] {
   const l = p.limits
-  const list = [
+  return [
     `${l.maxConnections} ${l.maxConnections === 1 ? 'conexão' : 'conexões'} de WhatsApp`,
     `Até ${l.maxAgents} atendentes`,
     `${l.maxConversationsMonthly.toLocaleString('pt-BR')} conversas por mês`,
     `${l.maxAlertRules} regras de alerta`,
     `Histórico de ${l.retentionDays} dias`,
   ]
-  return list
 }
 
-const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+const atraso = (s: string) => ({ '--atraso': s }) as CSSProperties
+
+const NAV = [
+  { href: '#como-funciona', label: 'Como Funciona' },
+  { href: '#beneficios', label: 'Benefícios' },
+  { href: '#planos', label: 'Planos' },
+  { href: '#faq', label: 'FAQ' },
+]
 
 export default function LandingPage() {
   const { setView, setShowLanding, setShowLogin, openAuth } = useAppStore()
   const [plans, setPlans] = useState<PublicPlan[] | null>(null)
   const [plansError, setPlansError] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
+  const [menuAberto, setMenuAberto] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   const handleStart = () => openAuth('signup')
-  const handleLogin = () => openAuth('login')
+  const handleLogin = (e?: MouseEvent) => {
+    e?.preventDefault()
+    setMenuAberto(false)
+    openAuth('login')
+  }
 
   // Demonstração: entra na conta pública de demonstração (ver B7: virá um ambiente demo separado).
   const handleDemo = async () => {
@@ -153,344 +98,437 @@ export default function LandingPage() {
     void fetchPlans()
   }, [])
 
-  return (
-    <div className="min-h-screen flex flex-col bg-background">
-      {/* ========== HERO SECTION ========== */}
-      <section className="relative overflow-hidden">
-        {/* Background gradient pattern */}
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-background to-teal-50 dark:from-emerald-950/30 dark:via-background dark:to-teal-950/20" />
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-400/5 rounded-full blur-3xl" />
-          {/* Dot pattern overlay */}
-          <div className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03]" style={{
-            backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-          }} />
-        </div>
+  // Menu móvel: fecha com Esc.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuAberto(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-10 sm:pt-20 sm:pb-28">
-          {/* Nav bar */}
-          <nav className="flex items-center justify-between mb-16 sm:mb-20">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-emerald-700 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-foreground">
-                Atende<span className="text-emerald-700 dark:text-emerald-400">Radar</span>
-              </span>
-            </div>
-            <div className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground">
-              <button onClick={() => scrollTo('funcionalidades')} className="hover:text-foreground transition-colors">Funcionalidades</button>
-              <button onClick={() => scrollTo('precos')} className="hover:text-foreground transition-colors">Preços</button>
-              <Button variant="ghost" size="sm" onClick={handleLogin}>
-                Entrar
-              </Button>
-            </div>
-            <div className="flex sm:hidden items-center gap-1">
-              <Button size="sm" onClick={handleLogin}>
-                Entrar
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Seções da página">
-                    <Menu className="w-5 h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                {/* ao fechar, o menu devolveria o foco ao botão e rolaria a página de volta ao topo: evita isso e rola depois de fechar */}
-                <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                  <DropdownMenuItem onSelect={() => window.setTimeout(() => scrollTo('funcionalidades'), 50)}>Funcionalidades</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => window.setTimeout(() => scrollTo('precos'), 50)}>Preços</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={handleLogin}>Entrar</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+  // Animação de entrada ao rolar (como o script do pacote). Roda de novo quando os planos chegam.
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const itens = Array.from(root.querySelectorAll<HTMLElement>('[data-revelar]:not(.visivel)'))
+    const semMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!('IntersectionObserver' in window) || semMovimento) {
+      itens.forEach((el) => el.classList.add('visivel'))
+      return
+    }
+    const obs = new IntersectionObserver(
+      (entradas) => {
+        entradas.forEach((en) => {
+          if (en.isIntersecting) {
+            en.target.classList.add('visivel')
+            obs.unobserve(en.target)
+          }
+        })
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+    )
+    itens.forEach((el) => obs.observe(el))
+    return () => obs.disconnect()
+  }, [plans, plansError])
+
+  return (
+    <div ref={rootRef} className={menuAberto ? 'lp menu-aberto' : 'lp'}>
+      {/* ================= CABEÇALHO ================= */}
+      <header className="topo">
+        <div className="container topo__inner">
+          <a href="#inicio" className="logo" aria-label="AtendeRadar — início">
+            <img src="/brand/logo-atenderadar.webp" alt="AtendeRadar" width={560} height={109} />
+          </a>
+
+          <nav className="nav" id="menu" aria-label="Principal">
+            {NAV.map((item) => (
+              <a key={item.href} href={item.href} onClick={() => setMenuAberto(false)}>{item.label}</a>
+            ))}
+            <a href="#entrar" role="button" className="nav-entrar" onClick={handleLogin}>Entrar</a>
           </nav>
 
-          {/* Hero content */}
-          <div className="text-center max-w-3xl mx-auto">
-            <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
-              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-              Auditoria de receita e qualidade no WhatsApp
-            </Badge>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.1] mb-6">
-              Auditoria Inteligente de{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">
-                Receita e Qualidade
-              </span>{' '}
-              no WhatsApp
-            </h1>
-            <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Detecte receita perdida, audite a qualidade do atendimento e acompanhe sua operação minuto a minuto.{' '}
-              <span className="text-foreground font-medium">Transforme cada conversa em oportunidade.</span>
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button
-                size="lg"
-                className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white px-8 h-12 text-base font-semibold shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all duration-300"
-                onClick={handleStart}
-              >
-                Começar Agora
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-full sm:w-auto h-12 text-base font-medium border-foreground/20"
-                onClick={handleDemo}
-                disabled={demoLoading}
-              >
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Ver Demonstração
-              </Button>
-            </div>
+          <div className="topo__acoes">
+            <a href="#entrar" role="button" className="link-entrar" onClick={handleLogin}>Entrar</a>
+            <button type="button" className="btn btn--primario btn--sm" onClick={handleStart}>
+              Teste Grátis <Icon name="seta" className="ic-seta" />
+            </button>
+            <button
+              type="button"
+              className="menu-btn"
+              aria-controls="menu"
+              aria-expanded={menuAberto}
+              aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
+              onClick={() => setMenuAberto((v) => !v)}
+            >
+              <Icon name="menu" className="ic-abrir" />
+              <Icon name="fechar" className="ic-fechar" />
+            </button>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* ========== PROBLEM SECTION ========== */}
-      <section className="py-20 sm:py-28">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <Badge variant="outline" className="mb-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300">
-              <Eye className="w-3.5 h-3.5 mr-1.5" />
-              O Problema
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4 leading-tight">
-              Você sabe quanto dinheiro seu time perde no WhatsApp?
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              Sem uma ferramenta de auditoria, esses problemas passam despercebidos todos os dias.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {painPoints.map((point) => (
-              <Card key={point.title} className="border-border/60 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors duration-300">
-                <CardContent className="p-6">
-                  <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center mb-4">
-                    <point.icon className="w-5 h-5 text-destructive" />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground mb-2">{point.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{point.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      <main id="inicio" className="js">
+        {/* ================= HERO ================= */}
+        <section className="hero">
+          <div className="container hero__grid">
+            <div className="hero__texto">
+              <span className="pill" data-revelar><Icon name="brilho" /> Auditoria inteligente para operações no WhatsApp</span>
 
-      {/* ========== FEATURES GRID ========== */}
-      <section id="funcionalidades" className="py-20 sm:py-28 bg-muted/30 scroll-mt-4">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <Badge variant="outline" className="mb-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300">
-              <Zap className="w-3.5 h-3.5 mr-1.5" />
-              Funcionalidades
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4 leading-tight">
-              Como o AtendeRadar funciona
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              Uma suíte completa de ferramentas para auditar, monitorar e otimizar seu atendimento no WhatsApp.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature) => (
-              <Card
-                key={feature.title}
-                className="group border-border/60 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300"
-              >
-                <CardContent className="p-6">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                    <feature.icon className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground mb-2">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+              <h1 className="hero__titulo" data-revelar style={atraso('.05s')}>
+                O dinheiro que sua empresa perde no WhatsApp não aparece no relatório.{' '}
+                <span className="verde">Mas aparece no AtendeRadar.</span>
+              </h1>
 
-      {/* ========== HOW IT WORKS ========== */}
-      <section className="py-20 sm:py-28">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <Badge variant="outline" className="mb-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300">
-              <ChevronRight className="w-3.5 h-3.5 mr-1.5" />
-              Passo a Passo
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4 leading-tight">
-              Comece em minutos, não em semanas
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              Sem instalação complexa. Sem mudança na operação da sua equipe.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {steps.map((step, i) => (
-              <div key={step.number} className="relative text-center">
-                {/* Connector line */}
-                {i < steps.length - 1 && (
-                  <div className="hidden md:block absolute top-12 left-[60%] w-[calc(100%-20%)] h-px border-t-2 border-dashed border-emerald-300 dark:border-emerald-700" />
-                )}
-                <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 mb-6 shadow-lg shadow-emerald-500/20">
-                  <step.icon className="w-10 h-10 text-white" />
-                  <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-background border-2 border-emerald-500 text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
-                    {step.number}
-                  </span>
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">{step.title}</h3>
-                <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
-                  {step.description}
-                </p>
+              <p className="hero__lead" data-revelar style={atraso('.1s')}>
+                Descubra leads esquecidos, demora no atendimento, falhas de qualidade e oportunidades desperdiçadas.
+                O AtendeRadar analisa suas conversas e mostra exatamente onde sua receita está vazando — antes que o prejuízo vire rotina.
+              </p>
+
+              <div className="hero__acoes" data-revelar style={atraso('.15s')}>
+                <button type="button" className="btn btn--primario" onClick={handleStart}>
+                  Quero parar de perder receita <Icon name="seta" className="ic-seta" />
+                </button>
+                <button type="button" className="btn btn--contorno" onClick={handleDemo} disabled={demoLoading} aria-busy={demoLoading}>
+                  <Icon name="play" className="ic-play" /> Ver demonstração
+                </button>
               </div>
-            ))}
+            </div>
+
+            <div className="hero__visual" data-revelar style={atraso('.1s')}>
+              <img
+                src="/brand/hero-dashboard.webp"
+                width={1300}
+                height={1036}
+                fetchPriority="high"
+                alt="Painel do AtendeRadar com receita recuperável de R$ 24.830, 317 leads ignorados, gráfico de conversas e oportunidades detectadas"
+              />
+            </div>
+
+            <ul className="hero__provas" data-revelar style={atraso('.2s')}>
+              <li><Icon name="check" /> Encontre receita perdida em minutos</li>
+              <li><Icon name="check" /> Monitore 100% das conversas</li>
+              <li><Icon name="check" /> Tome decisões com dados reais</li>
+            </ul>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ========== PRICING PREVIEW ========== */}
-      <section id="precos" className="py-20 sm:py-28 bg-muted/30 scroll-mt-4">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <Badge variant="outline" className="mb-4 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300">
-              <Star className="w-3.5 h-3.5 mr-1.5" />
-              Preços
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4 leading-tight">
-              Planos para cada tamanho de operação
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              Comece grátis por 14 dias. Sem cartão de crédito.
-            </p>
+        {/* ================= O PROBLEMA ================= */}
+        <section className="problema" id="problema" aria-labelledby="titulo-problema">
+          <div className="container">
+            <div className="problema__topo">
+              <div data-revelar>
+                <span className="pill">O problema</span>
+                <h2 className="titulo-secao" id="titulo-problema">Se o WhatsApp faz parte da sua operação,<br /> você já está perdendo dinheiro.</h2>
+                <p className="problema__pergunta">A única dúvida é: quanto?</p>
+              </div>
+              <div className="problema__grafico" data-revelar style={atraso('.1s')}>
+                <img
+                  src="/brand/problema-conversas-perdidas.webp"
+                  width={640}
+                  height={303}
+                  loading="lazy"
+                  decoding="async"
+                  alt="Gráfico em queda: conversas perdidas = receita perdida"
+                />
+              </div>
+            </div>
+
+            <div className="problema__cards">
+              <article className="card" data-revelar>
+                <span className="icone-redondo"><Icon name="msg" /></span>
+                <h3>Leads ignorados</h3>
+                <p>Mensagens sem resposta, follow-ups esquecidos e contatos que esfriam antes da venda acontecer.</p>
+              </article>
+              <article className="card" data-revelar style={atraso('.06s')}>
+                <span className="icone-redondo"><Icon name="relogio" /></span>
+                <h3>Demora que mata conversão</h3>
+                <p>Minutos de atraso viram vendas perdidas, cancelamentos e clientes que fecham com outro.</p>
+              </article>
+              <article className="card" data-revelar style={atraso('.12s')}>
+                <span className="icone-redondo"><Icon name="pessoas" /></span>
+                <h3>Qualidade inconsistente</h3>
+                <p>Cada atendente responde de um jeito, sem padrão, sem controle e sem previsibilidade.</p>
+              </article>
+              <article className="card" data-revelar style={atraso('.18s')}>
+                <span className="icone-redondo"><Icon name="olho" /></span>
+                <h3>Gestão no escuro</h3>
+                <p>Sem auditoria real, você descobre tarde demais onde a operação falha e a receita escapa.</p>
+              </article>
+            </div>
           </div>
-          {plansError && (
-            <div className="text-center text-muted-foreground">
-              <p className="mb-4">Não foi possível carregar os planos agora.</p>
-              <Button variant="outline" onClick={loadPlans}>Tentar novamente</Button>
-            </div>
-          )}
-          {!plansError && !plans && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto" aria-busy="true">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-96 rounded-xl border border-border/60 bg-card/50 animate-pulse" />
-              ))}
-            </div>
-          )}
-          {plans && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto">
-              {plans.map((plan) => (
-                <Card
-                  key={plan.code}
-                  className={
-                    plan.highlight
-                      ? 'relative h-full border-emerald-500 dark:border-emerald-500 shadow-xl shadow-emerald-500/10 ring-1 ring-emerald-500/40'
-                      : 'h-full border-border/60'
-                  }
-                >
-                  {plan.highlight && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-emerald-700 text-white px-4 py-1 text-xs font-semibold shadow-md">
-                        Mais Popular
-                      </Badge>
-                    </div>
-                  )}
-                  <CardHeader className="pb-4 pt-8 px-6">
-                    <CardTitle className="text-lg font-semibold text-foreground">
-                      <h3>{plan.name}</h3>
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
-                  </CardHeader>
-                  <CardContent className="px-6 pb-6 flex-1 flex flex-col">
-                    <div className="mb-6">
-                      <span className="text-4xl font-bold text-foreground">R$ {plan.monthlyPrice}</span>
-                      <span className="text-muted-foreground ml-1">/mês</span>
-                    </div>
-                    <Separator className="mb-6" />
-                    <ul className="space-y-3 mb-8 flex-1">
-                      {planBullets(plan).map((feature) => (
-                        <li key={feature} className="flex items-start gap-3 text-sm">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 mt-0.5 shrink-0" />
-                          <span className="text-muted-foreground">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <Button
-                      className={
-                        plan.highlight
-                          ? 'w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-md shadow-emerald-600/20'
-                          : 'w-full'
-                      }
-                      variant={plan.highlight ? 'default' : 'outline'}
-                      onClick={handleStart}
-                    >
-                      Testar grátis por 14 dias
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+        </section>
 
-      {/* ========== CTA FINAL SECTION ========== */}
-      <section className="py-20 sm:py-28">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-600 px-6 py-16 sm:px-16 sm:py-20 text-center">
-            {/* Decorative elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
-            <div className="absolute inset-0 opacity-[0.03]" style={{
-              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-              backgroundSize: '20px 20px',
-            }} />
+        {/* ================= COMO FUNCIONA ================= */}
+        <section className="como" id="como-funciona" aria-labelledby="titulo-como">
+          <div className="container como__grid">
+            <div>
+              <div data-revelar>
+                <span className="pill">Como funciona</span>
+                <h2 className="titulo-secao" id="titulo-como">O AtendeRadar encontra o que sua<br /> operação não consegue enxergar sozinha</h2>
+                <p className="sub-secao">Ele transforma conversas em diagnósticos, alertas e oportunidades acionáveis.</p>
+              </div>
 
-            <div className="relative z-10">
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
-                Pronto para parar de perder receita?
+              <div className="como__cards">
+                <article className="card" data-revelar>
+                  <span className="icone-quadrado"><Icon name="lupa" /></span>
+                  <h3>Analisa 100% das conversas</h3>
+                  <p>Auditoria contínua para identificar gargalos, padrões e riscos.</p>
+                </article>
+                <article className="card" data-revelar style={atraso('.06s')}>
+                  <span className="icone-quadrado"><Icon name="cifrao" /></span>
+                  <h3>Detecta receita perdida</h3>
+                  <p>Mostra onde o dinheiro ficou na mesa e quais conversas merecem ação imediata.</p>
+                </article>
+                <article className="card" data-revelar style={atraso('.12s')}>
+                  <span className="icone-quadrado"><Icon name="barras" /></span>
+                  <h3>Monitora qualidade</h3>
+                  <p>Acompanhe aderência, atendimento e execução com muito mais consistência.</p>
+                </article>
+                <article className="card" data-revelar>
+                  <span className="icone-quadrado"><Icon name="sino" /></span>
+                  <h3>Gera alertas claros</h3>
+                  <p>Saiba rapidamente quando algo foge do padrão e ameaça resultado.</p>
+                </article>
+                <article className="card" data-revelar style={atraso('.06s')}>
+                  <span className="icone-quadrado"><Icon name="equipe" /></span>
+                  <h3>Compara equipes e unidades</h3>
+                  <p>Entenda quem converte melhor, quem atrasa mais e onde agir primeiro.</p>
+                </article>
+                <article className="card" data-revelar style={atraso('.12s')}>
+                  <span className="icone-quadrado"><Icon name="arquivo" /></span>
+                  <h3>Entrega relatórios acionáveis</h3>
+                  <p>Menos achismo. Mais clareza para melhorar atendimento, conversão e margem.</p>
+                </article>
+              </div>
+            </div>
+
+            <div className="como__visual" data-revelar style={atraso('.1s')}>
+              <img
+                src="/brand/como-funciona-celular.webp"
+                width={780}
+                height={1130}
+                loading="lazy"
+                decoding="async"
+                alt="Conversa no WhatsApp com alerta do AtendeRadar: oportunidade de receita, lead sem retorno há mais de 24 horas, potencial de R$ 2.400"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ================= POR QUE ISSO IMPORTA ================= */}
+        <section className="beneficios" id="beneficios" aria-labelledby="titulo-beneficios">
+          <div className="container">
+            <div data-revelar>
+              <span className="pill"><Icon name="brilho" /> Por que isso importa</span>
+              <h2 className="titulo-secao" id="titulo-beneficios">
+                Você não precisa de mais conversas.<br /> Precisa <span className="verde">extrair mais dinheiro</span> das conversas que já acontecem.
               </h2>
-              <p className="text-emerald-100 text-lg max-w-xl mx-auto mb-8 leading-relaxed">
-                Comece a enxergar a receita que hoje passa despercebida nas conversas do seu WhatsApp.
-              </p>
-              <Button
-                size="lg"
-                className="bg-white text-emerald-700 hover:bg-emerald-50 px-8 h-12 text-base font-semibold shadow-xl shadow-black/10 transition-all duration-300 hover:scale-105"
-                onClick={handleStart}
-              >
-                Começar Gratuitamente
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-              <p className="text-emerald-200 text-sm mt-4">
-                14 dias grátis · Sem cartão de crédito
-              </p>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ========== FOOTER ========== */}
-      <footer className="border-t border-border bg-card/50 backdrop-blur-sm py-10 mt-auto">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-md bg-emerald-700 flex items-center justify-center">
-                <Shield className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-sm font-bold text-foreground">
-                Atende<span className="text-emerald-700 dark:text-emerald-400">Radar</span>
-              </span>
+            <div className="beneficios__cards">
+              <article className="card beneficio" data-revelar>
+                <span className="icone-quadrado"><Icon name="barras" /></span>
+                <div>
+                  <h3>Recupere vendas que estavam escapando</h3>
+                  <p>Identifique e reative oportunidades reais que já estão no seu WhatsApp.</p>
+                </div>
+              </article>
+              <article className="card beneficio" data-revelar style={atraso('.08s')}>
+                <span className="icone-quadrado"><Icon name="equipe" /></span>
+                <div>
+                  <h3>Aumente a qualidade sem microgerenciar a equipe</h3>
+                  <p>Tenha padrões, visibilidade e consistência, com menos esforço.</p>
+                </div>
+              </article>
+              <article className="card beneficio" data-revelar style={atraso('.16s')}>
+                <span className="icone-quadrado"><Icon name="alvo" /></span>
+                <div>
+                  <h3>Transforme atendimento em inteligência comercial</h3>
+                  <p>Use os dados das conversas para tomar decisões e acelerar o crescimento.</p>
+                </div>
+              </article>
             </div>
-            <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} AtendeRadar. Todos os direitos reservados.
-            </p>
           </div>
+        </section>
+
+        {/* ================= IMPLEMENTAÇÃO ================= */}
+        <section className="implementacao" aria-labelledby="titulo-implementacao">
+          <div className="container">
+            <div data-revelar>
+              <span className="pill"><Icon name="brilho" /> Implementação</span>
+              <h2 className="titulo-secao" id="titulo-implementacao">Comece em minutos, não em meses</h2>
+            </div>
+
+            <ol className="passos" style={{ listStyle: 'none', padding: 0 }}>
+              <li className="passo" data-revelar>
+                <span className="passo__num">1</span>
+                <div>
+                  <span className="passo__icone">
+                    <img src="/brand/icone-whatsapp.webp" width={200} height={200} alt="" loading="lazy" decoding="async" />
+                  </span>
+                  <h3>Conecte seu WhatsApp</h3>
+                  <p>Integração rápida com sua operação atual.</p>
+                </div>
+              </li>
+              <li className="passo__seta" aria-hidden="true">
+                <PassoSeta />
+              </li>
+              <li className="passo" data-revelar style={atraso('.08s')}>
+                <span className="passo__num">2</span>
+                <div>
+                  <span className="passo__icone"><Icon name="barras" /></span>
+                  <h3>O AtendeRadar analisa</h3>
+                  <p>As conversas viram diagnósticos e sinais de ação.</p>
+                </div>
+              </li>
+              <li className="passo__seta" aria-hidden="true">
+                <PassoSeta />
+              </li>
+              <li className="passo" data-revelar style={atraso('.16s')}>
+                <span className="passo__num">3</span>
+                <div>
+                  <span className="passo__icone passo__icone--check"><Icon name="check" /></span>
+                  <h3>Aja com clareza</h3>
+                  <p>Corrija falhas, recupere oportunidades e melhore receita.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        {/* ================= PLANOS ================= */}
+        <section className="planos" id="planos" aria-labelledby="titulo-planos">
+          <div className="container">
+            <div data-revelar>
+              <span className="pill"><Icon name="brilho" /> Planos</span>
+              <h2 className="titulo-secao" id="titulo-planos">Escolha o plano ideal para o tamanho da sua operação</h2>
+              <p className="sub-secao">Teste por 14 dias. Sem complicação.</p>
+            </div>
+
+            {plansError && (
+              <div className="mt-10 text-center" role="alert">
+                <p className="sub-secao">Não foi possível carregar os planos agora.</p>
+                <button type="button" className="btn btn--contorno mt-4" onClick={loadPlans}>Tentar novamente</button>
+              </div>
+            )}
+            {!plansError && !plans && (
+              <div className="planos__cards" aria-busy="true" aria-label="Carregando planos">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="plano min-h-[420px] animate-pulse" aria-hidden="true" />
+                ))}
+              </div>
+            )}
+            {plans && (
+              <div className="planos__cards">
+                {plans.map((plan, i) => {
+                  const copy = PLAN_COPY[plan.code]
+                  const bullets = copy ? copy.bullets : planBullets(plan)
+                  const desc = copy ? copy.desc : plan.description
+                  const cta = copy ? copy.cta : `Testar grátis por ${plan.trialDays} dias`
+                  return (
+                    <article
+                      key={plan.code}
+                      className={plan.highlight ? 'plano plano--destaque' : 'plano'}
+                      data-revelar
+                      style={i > 0 ? atraso(`.${String(i * 8).padStart(2, '0')}s`) : undefined}
+                    >
+                      {plan.highlight && <span className="plano__selo">Mais Popular</span>}
+                      <h3>{plan.name}</h3>
+                      {desc && <p className="plano__desc">{desc}</p>}
+                      <p className="plano__preco"><strong>R$ {plan.monthlyPrice}</strong><span>/mês</span></p>
+                      <ul className="plano__lista">
+                        {bullets.map((b) => (
+                          <li key={b}><Icon name="check" /> {b}</li>
+                        ))}
+                      </ul>
+                      <button
+                        type="button"
+                        className={plan.highlight ? 'btn btn--primario btn--bloco' : 'btn btn--contorno btn--bloco'}
+                        onClick={handleStart}
+                      >
+                        {cta} <Icon name="seta" className="ic-seta" />
+                      </button>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ================= FAQ ================= */}
+        <section className="faq" id="faq" aria-label="Pergunta frequente">
+          <div className="container">
+            <div className="faq__faixa" data-revelar>
+              <span className="faq__icone"><Icon name="chat" /></span>
+              <p className="faq__pergunta">Precisa trocar sua equipe ou mudar seu processo?</p>
+              <span className="faq__divisor" aria-hidden="true" />
+              <p className="faq__resposta">Não. O AtendeRadar entra para mostrar onde a operação perde dinheiro hoje, usando as conversas que sua empresa já gera.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= CTA FINAL ================= */}
+        <section className="cta" aria-labelledby="titulo-cta">
+          <div className="container">
+            <div className="cta__caixa" data-revelar>
+              <div className="cta__texto-col">
+                <span className="cta__selo">
+                  <img src="/brand/cta-selo-resultados.webp" width={760} height={126} loading="lazy" decoding="async" alt="Resultados reais para o seu negócio" />
+                </span>
+                <h2 className="cta__titulo" id="titulo-cta">Pare de deixar receita escondida<br /> dentro do WhatsApp.</h2>
+                <p className="cta__texto">Veja o que sua operação está perdendo, corrija o que trava conversão e transforme atendimento em crescimento previsível.</p>
+                <button type="button" className="btn btn--branco" onClick={handleStart}>
+                  Quero testar gratuitamente <Icon name="seta" className="ic-seta" />
+                </button>
+                <p className="cta__nota">14 dias grátis • Implantação simples</p>
+              </div>
+
+              <div className="cta__visual" aria-hidden="true">
+                <img className="cta__seta" src="/brand/cta-seta.webp" width={520} height={388} loading="lazy" decoding="async" alt="" />
+                <img className="cta__receita" src="/brand/cta-receita-recuperada.webp" width={820} height={608} loading="lazy" decoding="async" alt="" />
+                <img className="cta__beneficios" src="/brand/cta-mais-receita.webp" width={460} height={354} loading="lazy" decoding="async" alt="" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= SELOS DE CONFIANÇA ================= */}
+        <section className="confianca" aria-label="Garantias">
+          <div className="container">
+            <ul>
+              <li><Icon name="escudo" /> Dados seguros e confidenciais</li>
+              <li><Icon name="check" /> Implantação em minutos</li>
+              <li><Icon name="equipe" /> Suporte no seu idioma</li>
+              <li><Icon name="barras" /> Foco em resultados reais</li>
+            </ul>
+          </div>
+        </section>
+      </main>
+
+      {/* ================= RODAPÉ ================= */}
+      <footer className="rodape">
+        <div className="container rodape__inner">
+          <a href="#inicio" className="logo" aria-label="AtendeRadar — voltar ao topo">
+            <img src="/brand/logo-atenderadar.webp" alt="AtendeRadar" width={560} height={109} loading="lazy" decoding="async" />
+          </a>
+          <nav className="rodape__nav" aria-label="Rodapé">
+            {NAV.map((item) => (
+              <a key={item.href} href={item.href}>{item.label}</a>
+            ))}
+          </nav>
+          <p className="rodape__copy">© {new Date().getFullYear()} AtendeRadar. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
+  )
+}
+
+function PassoSeta() {
+  return (
+    <svg viewBox="0 0 120 14" preserveAspectRatio="none" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" focusable="false">
+      <path d="M2 7h114M109 2l7 5-7 5" vectorEffect="non-scaling-stroke" />
+    </svg>
   )
 }

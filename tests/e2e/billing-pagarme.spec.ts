@@ -55,7 +55,7 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     const gestao = await plan('gestao')
     const res = await c.post('/api/billing/checkout', { data: { planId: gestao.id, cycle: 'monthly', cardToken: await cardToken(publicKey, APPROVED), ...billingData() } })
     expect(res.status(), await res.text()).toBe(200)
-    expect(await res.json()).toMatchObject({ ok: true, status: 'active', planName: 'Gestão', mode: 'test' })
+    expect(await res.json()).toMatchObject({ ok: true, status: 'active', planName: 'Growth', mode: 'test' })
 
     const sub = await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })
     expect(sub).toMatchObject({ planId: gestao.id, status: 'active', billingProvider: 'pagarme', billingMode: 'test', billingCycle: 'monthly', cardLast4: '0010', trialEnd: null, cancelAtPeriodEnd: false })
@@ -65,14 +65,14 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     const summary = await config(c)
     expect(summary.subscription).toMatchObject({ status: 'active', recurring: true, cardBrand: 'Visa', cardLast4: '0010', plan: { code: 'gestao' } })
     expect(summary.invoices).toHaveLength(1)
-    expect(summary.invoices[0]).toMatchObject({ status: 'paid', amount: gestao.monthlyPrice, planName: 'Gestão' })
+    expect(summary.invoices[0]).toMatchObject({ status: 'paid', amount: gestao.monthlyPrice, planName: 'Growth' })
 
-    // Essencial permitia 1 conexão; Gestão permite 3
+    // Essencial permitia 1 conexão; Growth permite 3
     expect((await c.post('/api/connections', { data: { name: 'Um', phoneNumber: '+5511900000101' } })).status()).toBe(201)
     expect((await c.post('/api/connections', { data: { name: 'Dois', phoneNumber: '+5511900000102' } })).status()).toBe(201)
 
     const audit = await testDb.auditLog.findFirst({ where: { organizationId: orgId, action: 'subscription.changed' } })
-    expect(audit?.targetLabel).toBe('Gestão')
+    expect(audit?.targetLabel).toBe('Growth')
     expect(audit?.details ?? '').not.toContain('token_') // token do cartão não vai para a auditoria
 
     // mesmo plano e ciclo de novo: recusado sem cobrar

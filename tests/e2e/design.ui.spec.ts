@@ -124,6 +124,7 @@ test.describe('Design QA · menu no celular', () => {
     await expect(aside).not.toBeInViewport() // fechou sozinho depois de escolher
 
     await menuButton.click()
+    await expect(aside).toBeInViewport({ ratio: 0.9 }) // a pessoa toca no fundo depois de ver o menu aberto
     await page.mouse.click(360, 400) // toque no fundo escurecido
     await expect(aside).not.toBeInViewport()
   })

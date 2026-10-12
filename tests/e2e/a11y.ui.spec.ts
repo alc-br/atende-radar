@@ -50,10 +50,15 @@ test.describe('Acessibilidade e temas', () => {
   }
 
   test('página de vendas e login: sem violações críticas/sérias', async ({ page }, info) => {
+    // sem a animação de entrada da landing: o axe mediria o contraste no meio do esmaecimento
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     const landing = await audit(page, `${info.project.name}-landing`)
-    await page.getByRole('button', { name: 'Entrar' }).first().click()
+    // em telas estreitas o "Entrar" fica no menu do topo
+    const entrar = page.getByRole('button', { name: 'Entrar', exact: true })
+    if (!(await entrar.first().isVisible())) await page.getByRole('button', { name: 'Abrir menu' }).click()
+    await entrar.first().click()
     await expect(page.getByRole('heading', { name: 'Bem-vindo de volta' })).toBeVisible()
     const login = await audit(page, `${info.project.name}-login`)
     expect([...landing.map((x) => `[landing] ${x}`), ...login.map((x) => `[login] ${x}`)]).toEqual([])

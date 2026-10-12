@@ -8,19 +8,19 @@ import {
   Copy,
   PhoneCall,
   CheckCircle2,
-  XCircle,
   DollarSign,
   Undo2,
-  ArrowUpDown,
+  ChevronsUpDown,
   ArrowUp,
   ArrowDown,
   Filter,
-  Info,
-  Shield,
-  TrendingUp,
-  Clock,
+  User,
+  Flag,
   Users,
-  PackageOpen,
+  Package,
+  Search,
+  MoreHorizontal,
+  MessageSquare,
 } from 'lucide-react'
 
 import {
@@ -31,14 +31,6 @@ import {
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -57,21 +49,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { ScrollArea } from '@/components/ui/scroll-area'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Separator } from '@/components/ui/separator'
 
 // --- Types ---
 
@@ -117,21 +106,31 @@ const statusLabels: Record<RecoveryStatus, string> = {
   lost: 'Perdida',
 }
 
-const statusColors: Record<RecoveryStatus, string> = {
-  new: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-  assigned: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  attempted: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  contacted: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-  recovered: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  lost: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+// Classes de tag do pacote de design
+const statusTags: Record<RecoveryStatus, string> = {
+  new: 'tag--azul',
+  assigned: 'tag--ambar',
+  attempted: 'tag--laranja',
+  contacted: 'tag--roxo',
+  recovered: 'tag--verde',
+  lost: 'tag--vermelho',
 }
 
-const priorityColors: Record<RecoveryPriority, string> = {
-  baixa: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  'média': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  alta: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  crítica: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+const priorityTags: Record<RecoveryPriority, string> = {
+  baixa: 'tag--verde',
+  'média': 'tag--ambar',
+  alta: 'tag--laranja',
+  crítica: 'tag--vermelho',
 }
+
+const priorityLabels: Record<RecoveryPriority, string> = {
+  baixa: 'Baixa',
+  'média': 'Média',
+  alta: 'Alta',
+  crítica: 'Crítica',
+}
+
+const AVATAR_TONES = ['av--azul', 'av--verde', 'av--roxo', 'av--laranja', 'av--vermelho']
 
 // --- Helpers ---
 
@@ -147,14 +146,49 @@ function priorityOrder(p: RecoveryPriority): number {
   return map[p]
 }
 
+function initialsOf(name: string): string {
+  return (name || '?')
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+function avatarTone(name: string): string {
+  let h = 0
+  for (const ch of name || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return AVATAR_TONES[h % AVATAR_TONES.length]
+}
+
+function formatDateTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+function dueLabel(iso: string): { text: string; late: boolean } | null {
+  const due = new Date(iso)
+  if (Number.isNaN(due.getTime())) return null
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const dueDay = new Date(due)
+  dueDay.setHours(0, 0, 0, 0)
+  const days = Math.round((dueDay.getTime() - startOfToday.getTime()) / 86_400_000)
+  if (days === 0) return { text: 'Vence hoje', late: false }
+  if (days > 0) return { text: days === 1 ? 'Em 1 dia' : `Em ${days} dias`, late: false }
+  return { text: days === -1 ? 'Venceu há 1 dia' : `Venceu há ${-days} dias`, late: true }
+}
+
 // --- Component ---
 
 function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
-  if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
+  if (sortField !== field) return <ChevronsUpDown className="ic" aria-hidden="true" />
   return sortDir === 'asc' ? (
-    <ArrowUp className="ml-1 h-3 w-3" />
+    <ArrowUp className="ic" aria-hidden="true" />
   ) : (
-    <ArrowDown className="ml-1 h-3 w-3" />
+    <ArrowDown className="ic" aria-hidden="true" />
   )
 }
 
@@ -167,6 +201,7 @@ export default function RecoveryView() {
   const [agentFilter, setAgentFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
   const [recoveredValueFilter, setRecoveredValueFilter] = useState<string>('all')
+  const [search, setSearch] = useState('')
   // Sort
   const [sortField, setSortField] = useState<SortField>('priority')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
@@ -227,6 +262,14 @@ export default function RecoveryView() {
     [sortField]
   )
 
+  const clearFilters = () => {
+    setStatusFilter('all')
+    setAgentFilter('all')
+    setPriorityFilter('all')
+    setRecoveredValueFilter('all')
+    setSearch('')
+  }
+
   // Computed data
   const items = useMemo(() => {
     const data = recoveryItems.map((item: any) => ({
@@ -237,6 +280,7 @@ export default function RecoveryView() {
       outcome: item.outcome,
       recoveredValue: item.recoveredValue,
     }))
+    const q = search.trim().toLowerCase()
 
     return data
       .filter((item) => {
@@ -248,6 +292,10 @@ export default function RecoveryView() {
         if (priorityFilter !== 'all' && item.priority !== priorityFilter) return false
         if (recoveredValueFilter === 'with' && !item.recoveredValue) return false
         if (recoveredValueFilter === 'without' && item.recoveredValue) return false
+        if (q) {
+          const hay = `${item.customerName || ''} ${item.reason || ''} ${item.originalAgentName || ''} ${item.assignedTo || ''}`.toLowerCase()
+          if (!hay.includes(q)) return false
+        }
         return true
       })
       .sort((a, b) => {
@@ -256,11 +304,11 @@ export default function RecoveryView() {
           case 'priority':
             return (priorityOrder(a.priority) - priorityOrder(b.priority)) * dir
           case 'customerName':
-            return a.customerName.localeCompare(b.customerName) * dir
+            return (a.customerName || '').localeCompare(b.customerName || '') * dir
           case 'reason':
-            return a.reason.localeCompare(b.reason) * dir
+            return (a.reason || '').localeCompare(b.reason || '') * dir
           case 'originalAgentName':
-            return a.originalAgentName.localeCompare(b.originalAgentName) * dir
+            return (a.originalAgentName || '').localeCompare(b.originalAgentName || '') * dir
           case 'assignedTo':
             return (a.assignedTo || '').localeCompare(b.assignedTo || '') * dir
           case 'lastInteraction':
@@ -275,7 +323,7 @@ export default function RecoveryView() {
             return 0
         }
       })
-  }, [recoveryItems, statusFilter, agentFilter, priorityFilter, recoveredValueFilter, sortField, sortDir])
+  }, [recoveryItems, statusFilter, agentFilter, priorityFilter, recoveredValueFilter, search, sortField, sortDir])
 
   // Metrics
   const metrics = useMemo(() => {
@@ -392,228 +440,208 @@ export default function RecoveryView() {
     }).then(() => fetchData()).catch(() => {})
   }
 
+  const sortHeader = (field: SortField, label: string, className?: string) => (
+    <th
+      data-ordenar=""
+      className={className}
+      aria-sort={sortField === field ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button type="button" onClick={() => handleSort(field)} className="inline-flex items-center font-semibold">
+        {label}
+        <SortIcon field={field} sortField={sortField} sortDir={sortDir} />
+      </button>
+    </th>
+  )
+
+  const pageHeader = (
+    <div className="cab-pagina">
+      <div className="cab-pagina__titulo">
+        <RotateCcw className="ic cab-pagina__icone" aria-hidden="true" />
+        <div>
+          <h1>Recuperação</h1>
+          <p>Recupere oportunidades perdidas e aumente suas vendas pelo WhatsApp.</p>
+        </div>
+      </div>
+    </div>
+  )
+
   // Loading skeleton
   if (isLoading) {
     return (
-      <TooltipProvider>
-        <div className="flex flex-col gap-4 p-4 lg:p-6">
-          <Skeleton className="h-8 w-48" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
-          </div>
+      <>
+        {pageHeader}
+        <div className="grade grade-4">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        </div>
+        <div className="flex flex-col gap-3">
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
         </div>
-      </TooltipProvider>
+      </>
     )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive font-medium">{error}</p>
-        <button onClick={fetchData} className="text-sm text-primary underline">Tentar novamente</button>
-      </div>
+      <>
+        {pageHeader}
+        <section className="cartao vazio" role="alert">
+          <strong>{error}</strong>
+          <button type="button" onClick={fetchData} className="btn mt-3">Tentar novamente</button>
+        </section>
+      </>
     )
   }
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
-        {/* Page title */}
-        <div className="flex items-center gap-2">
-          <RotateCcw className="h-6 w-6 text-emerald-700 dark:text-emerald-400" />
-          <h1 className="text-2xl font-bold tracking-tight">Recuperação</h1>
-        </div>
+      <>
+        {pageHeader}
 
         {/* Metrics cards */}
-        <div data-tour="recovery-metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Itens criados</CardTitle>
-              <PackageOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.created}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Itens trabalhados</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {metrics.worked}{' '}
-                <span className="text-sm font-normal text-muted-foreground">({metrics.workedPct}%)</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Taxa de contato</CardTitle>
-              <PhoneCall className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.contactPct}%</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Receita recuperada</CardTitle>
-              <DollarSign className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                {formatCurrency(metrics.recoveredValue)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <section data-tour="recovery-metrics" className="grade grade-4" aria-label="Indicadores de recuperação">
+          <article className="cartao kpi-h">
+            <span className="kpi__icone tom-verde"><Package className="ic" aria-hidden="true" /></span>
+            <div>
+              <p className="kpi-h__rotulo">Itens criados</p>
+              <p className="kpi-h__valor">{metrics.created}</p>
+            </div>
+          </article>
+          <article className="cartao kpi-h">
+            <span className="kpi__icone tom-azul"><Users className="ic" aria-hidden="true" /></span>
+            <div>
+              <p className="kpi-h__rotulo">Itens trabalhados</p>
+              <p className="kpi-h__valor">{metrics.worked} <small>({metrics.workedPct}%)</small></p>
+            </div>
+          </article>
+          <article className="cartao kpi-h">
+            <span className="kpi__icone tom-vermelho"><PhoneCall className="ic" aria-hidden="true" /></span>
+            <div>
+              <p className="kpi-h__rotulo">Taxa de contato</p>
+              <p className="kpi-h__valor">{metrics.contactPct}%</p>
+            </div>
+          </article>
+          <article className="cartao kpi-h">
+            <span className="kpi__icone tom-verde"><DollarSign className="ic" aria-hidden="true" /></span>
+            <div>
+              <p className="kpi-h__rotulo">Receita recuperada</p>
+              <p className="kpi-h__valor">{formatCurrency(metrics.recoveredValue)}</p>
+            </div>
+          </article>
+        </section>
 
         {/* Filter bar */}
-        <Card>
-          <CardContent className="pt-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Status</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger aria-label="Status" className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="new">Nova</SelectItem>
-                    <SelectItem value="assigned">Atribuída</SelectItem>
-                    <SelectItem value="attempted">Tentada</SelectItem>
-                    <SelectItem value="contacted">Contactada</SelectItem>
-                    <SelectItem value="recovered">Recuperada</SelectItem>
-                    <SelectItem value="lost">Perdida</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Responsável</label>
-                <Select value={agentFilter} onValueChange={setAgentFilter}>
-                  <SelectTrigger aria-label="Responsável" className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {agentList.map((a) => (
-                      <SelectItem key={a.id} value={a.name}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Prioridade</label>
-                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger aria-label="Prioridade" className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="baixa">Baixa</SelectItem>
-                    <SelectItem value="média">Média</SelectItem>
-                    <SelectItem value="alta">Alta</SelectItem>
-                    <SelectItem value="crítica">Crítica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Valor recuperado</label>
-                <Select value={recoveredValueFilter} onValueChange={setRecoveredValueFilter}>
-                  <SelectTrigger aria-label="Valor recuperado" className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="with">Com valor</SelectItem>
-                    <SelectItem value="without">Sem valor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        <section className="cartao filtros-rec" aria-label="Filtros">
+          <div className="campo">
+            <label htmlFor="rec-f-status">Status</label>
+            <div className="entrada-ic">
+              <Filter className="ic" aria-hidden="true" />
+              <select id="rec-f-status" className="selecao" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="all">Todas</option>
+                <option value="new">Nova</option>
+                <option value="assigned">Atribuída</option>
+                <option value="attempted">Tentada</option>
+                <option value="contacted">Contactada</option>
+                <option value="recovered">Recuperada</option>
+                <option value="lost">Perdida</option>
+              </select>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="campo">
+            <label htmlFor="rec-f-resp">Responsável</label>
+            <div className="entrada-ic">
+              <User className="ic" aria-hidden="true" />
+              <select id="rec-f-resp" className="selecao" value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)}>
+                <option value="all">Todos</option>
+                {agentList.map((a) => (
+                  <option key={a.id} value={a.name}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="campo">
+            <label htmlFor="rec-f-prio">Prioridade</label>
+            <div className="entrada-ic">
+              <Flag className="ic" aria-hidden="true" />
+              <select id="rec-f-prio" className="selecao" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
+                <option value="all">Todas</option>
+                <option value="crítica">Crítica</option>
+                <option value="alta">Alta</option>
+                <option value="média">Média</option>
+                <option value="baixa">Baixa</option>
+              </select>
+            </div>
+          </div>
+          <div className="campo">
+            <label htmlFor="rec-f-valor">Valor recuperado</label>
+            <div className="entrada-ic">
+              <DollarSign className="ic" aria-hidden="true" />
+              <select id="rec-f-valor" className="selecao" value={recoveredValueFilter} onChange={(e) => setRecoveredValueFilter(e.target.value)}>
+                <option value="all">Todos</option>
+                <option value="with">Com valor</option>
+                <option value="without">Sem valor</option>
+              </select>
+            </div>
+          </div>
+          <button className="btn btn--lg" type="button" onClick={clearFilters}>
+            <RotateCcw className="ic" aria-hidden="true" />Limpar filtros
+          </button>
+        </section>
 
         {/* Table */}
-        <Card data-tour="recovery-table">
-          <CardContent className="p-0">
-            <ScrollArea className="max-h-[calc(100vh-380px)]">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[100px]">
-                      <button onClick={() => handleSort('priority')} className="flex items-center font-semibold">
-                        Prioridade
-                        <SortIcon field="priority" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </TableHead>
-                    <TableHead className="min-w-[140px]">
-                      <button onClick={() => handleSort('customerName')} className="flex items-center font-semibold">
-                        Cliente
-                        <SortIcon field="customerName" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </TableHead>
-                    <TableHead className="min-w-[150px] hidden md:table-cell">Motivo</TableHead>
-                    <TableHead className="min-w-[120px] hidden lg:table-cell">
-                      <button onClick={() => handleSort('originalAgentName')} className="flex items-center font-semibold">
-                        Atendente original
-                        <SortIcon field="originalAgentName" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </TableHead>
-                    <TableHead className="min-w-[120px] hidden lg:table-cell">
-                      <button onClick={() => handleSort('assignedTo')} className="flex items-center font-semibold">
-                        Responsável recuperação
-                        <SortIcon field="assignedTo" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </TableHead>
-                    <TableHead className="min-w-[100px] hidden md:table-cell">
-                      <button onClick={() => handleSort('lastInteraction')} className="flex items-center font-semibold">
-                        Última interação
-                        <SortIcon field="lastInteraction" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </TableHead>
-                    <TableHead className="min-w-[110px] hidden sm:table-cell">
-                      <button onClick={() => handleSort('potentialValue')} className="flex items-center font-semibold">
-                        Valor potencial
-                        <SortIcon field="potentialValue" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </TableHead>
-                    <TableHead className="min-w-[110px] hidden lg:table-cell">
-                      <button onClick={() => handleSort('dueAt')} className="flex items-center font-semibold">
-                        Prazo recomendado
-                        <SortIcon field="dueAt" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </TableHead>
-                    <TableHead className="w-[100px]">
-                      <button onClick={() => handleSort('status')} className="flex items-center font-semibold">
-                        Status
-                        <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </TableHead>
-                    <TableHead className="w-[50px]">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
-                        Nenhum item de recuperação encontrado.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    items.map((item) => (
-                      <TableRow key={item.id} className="group">
-                        <TableCell>
+        <section className="cartao" data-tour="recovery-table" aria-labelledby="rec-t-oport">
+          <div className="cartao__cab cab-com-busca">
+            <div>
+              <h2 id="rec-t-oport">Oportunidades de recuperação</h2>
+              <p aria-live="polite">{items.length} {items.length === 1 ? 'item encontrado' : 'itens encontrados'}</p>
+            </div>
+            <div className="linha-flex cab-com-busca__acoes">
+              <div className="entrada-ic busca-local">
+                <Search className="ic" aria-hidden="true" />
+                <input
+                  className="entrada"
+                  type="search"
+                  aria-label="Buscar cliente, motivo ou atendente"
+                  placeholder="Buscar cliente, motivo ou atendente..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Itens de recuperação">
+            <table className="tabela tabela--folgada tabela--rec">
+              <thead>
+                <tr>
+                  {sortHeader('priority', 'Prioridade')}
+                  {sortHeader('customerName', 'Cliente')}
+                  {sortHeader('reason', 'Motivo')}
+                  {sortHeader('originalAgentName', 'Atendente original')}
+                  {sortHeader('assignedTo', 'Responsável recuperação')}
+                  {sortHeader('lastInteraction', 'Última interação')}
+                  {sortHeader('potentialValue', 'Valor potencial')}
+                  {sortHeader('dueAt', 'Prazo recomendado')}
+                  {sortHeader('status', 'Status')}
+                  <th className="centro">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="vazio">
+                      Nenhum item de recuperação encontrado.
+                    </td>
+                  </tr>
+                ) : (
+                  items.map((item) => {
+                    const due = item.dueAt ? dueLabel(item.dueAt) : null
+                    return (
+                      <tr key={item.id}>
+                        <td>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Badge variant="outline" className={cn('border', priorityColors[item.priority])}>
-                                {item.priority}
-                              </Badge>
+                              <span className={cn('tag', priorityTags[item.priority as RecoveryPriority])}>
+                                <span className="ponto" />{priorityLabels[item.priority as RecoveryPriority]}
+                              </span>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-xs">
                               <p className="font-medium mb-1">Fórmula de prioridade</p>
@@ -623,138 +651,109 @@ export default function RecoveryView() {
                               <p className="text-xs mt-1">Score: {item.priorityScore}</p>
                             </TooltipContent>
                           </Tooltip>
-                        </TableCell>
-                        <TableCell className="font-medium">{item.customerName}</TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                          {item.reason}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">{item.originalAgentName}</TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          {item.assignedTo ? (
-                            <Badge variant="outline" className="border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400">
-                              {item.assignedTo}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                          {timeAgo(item.lastInteraction)}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell font-medium text-emerald-700 dark:text-emerald-400">
-                          {item.potentialValue ? formatCurrency(item.potentialValue) : '-'}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground">
-                          {new Date(item.dueAt).toLocaleDateString('pt-BR')}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={cn('border', statusColors[item.status])}>
-                            {statusLabels[item.status]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button aria-label="Atribuir"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => openAssignDialog(item.id)}
-                                >
-                                  <UserPlus className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Atribuir</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button aria-label="Definir prazo"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => openDeadlineDialog(item.id, item.dueAt)}
-                                >
-                                  <CalendarClock className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Alterar prazo</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button aria-label="Copiar"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => handleCopyContext(item)}
-                                >
-                                  <Copy className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Copiar contexto</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button aria-label="Registrar tentativa"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => handleAttempt(item.id)}
-                                >
-                                  <PhoneCall className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Registrar tentativa</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button aria-label="Concluir"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => openOutcomeDialog(item.id)}
-                                >
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Registrar resultado</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button aria-label="Informar valor recuperado"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => openValueDialog(item.id)}
-                                >
-                                  <DollarSign className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Informar valor recuperado</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button aria-label="Devolver ao responsável original"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => handleReturnOriginal(item.id)}
-                                >
-                                  <Undo2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Devolver ao responsável original</TooltipContent>
-                            </Tooltip>
+                        </td>
+                        <td>
+                          <div className="pessoa">
+                            <span className={cn('av', avatarTone(item.customerName))} aria-hidden="true">{initialsOf(item.customerName)}</span>
+                            <span><strong>{item.customerName}</strong></span>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+                        </td>
+                        <td className="suave">{item.reason}</td>
+                        <td>
+                          {item.originalAgentName ? (
+                            <div className="pessoa">
+                              <span className={cn('av', avatarTone(item.originalAgentName))} aria-hidden="true">{initialsOf(item.originalAgentName)}</span>
+                              <span><strong>{item.originalAgentName}</strong></span>
+                            </div>
+                          ) : (
+                            <span className="suave">-</span>
+                          )}
+                        </td>
+                        <td>
+                          {item.assignedTo ? (
+                            <span className="responsavel">
+                              <span className={cn('av av--sm', avatarTone(item.assignedTo))} aria-hidden="true">{initialsOf(item.assignedTo)}</span>
+                              <span><b>{item.assignedTo}</b></span>
+                            </span>
+                          ) : (
+                            <span className="suave">-</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="pilha">
+                            {timeAgo(item.lastInteraction)}
+                            <small>{formatDateTime(item.lastInteraction)}</small>
+                          </span>
+                        </td>
+                        <td className={item.potentialValue ? 'verde-txt forte' : 'suave'}>
+                          {item.potentialValue ? formatCurrency(item.potentialValue) : '-'}
+                        </td>
+                        <td>
+                          {item.dueAt ? (
+                            <span className="pilha">
+                              {new Date(item.dueAt).toLocaleDateString('pt-BR')}
+                              {due && <small className={due.late ? 'vermelho' : undefined}>{due.text}</small>}
+                            </span>
+                          ) : (
+                            <span className="suave">-</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={cn('tag', statusTags[item.status as RecoveryStatus])}>
+                            <span className="ponto" />{statusLabels[item.status as RecoveryStatus] ?? item.status}
+                          </span>
+                        </td>
+                        <td className="centro">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="reticencias reticencias--caixa"
+                                aria-label={`Ações para ${item.customerName}`}
+                              >
+                                <MoreHorizontal className="ic" aria-hidden="true" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openAssignDialog(item.id)}>
+                                <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />Atribuir
+                              </DropdownMenuItem>
+                              {item.conversationId && (
+                                <DropdownMenuItem onClick={() => selectConversation(item.conversationId)}>
+                                  <MessageSquare className="w-4 h-4 mr-2" aria-hidden="true" />Abrir conversa
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => openDeadlineDialog(item.id, item.dueAt)}>
+                                <CalendarClock className="w-4 h-4 mr-2" aria-hidden="true" />Alterar prazo
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCopyContext(item)}>
+                                <Copy className="w-4 h-4 mr-2" aria-hidden="true" />Copiar contexto
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleAttempt(item.id)}>
+                                <PhoneCall className="w-4 h-4 mr-2" aria-hidden="true" />Registrar tentativa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openOutcomeDialog(item.id)}>
+                                <CheckCircle2 className="w-4 h-4 mr-2" aria-hidden="true" />Registrar resultado
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openValueDialog(item.id)}>
+                                <DollarSign className="w-4 h-4 mr-2" aria-hidden="true" />Informar valor recuperado
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleReturnOriginal(item.id)}>
+                                <Undo2 className="w-4 h-4 mr-2" aria-hidden="true" />Devolver ao responsável original
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         {/* Assign Dialog */}
         <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
@@ -840,6 +839,7 @@ export default function RecoveryView() {
                 <Input
                   type="text"
                   placeholder="0,00"
+                  aria-label="Valor recuperado em reais"
                   value={recoveredValueInput}
                   onChange={(e) => setRecoveredValueInput(e.target.value)}
                   className="pl-10"
@@ -867,6 +867,7 @@ export default function RecoveryView() {
             <div className="py-4">
               <Input
                 type="date"
+                aria-label="Novo prazo"
                 value={deadlineInput}
                 onChange={(e) => setDeadlineInput(e.target.value)}
               />
@@ -881,7 +882,7 @@ export default function RecoveryView() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </>
     </TooltipProvider>
   )
 }

@@ -31,7 +31,7 @@ import { canOpenView } from '@/lib/permissions'
 import { TrialBanner } from '@/components/layout/trial-banner'
 
 function MainContent() {
-  const { currentView, selectedConversationId, selectedAgentId, sidebarOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
+  const { currentView, selectedConversationId, selectedAgentId, mobileNavOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
   const { status } = useSession()
   const seenTours = useAppStore((s) => s.seenTours)
   const toursLoaded = useAppStore((s) => s.toursLoaded)
@@ -59,7 +59,7 @@ function MainContent() {
     }
     fetch('/api/me')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator } : null))
+      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName } : null))
       .catch(() => setMe(null))
   }, [status, setMe])
 
@@ -140,32 +140,21 @@ function MainContent() {
     return showLogin ? <LoginPage /> : <LandingPage />
   }
 
+  // Mesma estrutura do pacote de design (painel/app.js): menu lateral fixo, véu do celular e coluna principal
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className={cn('ar app', mobileNavOpen && 'menu-aberto')}>
       <TourOverlay />
       <AppSidebar />
-      <div
-        className={cn(
-          'flex-1 flex flex-col transition-all duration-300',
-          sidebarOpen ? 'lg:ml-64' : 'lg:ml-[68px]'
-        )}
-      >
+      <div className="principal">
         <AppHeader />
         <TrialBanner />
-        <main className="flex-1 p-4 lg:p-6">
-          {renderView()}
-        </main>
-        <footer className="border-t border-border bg-card/50 backdrop-blur-sm px-4 lg:px-6 py-3 mt-auto">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>© {new Date().getFullYear()} AtendeRadar. Auditor de Receita e Qualidade no WhatsApp.</span>
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Sistema operacional
-              </span>
-              <span>v1.0.0 MVP</span>
-            </div>
-          </div>
+        <main className="conteudo">{renderView()}</main>
+        <footer className="rodape-app">
+          <span>© {new Date().getFullYear()} AtendeRadar. Auditor de Receita e Qualidade no WhatsApp.</span>
+          <span className="rodape-app__status">
+            <span><i />Sistema operacional</span>
+            <span>v1.0.0 MVP</span>
+          </span>
         </footer>
       </div>
     </div>

@@ -32,18 +32,20 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'tourId é obrigatório' }, { status: 400 })
   }
 
-  const member = await db.organizationMember.findUnique({ where: { id: g.auth.memberId } })
-  if (!member) {
-    return NextResponse.json({ error: 'Membro não encontrado' }, { status: 404 })
+  // Ler-alterar-gravar com troca condicional: duas abas (ou dois pedidos ao mesmo tempo) não apagam o tour que a outra marcou
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const member = await db.organizationMember.findUnique({ where: { id: g.auth.memberId }, select: { id: true, seenToursJson: true } })
+    if (!member) {
+      return NextResponse.json({ error: 'Membro não encontrado' }, { status: 404 })
+    }
+    const current = safeJsonParse<string[]>(member.seenToursJson, [])
+    if (current.includes(tourId)) return NextResponse.json({ success: true, seen: current })
+    const seen = [...current, tourId]
+    const { count } = await db.organizationMember.updateMany({
+      where: { id: member.id, seenToursJson: member.seenToursJson },
+      data: { seenToursJson: JSON.stringify(seen) },
+    })
+    if (count === 1) return NextResponse.json({ success: true, seen })
   }
-
-  const current = safeJsonParse<string[]>(member.seenToursJson, [])
-  const seen = current.includes(tourId) ? current : [...current, tourId]
-
-  await db.organizationMember.update({
-    where: { id: member.id },
-    data: { seenToursJson: JSON.stringify(seen) },
-  })
-
-  return NextResponse.json({ success: true, seen })
+  return NextResponse.json({ error: 'Tente de novo' }, { status: 409 })
 }

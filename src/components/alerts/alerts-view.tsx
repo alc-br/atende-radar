@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import {
-  AlertTriangle,
-  AlertCircle,
-  AlertOctagon,
+  TriangleAlert,
+  CircleAlert,
+  OctagonAlert,
   Info,
   Clock,
   UserPlus,
+  User,
   RefreshCw,
   CheckCircle2,
   XCircle,
@@ -15,24 +17,17 @@ import {
   RotateCcw,
   Filter,
   Plus,
-  ExternalLink,
   Search,
   MessageSquare,
+  MessageSquareMore,
   DollarSign,
-  Percent,
+  ChartNoAxesColumn,
+  FileText,
   Shield,
   Zap,
   ChevronDown,
 } from 'lucide-react'
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,12 +38,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,28 +53,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
-import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Switch } from '@/components/ui/switch'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-
-import {
-  formatCurrency,
-  timeAgo,
-  getSeverityColor,
-  cn,
-} from '@/lib/utils'
-import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
+
+import { formatCurrency, timeAgo, cn } from '@/lib/utils'
+import { useAppStore } from '@/lib/store'
 
 // ── Severity helpers ──────────────────────────────────────────────
 
@@ -105,21 +77,47 @@ const severityFilterMap: Record<string, string> = {
   critico: 'critical',
 }
 
-function getSeverityIcon(severity: string) {
+/** Classes de tag do pacote por severidade. */
+function severityTagClass(severity: string): string {
   switch (severity) {
-    case 'critical': return <AlertOctagon className="h-4 w-4" />
-    case 'high': return <AlertTriangle className="h-4 w-4" />
-    case 'medium': return <AlertCircle className="h-4 w-4" />
-    default: return <Info className="h-4 w-4" />
+    case 'critical': return 'tag--vermelho'
+    case 'high': return 'tag--vermelho tag--contorno'
+    case 'medium': return 'tag--laranja tag--contorno'
+    default: return 'tag--azul'
   }
 }
 
-function getSeverityBadgeVariant(severity: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (severity) {
-    case 'critical': return 'destructive'
-    case 'high': return 'default'
-    default: return 'secondary'
+/** Ícone + tom do quadrado à esquerda do alerta (por tipo; senão, por severidade). */
+function alertVisual(type: string, severity: string): { icon: ReactNode; tone: string } {
+  switch (type) {
+    case 'ignored_question':
+      return { icon: <MessageSquareMore className="ic" aria-hidden="true" />, tone: 'tom-laranja' }
+    case 'overdue_promise':
+    case 'promise_overdue':
+      return { icon: <TriangleAlert className="ic" aria-hidden="true" />, tone: 'tom-vermelho' }
+    case 'promise_approaching':
+    case 'slow_response':
+      return { icon: <Clock className="ic" aria-hidden="true" />, tone: 'tom-ambar' }
+    case 'no_response':
+    case 'no_response_followup':
+    case 'high_intent_no_reply':
+      return { icon: <MessageSquare className="ic" aria-hidden="true" />, tone: 'tom-laranja' }
+    case 'pending_quote':
+      return { icon: <DollarSign className="ic" aria-hidden="true" />, tone: 'tom-ambar' }
   }
+  switch (severity) {
+    case 'critical': return { icon: <OctagonAlert className="ic" aria-hidden="true" />, tone: 'tom-vermelho' }
+    case 'high': return { icon: <TriangleAlert className="ic" aria-hidden="true" />, tone: 'tom-vermelho' }
+    case 'medium': return { icon: <CircleAlert className="ic" aria-hidden="true" />, tone: 'tom-laranja' }
+    default: return { icon: <Info className="ic" aria-hidden="true" />, tone: 'tom-azul' }
+  }
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 // ── Resolve / Ignore reasons ──────────────────────────────────────
@@ -168,6 +166,24 @@ const channelLabels: Record<string, string> = {
   webhook: 'Webhook',
 }
 
+const statusLabels: Record<string, string> = {
+  acknowledged: 'Reconhecido',
+  in_progress: 'Em acompanhamento',
+  resolved: 'Resolvido',
+  dismissed: 'Ignorado',
+  false_positive: 'Falso positivo',
+}
+
+type TabKey = 'ativos' | 'acompanhamento' | 'resolvidos' | 'ignorados' | 'regras'
+
+const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
+  { key: 'ativos', label: 'Ativos', icon: <Zap className="ic" aria-hidden="true" /> },
+  { key: 'acompanhamento', label: 'Em acompanhamento', icon: <RefreshCw className="ic" aria-hidden="true" /> },
+  { key: 'resolvidos', label: 'Resolvidos', icon: <CheckCircle2 className="ic" aria-hidden="true" /> },
+  { key: 'ignorados', label: 'Ignorados', icon: <XCircle className="ic" aria-hidden="true" /> },
+  { key: 'regras', label: 'Regras', icon: <Shield className="ic" aria-hidden="true" /> },
+]
+
 // ── Main Component ────────────────────────────────────────────────
 
 interface AlertItem {
@@ -187,7 +203,8 @@ export default function AlertsView() {
   const refreshTrigger = useAppStore((s) => s.refreshTrigger)
 
   // Tab state
-  const [activeTab, setActiveTab] = useState('ativos')
+  const [activeTab, setActiveTab] = useState<TabKey>('ativos')
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   // Filter state
   const [filterSeverity, setFilterSeverity] = useState('todas')
@@ -321,11 +338,11 @@ export default function AlertsView() {
     }
   }
 
-  // Unique teams - derived from alerts (no separate agents import)
-  const teams = useMemo(() => [], [])
-
-  // Get effective status
-  const getAlertStatus = (alert: AlertItem) => alert.status
+  // Equipes distintas, a partir dos atendentes carregados de /api/team
+  const teams = useMemo(
+    () => [...new Set(agents.map((a) => a.team).filter(Boolean))].sort(),
+    [agents]
+  )
 
   // Filtered alerts (client-side from already-tab-filtered API data)
   const filteredAlerts = useMemo(() => {
@@ -370,22 +387,44 @@ export default function AlertsView() {
   }, [alertsData, filterHasValue, filterConfidenceMin, searchQuery])
 
   // Tab counts from API
-  const tabCounts = useMemo(() => ({
+  const tabCounts = useMemo<Record<string, number>>(() => ({
     ativos: (apiCounts.new || 0) + (apiCounts.acknowledged || 0),
     acompanhamento: apiCounts.in_progress || 0,
     resolvidos: apiCounts.resolved || 0,
     ignorados: (apiCounts.dismissed || 0) + (apiCounts.false_positive || 0),
   }), [apiCounts])
 
+  const hasActiveFilters =
+    filterSeverity !== 'todas' || filterType !== 'all' || filterAgent !== 'all' ||
+    filterTeam !== 'all' || filterHasValue !== 'all' || searchQuery !== '' || filterConfidenceMin !== ''
+
+  function clearFilters() {
+    setFilterSeverity('todas')
+    setFilterType('all')
+    setFilterAgent('all')
+    setFilterTeam('all')
+    setFilterHasValue('all')
+    setSearchQuery('')
+    setFilterConfidenceMin('')
+  }
+
+  // Abas com setas (padrão WAI-ARIA tabs, ativação automática)
+  function handleTabKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next = -1
+    if (e.key === 'ArrowRight') next = (index + 1) % TABS.length
+    else if (e.key === 'ArrowLeft') next = (index - 1 + TABS.length) % TABS.length
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = TABS.length - 1
+    if (next < 0) return
+    e.preventDefault()
+    const key = TABS[next].key
+    setActiveTab(key)
+    tabRefs.current[key]?.focus()
+  }
+
   // Actions
   function handleOpenConversation(conversationId: string) {
     selectConversation(conversationId)
-  }
-
-  function handleResolve(alertId: string) {
-    setSelectedAlertId(alertId)
-    setResolveReason('')
-    setResolveDialogOpen(true)
   }
 
   function confirmResolve() {
@@ -399,12 +438,6 @@ export default function AlertsView() {
       setSelectedAlertId(null)
       setResolveReason('')
     }
-  }
-
-  function handleIgnore(alertId: string) {
-    setSelectedAlertId(alertId)
-    setIgnoreReason('')
-    setIgnoreDialogOpen(true)
   }
 
   function confirmIgnore() {
@@ -454,440 +487,544 @@ export default function AlertsView() {
       .then(() => fetchAlerts()).catch(() => {})
   }
 
+  function handleResolveWithReason(alertId: string, reason: string) {
+    fetch(`/api/alerts/${alertId}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    }).then(() => fetchAlerts()).catch(() => {})
+  }
+
+  function handleDismissWithReason(alertId: string, reason: string) {
+    fetch(`/api/alerts/${alertId}/dismiss`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    }).then(() => fetchAlerts()).catch(() => {})
+  }
+
   function maskCustomerName(name: string): string {
     const parts = name.split(' ')
     if (parts.length === 1) return name.charAt(0) + '***'
     return parts[0] + ' ' + parts[parts.length - 1].charAt(0) + '***'
   }
 
-  // ── Render alert card ──
-  // Loading skeleton
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-4 h-full">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-8 w-32" />
-        </div>
-        <div className="flex gap-2">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-9 w-28 rounded-md" />)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-lg" />)}
-        </div>
-      </div>
-    )
-  }
+  // ── Render: cartão de alerta ──
+  function renderAlert(alert: AlertItem) {
+    const status = alert.status
+    const isInactive = status === 'resolved' || status === 'dismissed' || status === 'false_positive'
+    const typeLabel = alertTypeLabels[alert.ruleName]
+    const hasValue = !!alert.potentialValue && alert.potentialValue > 0
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive font-medium">{error}</p>
-        <button onClick={fetchAlerts} className="text-sm text-primary underline">Tentar novamente</button>
-      </div>
-    )
-  }
-
-  function AlertCard({ alert }: { alert: AlertItem }) {
-    const status = getAlertStatus(alert)
-    const isResolved = status === 'resolved'
-    const isDismissed = status === 'dismissed'
-    const isInactive = isResolved || isDismissed
-
-    return (
-      <Card className={cn(
-        'py-0 gap-0 transition-all hover:shadow-md',
-        isInactive && 'opacity-60'
-      )}>
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-3">
-            {/* Top row: severity badge + title + time */}
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Badge
-                  variant={getSeverityBadgeVariant(alert.severity)}
-                  className={cn('gap-1 shrink-0 font-medium', getSeverityColor(alert.severity))}
-                >
-                  {getSeverityIcon(alert.severity)}
-                  {severityLabels[alert.severity] || alert.severity}
-                </Badge>
-                <span className="font-medium text-sm truncate">
-                  {alert.title}
-                </span>
-              </div>
-              <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap flex items-center gap-1">
-                <Clock className="h-3 w-3" />
+    if (isInactive) {
+      const tone = status === 'resolved' ? 'tom-verde' : 'tom-cinza'
+      return (
+        <article key={alert.id} className="cartao alerta alerta--compacto">
+          <span className={cn('alerta__icone', tone)}>
+            {status === 'resolved'
+              ? <CheckCircle2 className="ic" aria-hidden="true" />
+              : <XCircle className="ic" aria-hidden="true" />}
+          </span>
+          <div className="alerta__corpo">
+            <header className="alerta__cab">
+              <span className={cn('tag', status === 'resolved' ? 'tag--verde' : 'tag--cinza')}>
+                {statusLabels[status] || status}
+              </span>
+              <h2>{alert.title}</h2>
+              <span className="alerta__quando">
+                <Clock className="ic" aria-hidden="true" />
                 {timeAgo(alert.createdAt)}
               </span>
-            </div>
-
-            {/* Info row: customer + agent */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <UserPlus className="h-3 w-3" />
-                {maskCustomerName(alert.customerName)}
-              </span>
-              <span className="flex items-center gap-1">
-                <MessageSquare className="h-3 w-3" />
-                {alert.agentName}
-              </span>
-              {alert.potentialValue && alert.potentialValue > 0 && (
-                <span className="flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400">
-                  <DollarSign className="h-3 w-3" />
-                  {formatCurrency(alert.potentialValue)}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                <Percent className="h-3 w-3" />
-                {Math.round((alert.confidence ?? 0) * 100)}% confiança
-              </span>
-            </div>
-
-            {/* Evidence */}
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {alert.evidence}
+            </header>
+            <p className="alerta__desc">
+              {maskCustomerName(alert.customerName)} · {alert.agentName}
+              {hasValue && <> · {formatCurrency(alert.potentialValue!)}</>}
+              {' · '}{severityLabels[alert.severity] || alert.severity}
+              {' · '}{Math.round((alert.confidence ?? 0) * 100)}% confiança
             </p>
+            {alert.evidence && <p className="alerta__desc">{alert.evidence}</p>}
+          </div>
+        </article>
+      )
+    }
 
-            {/* Status badge */}
-            {status !== 'new' && (
+    const visual = alertVisual(alert.ruleName, alert.severity)
+
+    return (
+      <article key={alert.id} className="cartao alerta">
+        <span className={cn('alerta__icone', visual.tone)}>{visual.icon}</span>
+        <div className="alerta__corpo min-w-0">
+          <header className="alerta__cab">
+            <span className={cn('tag', severityTagClass(alert.severity))}>
+              {severityLabels[alert.severity] || alert.severity}
+            </span>
+            <h2>{alert.title}</h2>
+            {status !== 'new' && statusLabels[status] && (
+              <span className="tag tag--cinza">{statusLabels[status]}</span>
+            )}
+            <span className="alerta__quando">
+              <Clock className="ic" aria-hidden="true" />
+              {timeAgo(alert.createdAt)}
+            </span>
+          </header>
+          {(alert.description || typeLabel) && (
+            <p className="alerta__desc">{alert.description || typeLabel}</p>
+          )}
+          <div className="alerta__dados">
+            <div>
+              <span className="dado-ic tom-cinza"><User className="ic" aria-hidden="true" /></span>
+              <div><span className="block text-[12.5px] text-[var(--suave)]">Cliente</span><span className="block text-[14.5px] font-medium">{maskCustomerName(alert.customerName)}</span></div>
+            </div>
+            <div>
+              <span className="av av--verde" aria-hidden="true">{initials(alert.agentName)}</span>
+              <div><span className="block text-[12.5px] text-[var(--suave)]">Atendente</span><span className="block text-[14.5px] font-medium">{alert.agentName}</span></div>
+            </div>
+            {hasValue && (
               <div>
-                <Badge variant="outline" className="text-xs">
-                  {status === 'acknowledged' && 'Reconhecido'}
-                  {status === 'in_progress' && 'Em acompanhamento'}
-                  {status === 'resolved' && 'Resolvido'}
-                  {status === 'dismissed' && 'Ignorado'}
-                </Badge>
+                <span className="dado-ic tom-verde"><DollarSign className="ic" aria-hidden="true" /></span>
+                <div><span className="block text-[12.5px] text-[var(--suave)]">Valor potencial</span><span className="block text-[14.5px] font-medium verde-txt">{formatCurrency(alert.potentialValue!)}</span></div>
               </div>
             )}
-
-            {/* Actions */}
-            {!isInactive && (
-              <>
-                <Separator className="my-1" />
-                <div className="flex flex-wrap gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1"
-                    onClick={() => handleOpenConversation(alert.conversationId)}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Abrir conversa
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1"
-                    onClick={() => handleAssign(alert.id)}
-                  >
-                    <UserPlus className="h-3 w-3" />
-                    Atribuir
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1"
-                    onClick={() => handleFollowUp(alert.id)}
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    Acompanhar
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Resolver
-                        <ChevronDown className="h-3 w-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Motivo da resolução</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {resolveReasons.map((r) => (
-                        <DropdownMenuItem
-                          key={r.value}
-                          onClick={() => {
-                            fetch(`/api/alerts/${alert.id}/resolve`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ reason: r.value }),
-                            }).then(() => fetchAlerts()).catch(() => {})
-                          }}
-                        >
-                          {r.label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                        <XCircle className="h-3 w-3" />
-                        Ignorar
-                        <ChevronDown className="h-3 w-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Motivo do descarte</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {ignoreReasons.map((r) => (
-                        <DropdownMenuItem
-                          key={r.value}
-                          onClick={() => {
-                            fetch(`/api/alerts/${alert.id}/dismiss`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ reason: r.value }),
-                            }).then(() => fetchAlerts()).catch(() => {})
-                          }}
-                        >
-                          {r.label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs gap-1 text-muted-foreground"
-                    onClick={() => handleFalsePositive(alert.id)}
-                  >
-                    <Ban className="h-3 w-3" />
-                    Falso positivo
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs gap-1 text-emerald-700 dark:text-emerald-400"
-                    onClick={() => handleCreateRecovery(alert.id)}
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Recuperação
-                  </Button>
-                </div>
-              </>
-            )}
+            <div>
+              <span className="dado-ic verde-txt"><ChartNoAxesColumn className="ic" aria-hidden="true" /></span>
+              <div><span className="block text-[12.5px] text-[var(--suave)]">Confiança</span><span className="block text-[14.5px] font-medium">{Math.round((alert.confidence ?? 0) * 100)}%</span></div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+          {alert.evidence && (
+            <p className="alerta__nota">
+              <FileText className="ic" aria-hidden="true" />
+              {alert.evidence}
+            </p>
+          )}
+          <div className="alerta__acoes">
+            <button type="button" className="btn btn--escuro" onClick={() => handleOpenConversation(alert.conversationId)}>
+              <MessageSquare className="ic" aria-hidden="true" />
+              Abrir conversa
+            </button>
+            <button type="button" className="btn" onClick={() => handleAssign(alert.id)}>
+              <UserPlus className="ic" aria-hidden="true" />
+              Atribuir
+            </button>
+            <button type="button" className="btn" onClick={() => handleFollowUp(alert.id)}>
+              <RefreshCw className="ic" aria-hidden="true" />
+              Acompanhar
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className="btn">
+                  <CheckCircle2 className="ic" aria-hidden="true" />
+                  Resolver
+                  <ChevronDown className="ic" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Motivo da resolução</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {resolveReasons.map((r) => (
+                  <DropdownMenuItem key={r.value} onClick={() => handleResolveWithReason(alert.id, r.value)}>
+                    {r.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className="btn">
+                  <XCircle className="ic" aria-hidden="true" />
+                  Ignorar
+                  <ChevronDown className="ic" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Motivo do descarte</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {ignoreReasons.map((r) => (
+                  <DropdownMenuItem key={r.value} onClick={() => handleDismissWithReason(alert.id, r.value)}>
+                    {r.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button type="button" className="btn" onClick={() => handleFalsePositive(alert.id)}>
+              <Ban className="ic" aria-hidden="true" />
+              Falso positivo
+            </button>
+            <button type="button" className="btn btn--link" onClick={() => handleCreateRecovery(alert.id)}>
+              <RotateCcw className="ic" aria-hidden="true" />
+              Recuperação
+            </button>
+          </div>
+        </div>
+      </article>
     )
   }
 
-  // ── Alert Rules Tab ──
-  function RulesTab() {
+  // ── Render: lista de alertas (abas de status) ──
+  function renderAlertList() {
+    if (isLoading) {
+      return (
+        <div className="lista-alertas" role="status" aria-busy="true" aria-label="Carregando alertas">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-[var(--raio)]" />)}
+        </div>
+      )
+    }
+    if (error) {
+      return (
+        <div className="cartao vazio" role="alert">
+          <TriangleAlert className="ic" aria-hidden="true" />
+          <strong>{error}</strong>
+          <button type="button" className="btn btn--sm mt-3" onClick={fetchAlerts}>
+            <RefreshCw className="ic" aria-hidden="true" />
+            Tentar novamente
+          </button>
+        </div>
+      )
+    }
+    if (filteredAlerts.length === 0) {
+      return (
+        <div className="cartao vazio">
+          <CheckCircle2 className="ic" aria-hidden="true" />
+          <strong>Nenhum alerta encontrado</strong>
+          Ajuste os filtros ou aguarde novos alertas.
+        </div>
+      )
+    }
     return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-4">
+      <>
+        {filteredAlerts.map((alert) => renderAlert(alert))}
+        <p className="lista-alertas__total suave" aria-live="polite">
+          {filteredAlerts.length} alerta{filteredAlerts.length !== 1 ? 's' : ''} encontrado{filteredAlerts.length !== 1 ? 's' : ''}
+        </p>
+      </>
+    )
+  }
+
+  // ── Render: aba Regras ──
+  function renderRules() {
+    return (
+      <div className="cartao">
+        <div className="cartao__cab flex-wrap">
           <div>
-            <CardTitle className="text-lg">Regras de Alerta</CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
-              Configure quando e como os alertas são gerados.
-            </CardDescription>
+            <h2><Shield className="ic verde-txt" aria-hidden="true" />Regras de Alerta</h2>
+            <p>Configure quando e como os alertas são gerados.</p>
           </div>
-          <Dialog open={newRuleOpen} onOpenChange={setNewRuleOpen}>
-            <DialogTrigger asChild>
-              <Button data-tour="alerts-new-rule" size="sm" className="gap-1.5">
-                <Plus className="h-4 w-4" />
-                Nova regra
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Nova regra de alerta</DialogTitle>
-                <DialogDescription>Configure quando este alerta deve ser gerado.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Nome</Label>
-                  <Input
-                    placeholder="Ex: Cliente sem resposta"
-                    value={newRuleName}
-                    onChange={(e) => setNewRuleName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select value={newRuleType} onValueChange={setNewRuleType}>
-                    <SelectTrigger aria-label="Selecione o tipo"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(alertTypeLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Severidade</Label>
-                  <Select value={newRuleSeverity} onValueChange={setNewRuleSeverity}>
-                    <SelectTrigger aria-label="Severidade"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(severityLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Cooldown (minutos)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={newRuleCooldown}
-                    onChange={(e) => setNewRuleCooldown(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setNewRuleOpen(false)}>Cancelar</Button>
-                <Button onClick={handleCreateRule} disabled={!newRuleName.trim() || !newRuleType || creatingRule}>
-                  Criar regra
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead className="hidden sm:table-cell">Tipo</TableHead>
-                <TableHead className="w-[80px] text-center">Ativa</TableHead>
-                <TableHead>Severidade</TableHead>
-                <TableHead className="hidden md:table-cell">Cooldown</TableHead>
-                <TableHead className="hidden lg:table-cell">Canais</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rulesData.map((rule) => (
-                <TableRow key={rule.id}>
-                  <TableCell className="font-medium text-sm">
-                    {rule.name}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                    {alertTypeLabels[rule.type] || rule.type}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Switch
-                      checked={ruleToggles[rule.id] ?? rule.active}
-                      onCheckedChange={(checked) => toggleRuleActive(rule.id, checked)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={getSeverityBadgeVariant(rule.severity)}
-                      className={cn('gap-1 text-xs', getSeverityColor(rule.severity))}
-                    >
-                      {getSeverityIcon(rule.severity)}
-                      {severityLabels[rule.severity] || rule.severity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                    {rule.cooldownMinutes} min
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <div className="flex flex-wrap gap-1">
-                      {rule.channels.map((ch) => (
-                        <Badge key={ch} variant="outline" className="text-xs">
-                          {channelLabels[ch] || ch}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          <button
+            type="button"
+            data-tour="alerts-new-rule"
+            className="btn btn--primario btn--sm"
+            onClick={() => setNewRuleOpen(true)}
+          >
+            <Plus className="ic" aria-hidden="true" />
+            Nova regra
+          </button>
+        </div>
+        <div className="cartao__corpo">
+          {isLoading && rulesData.length === 0 ? (
+            <div className="grid gap-2" role="status" aria-busy="true" aria-label="Carregando regras">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
+            </div>
+          ) : rulesData.length === 0 ? (
+            <div className="vazio">
+              <Shield className="ic" aria-hidden="true" />
+              <strong>Nenhuma regra cadastrada</strong>
+              Use “Nova regra” para definir quando um alerta deve ser gerado.
+            </div>
+          ) : (
+            <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Regras de alerta">
+              <table className="tabela">
+                <thead>
+                  <tr>
+                    <th scope="col">Regra</th>
+                    <th scope="col" className="hidden sm:table-cell">Tipo</th>
+                    <th scope="col">Severidade</th>
+                    <th scope="col" className="hidden md:table-cell">Cooldown</th>
+                    <th scope="col" className="hidden lg:table-cell">Canais</th>
+                    <th scope="col" className="centro">Ativa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rulesData.map((rule) => (
+                    <tr key={rule.id}>
+                      <td><strong>{rule.name}</strong></td>
+                      <td className="hidden sm:table-cell suave">{alertTypeLabels[rule.type] || rule.type}</td>
+                      <td>
+                        <span className={cn('tag', severityTagClass(rule.severity))}>
+                          {severityLabels[rule.severity] || rule.severity}
+                        </span>
+                      </td>
+                      <td className="hidden md:table-cell suave">{rule.cooldownMinutes} min</td>
+                      <td className="hidden lg:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {rule.channels.map((ch) => (
+                            <span key={ch} className="tag tag--cinza">{channelLabels[ch] || ch}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="centro">
+                        <label className="interruptor">
+                          <input
+                            type="checkbox"
+                            role="switch"
+                            checked={ruleToggles[rule.id] ?? rule.active}
+                            onChange={(e) => toggleRuleActive(rule.id, e.target.checked)}
+                            aria-label={`Ativar regra ${rule.name}`}
+                          />
+                          <span />
+                        </label>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4 h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Shield className="h-6 w-6 text-emerald-700 dark:text-emerald-400" />
-            Alertas
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Monitore e gerencie alertas de qualidade em tempo real.
-          </p>
+    <div className="grid gap-5">
+      {/* Cabeçalho */}
+      <div className="cab-pagina">
+        <div className="cab-pagina__titulo">
+          <Shield className="ic cab-pagina__icone" aria-hidden="true" />
+          <div>
+            <h1>Alertas</h1>
+            <p>Monitore e gerencie alertas de qualidade em tempo real.</p>
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          {/* celular: as 5 abas não cabem; a barra rola na horizontal em vez de alargar a página */}
-          <div className="max-w-full overflow-x-auto">
-          <TabsList data-tour="alerts-tabs" className="w-max">
-            <TabsTrigger value="ativos" className="gap-1.5">
-              <Zap className="h-3.5 w-3.5" />
-              Ativos
-              {tabCounts.ativos > 0 && (
-                <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5 text-[10px]">
-                  {tabCounts.ativos}
-                </Badge>
+      {/* Abas */}
+      <div className="abas" role="tablist" aria-label="Situação dos alertas" data-tour="alerts-tabs">
+        {TABS.map((t, i) => {
+          const selected = activeTab === t.key
+          const count = tabCounts[t.key]
+          return (
+            <button
+              key={t.key}
+              ref={(el) => { tabRefs.current[t.key] = el }}
+              type="button"
+              role="tab"
+              id={`aba-alertas-${t.key}`}
+              aria-controls={`painel-alertas-${t.key}`}
+              aria-selected={selected}
+              tabIndex={selected ? 0 : -1}
+              className="aba"
+              onClick={() => setActiveTab(t.key)}
+              onKeyDown={(e) => handleTabKeyDown(e, i)}
+            >
+              {t.icon}
+              {t.label}
+              {count !== undefined && count > 0 && (
+                <span className={cn('contador-pill', t.key !== 'ativos' && 'contador-pill--cinza')}>
+                  {count}
+                </span>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="acompanhamento" className="gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5" />
-              Em acompanhamento
-              {tabCounts.acompanhamento > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-[10px]">
-                  {tabCounts.acompanhamento}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="resolvidos" className="gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Resolvidos
-              {tabCounts.resolvidos > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-[10px]">
-                  {tabCounts.resolvidos}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="ignorados" className="gap-1.5">
-              <XCircle className="h-3.5 w-3.5" />
-              Ignorados
-              {tabCounts.ignorados > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-[10px]">
-                  {tabCounts.ignorados}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="regras" className="gap-1.5">
-              <Shield className="h-3.5 w-3.5" />
-              Regras
-            </TabsTrigger>
-          </TabsList>
-          </div>
-        </div>
+            </button>
+          )
+        })}
+      </div>
 
-        {/* Filter bar – shown only for alert tabs, not rules */}
-        <TabsContent value="ativos" className="mt-3">
-          <FilterBar />
-          <AlertList />
-        </TabsContent>
-        <TabsContent value="acompanhamento" className="mt-3">
-          <FilterBar />
-          <AlertList />
-        </TabsContent>
-        <TabsContent value="resolvidos" className="mt-3">
-          <FilterBar />
-          <AlertList />
-        </TabsContent>
-        <TabsContent value="ignorados" className="mt-3">
-          <FilterBar />
-          <AlertList />
-        </TabsContent>
-        <TabsContent value="regras" className="mt-3">
-          <RulesTab />
-        </TabsContent>
-      </Tabs>
+      {activeTab === 'regras' ? (
+        <section
+          id="painel-alertas-regras"
+          role="tabpanel"
+          aria-labelledby="aba-alertas-regras"
+        >
+          {renderRules()}
+        </section>
+      ) : (
+        <>
+          {/* Filtros */}
+          <section
+            className="cartao filtros min-[1281px]:[grid-template-columns:minmax(200px,1.6fr)_repeat(5,minmax(110px,.65fr))_minmax(96px,.5fr)_1px_auto]"
+            aria-label="Filtros"
+            data-tour="alerts-filterbar"
+          >
+            <div className="campo filtros__busca">
+              <span className="rotulo"><Filter className="ic" aria-hidden="true" /> Filtros</span>
+              <label className="entrada-ic">
+                <Search className="ic" aria-hidden="true" />
+                <span className="sr-only">Buscar alertas</span>
+                <input
+                  className="entrada"
+                  type="search"
+                  placeholder="Buscar alertas, clientes ou atendentes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="campo">
+              <label htmlFor="f-alertas-criticidade">Criticidade</label>
+              <select
+                id="f-alertas-criticidade"
+                className="selecao"
+                value={filterSeverity}
+                onChange={(e) => setFilterSeverity(e.target.value)}
+              >
+                <option value="todas">Todas</option>
+                <option value="informativo">Informativo</option>
+                <option value="atencao">Atenção</option>
+                <option value="alto">Alto</option>
+                <option value="critico">Crítico</option>
+              </select>
+            </div>
+            <div className="campo">
+              <label htmlFor="f-alertas-tipo">Tipo de alerta</label>
+              <select
+                id="f-alertas-tipo"
+                className="selecao"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="all">Todos</option>
+                {filterType !== 'all' && !alertTypes.includes(filterType) && (
+                  <option value={filterType}>{alertTypeLabels[filterType] || filterType}</option>
+                )}
+                {alertTypes.map((t) => (
+                  <option key={t} value={t}>{alertTypeLabels[t] || t}</option>
+                ))}
+              </select>
+            </div>
+            <div className="campo">
+              <label htmlFor="f-alertas-atendente">Atendente</label>
+              <select
+                id="f-alertas-atendente"
+                className="selecao"
+                value={filterAgent}
+                onChange={(e) => setFilterAgent(e.target.value)}
+              >
+                <option value="all">Todos</option>
+                {agents.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="campo">
+              <label htmlFor="f-alertas-equipe">Equipe</label>
+              <select
+                id="f-alertas-equipe"
+                className="selecao"
+                value={filterTeam}
+                onChange={(e) => setFilterTeam(e.target.value)}
+              >
+                <option value="all">Todas</option>
+                {teams.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div className="campo">
+              <label htmlFor="f-alertas-valor">Valor</label>
+              <select
+                id="f-alertas-valor"
+                className="selecao"
+                value={filterHasValue}
+                onChange={(e) => setFilterHasValue(e.target.value)}
+              >
+                <option value="all">Todos</option>
+                <option value="com">Com valor</option>
+                <option value="sem">Sem valor</option>
+              </select>
+            </div>
+            <div className="campo filtros__conf">
+              <label htmlFor="f-alertas-conf">Confiança mín. %</label>
+              <input
+                id="f-alertas-conf"
+                className="entrada"
+                type="number"
+                min={0}
+                max={100}
+                placeholder="%"
+                value={filterConfidenceMin}
+                onChange={(e) => setFilterConfidenceMin(e.target.value)}
+              />
+            </div>
+            <div className="sep-v" />
+            <button
+              type="button"
+              className="btn btn--link filtros__limpar"
+              onClick={clearFilters}
+              disabled={!hasActiveFilters}
+            >
+              <RotateCcw className="ic" aria-hidden="true" />
+              Limpar filtros
+            </button>
+          </section>
+
+          {/* Lista */}
+          <section
+            id={`painel-alertas-${activeTab}`}
+            role="tabpanel"
+            aria-labelledby={`aba-alertas-${activeTab}`}
+            className="lista-alertas"
+          >
+            {renderAlertList()}
+          </section>
+        </>
+      )}
+
+      {/* Nova regra */}
+      <Dialog open={newRuleOpen} onOpenChange={setNewRuleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova regra de alerta</DialogTitle>
+            <DialogDescription>Configure quando este alerta deve ser gerado.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="nova-regra-nome">Nome</Label>
+              <Input
+                id="nova-regra-nome"
+                placeholder="Ex: Cliente sem resposta"
+                value={newRuleName}
+                onChange={(e) => setNewRuleName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select value={newRuleType} onValueChange={setNewRuleType}>
+                <SelectTrigger aria-label="Selecione o tipo"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(alertTypeLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Severidade</Label>
+              <Select value={newRuleSeverity} onValueChange={setNewRuleSeverity}>
+                <SelectTrigger aria-label="Severidade"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(severityLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nova-regra-cooldown">Cooldown (minutos)</Label>
+              <Input
+                id="nova-regra-cooldown"
+                type="number"
+                min="0"
+                value={newRuleCooldown}
+                onChange={(e) => setNewRuleCooldown(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewRuleOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateRule} disabled={!newRuleName.trim() || !newRuleType || creatingRule}>
+              Criar regra
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Resolve dialog */}
       <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
@@ -916,12 +1053,8 @@ export default function AlertsView() {
             <Button variant="outline" onClick={() => setResolveDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button
-              onClick={confirmResolve}
-              disabled={!resolveReason}
-              className="gap-1.5"
-            >
-              <CheckCircle2 className="h-4 w-4" />
+            <Button onClick={confirmResolve} disabled={!resolveReason} className="gap-1.5">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
               Resolver
             </Button>
           </DialogFooter>
@@ -955,13 +1088,8 @@ export default function AlertsView() {
             <Button variant="outline" onClick={() => setIgnoreDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmIgnore}
-              disabled={!ignoreReason}
-              className="gap-1.5"
-            >
-              <XCircle className="h-4 w-4" />
+            <Button variant="destructive" onClick={confirmIgnore} disabled={!ignoreReason} className="gap-1.5">
+              <XCircle className="h-4 w-4" aria-hidden="true" />
               Ignorar
             </Button>
           </DialogFooter>
@@ -995,12 +1123,8 @@ export default function AlertsView() {
             <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button
-              onClick={confirmAssign}
-              disabled={!assignAgentId}
-              className="gap-1.5"
-            >
-              <UserPlus className="h-4 w-4" />
+            <Button onClick={confirmAssign} disabled={!assignAgentId} className="gap-1.5">
+              <UserPlus className="h-4 w-4" aria-hidden="true" />
               Atribuir
             </Button>
           </DialogFooter>
@@ -1008,142 +1132,4 @@ export default function AlertsView() {
       </Dialog>
     </div>
   )
-
-  // ── Filter Bar (inline to access state) ──
-  function FilterBar() {
-    return (
-      <Card data-tour="alerts-filterbar" className="p-3 py-3 gap-0">
-        <div className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
-          <Filter className="h-3.5 w-3.5" />
-          Filtros
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2">
-          {/* Search */}
-          <div className="col-span-2 sm:col-span-1">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 text-xs pl-8"
-              />
-            </div>
-          </div>
-
-          {/* Criticidade */}
-          <Select value={filterSeverity} onValueChange={setFilterSeverity}>
-            <SelectTrigger aria-label="Criticidade" className="h-8 text-xs">
-              <SelectValue placeholder="Criticidade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Todas</SelectItem>
-              <SelectItem value="informativo">Informativo</SelectItem>
-              <SelectItem value="atencao">Atenção</SelectItem>
-              <SelectItem value="alto">Alto</SelectItem>
-              <SelectItem value="critico">Crítico</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Tipo */}
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger aria-label="Tipo" className="h-8 text-xs">
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {alertTypes.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {alertTypeLabels[t] || t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Atendente */}
-          <Select value={filterAgent} onValueChange={setFilterAgent}>
-            <SelectTrigger aria-label="Atendente" className="h-8 text-xs">
-              <SelectValue placeholder="Atendente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {agents.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Equipe */}
-          <Select value={filterTeam} onValueChange={setFilterTeam}>
-            <SelectTrigger aria-label="Equipe" className="h-8 text-xs">
-              <SelectValue placeholder="Equipe" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {teams.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Valor potencial */}
-          <Select value={filterHasValue} onValueChange={setFilterHasValue}>
-            <SelectTrigger aria-label="Valor" className="h-8 text-xs">
-              <SelectValue placeholder="Valor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="com">Com valor</SelectItem>
-              <SelectItem value="sem">Sem valor</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Confiança mínima */}
-          <Input
-            type="number"
-            placeholder="Confiança mín. %"
-            value={filterConfidenceMin}
-            onChange={(e) => setFilterConfidenceMin(e.target.value)}
-            className="h-8 text-xs"
-            min={0}
-            max={100}
-          />
-        </div>
-      </Card>
-    )
-  }
-
-  // ── Alert List (inline to access state) ──
-  function AlertList() {
-    if (filteredAlerts.length === 0) {
-      return (
-        <Card className="py-12">
-          <div className="flex flex-col items-center justify-center text-muted-foreground gap-2">
-            <CheckCircle2 className="h-10 w-10" />
-            <p className="text-sm font-medium">Nenhum alerta encontrado</p>
-            <p className="text-xs">Ajuste os filtros ou aguarde novos alertas.</p>
-          </div>
-        </Card>
-      )
-    }
-
-    return (
-      <ScrollArea className="h-[calc(100vh-340px)] min-h-[300px]">
-        <div className="flex flex-col gap-2 pr-0 sm:pr-3">
-          {filteredAlerts.map((alert) => (
-            <AlertCard key={alert.id} alert={alert} />
-          ))}
-          <div className="text-center text-xs text-muted-foreground py-3">
-            {filteredAlerts.length} alert{filteredAlerts.length !== 1 ? 's' : ''} encontrado{filteredAlerts.length !== 1 ? 's' : ''}
-          </div>
-        </div>
-      </ScrollArea>
-    )
-  }
 }
-
-

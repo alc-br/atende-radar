@@ -1,33 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
-import { Slider } from '@/components/ui/slider'
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
-import {
-  Building2, Clock, Headphones, DollarSign, Brain, Bell, Shield,
-  Save, Plus, Trash2, Upload, X, Sparkles,
+  Building2, Clock, Headphones, DollarSign, Brain, Bell, Shield, ShieldCheck, History,
+  Save, Plus, Trash2, X, Sparkles, WandSparkles, CircleAlert, Globe, Layers,
+  AudioLines, Calendar, Users, Moon, EyeOff, Download, ArrowRight, Package, Percent,
 } from 'lucide-react'
-import { History } from 'lucide-react'
 import { AuditLog } from './audit-log'
-import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
 import { toast } from 'sonner'
 
-const WEEKDAYS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
+const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+// Ordem de exibição: segunda a domingo (as chaves continuam 0 = domingo ... 6 = sábado)
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 const BR_TIMEZONES = [
   { value: 'America/Sao_Paulo', label: 'São Paulo (GMT-3)' },
@@ -58,17 +44,53 @@ const SEGMENT_LABELS: Record<string, string> = {
   juridico: 'Jurídico', restaurante: 'Restaurante', spa_beleza: 'Spa/Beleza', outro: 'Outro',
 }
 
-function TabSaveButton({ onSave, saving }: { onSave?: () => void; saving?: boolean }) {
+const SEVERITY: Record<string, { label: string; tag: string }> = {
+  critical: { label: 'Crítica', tag: 'tag--vermelho' },
+  high: { label: 'Alta', tag: 'tag--laranja' },
+  medium: { label: 'Média', tag: 'tag--ambar' },
+  low: { label: 'Baixa', tag: 'tag--cinza' },
+}
+
+// ── Peças visuais do pacote (Configurações) ────────────────────────────────
+
+function Interruptor({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
   return (
-    <Button
-      className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
-      type="submit"
-      disabled={saving}
-      onClick={onSave}
-    >
-      <Save className="h-4 w-4" />
-      {saving ? 'Salvando...' : 'Salvar'}
-    </Button>
+    <label className="interruptor">
+      <input type="checkbox" checked={checked} disabled={disabled} aria-label={label} onChange={(e) => onChange(e.target.checked)} />
+      <span />
+    </label>
+  )
+}
+
+function SecaoCab({ icon, title, children, id }: { icon: ReactNode; title: string; children?: ReactNode; id?: string }) {
+  return (
+    <header className="secao-config__cab">
+      <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true">{icon}</span>
+      <div><h2 id={id}>{title}</h2>{children && <p>{children}</p>}</div>
+    </header>
+  )
+}
+
+function SaveButton({ saving, label = 'Salvar' }: { saving?: boolean; label?: string }) {
+  return (
+    <button className="btn btn--escuro btn--lg" type="submit" disabled={saving}>
+      <Save className="ic" aria-hidden="true" />
+      {saving ? 'Salvando...' : label}
+    </button>
+  )
+}
+
+function Rodape({ saving, label }: { saving?: boolean; label?: string }) {
+  return <footer className="secao-config__rodape"><SaveButton saving={saving} label={label} /></footer>
+}
+
+function Opcao({ icon, tone, title, desc, checked, onChange }: { icon: ReactNode; tone: string; title: string; desc: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="opcao form-grade__todo">
+      <span className={`dado-ic ${tone}`} aria-hidden="true">{icon}</span>
+      <div><b>{title}</b><p className="suave">{desc}</p></div>
+      <Interruptor checked={checked} onChange={onChange} label={title} />
+    </div>
   )
 }
 
@@ -283,733 +305,593 @@ export default function SettingsView() {
     }))
   }
 
+  const toggleRule = (id: string, checked: boolean) => {
+    fetch(`/api/alert-rules/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: checked }),
+    }).then(() => fetch('/api/alert-rules').then(r => (r.ok ? r.json() : Promise.resolve({})) as Promise<any>).then(d => setRulesData(d.rules || [])).catch(() => {})).catch(() => {})
+  }
+
+  const confidencePct = Math.round(aiConfidence[0] * 100)
+
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gerencie as configurações da organização e do sistema.
-        </p>
+    <>
+      <div className="cab-pagina">
+        <div className="cab-pagina__titulo">
+          <div>
+            <h1>Configurações</h1>
+            <p>Gerencie as configurações da organização e do sistema.</p>
+          </div>
+        </div>
       </div>
 
-      <Tabs defaultValue="empresa" className="w-full">
-        <TabsList data-tour="settings-tabs" className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="empresa" className="gap-1.5 text-xs sm:text-sm"><Building2 className="h-4 w-4" />Empresa</TabsTrigger>
-          <TabsTrigger value="horarios" className="gap-1.5 text-xs sm:text-sm"><Clock className="h-4 w-4" />Horários</TabsTrigger>
-          <TabsTrigger value="atendimento" className="gap-1.5 text-xs sm:text-sm"><Headphones className="h-4 w-4" />Atendimento</TabsTrigger>
-          <TabsTrigger value="financeiro" className="gap-1.5 text-xs sm:text-sm"><DollarSign className="h-4 w-4" />Financeiro</TabsTrigger>
-          <TabsTrigger value="ia" className="gap-1.5 text-xs sm:text-sm"><Brain className="h-4 w-4" />Análise</TabsTrigger>
-          <TabsTrigger value="notificacoes" className="gap-1.5 text-xs sm:text-sm"><Bell className="h-4 w-4" />Notificações</TabsTrigger>
-          <TabsTrigger value="privacidade" className="gap-1.5 text-xs sm:text-sm"><Shield className="h-4 w-4" />Privacidade</TabsTrigger>
-          <TabsTrigger value="regras" className="gap-1.5 text-xs sm:text-sm"><Shield className="h-4 w-4" />Regras</TabsTrigger>
-          <TabsTrigger value="auditoria" className="gap-1.5 text-xs sm:text-sm"><History className="h-4 w-4" />Auditoria</TabsTrigger>
+      <Tabs defaultValue="empresa" className="w-full gap-[18px]">
+        <TabsList data-tour="settings-tabs" aria-label="Seções de configuração" className="abas-config">
+          <TabsTrigger value="empresa"><Building2 className="ic" aria-hidden="true" />Empresa</TabsTrigger>
+          <TabsTrigger value="horarios"><Clock className="ic" aria-hidden="true" />Horários</TabsTrigger>
+          <TabsTrigger value="atendimento"><Headphones className="ic" aria-hidden="true" />Atendimento</TabsTrigger>
+          <TabsTrigger value="financeiro"><DollarSign className="ic" aria-hidden="true" />Financeiro</TabsTrigger>
+          <TabsTrigger value="ia"><Brain className="ic" aria-hidden="true" />Análise</TabsTrigger>
+          <TabsTrigger value="notificacoes"><Bell className="ic" aria-hidden="true" />Notificações</TabsTrigger>
+          <TabsTrigger value="privacidade"><Shield className="ic" aria-hidden="true" />Privacidade</TabsTrigger>
+          <TabsTrigger value="regras"><ShieldCheck className="ic" aria-hidden="true" />Regras</TabsTrigger>
+          <TabsTrigger value="auditoria"><History className="ic" aria-hidden="true" />Auditoria</TabsTrigger>
         </TabsList>
 
         {/* ====== EMPRESA ====== */}
-        <TabsContent value="empresa" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Dados da Empresa</CardTitle>
-              <CardDescription>Informações cadastrais da organização.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Nome empresarial</Label>
-                    <Input aria-label="Razão social" value={empName} onChange={e => setEmpName(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Nome de exibição</Label>
-                    <Input aria-label="Nome de exibição" value={empDisplay} onChange={e => setEmpDisplay(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">CNPJ</Label>
-                    <Input aria-label="CNPJ" value={empCnpj} onChange={e => setEmpCnpj(e.target.value)} className="h-9 font-mono" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Segmento</Label>
-                    <Select value={empSegment} onValueChange={setEmpSegment}>
-                      <SelectTrigger aria-label="Segmento" className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {SEGMENTS.map(s => (
-                          <SelectItem key={s} value={s}>{SEGMENT_LABELS[s]}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Site</Label>
-                    <Input aria-label="Site" value={empSite} onChange={e => setEmpSite(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Telefone</Label>
-                    <Input aria-label="Telefone" value={empPhone} onChange={e => setEmpPhone(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">E-mail do administrador</Label>
-                    <Input aria-label="E-mail do responsável" type="email" value={empEmail} onChange={e => setEmpEmail(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Fuso horário</Label>
-                    <Select value={empTimezone} onValueChange={setEmpTimezone}>
-                      <SelectTrigger aria-label="Fuso horário" className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {BR_TIMEZONES.map(tz => (
-                          <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Moeda</Label>
-                    <Input aria-label="Moeda" value={empCurrency} disabled className="h-9 bg-muted" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Idioma</Label>
-                    <Input aria-label="Idioma" value={empLang} disabled className="h-9 bg-muted" />
-                  </div>
-                </div>
-                {/* Logo upload placeholder */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Logotipo</Label>
-                  <div className="flex items-center gap-3">
-                    <div className="h-16 w-16 rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/30 flex items-center justify-center">
-                      <Upload className="h-6 w-6 text-muted-foreground/50" />
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      <p>Arraste um arquivo ou clique para selecionar.</p>
-                      <p className="mt-0.5">PNG, SVG ou JPG. Máximo 512×512px.</p>
-                    </div>
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex justify-end"><TabSaveButton onSave={saveOrganization} saving={savingTab === 'empresa'} /></div>
-              </form>
-            </CardContent>
-          </Card>
+        <TabsContent value="empresa" className="painel-config">
+          <form className="cartao secao-config" onSubmit={(e) => { e.preventDefault(); void saveOrganization() }}>
+            <SecaoCab icon={<Building2 className="ic" />} title="Dados da Empresa">Informações cadastrais da organização.</SecaoCab>
+            <div className="form-grade">
+              <div className="campo">
+                <label htmlFor="c-razao">Nome empresarial</label>
+                <input className="entrada" id="c-razao" value={empName} onChange={e => setEmpName(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="c-exibicao">Nome de exibição</label>
+                <input className="entrada" id="c-exibicao" value={empDisplay} onChange={e => setEmpDisplay(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="c-cnpj">CNPJ</label>
+                <input className="entrada mono" id="c-cnpj" inputMode="numeric" value={empCnpj} onChange={e => setEmpCnpj(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="c-seg">Segmento</label>
+                <select className="selecao" id="c-seg" value={empSegment} onChange={e => setEmpSegment(e.target.value)}>
+                  {!empSegment && <option value="">Selecione o segmento</option>}
+                  {SEGMENTS.map(s => <option key={s} value={s}>{SEGMENT_LABELS[s]}</option>)}
+                </select>
+              </div>
+              <div className="campo">
+                <label htmlFor="c-site">Site</label>
+                <input className="entrada" id="c-site" type="url" value={empSite} onChange={e => setEmpSite(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="c-tel">Telefone</label>
+                <input className="entrada" id="c-tel" type="tel" value={empPhone} onChange={e => setEmpPhone(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="c-email">E-mail do administrador</label>
+                <input className="entrada" id="c-email" type="email" value={empEmail} onChange={e => setEmpEmail(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="c-fuso">Fuso horário</label>
+                <select className="selecao" id="c-fuso" value={empTimezone} onChange={e => setEmpTimezone(e.target.value)}>
+                  {BR_TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                </select>
+              </div>
+              <div className="campo">
+                <label htmlFor="c-moeda">Moeda</label>
+                <input className="entrada" id="c-moeda" value={empCurrency} readOnly />
+              </div>
+              <div className="campo">
+                <label htmlFor="c-idioma">Idioma</label>
+                <input className="entrada" id="c-idioma" value={empLang} readOnly />
+              </div>
+            </div>
+            <Rodape saving={savingTab === 'empresa'} label="Salvar alterações" />
+          </form>
 
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle className="text-base">Configuração inicial</CardTitle>
-              <CardDescription>Refaça o assistente de configuração para revisar horários, metas, WhatsApp e equipe.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="gap-1.5" onClick={() => setView('onboarding')}>
-                <Sparkles className="h-4 w-4" />
-                Refazer onboarding
-              </Button>
-            </CardContent>
-          </Card>
+          <section className="cartao secao-config secao-config--linha" aria-labelledby="t-onboarding">
+            <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><WandSparkles className="ic" /></span>
+            <div><h2 id="t-onboarding">Configuração inicial</h2><p className="suave">Refaça o assistente de configuração para revisar horários, metas, WhatsApp e equipe.</p></div>
+            <button className="btn btn--lg" type="button" onClick={() => setView('onboarding')}>
+              <Sparkles className="ic" aria-hidden="true" />Refazer onboarding
+            </button>
+          </section>
         </TabsContent>
 
         {/* ====== HORÁRIOS ====== */}
-        <TabsContent value="horarios" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Horário Comercial</CardTitle>
-              <CardDescription>Vale para alertas e para a nota das conversas: fora do expediente, em fim de semana e em feriado o tempo de espera do cliente não conta (conforme a regra abaixo). Fuso horário: o da aba Empresa.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs w-12">Ativo</TableHead>
-                      <TableHead className="text-xs">Dia</TableHead>
-                      <TableHead className="text-xs">Abre</TableHead>
-                      <TableHead className="text-xs">Fecha</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {WEEKDAYS.map((day, idx) => {
-                      const d = businessHours[String(idx)]
-                      return (
-                        <TableRow key={idx}>
-                          <TableCell>
-                            <Switch
-                              checked={d.enabled}
-                              onCheckedChange={(v) => updateBH(String(idx), 'enabled', v)}
-                            />
-                          </TableCell>
-                          <TableCell className="text-sm font-medium">{day}</TableCell>
-                          <TableCell>
-                            <Input
-                              type="time" value={d.open} onChange={(e) => updateBH(String(idx), 'open', e.target.value)}
-                              disabled={!d.enabled} className="h-8 w-28"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="time" value={d.close} onChange={(e) => updateBH(String(idx), 'close', e.target.value)}
-                              disabled={!d.enabled} className="h-8 w-28"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-
-                <Separator />
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Feriados (uma por linha: DD/MM/AAAA - Descrição)</Label>
-                  <Textarea value={holidays} onChange={e => setHolidays(e.target.value)} rows={6} className="text-xs font-mono" />
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Tolerância antes do horário (min)</Label>
-                    <Input type="number" value={toleranceBefore} onChange={e => setToleranceBefore(e.target.value)} className="h-9" />
+        <TabsContent value="horarios">
+          <form
+            className="cartao secao-config"
+            onSubmit={(e) => { e.preventDefault(); void saveSettingsSlice('horarios', { businessHours, holidays, toleranceBefore, toleranceAfter, outsideRule }, 'Horário comercial') }}
+          >
+            <SecaoCab icon={<Clock className="ic" />} title="Horário Comercial">
+              Vale para alertas e para a nota das conversas: fora do expediente, em fim de semana e em feriado o tempo de espera do cliente não conta (conforme a regra abaixo). Fuso horário: o da aba Empresa.
+            </SecaoCab>
+            <div className="horarios">
+              {WEEK_ORDER.map((idx) => {
+                const key = String(idx)
+                const d = businessHours[key]
+                const day = WEEKDAYS[idx]
+                const dayLower = day.toLowerCase()
+                return (
+                  <div className="horario" key={key}>
+                    <Interruptor checked={d.enabled} onChange={(v) => updateBH(key, 'enabled', v)} label={`Atende ${dayLower}`} />
+                    <b>{day}</b>
+                    <input className="entrada" type="time" value={d.open} onChange={(e) => updateBH(key, 'open', e.target.value)} disabled={!d.enabled} aria-label={`Início ${dayLower}`} />
+                    <span className="suave">até</span>
+                    <input className="entrada" type="time" value={d.close} onChange={(e) => updateBH(key, 'close', e.target.value)} disabled={!d.enabled} aria-label={`Fim ${dayLower}`} />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Tolerância depois do horário (min)</Label>
-                    <Input type="number" value={toleranceAfter} onChange={e => setToleranceAfter(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Regra para fora do expediente</Label>
-                    <Select value={outsideRule} onValueChange={setOutsideRule}>
-                      <SelectTrigger aria-label="Regra para fora do expediente" className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ignora">Ignora (alertas e nota só contam o expediente)</SelectItem>
-                        <SelectItem value="atraso">Conta como atraso (tempo corrido, 24 h)</SelectItem>
-                        <SelectItem value="alerta">Alerta em tempo corrido, mas a nota não pune</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Separator />
-                <div className="flex justify-end">
-                  <TabSaveButton
-                    saving={savingTab === 'horarios'}
-                    onSave={() => saveSettingsSlice('horarios', { businessHours, holidays, toleranceBefore, toleranceAfter, outsideRule }, 'Horário comercial')}
-                  />
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ====== ATENDIMENTO ====== */}
-        <TabsContent value="atendimento" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Parâmetros de Atendimento</CardTitle>
-              <CardDescription>O SLA define as faixas da nota da conversa (responder em até metade do SLA = nota máxima; 12× o SLA = zero). Abandono, inatividade e reabertura encerram e reabrem conversas sozinhos, em horas corridas.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">SLA primeira resposta (minutos)</Label>
-                    <Input type="number" value={slaFirst} onChange={e => setSlaFirst(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">SLA continuidade (minutos)</Label>
-                    <Input type="number" value={slaContinuity} onChange={e => setSlaContinuity(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Tempo de abandono (horas) — cliente com oportunidade que não responde vira &quot;perdido por abandono&quot; e entra na Recuperação</Label>
-                    <Input type="number" value={abandonTime} onChange={e => setAbandonTime(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Janela de reabertura (horas) — mensagem nova neste prazo reabre a mesma conversa (0 = nunca)</Label>
-                    <Input type="number" value={reopenWindow} onChange={e => setReopenWindow(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Encerramento por inatividade (horas) — sem mensagem de ninguém neste prazo, a conversa é encerrada</Label>
-                    <Input type="number" value={inactivityClose} onChange={e => setInactivityClose(e.target.value)} className="h-9" />
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex justify-end">
-                  <TabSaveButton
-                    saving={savingTab === 'atendimento'}
-                    onSave={() => saveSettingsSlice('atendimento', { slaFirst, slaContinuity, abandonTime, reopenWindow, inactivityClose }, 'Parâmetros de atendimento')}
-                  />
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ====== FINANCEIRO ====== */}
-        <TabsContent value="financeiro" className="mt-4">
-          <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Parâmetros Financeiros</CardTitle>
-                <CardDescription>Valores usados para estimar receita potencial das oportunidades.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Ticket médio inicial (R$)</Label>
-                    <Input type="number" value={avgTicket} onChange={e => setAvgTicket(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Taxa de conversão inicial (%)</Label>
-                    <Input type="number" value={convRate} onChange={e => setConvRate(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Amostra mínima</Label>
-                    <Input type="number" value={minSample} onChange={e => setMinSample(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Teto por oportunidade (R$)</Label>
-                    <Input type="number" value={opportunityCeiling} onChange={e => setOpportunityCeiling(e.target.value)} className="h-9" />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Switch checked={showEstimates} onCheckedChange={setShowEstimates} />
-                  <Label className="text-xs">Exibir estimativas de valor nas conversas</Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">Valores por Produto/Serviço</CardTitle>
-                    <CardDescription>Valores de referência para cálculo automático.</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" type="button" className="gap-1" onClick={addProduct}>
-                    <Plus className="h-3.5 w-3.5" />Adicionar
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Produto/Serviço</TableHead>
-                      <TableHead className="text-xs w-36">Valor (R$)</TableHead>
-                      <TableHead className="text-xs w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {products.map((p, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Input value={p.name} onChange={e => updateProduct(i, 'name', e.target.value)} className="h-8" placeholder="Nome" /></TableCell>
-                        <TableCell><Input type="number" value={p.value} onChange={e => updateProduct(i, 'value', e.target.value)} className="h-8" /></TableCell>
-                        <TableCell>
-                          <Button aria-label="Excluir" variant="ghost" size="icon" className="h-7 w-7 text-red-700 dark:text-red-400" type="button" onClick={() => removeProduct(i)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">Probabilidade por Intenção</CardTitle>
-                    <CardDescription>Probabilidade padrão de conversão por tipo de intenção.</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" type="button" className="gap-1" onClick={addIntention}>
-                    <Plus className="h-3.5 w-3.5" />Adicionar
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Intenção</TableHead>
-                      <TableHead className="text-xs w-36">Probabilidade (%)</TableHead>
-                      <TableHead className="text-xs w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {intentions.map((it, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Input value={it.name} onChange={e => updateIntention(i, 'name', e.target.value)} className="h-8" placeholder="Intenção" /></TableCell>
-                        <TableCell><Input type="number" value={it.probability} onChange={e => updateIntention(i, 'probability', e.target.value)} className="h-8" /></TableCell>
-                        <TableCell>
-                          <Button aria-label="Excluir" variant="ghost" size="icon" className="h-7 w-7 text-red-700 dark:text-red-400" type="button" onClick={() => removeIntention(i)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end">
-              <TabSaveButton
-                saving={savingTab === 'financeiro'}
-                onSave={() => saveSettingsSlice('financeiro', { avgTicket, convRate, products, intentions, minSample, opportunityCeiling, showEstimates }, 'Parâmetros financeiros')}
-              />
+                )
+              })}
             </div>
+
+            <div className="form-grade mt-6 border-t border-[var(--borda)] pt-5">
+              <div className="campo form-grade__todo">
+                <label htmlFor="h-feriados">Feriados (uma por linha: DD/MM/AAAA - Descrição)</label>
+                <textarea className="area mono" id="h-feriados" rows={6} value={holidays} onChange={e => setHolidays(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="h-tol-antes">Tolerância antes do horário (min)</label>
+                <input className="entrada" id="h-tol-antes" type="number" value={toleranceBefore} onChange={e => setToleranceBefore(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="h-tol-depois">Tolerância depois do horário (min)</label>
+                <input className="entrada" id="h-tol-depois" type="number" value={toleranceAfter} onChange={e => setToleranceAfter(e.target.value)} />
+              </div>
+              <div className="campo form-grade__todo">
+                <label htmlFor="h-fora">Regra para fora do expediente</label>
+                <select className="selecao" id="h-fora" value={outsideRule} onChange={e => setOutsideRule(e.target.value)}>
+                  <option value="ignora">Ignora (alertas e nota só contam o expediente)</option>
+                  <option value="atraso">Conta como atraso (tempo corrido, 24 h)</option>
+                  <option value="alerta">Alerta em tempo corrido, mas a nota não pune</option>
+                </select>
+              </div>
+            </div>
+            <Rodape saving={savingTab === 'horarios'} />
           </form>
         </TabsContent>
 
-        {/* ====== IA ====== */}
-        <TabsContent value="ia" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Configurações da análise</CardTitle>
-              <CardDescription>Ajuste o comportamento da classificação e análise.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p role="note" className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                Hoje a análise usa <strong>regras de atendimento (palavras e prazos)</strong>, sem inteligência artificial. Os ajustes desta aba
-                ainda <strong>não têm efeito</strong> e serão usados quando a análise por IA for ativada.
-              </p>
-              <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Idioma de análise</Label>
-                    <Input value={aiLang} disabled className="h-9 bg-muted" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Segmento (contexto da IA)</Label>
-                    <Select value={aiSegment} onValueChange={setAiSegment}>
-                      <SelectTrigger aria-label="Segmento (contexto da IA)" className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {SEGMENTS.map(s => (
-                          <SelectItem key={s} value={s}>{SEGMENT_LABELS[s]}</SelectItem>
+        {/* ====== ATENDIMENTO ====== */}
+        <TabsContent value="atendimento">
+          <form
+            className="cartao secao-config"
+            onSubmit={(e) => { e.preventDefault(); void saveSettingsSlice('atendimento', { slaFirst, slaContinuity, abandonTime, reopenWindow, inactivityClose }, 'Parâmetros de atendimento') }}
+          >
+            <SecaoCab icon={<Headphones className="ic" />} title="Parâmetros de Atendimento">
+              O SLA define as faixas da nota da conversa (responder em até metade do SLA = nota máxima; 12× o SLA = zero). Abandono, inatividade e reabertura encerram e reabrem conversas sozinhos, em horas corridas.
+            </SecaoCab>
+            <div className="form-grade">
+              <div className="campo">
+                <label htmlFor="m-sla">SLA primeira resposta (minutos)</label>
+                <input className="entrada" id="m-sla" type="number" min={1} value={slaFirst} onChange={e => setSlaFirst(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="m-cont">SLA continuidade (minutos)</label>
+                <input className="entrada" id="m-cont" type="number" min={1} value={slaContinuity} onChange={e => setSlaContinuity(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="m-abandono">Tempo de abandono (horas)</label>
+                <p className="ajuda-campo" id="m-abandono-ajuda">Cliente com oportunidade que não responde vira &quot;perdido por abandono&quot; e entra na Recuperação.</p>
+                <input className="entrada" id="m-abandono" type="number" min={1} aria-describedby="m-abandono-ajuda" value={abandonTime} onChange={e => setAbandonTime(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="m-reabre">Janela de reabertura (horas)</label>
+                <p className="ajuda-campo" id="m-reabre-ajuda">Mensagem nova neste prazo reabre a mesma conversa (0 = nunca).</p>
+                <input className="entrada" id="m-reabre" type="number" min={0} aria-describedby="m-reabre-ajuda" value={reopenWindow} onChange={e => setReopenWindow(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="m-inativ">Encerramento por inatividade (horas)</label>
+                <p className="ajuda-campo" id="m-inativ-ajuda">Sem mensagem de ninguém neste prazo, a conversa é encerrada.</p>
+                <input className="entrada" id="m-inativ" type="number" min={1} aria-describedby="m-inativ-ajuda" value={inactivityClose} onChange={e => setInactivityClose(e.target.value)} />
+              </div>
+            </div>
+            <Rodape saving={savingTab === 'atendimento'} />
+          </form>
+        </TabsContent>
+
+        {/* ====== FINANCEIRO ====== */}
+        <TabsContent value="financeiro">
+          <form
+            className="painel-config"
+            onSubmit={(e) => { e.preventDefault(); void saveSettingsSlice('financeiro', { avgTicket, convRate, products, intentions, minSample, opportunityCeiling, showEstimates }, 'Parâmetros financeiros') }}
+          >
+            <section className="cartao secao-config">
+              <SecaoCab icon={<DollarSign className="ic" />} title="Parâmetros Financeiros">Valores usados para estimar receita potencial das oportunidades.</SecaoCab>
+              <div className="form-grade">
+                <div className="campo">
+                  <label htmlFor="f-ticket">Ticket médio inicial (R$)</label>
+                  <input className="entrada" id="f-ticket" type="number" inputMode="decimal" value={avgTicket} onChange={e => setAvgTicket(e.target.value)} />
+                </div>
+                <div className="campo">
+                  <label htmlFor="f-conv">Taxa de conversão inicial (%)</label>
+                  <input className="entrada" id="f-conv" type="number" min={0} max={100} value={convRate} onChange={e => setConvRate(e.target.value)} />
+                </div>
+                <div className="campo">
+                  <label htmlFor="f-amostra">Amostra mínima</label>
+                  <input className="entrada" id="f-amostra" type="number" min={0} value={minSample} onChange={e => setMinSample(e.target.value)} />
+                </div>
+                <div className="campo">
+                  <label htmlFor="f-teto">Teto por oportunidade (R$)</label>
+                  <input className="entrada" id="f-teto" type="number" min={0} value={opportunityCeiling} onChange={e => setOpportunityCeiling(e.target.value)} />
+                </div>
+                <Opcao
+                  icon={<DollarSign className="ic" />} tone="tom-verde"
+                  title="Exibir estimativas de valor nas conversas"
+                  desc="Mostra o valor potencial calculado com estes parâmetros."
+                  checked={showEstimates} onChange={setShowEstimates}
+                />
+              </div>
+            </section>
+
+            <section className="cartao" aria-labelledby="t-produtos">
+              <div className="cartao__cab">
+                <div>
+                  <h2 id="t-produtos"><Package className="ic verde-txt" aria-hidden="true" />Valores por Produto/Serviço</h2>
+                  <p>Valores de referência para cálculo automático.</p>
+                </div>
+                <button className="btn btn--sm" type="button" onClick={addProduct}><Plus className="ic" aria-hidden="true" />Adicionar</button>
+              </div>
+              <div className="cartao__corpo">
+                {products.length === 0 ? (
+                  <p className="suave text-[13px]">Nenhum produto ou serviço cadastrado.</p>
+                ) : (
+                  <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Valores por produto ou serviço">
+                    <table className="tabela">
+                      <thead><tr><th>Produto/Serviço</th><th className="w-40">Valor (R$)</th><th className="w-12"><span className="sr-only">Ações</span></th></tr></thead>
+                      <tbody>
+                        {products.map((p, i) => (
+                          <tr key={i}>
+                            <td><input className="entrada" aria-label={`Nome do produto ${i + 1}`} placeholder="Nome" value={p.name} onChange={e => updateProduct(i, 'name', e.target.value)} /></td>
+                            <td><input className="entrada" aria-label={`Valor do produto ${i + 1}`} type="number" value={p.value} onChange={e => updateProduct(i, 'value', e.target.value)} /></td>
+                            <td>
+                              <button className="reticencias" type="button" aria-label="Excluir" onClick={() => removeProduct(i)}>
+                                <Trash2 className="ic" aria-hidden="true" />
+                              </button>
+                            </td>
+                          </tr>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </tbody>
+                    </table>
                   </div>
-                </div>
+                )}
+              </div>
+            </section>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Termos e abreviações do setor (um por linha: termo = expansão)</Label>
-                  <Textarea value={aiTerms} onChange={e => setAiTerms(e.target.value)} rows={6} className="text-xs font-mono" />
+            <section className="cartao" aria-labelledby="t-intencoes">
+              <div className="cartao__cab">
+                <div>
+                  <h2 id="t-intencoes"><Percent className="ic verde-txt" aria-hidden="true" />Probabilidade por Intenção</h2>
+                  <p>Probabilidade padrão de conversão por tipo de intenção.</p>
                 </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs">Nível mínimo de confiança</Label>
-                    <span className="text-xs font-mono font-medium text-emerald-700 dark:text-emerald-400">{(aiConfidence[0] * 100).toFixed(0)}%</span>
+                <button className="btn btn--sm" type="button" onClick={addIntention}><Plus className="ic" aria-hidden="true" />Adicionar</button>
+              </div>
+              <div className="cartao__corpo">
+                {intentions.length === 0 ? (
+                  <p className="suave text-[13px]">Nenhuma intenção cadastrada.</p>
+                ) : (
+                  <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Probabilidade por intenção">
+                    <table className="tabela">
+                      <thead><tr><th>Intenção</th><th className="w-40">Probabilidade (%)</th><th className="w-12"><span className="sr-only">Ações</span></th></tr></thead>
+                      <tbody>
+                        {intentions.map((it, i) => (
+                          <tr key={i}>
+                            <td><input className="entrada" aria-label={`Intenção ${i + 1}`} placeholder="Intenção" value={it.name} onChange={e => updateIntention(i, 'name', e.target.value)} /></td>
+                            <td><input className="entrada" aria-label={`Probabilidade da intenção ${i + 1}`} type="number" value={it.probability} onChange={e => updateIntention(i, 'probability', e.target.value)} /></td>
+                            <td>
+                              <button className="reticencias" type="button" aria-label="Excluir" onClick={() => removeIntention(i)}>
+                                <Trash2 className="ic" aria-hidden="true" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  <Slider value={aiConfidence} onValueChange={setAiConfidence} min={0} max={1} step={0.05} className="[&_[role=slider]]:bg-emerald-700" />
-                  <p className="text-[11px] text-muted-foreground">Classificações abaixo deste limiar serão marcadas como "baixa confiança".</p>
-                </div>
+                )}
+              </div>
+            </section>
 
-                <Separator />
+            <div className="flex justify-end"><SaveButton saving={savingTab === 'financeiro'} /></div>
+          </form>
+        </TabsContent>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-xs">Processamento de áudio</Label>
-                      <p className="text-[11px] text-muted-foreground">Transcrever e analisar mensagens de áudio.</p>
-                    </div>
-                    <Switch checked={aiAudio} onCheckedChange={setAiAudio} />
+        {/* ====== ANÁLISE ====== */}
+        <TabsContent value="ia">
+          <form
+            className="cartao secao-config"
+            onSubmit={(e) => { e.preventDefault(); void saveSettingsSlice('ia', { aiSegment, aiTerms, aiConfidence, aiAudio, aiMasking }, 'Configurações de IA') }}
+          >
+            <SecaoCab icon={<Brain className="ic" />} title="Configurações da análise">Ajuste o comportamento da classificação e análise.</SecaoCab>
+            <div className="aviso aviso--ambar mb-5" role="note">
+              <span className="aviso__ic" aria-hidden="true"><CircleAlert className="ic" /></span>
+              <p>
+                Hoje a análise usa <b>regras de atendimento (palavras e prazos)</b>, sem inteligência artificial. Os ajustes desta aba
+                ainda <b>não têm efeito</b> e serão usados quando a análise por IA for ativada.
+              </p>
+            </div>
+            <div className="form-grade">
+              <div className="campo">
+                <label htmlFor="a-idioma">Idioma de análise</label>
+                <p className="ajuda-campo">Define o idioma usado na classificação e análise das conversas.</p>
+                <span className="entrada-ic">
+                  <Globe className="ic" aria-hidden="true" />
+                  <input className="entrada" id="a-idioma" value={aiLang} readOnly />
+                </span>
+              </div>
+              <div className="campo">
+                <label htmlFor="a-seg">Segmento (contexto da IA)</label>
+                <p className="ajuda-campo">Seleciona o segmento para fornecer contexto específico à IA.</p>
+                <span className="entrada-ic entrada-ic--div">
+                  <Layers className="ic" aria-hidden="true" />
+                  <select className="selecao" id="a-seg" value={aiSegment} onChange={e => setAiSegment(e.target.value)}>
+                    <option value="">Selecione um segmento</option>
+                    {SEGMENTS.map(s => <option key={s} value={s}>{SEGMENT_LABELS[s]}</option>)}
+                  </select>
+                </span>
+              </div>
+              <div className="campo form-grade__todo">
+                <label htmlFor="a-termos">Termos e abreviações do setor (um por linha: termo = expansão)</label>
+                <p className="ajuda-campo">Cadastre termos, siglas e abreviações específicas do seu setor para melhorar a análise.</p>
+                <textarea className="area mono" id="a-termos" rows={6} value={aiTerms} onChange={e => setAiTerms(e.target.value)} />
+              </div>
+              <div className="campo form-grade__todo confianca">
+                <div className="linha-flex entre">
+                  <div>
+                    <label className="rotulo" htmlFor="a-confianca">Nível mínimo de confiança</label>
+                    <p className="ajuda-campo mt-0">Classificações abaixo deste limiar serão marcadas como &quot;baixa confiança&quot;.</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-xs">Mascaramento antes do provedor</Label>
-                      <p className="text-[11px] text-muted-foreground">Remover dados sensíveis antes de enviar ao provedor de IA.</p>
-                    </div>
-                    <Switch checked={aiMasking} onCheckedChange={setAiMasking} />
-                  </div>
+                  <output className="tag tag--verde tag--lg forte" htmlFor="a-confianca">{confidencePct}%</output>
                 </div>
-
-                <Separator />
-                <div className="flex justify-end">
-                  <TabSaveButton
-                    saving={savingTab === 'ia'}
-                    onSave={() => saveSettingsSlice('ia', { aiSegment, aiTerms, aiConfidence, aiAudio, aiMasking }, 'Configurações de IA')}
-                  />
+                <input
+                  className="faixa" id="a-confianca" type="range" min={0} max={1} step={0.05}
+                  value={aiConfidence[0]}
+                  onChange={e => setAiConfidence([Number(e.target.value)])}
+                  style={{ ['--p' as string]: `${confidencePct}%` }}
+                />
+                <div className="linha-flex entre confianca__legenda">
+                  <span><b>Mais sensível</b>Classifica mais conversas (pode gerar mais falsos positivos).</span>
+                  <span className="text-right"><b>Mais rigoroso</b>Exige maior confiança para classificar.</span>
                 </div>
-              </form>
-            </CardContent>
-          </Card>
+              </div>
+              <Opcao
+                icon={<AudioLines className="ic" />} tone="tom-azul"
+                title="Processamento de áudio" desc="Transcrever e analisar mensagens de áudio."
+                checked={aiAudio} onChange={setAiAudio}
+              />
+              <Opcao
+                icon={<Shield className="ic" />} tone="tom-verde"
+                title="Mascaramento antes do provedor" desc="Remover dados sensíveis antes de enviar ao provedor de IA."
+                checked={aiMasking} onChange={setAiMasking}
+              />
+            </div>
+            <Rodape saving={savingTab === 'ia'} />
+          </form>
         </TabsContent>
 
         {/* ====== NOTIFICAÇÕES ====== */}
-        <TabsContent value="notificacoes" className="mt-4">
-          <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Relatórios Agendados</CardTitle>
-                <CardDescription>Os relatórios são gerados na hora, na tela Relatórios. O envio automático por e-mail ainda não está ativo (depende do provedor de e-mail); estes ajustes ficam guardados para quando estiver.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-start gap-4">
-                  <Switch checked={notifDailyEnabled} onCheckedChange={setNotifDailyEnabled} className="mt-1" />
-                  <div className="flex-1 space-y-2">
-                    <Label className="text-xs font-medium">Relatório diário</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Horário</Label>
-                        <Input type="time" value={notifDailyTime} onChange={e => setNotifDailyTime(e.target.value)} disabled={!notifDailyEnabled} className="h-8" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Dias (2=seg, 3=ter, ..., 6=sáb)</Label>
-                        <Input value={notifDailyDays} onChange={e => setNotifDailyDays(e.target.value)} disabled={!notifDailyEnabled} className="h-8 font-mono" />
-                      </div>
+        <TabsContent value="notificacoes">
+          <form
+            className="painel-config"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void saveSettingsSlice('notificacoes', {
+                notifDailyEnabled, notifDailyTime, notifDailyDays, notifWeeklyEnabled, notifWeeklyTime,
+                notifImmediate, notifDigestEnabled, notifDigestFreq, notifRecipients, silenceStart, silenceEnd,
+              }, 'Preferências de notificação')
+            }}
+          >
+            <section className="cartao secao-notif" aria-labelledby="t-relatorios">
+              <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Calendar className="ic" /></span>
+              <div>
+                <h2 id="t-relatorios">Relatórios Agendados</h2>
+                <p className="suave">Os relatórios são gerados na hora, na tela Relatórios. O envio automático por e-mail ainda não está ativo (depende do provedor de e-mail); estes ajustes ficam guardados para quando estiver.</p>
+                <div className="notif-item">
+                  <Interruptor checked={notifDailyEnabled} onChange={setNotifDailyEnabled} label="Relatório diário" />
+                  <div className="notif-item__corpo">
+                    <b>Relatório diário</b><small>Receba um relatório diário por e-mail.</small>
+                    <div className="notif-item__campos">
+                      <div className="campo"><label htmlFor="n-hd">Horário</label><input className="entrada campo-hora" id="n-hd" type="time" value={notifDailyTime} onChange={e => setNotifDailyTime(e.target.value)} disabled={!notifDailyEnabled} /></div>
+                      <div className="campo campo--largo"><label htmlFor="n-dias">Dias (2=seg, 3=ter, ..., 6=sáb)</label><input className="entrada mono" id="n-dias" value={notifDailyDays} onChange={e => setNotifDailyDays(e.target.value)} disabled={!notifDailyEnabled} /></div>
                     </div>
                   </div>
                 </div>
-                <Separator />
-                <div className="flex items-start gap-4">
-                  <Switch checked={notifWeeklyEnabled} onCheckedChange={setNotifWeeklyEnabled} className="mt-1" />
-                  <div className="flex-1 space-y-2">
-                    <Label className="text-xs font-medium">Relatório semanal</Label>
-                    <div className="space-y-1 max-w-[200px]">
-                      <Label className="text-[11px] text-muted-foreground">Horário</Label>
-                      <Input type="time" value={notifWeeklyTime} onChange={e => setNotifWeeklyTime(e.target.value)} disabled={!notifWeeklyEnabled} className="h-8" />
+                <div className="notif-item">
+                  <Interruptor checked={notifWeeklyEnabled} onChange={setNotifWeeklyEnabled} label="Relatório semanal" />
+                  <div className="notif-item__corpo">
+                    <b>Relatório semanal</b><small>Receba um relatório semanal por e-mail.</small>
+                    <div className="notif-item__campos">
+                      <div className="campo"><label htmlFor="n-hs">Horário</label><input className="entrada campo-hora" id="n-hs" type="time" value={notifWeeklyTime} onChange={e => setNotifWeeklyTime(e.target.value)} disabled={!notifWeeklyEnabled} /></div>
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Alertas</CardTitle>
-                <CardDescription>Hoje os alertas aparecem dentro do sistema (sino e tela Alertas). Entrega por e-mail, resumo e horário de silêncio ainda não estão ativos (dependem do provedor de e-mail); os ajustes ficam guardados.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-xs">Alertas imediatos</Label>
-                    <p className="text-[11px] text-muted-foreground">Receber alertas críticos e de alta severidade imediatamente.</p>
-                  </div>
-                  <Switch checked={notifImmediate} onCheckedChange={setNotifImmediate} />
+            <section className="cartao secao-notif" aria-labelledby="t-alertas">
+              <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Bell className="ic" /></span>
+              <div>
+                <h2 id="t-alertas">Alertas</h2>
+                <p className="suave">Hoje os alertas aparecem dentro do sistema (sino e tela Alertas). Entrega por e-mail, resumo e horário de silêncio ainda não estão ativos (dependem do provedor de e-mail); os ajustes ficam guardados.</p>
+                <div className="notif-item notif-item--entre">
+                  <div className="notif-item__corpo"><b>Alertas imediatos</b><small>Receber alertas críticos e de alta severidade imediatamente.</small></div>
+                  <Interruptor checked={notifImmediate} onChange={setNotifImmediate} label="Alertas imediatos" />
                 </div>
-                <Separator />
-                <div className="flex items-start gap-4">
-                  <Switch checked={notifDigestEnabled} onCheckedChange={setNotifDigestEnabled} className="mt-1" />
-                  <div className="flex-1 space-y-2">
-                    <Label className="text-xs font-medium">Digest de alertas</Label>
-                    <p className="text-[11px] text-muted-foreground">Agrupar alertas em um resumo periódico.</p>
-                    <div className="space-y-1 max-w-[200px]">
-                      <Label className="text-[11px] text-muted-foreground">Frequência (minutos)</Label>
-                      <Input type="number" value={notifDigestFreq} onChange={e => setNotifDigestFreq(e.target.value)} disabled={!notifDigestEnabled} className="h-8" />
+                <div className="notif-item">
+                  <Interruptor checked={notifDigestEnabled} onChange={setNotifDigestEnabled} label="Resumo de alertas" />
+                  <div className="notif-item__corpo">
+                    <b>Resumo de alertas</b><small>Agrupar alertas em um resumo periódico.</small>
+                    <div className="notif-item__campos">
+                      <div className="campo"><label htmlFor="n-freq">Frequência (minutos)</label><input className="entrada campo-hora" id="n-freq" type="number" min={5} step={5} value={notifDigestFreq} onChange={e => setNotifDigestFreq(e.target.value)} disabled={!notifDigestEnabled} /></div>
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Destinatários</CardTitle>
-                <CardDescription>E-mails que receberão notificações.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="email@exemplo.com"
+            <section className="cartao secao-notif secao-notif--linha" aria-labelledby="t-destinatarios">
+              <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Users className="ic" /></span>
+              <div><h2 id="t-destinatarios">Destinatários</h2><p className="suave">E-mails que receberão notificações.</p></div>
+              <div className="destinatarios">
+                <div className="linha-flex">
+                  <label className="sr-only" htmlFor="n-email">Novo e-mail</label>
+                  <input
+                    className="entrada" id="n-email" type="email" placeholder="email@exemplo.com"
                     value={newRecipient}
                     onChange={e => setNewRecipient(e.target.value)}
-                    className="h-8"
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addRecipient())}
                   />
-                  <Button variant="outline" size="sm" type="button" onClick={addRecipient} className="gap-1 shrink-0">
-                    <Plus className="h-3.5 w-3.5" />Adicionar
-                  </Button>
+                  <button className="btn btn--lg" type="button" onClick={addRecipient}><Plus className="ic" aria-hidden="true" />Adicionar</button>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {notifRecipients.map(r => (
-                    <Badge key={r} variant="secondary" className="text-xs gap-1 pr-1">
-                      {r}
-                      <button type="button" onClick={() => removeRecipient(r)} className="ml-0.5 hover:text-red-500">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                  {notifRecipients.length === 0 && <p className="text-xs text-muted-foreground">Nenhum destinatário adicionado.</p>}
-                </div>
-              </CardContent>
-            </Card>
+                {notifRecipients.length === 0 ? (
+                  <p className="suave text-[12.5px]">Nenhum destinatário adicionado.</p>
+                ) : (
+                  <ul className="chips">
+                    {notifRecipients.map(r => (
+                      <li className="chip" key={r}>
+                        {r}
+                        <button type="button" aria-label={`Remover ${r}`} onClick={() => removeRecipient(r)}><X className="ic" aria-hidden="true" /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Horários de Silêncio</CardTitle>
-                <CardDescription>Período sem notificações (somente alertas críticos).</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 max-w-sm">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Início</Label>
-                    <Input type="time" value={silenceStart} onChange={e => setSilenceStart(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Fim</Label>
-                    <Input type="time" value={silenceEnd} onChange={e => setSilenceEnd(e.target.value)} className="h-9" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end">
-              <TabSaveButton
-                saving={savingTab === 'notificacoes'}
-                onSave={() => saveSettingsSlice('notificacoes', {
-                  notifDailyEnabled, notifDailyTime, notifDailyDays, notifWeeklyEnabled, notifWeeklyTime,
-                  notifImmediate, notifDigestEnabled, notifDigestFreq, notifRecipients, silenceStart, silenceEnd,
-                }, 'Preferências de notificação')}
-              />
-            </div>
+            <section className="cartao secao-notif secao-notif--linha" aria-labelledby="t-silencio">
+              <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Moon className="ic" /></span>
+              <div><h2 id="t-silencio">Horários de Silêncio</h2><p className="suave">Período sem notificações (somente alertas críticos).</p></div>
+              <div className="linha-flex silencio">
+                <div className="campo"><label htmlFor="n-ini">Início</label><input className="entrada campo-hora" id="n-ini" type="time" value={silenceStart} onChange={e => setSilenceStart(e.target.value)} /></div>
+                <div className="campo"><label htmlFor="n-fim">Fim</label><input className="entrada campo-hora" id="n-fim" type="time" value={silenceEnd} onChange={e => setSilenceEnd(e.target.value)} /></div>
+                <span className="silencio__salvar"><SaveButton saving={savingTab === 'notificacoes'} /></span>
+              </div>
+            </section>
           </form>
         </TabsContent>
 
         {/* ====== PRIVACIDADE ====== */}
-        <TabsContent value="privacidade" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Privacidade e Retenção de Dados</CardTitle>
-              <CardDescription>Configure a retenção e proteção dos dados processados.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Retenção conteúdo (dias)</Label>
-                    <Input type="number" value={retContent} onChange={e => setRetContent(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Retenção metadados (dias) — vale também para o registro de auditoria</Label>
-                    <Input type="number" value={retMetadata} onChange={e => setRetMetadata(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Retenção anexos (dias)</Label>
-                    <Input type="number" value={retAttachments} onChange={e => setRetAttachments(e.target.value)} className="h-9" />
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-xs">Mascaramento automático</Label>
-                      <p className="text-[11px] text-muted-foreground">Ocultar dados sensíveis (CPF, cartão, etc.) nas análises.</p>
-                    </div>
-                    <Switch checked={privMasking} onCheckedChange={setPrivMasking} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-xs">Exportação pelo titular</Label>
-                      <p className="text-[11px] text-muted-foreground">Permitir que o titular dos dados solicite exportação.</p>
-                    </div>
-                    <Switch checked={privExport} onCheckedChange={setPrivExport} />
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Números excluídos do monitoramento (um por linha)</Label>
-                  <Textarea value={privExcluded} onChange={e => setPrivExcluded(e.target.value)} rows={3} className="text-xs font-mono" placeholder="11999999999&#10;11888888888" />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Base legal</Label>
-                    <Select value={privLegalBasis} onValueChange={setPrivLegalBasis}>
-                      <SelectTrigger aria-label="Base legal" className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="consentimento">Consentimento do titular</SelectItem>
-                        <SelectItem value="legitimo_interesse">Legítimo interesse</SelectItem>
-                        <SelectItem value="obrigacao_legal">Obrigação legal</SelectItem>
-                        <SelectItem value="contrato">Execução de contrato</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Contato do encarregado (DPO)</Label>
-                    <Input value={privDPO} onChange={e => setPrivDPO(e.target.value)} className="h-9" />
-                  </div>
-                </div>
-
-                <Separator />
-                <div className="flex justify-end">
-                  <TabSaveButton
-                    saving={savingTab === 'privacidade'}
-                    onSave={() => saveSettingsSlice('privacidade', {
-                      retContent, retMetadata, retAttachments, privMasking, privExport, privExcluded, privLegalBasis, privDPO,
-                    }, 'Configurações de privacidade')}
-                  />
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+        <TabsContent value="privacidade">
+          <form
+            className="cartao secao-config"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void saveSettingsSlice('privacidade', {
+                retContent, retMetadata, retAttachments, privMasking, privExport, privExcluded, privLegalBasis, privDPO,
+              }, 'Configurações de privacidade')
+            }}
+          >
+            <SecaoCab icon={<Shield className="ic" />} title="Privacidade e Retenção de Dados">Configure a retenção e proteção dos dados processados.</SecaoCab>
+            <div className="form-grade">
+              <div className="campo">
+                <label htmlFor="p-ret-conteudo">Retenção conteúdo (dias)</label>
+                <input className="entrada" id="p-ret-conteudo" type="number" min={1} value={retContent} onChange={e => setRetContent(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="p-ret-meta">Retenção metadados (dias)</label>
+                <p className="ajuda-campo" id="p-ret-meta-ajuda">Vale também para o registro de auditoria.</p>
+                <input className="entrada" id="p-ret-meta" type="number" min={1} aria-describedby="p-ret-meta-ajuda" value={retMetadata} onChange={e => setRetMetadata(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="p-ret-anexos">Retenção anexos (dias)</label>
+                <input className="entrada" id="p-ret-anexos" type="number" min={1} value={retAttachments} onChange={e => setRetAttachments(e.target.value)} />
+              </div>
+              <Opcao
+                icon={<EyeOff className="ic" />} tone="tom-verde"
+                title="Mascaramento automático" desc="Ocultar dados sensíveis (CPF, cartão, etc.) nas análises."
+                checked={privMasking} onChange={setPrivMasking}
+              />
+              <Opcao
+                icon={<Download className="ic" />} tone="tom-verde"
+                title="Exportação pelo titular" desc="Permitir que o titular dos dados solicite exportação."
+                checked={privExport} onChange={setPrivExport}
+              />
+              <div className="campo form-grade__todo">
+                <label htmlFor="p-excluidos">Números excluídos do monitoramento (um por linha)</label>
+                <textarea className="area mono" id="p-excluidos" rows={3} placeholder={'11999999999\n11888888888'} value={privExcluded} onChange={e => setPrivExcluded(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="p-base">Base legal</label>
+                <select className="selecao" id="p-base" value={privLegalBasis} onChange={e => setPrivLegalBasis(e.target.value)}>
+                  <option value="consentimento">Consentimento do titular</option>
+                  <option value="legitimo_interesse">Legítimo interesse</option>
+                  <option value="obrigacao_legal">Obrigação legal</option>
+                  <option value="contrato">Execução de contrato</option>
+                </select>
+              </div>
+              <div className="campo">
+                <label htmlFor="p-dpo">Contato do encarregado (DPO)</label>
+                <input className="entrada" id="p-dpo" value={privDPO} onChange={e => setPrivDPO(e.target.value)} />
+              </div>
+            </div>
+            <Rodape saving={savingTab === 'privacidade'} />
+          </form>
         </TabsContent>
 
-        {/* ── Regras de Alerta (from API) ── */}
-        <TabsContent value="regras" className="mt-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
+        {/* ====== REGRAS (da API) ====== */}
+        <TabsContent value="regras">
+          <section className="cartao" aria-labelledby="t-regras">
+            <div className="cartao__cab">
               <div>
-                <CardTitle className="text-lg">Regras de Alerta</CardTitle>
-                <CardDescription className="text-sm text-muted-foreground">
-                  Configure quando e como os alertas são gerados.
-                </CardDescription>
+                <h2 id="t-regras"><ShieldCheck className="ic verde-txt" aria-hidden="true" />Regras de Alerta</h2>
+                <p>Configure quando e como os alertas são gerados. Para criar e editar regras, use a tela Alertas, aba Regras.</p>
               </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead className="hidden sm:table-cell">Tipo</TableHead>
-                    <TableHead className="w-[80px] text-center">Ativa</TableHead>
-                    <TableHead>Severidade</TableHead>
-                    <TableHead className="hidden md:table-cell">Cooldown</TableHead>
-                    <TableHead className="hidden lg:table-cell">Canais</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rulesData.map((rule: any) => (
-                    <TableRow key={rule.id}>
-                      <TableCell className="font-medium text-sm">{rule.name}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{rule.type}</TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={rule.active}
-                          onCheckedChange={(checked: boolean) => {
-                            fetch(`/api/alert-rules/${rule.id}`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ active: checked }),
-                            }).then(() => fetch('/api/alert-rules').then(r => (r.ok ? r.json() : Promise.resolve({})) as Promise<any>).then(d => setRulesData(d.rules || [])).catch(() => {})).catch(() => {})
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={rule.severity === 'critical' ? 'destructive' : rule.severity === 'high' ? 'default' : 'secondary'} className="gap-1 text-xs">{rule.severity}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{rule.cooldownMinutes} min</TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <div className="flex flex-wrap gap-1">
-                          {(rule.channels || []).map((ch: string) => (
-                            <Badge key={ch} variant="outline" className="text-xs">{ch}</Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+              <button className="btn" type="button" onClick={() => setView('alerts')}>Abrir regras <ArrowRight className="ic" aria-hidden="true" /></button>
+            </div>
+            <div className="cartao__corpo">
+              {isLoading ? (
+                <p className="suave text-[13px]">Carregando…</p>
+              ) : rulesData.length === 0 ? (
+                <p className="suave text-[13px]">Nenhuma regra de alerta cadastrada.</p>
+              ) : (
+                <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Regras de alerta">
+                  <table className="tabela tabela--folgada">
+                    <thead>
+                      <tr>
+                        <th>Nome</th>
+                        <th className="hidden sm:table-cell">Tipo</th>
+                        <th className="centro">Ativa</th>
+                        <th>Severidade</th>
+                        <th className="hidden md:table-cell">Cooldown</th>
+                        <th className="hidden lg:table-cell">Canais</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rulesData.map((rule: any) => {
+                        const sev = SEVERITY[rule.severity] ?? { label: rule.severity, tag: 'tag--cinza' }
+                        return (
+                          <tr key={rule.id}>
+                            <td className="forte">{rule.name}</td>
+                            <td className="hidden sm:table-cell suave">{rule.type}</td>
+                            <td className="centro">
+                              <Interruptor checked={!!rule.active} onChange={(v) => toggleRule(rule.id, v)} label={`Regra ${rule.name} ativa`} />
+                            </td>
+                            <td><span className={`tag ${sev.tag}`}>{sev.label}</span></td>
+                            <td className="hidden md:table-cell suave">{rule.cooldownMinutes} min</td>
+                            <td className="hidden lg:table-cell">
+                              <div className="flex flex-wrap gap-1">
+                                {(rule.channels || []).map((ch: string) => <span key={ch} className="tag tag--cinza">{ch}</span>)}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
         </TabsContent>
 
         {/* ====== AUDITORIA ====== */}
-        <TabsContent value="auditoria" className="mt-4">
+        <TabsContent value="auditoria">
           <AuditLog />
         </TabsContent>
       </Tabs>
-    </div>
+    </>
   )
 }

@@ -1,0 +1,100 @@
+/* Ajustes sobre o CSS gerado do pacote de design (painel.css, conta.css e landing.css ficam iguais ao pacote).
+   1) Fontes: o next/font carrega Inter e Plus Jakarta Sans com nomes próprios; os tokens apontam para elas.
+   2) Contraste: alguns tons de texto do pacote ficam abaixo de 4,5:1 (WCAG AA) sobre os fundos coloridos das
+      etiquetas. Escurecemos só o necessário para passar; fundos e desenho continuam os do pacote. */
+@layer components {
+  :root {
+    --fonte: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --fonte-titulo: var(--font-jakarta), var(--font-inter), system-ui, sans-serif;
+  }
+  :root:not(.dark) {
+    --suave: #5f6a76;
+    --muito-suave: #66717d;
+    --vermelho: #c92029;
+    --laranja: #ad4e0d;
+    --ambar: #906300;
+    --verde-600: #0f784b;
+    --azul: #235fe1;
+    --teal: #0b776c;
+  }
+  .dark {
+    --muito-suave: #8a968f;
+    --verde-700: #2bb375; /* texto verde sobre --verde-50/--verde-100 (etiquetas, abas, notas) passa de 4,5:1 */
+  }
+
+  /* Avatares coloridos e contador: mesmos tons do pacote, um pouco mais escuros para passar de 4,5:1 */
+  .ar .av--verde { color: #0f6e46; }
+  .ar .av--vermelho { color: #b81c25; }
+  .ar .av--laranja { color: #a14f05; }
+  .ar .contador-pill { background: #c92029; }
+  .dark .ar .av--verde { color: #6fe2aa; }
+  .dark .ar .av--vermelho { color: #ff8d93; }
+  .dark .ar .av--laranja { color: #ffae6b; }
+  /* Landing: "/mês" e o rodapé usam #8a94a3 (2,9:1 sobre branco); o --suave da própria landing passa de 4,5:1 */
+  .lp .plano__preco span,
+  .lp .rodape__copy { color: var(--suave); }
+  .lp {
+    --fonte: var(--font-jakarta), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  /* O painel do pacote é uma página por tela; aqui é uma aplicação só. Itens do menu são botões/links sem href real. */
+  .ar .nav-lateral a { cursor: pointer; }
+  .ar .nav-lateral a:focus-visible { outline: 2px solid var(--verde-400); outline-offset: 2px; }
+
+  /* Barra de rolagem fina, igual ao pacote */
+  .ar .lateral::-webkit-scrollbar { width: 6px; }
+  .ar .lateral::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 3px; }
+
+  /* Páginas de conta (entrar, cadastro, senha, convite): o pacote só tem versão clara, com fundo claro próprio.
+     No tema escuro elas continuam claras, senão o texto claro do tema escuro some no fundo claro. */
+  .dark .ar.conta {
+    --fundo: #f5f7f6;
+    --superficie: #ffffff;
+    --superficie-2: #f7f9f8;
+    --superficie-3: #eff3f1;
+    --borda: #e6ebe8;
+    --borda-forte: #d6ddd9;
+    --texto: #0f1a24;
+    --texto-2: #3b4652;
+    --suave: #6b7682;
+    --muito-suave: #9aa3ad;
+    --verde-950: #04170e;
+    --verde-900: #062a1a;
+    --verde-800: #0b4a30;
+    --verde-700: #0e6b43;
+    --verde-600: #118352;
+    --verde-500: #16a063;
+    --verde-400: #2fcf86;
+    --verde-300: #6fe2aa;
+    --verde-100: #dcf6e8;
+    --verde-50:  #eefbf4;
+    --vermelho: #e5252f;
+    --vermelho-fundo: #fde8e9;
+    --vermelho-borda: #f8c9cc;
+    --laranja: #ea6a12;
+    --laranja-fundo: #fff0e2;
+    --laranja-borda: #fbd7b5;
+    --ambar: #c98a00;
+    --ambar-fundo: #fff6d9;
+    --azul: #2563eb;
+    --azul-fundo: #e6efff;
+    --azul-borda: #c8dbff;
+    --roxo: #7c3aed;
+    --roxo-fundo: #f1e9ff;
+    --teal: #0f9d8f;
+    --cinza-fundo: #eef1f4;
+    --sombra: 0 1px 2px rgba(16, 24, 32, .04), 0 6px 18px -12px rgba(16, 24, 32, .12);
+    --sombra-flutuante: 0 16px 40px -12px rgba(16, 24, 32, .28);
+    --raio: 14px;
+    --raio-sm: 9px;
+    color-scheme: light;
+    --suave: #5f6a76;
+    --muito-suave: #66717d;
+    --vermelho: #c92029;
+    --laranja: #ad4e0d;
+    --ambar: #906300;
+    --verde-600: #0f784b;
+    --azul: #235fe1;
+    --teal: #0b776c;
+  }
+}

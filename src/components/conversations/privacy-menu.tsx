@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { ShieldOff, MoreVertical } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ShieldOff, ChevronDown } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -60,11 +59,11 @@ export function PrivacyMenu({ conversationId, onDone }: { conversationId: string
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="ml-auto h-8 gap-1 text-xs" aria-label="Privacidade do cliente">
-            <ShieldOff className="h-4 w-4" />
+          <button type="button" className="btn btn--link suave" aria-label="Privacidade do cliente">
+            <ShieldOff className="ic" aria-hidden="true" />
             Privacidade
-            <MoreVertical className="h-3.5 w-3.5" />
-          </Button>
+            <ChevronDown className="ic" aria-hidden="true" />
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>

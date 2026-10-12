@@ -3,36 +3,36 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import {
-  LayoutDashboard, AlertTriangle, MessageSquare, RotateCcw, Users,
-  FileBarChart, Wifi, Settings, ChevronLeft, ChevronRight, Radar,
-  UserCog, CreditCard, ShieldCheck, Building2,
+  LayoutGrid, TriangleAlert, MessageSquare, RotateCcw, Users,
+  FileChartColumn, Wifi, Settings, UserRound, Building2, CreditCard, ShieldCheck,
+  ArrowRight, CircleHelp, Lightbulb,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
 import type { View } from '@/lib/store'
 import { canOpenView } from '@/lib/permissions'
 
-const mainNavItems: { view: View; icon: React.ElementType; label: string }[] = [
-  { view: 'dashboard', icon: LayoutDashboard, label: 'Visão Geral' },
-  { view: 'alerts', icon: AlertTriangle, label: 'Alertas' },
+type NavItem = { view: View; icon: React.ElementType; label: string }
+
+// Mesma ordem e ícones do pacote de design (painel/app.js → NAV e ADMIN)
+const mainNavItems: NavItem[] = [
+  { view: 'dashboard', icon: LayoutGrid, label: 'Visão Geral' },
+  { view: 'alerts', icon: TriangleAlert, label: 'Alertas' },
   { view: 'conversations', icon: MessageSquare, label: 'Conversas' },
   { view: 'recovery', icon: RotateCcw, label: 'Recuperação' },
   { view: 'team', icon: Users, label: 'Equipe' },
-  { view: 'reports', icon: FileBarChart, label: 'Relatórios' },
+  { view: 'reports', icon: FileChartColumn, label: 'Relatórios' },
   { view: 'connections', icon: Wifi, label: 'Conexões' },
 ]
 
-const secondaryNavItems: { view: View; icon: React.ElementType; label: string }[] = [
+const adminNavItems: NavItem[] = [
   { view: 'settings', icon: Settings, label: 'Configurações' },
-  { view: 'members', icon: UserCog, label: 'Membros' },
+  { view: 'members', icon: UserRound, label: 'Membros' },
   { view: 'teams', icon: Building2, label: 'Equipes' },
   { view: 'plans', icon: CreditCard, label: 'Planos' },
   { view: 'admin', icon: ShieldCheck, label: 'Admin' },
 ]
 
 export function AppSidebar() {
-  const { currentView, setView, sidebarOpen, setSidebarOpen, refreshTrigger, mobileNavOpen, setMobileNavOpen } = useAppStore()
+  const { currentView, setView, refreshTrigger, setMobileNavOpen, startTour } = useAppStore()
   const me = useAppStore((st) => st.me)
   // Só mostra o que o papel pode abrir. Enquanto /api/me carrega, não mostra nada restrito.
   const visible = (item: { view: View }) =>
@@ -59,109 +59,117 @@ export function AppSidebar() {
   const isActive = (view: View) =>
     currentView === view ||
     (view === 'conversations' && currentView === 'conversation-detail') ||
-    (view === 'team' && currentView === 'agent-profile')
+    (view === 'team' && currentView === 'agent-profile') ||
+    (view === 'plans' && currentView === 'checkout')
 
-  const renderNavItem = (item: { view: View; icon: React.ElementType; label: string }) => {
-    const active = isActive(item.view)
-    const badge = badges[item.view]
-    const Icon = item.icon
-    const btn = (
-      <button
-        key={item.view}
-        data-tour={`nav-${item.view}`}
-        onClick={() => {
-          setView(item.view)
-          setMobileNavOpen(false) // no celular a gaveta fecha ao escolher uma tela
-        }}
-        className={cn(
-          'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative',
-          active
-            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-        )}
-      >
-        <Icon className={cn('w-5 h-5 shrink-0', active && 'text-sidebar-primary')} />
-        {sidebarOpen && <span className="truncate">{item.label}</span>}
-        {sidebarOpen && badge && (
-          <span className="ml-auto flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-bold rounded-full bg-destructive text-white">
-            {badge}
-          </span>
-        )}
-      </button>
-    )
-    if (!sidebarOpen) {
-      return (
-        <Tooltip key={item.view} delayDuration={0}>
-          <TooltipTrigger asChild>{btn}</TooltipTrigger>
-          <TooltipContent side="right" className="font-medium">
-            {item.label}
-            {badge && <span className="ml-1.5 text-destructive">({badge})</span>}
-          </TooltipContent>
-        </Tooltip>
-      )
-    }
-    return btn
+  const go = (view: View) => {
+    setView(view)
+    setMobileNavOpen(false) // no celular a gaveta fecha ao escolher uma tela
   }
+
+  const renderNavItem = (item: NavItem) => {
+    const Icon = item.icon
+    const badge = badges[item.view]
+    return (
+      <a
+        key={item.view}
+        href={`#${item.view}`}
+        data-tour={`nav-${item.view}`}
+        aria-current={isActive(item.view) ? 'page' : undefined}
+        onClick={(e) => {
+          e.preventDefault()
+          go(item.view)
+        }}
+      >
+        <Icon className="ic" aria-hidden="true" />
+        <span>{item.label}</span>
+        {badge && <span className="contador" aria-label={`${badge} pendentes`}>{badge}</span>}
+      </a>
+    )
+  }
+
+  const admin = adminNavItems.filter(visible)
+  const canSeeReports = !!me && canOpenView(me.role, 'reports')
 
   return (
     <>
-    {/* Celular: fundo escurecido; tocar fecha a gaveta */}
-    {mobileNavOpen && (
-      <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" aria-hidden="true" onClick={() => setMobileNavOpen(false)} />
-    )}
-    <aside
-      className={cn(
-        'fixed left-0 top-0 z-50 lg:z-40 h-screen flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300',
-        sidebarOpen ? 'w-64' : 'w-[68px]',
-        // celular: gaveta fora da tela, sempre com largura total; no desktop segue aberto/recolhido
-        'max-lg:w-64',
-        mobileNavOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'
-      )}
-    >
-      {/* Brand */}
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-sidebar-border shrink-0">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <Radar className="w-5 h-5" />
-        </div>
-        {sidebarOpen && (
-          <div className="flex flex-col min-w-0">
-            <span className="font-bold text-base tracking-tight truncate">AtendeRadar</span>
-            <span className="text-[11px] text-sidebar-foreground/75 truncate">Auditor de WhatsApp</span>
+      <aside className="lateral" id="lateral" aria-label="Menu principal">
+        <a
+          className="lateral__marca"
+          href="#dashboard"
+          aria-label="AtendeRadar — Visão Geral"
+          onClick={(e) => {
+            e.preventDefault()
+            go('dashboard')
+          }}
+        >
+          <img className="logo-escura" src="/brand/logo-atenderadar-clara.webp" alt="AtendeRadar" width={560} height={109} />
+          <img className="logo-clara" src="/brand/logo-atenderadar.webp" alt="AtendeRadar" width={560} height={109} />
+          <small>Auditor de WhatsApp</small>
+        </a>
+
+        <nav className="nav-lateral" aria-label="Principal">{mainNavItems.filter(visible).map(renderNavItem)}</nav>
+
+        {admin.length > 0 && (
+          <>
+            <div className="lateral__secao">Administração</div>
+            <nav className="nav-lateral" aria-label="Administração">{admin.map(renderNavItem)}</nav>
+          </>
+        )}
+
+        {canSeeReports && (
+          <div className="promo">
+            <svg className="grafico" viewBox="0 0 74 40" fill="none" aria-hidden="true">
+              <path d="M2 36 L16 26 L28 30 L44 16 L56 20 L70 5" stroke="#3ce08f" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 36 L16 26 L28 30 L44 16 L56 20 L70 5 V40 H2Z" fill="url(#gp-lateral)" opacity=".5" />
+              <circle cx="70" cy="5" r="3.4" fill="#3ce08f" />
+              <circle cx="44" cy="16" r="2.4" fill="#3ce08f" />
+              <defs>
+                <linearGradient id="gp-lateral" x1="0" y1="0" x2="0" y2="1">
+                  <stop stopColor="#3ce08f" stopOpacity=".55" />
+                  <stop offset="1" stopColor="#3ce08f" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <strong>Mais vendas</strong>
+            <p>com um atendimento de excelência.</p>
+            <a
+              href="#reports"
+              onClick={(e) => {
+                e.preventDefault()
+                go('reports')
+              }}
+            >
+              Ver relatórios <ArrowRight className="ic" aria-hidden="true" />
+            </a>
           </div>
         )}
-      </div>
 
-      {/* Main Nav */}
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto custom-scrollbar">
-        {mainNavItems.filter(visible).map(renderNavItem)}
-
-        {/* Separator + Secondary items */}
-        <div className="pt-4 mt-4 border-t border-sidebar-border">
-          {sidebarOpen && (
-            <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/70">
-              Administração
-            </p>
-          )}
-          {secondaryNavItems.filter(visible).map(renderNavItem)}
+        {/* Só aparece no estilo "menu lateral claro" (troca no menu do usuário) */}
+        <div className="dica-dia">
+          <strong>
+            <Lightbulb className="ic" aria-hidden="true" /> Dica do dia
+          </strong>
+          <p>Responda rápido: quanto antes o cliente recebe retorno, menor a chance de ele fechar com outro.</p>
         </div>
-      </nav>
 
-      {/* Collapse toggle */}
-      <div className="border-t border-sidebar-border p-2 shrink-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-center text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+        <button
+          className="ajuda"
+          type="button"
           onClick={() => {
-            if (window.matchMedia('(max-width: 1023px)').matches) setMobileNavOpen(false)
-            else setSidebarOpen(!sidebarOpen)
+            setMobileNavOpen(false)
+            startTour(currentView)
           }}
-          aria-label={sidebarOpen ? 'Recolher menu' : 'Expandir menu'}
         >
-          {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </Button>
-      </div>
-    </aside>
+          <CircleHelp className="ic" aria-hidden="true" />
+          <span>
+            <strong>Precisa de ajuda?</strong>
+            <span>Guia desta tela</span>
+          </span>
+        </button>
+      </aside>
+      {/* Celular: fundo escurecido; tocar fecha a gaveta */}
+      <div className="veu" aria-hidden="true" onClick={() => setMobileNavOpen(false)} />
     </>
   )
 }

@@ -18,24 +18,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
@@ -45,7 +28,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
-import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -168,17 +150,30 @@ const getStatusBadge = (status: string) => {
   }
 }
 
-const getRoleBadge = (role: string) => {
-  const label = ROLE_LABELS[role] || role
-  switch (role) {
-    case 'admin':
-      return <Badge className="bg-destructive/15 text-destructive border-destructive/25 hover:bg-destructive/25">{label}</Badge>
-    case 'gestor':
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/25">{label}</Badge>
-    default:
-      return <Badge variant="secondary">{label}</Badge>
-  }
+const STATUS_TAGS: Record<string, string> = {
+  active: 'tag--verde',
+  suspended: 'tag--ambar',
+  inactive: 'tag--cinza',
 }
+
+const getStatusTag = (status: string) => (
+  <span className={`tag ${STATUS_TAGS[status] || 'tag--cinza'}`}>
+    {status === 'active' && <span className="ponto" aria-hidden="true" />}
+    {STATUS_LABELS[status] || status}
+  </span>
+)
+
+const ROLE_TAGS: Record<string, string> = {
+  admin: 'tag--vermelho',
+  gestor: 'tag--verde',
+}
+
+const getRoleTag = (role: string) => (
+  <span className={`tag ${ROLE_TAGS[role] || 'tag--cinza'}`}>{ROLE_LABELS[role] || role}</span>
+)
+
+const initials = (name: string) =>
+  name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase()
 
 // ─── Component ────────────────────────────────────────────────────────────
 
@@ -236,425 +231,361 @@ export default function AdminView() {
   }, [users, userSearch, userRoleFilter])
 
   const kpiCards = data ? [
-    { label: 'Organizações Ativas', value: formatNumber(data.kpis.activeOrgs), icon: Building2, color: 'text-emerald-700 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
-    { label: 'Conexões WhatsApp', value: formatNumber(data.kpis.whatsappConnections), icon: MessageSquare, color: 'text-teal-700 dark:text-teal-400', bgColor: 'bg-teal-500/10' },
-    { label: 'Usuários Cadastrados', value: formatNumber(data.kpis.totalUsers), icon: Users, color: 'text-emerald-700 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
-    { label: 'Conversas Hoje', value: formatNumber(data.kpis.conversationsToday), icon: Activity, color: 'text-teal-700 dark:text-teal-400', bgColor: 'bg-teal-500/10' },
-    { label: 'Receita Mensal', value: formatCurrency(data.kpis.monthlyRevenue), icon: DollarSign, color: 'text-emerald-700 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
-    { label: 'Alertas Ativos', value: formatNumber(data.kpis.activeAlerts), icon: AlertTriangle, color: 'text-amber-700 dark:text-amber-400', bgColor: 'bg-amber-500/10' },
+    { label: 'Organizações Ativas', value: formatNumber(data.kpis.activeOrgs), icon: Building2, tone: 'tom-verde' },
+    { label: 'Conexões WhatsApp', value: formatNumber(data.kpis.whatsappConnections), icon: MessageSquare, tone: 'tom-teal' },
+    { label: 'Usuários Cadastrados', value: formatNumber(data.kpis.totalUsers), icon: Users, tone: 'tom-azul' },
+    { label: 'Conversas Hoje', value: formatNumber(data.kpis.conversationsToday), icon: Activity, tone: 'tom-roxo' },
+    { label: 'Receita Mensal', value: formatCurrency(data.kpis.monthlyRevenue), icon: DollarSign, tone: 'tom-verde' },
+    { label: 'Alertas Ativos', value: formatNumber(data.kpis.activeAlerts), icon: AlertTriangle, tone: 'tom-laranja' },
   ] : []
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive font-medium">{error}</p>
-        <button onClick={() => fetchData()} className="text-sm text-primary underline">Tentar novamente</button>
+      <div className="cartao vazio" role="alert">
+        <strong>{error}</strong>
+        <button type="button" onClick={() => fetchData()} className="btn btn--sm mt-3">Tentar novamente</button>
       </div>
     )
   }
 
   const storagePct = data ? Math.min(100, Math.round((data.system.storageBytes / STORAGE_QUOTA_BYTES) * 100)) : 0
+  const dbOk = data?.system.databaseHealthy !== false
+
+  const orgNameCell = (org: AdminOrganization) => (
+    <button type="button" className="forte text-left hover:underline" onClick={(e) => { e.stopPropagation(); setSelectedOrg(org) }}>
+      {org.name}
+    </button>
+  )
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Settings className="w-7 h-7 text-emerald-700 dark:text-emerald-400" />
-            Painel Administrativo
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gerencie organizações, usuários e configurações da plataforma
-          </p>
+    <>
+      <div className="cab-pagina">
+        <div className="cab-pagina__titulo">
+          <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Settings className="ic" /></span>
+          <div>
+            <h1>Painel Administrativo</h1>
+            <p>Gerencie organizações, usuários e configurações da plataforma</p>
+          </div>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchData(true)}
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Atualizar
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Recarregar dados do painel</TooltipContent>
-        </Tooltip>
+        <div className="cab-pagina__acoes">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" className="btn" onClick={() => fetchData(true)}>
+                <RefreshCw className="ic" aria-hidden="true" />
+                Atualizar
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Recarregar dados do painel</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList data-tour="admin-tabs" className="flex flex-wrap">
-          <TabsTrigger value="overview" className="gap-1.5">
-            <Activity className="w-4 h-4" />
-            Visão Geral
-          </TabsTrigger>
-          <TabsTrigger value="organizations" className="gap-1.5">
-            <Building2 className="w-4 h-4" />
-            Organizações
-          </TabsTrigger>
-          <TabsTrigger value="users" className="gap-1.5">
-            <Users className="w-4 h-4" />
-            Usuários Globais
-          </TabsTrigger>
-          <TabsTrigger value="system" className="gap-1.5">
-            <Server className="w-4 h-4" />
-            Sistema
-          </TabsTrigger>
+      <Tabs defaultValue="overview" className="w-full gap-[18px]">
+        <TabsList data-tour="admin-tabs" aria-label="Seções do painel administrativo">
+          <TabsTrigger value="overview"><Activity className="ic" aria-hidden="true" />Visão Geral</TabsTrigger>
+          <TabsTrigger value="organizations"><Building2 className="ic" aria-hidden="true" />Organizações</TabsTrigger>
+          <TabsTrigger value="users"><Users className="ic" aria-hidden="true" />Usuários Globais</TabsTrigger>
+          <TabsTrigger value="system"><Server className="ic" aria-hidden="true" />Sistema</TabsTrigger>
         </TabsList>
 
-        {/* ── Tab 1: Visão Geral ───────────────────────────────────────── */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* KPI Cards */}
-          <div data-tour="admin-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {/* ── Visão Geral ─────────────────────────────────────────── */}
+        <TabsContent value="overview" className="space-y-[18px]">
+          <div data-tour="admin-kpis" className="kpis">
             {loading
-              ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)
+              ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)
               : kpiCards.map((kpi) => {
                 const Icon = kpi.icon
                 return (
-                  <Card key={kpi.label} className="relative overflow-hidden">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">{kpi.label}</p>
-                          <p className="text-xl font-bold tracking-tight">{kpi.value}</p>
-                        </div>
-                        <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${kpi.bgColor}`}>
-                          <Icon className={`w-5 h-5 ${kpi.color}`} />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <article key={kpi.label} className="cartao kpi">
+                    <span className={`kpi__icone ${kpi.tone}`} aria-hidden="true"><Icon className="ic" /></span>
+                    <p className="kpi__rotulo">{kpi.label}</p>
+                    <p className="kpi__valor">{kpi.value}</p>
+                  </article>
                 )
               })}
           </div>
 
-          {/* Recent Organizations Table */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Organizações Recentes</CardTitle>
-              <CardDescription>Últimas organizações cadastradas na plataforma</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="hidden sm:table-cell">Plano</TableHead>
-                      <TableHead className="hidden md:table-cell">Conexões</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="hidden lg:table-cell">Criado em</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {organizations.slice(0, 5).map((org) => (
-                      <TableRow
-                        key={org.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setSelectedOrg(org)}
-                      >
-                        <TableCell className="font-medium">{org.name}</TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          {org.plan ? <Badge variant="outline">{org.plan}</Badge> : '—'}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">{org.connections}</TableCell>
-                        <TableCell>{getStatusBadge(org.status)}</TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground">
-                          {formatDate(org.createdAt)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+          <section className="cartao" aria-labelledby="t-orgs-recentes">
+            <div className="cartao__cab">
+              <div>
+                <h2 id="t-orgs-recentes">Organizações Recentes</h2>
+                <p>Últimas organizações cadastradas na plataforma</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="cartao__corpo">
+              <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Organizações recentes">
+                <table className="tabela tabela--cab-cinza">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th className="hidden sm:table-cell">Plano</th>
+                      <th className="hidden md:table-cell">Conexões</th>
+                      <th>Status</th>
+                      <th className="hidden lg:table-cell">Criado em</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {organizations.length === 0 ? (
+                      <tr><td colSpan={5} className="centro suave py-8">{loading ? 'Carregando...' : 'Nenhuma organização cadastrada.'}</td></tr>
+                    ) : organizations.slice(0, 5).map((org) => (
+                      <tr key={org.id} className="cursor-pointer" onClick={() => setSelectedOrg(org)}>
+                        <td>{orgNameCell(org)}</td>
+                        <td className="hidden sm:table-cell">{org.plan ? <span className="tag tag--contorno">{org.plan}</span> : '—'}</td>
+                        <td className="hidden md:table-cell">{org.connections}</td>
+                        <td>{getStatusTag(org.status)}</td>
+                        <td className="hidden lg:table-cell suave">{formatDate(org.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
         </TabsContent>
 
-        {/* ── Tab 2: Organizações ────────────────────────────────────── */}
-        <TabsContent value="organizations" className="space-y-4">
-          {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar organização..."
-                className="pl-9"
-                value={orgSearch}
-                onChange={(e) => setOrgSearch(e.target.value)}
-              />
+        {/* ── Organizações ────────────────────────────────────────── */}
+        <TabsContent value="organizations">
+          <section className="cartao" aria-labelledby="t-orgs">
+            <div className="cartao__cab flex-wrap">
+              <div><h2 id="t-orgs">Organizações</h2><p>{filteredOrganizations.length} de {organizations.length}</p></div>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <label className="entrada-ic w-full sm:w-64">
+                  <Search className="ic" aria-hidden="true" />
+                  <span className="sr-only">Buscar organização</span>
+                  <input
+                    className="entrada"
+                    type="search"
+                    placeholder="Buscar organização..."
+                    value={orgSearch}
+                    onChange={(e) => setOrgSearch(e.target.value)}
+                  />
+                </label>
+                <Select value={orgStatusFilter} onValueChange={setOrgStatusFilter}>
+                  <SelectTrigger aria-label="Filtrar status" className="w-full sm:w-[160px]">
+                    <SelectValue placeholder="Filtrar status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas</SelectItem>
+                    <SelectItem value="active">Ativa</SelectItem>
+                    <SelectItem value="suspended">Suspensa</SelectItem>
+                    <SelectItem value="inactive">Inativa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <Select value={orgStatusFilter} onValueChange={setOrgStatusFilter}>
-              <SelectTrigger aria-label="Filtrar status" className="w-full sm:w-[160px]">
-                <SelectValue placeholder="Filtrar status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="active">Ativa</SelectItem>
-                <SelectItem value="suspended">Suspensa</SelectItem>
-                <SelectItem value="inactive">Inativa</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Table */}
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="hidden lg:table-cell">CNPJ</TableHead>
-                      <TableHead className="hidden md:table-cell">Segmento</TableHead>
-                      <TableHead>Plano</TableHead>
-                      <TableHead className="hidden md:table-cell">Conexões</TableHead>
-                      <TableHead className="hidden lg:table-cell">Agentes</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="hidden sm:table-cell">Criado em</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+            <div className="cartao__corpo">
+              <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Organizações">
+                <table className="tabela tabela--cab-cinza">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th className="hidden lg:table-cell">CNPJ</th>
+                      <th className="hidden md:table-cell">Segmento</th>
+                      <th>Plano</th>
+                      <th className="hidden md:table-cell">Conexões</th>
+                      <th className="hidden lg:table-cell">Agentes</th>
+                      <th>Status</th>
+                      <th className="hidden sm:table-cell">Criado em</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {filteredOrganizations.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                      <tr>
+                        <td colSpan={8} className="centro suave py-8">
                           {loading ? 'Carregando...' : 'Nenhuma organização encontrada.'}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ) : (
                       filteredOrganizations.map((org) => (
-                        <TableRow
-                          key={org.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => setSelectedOrg(org)}
-                        >
-                          <TableCell className="font-medium">{org.name}</TableCell>
-                          <TableCell className="hidden lg:table-cell text-muted-foreground font-mono text-xs">
-                            {org.cnpj || '—'}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell text-muted-foreground">
-                            {org.segment}
-                          </TableCell>
-                          <TableCell>
-                            {org.plan ? <Badge variant="outline">{org.plan}</Badge> : '—'}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">{org.connections}</TableCell>
-                          <TableCell className="hidden lg:table-cell">{org.agents}</TableCell>
-                          <TableCell>{getStatusBadge(org.status)}</TableCell>
-                          <TableCell className="hidden sm:table-cell text-muted-foreground">
-                            {formatDate(org.createdAt)}
-                          </TableCell>
-                        </TableRow>
+                        <tr key={org.id} className="cursor-pointer" onClick={() => setSelectedOrg(org)}>
+                          <td>{orgNameCell(org)}</td>
+                          <td className="hidden lg:table-cell suave mono text-xs">{org.cnpj || '—'}</td>
+                          <td className="hidden md:table-cell suave">{org.segment}</td>
+                          <td>{org.plan ? <span className="tag tag--contorno">{org.plan}</span> : '—'}</td>
+                          <td className="hidden md:table-cell">{org.connections}</td>
+                          <td className="hidden lg:table-cell">{org.agents}</td>
+                          <td>{getStatusTag(org.status)}</td>
+                          <td className="hidden sm:table-cell suave">{formatDate(org.createdAt)}</td>
+                        </tr>
                       ))
                     )}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </TabsContent>
 
-        {/* ── Tab 3: Usuários Globais ─────────────────────────────────── */}
-        <TabsContent value="users" className="space-y-4">
-          {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou email..."
-                className="pl-9"
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-              />
+        {/* ── Usuários Globais ────────────────────────────────────── */}
+        <TabsContent value="users">
+          <section className="cartao" aria-labelledby="t-usuarios">
+            <div className="cartao__cab flex-wrap">
+              <div><h2 id="t-usuarios">Usuários Globais</h2><p>{filteredUsers.length} de {users.length}</p></div>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <label className="entrada-ic w-full sm:w-64">
+                  <Search className="ic" aria-hidden="true" />
+                  <span className="sr-only">Buscar usuário</span>
+                  <input
+                    className="entrada"
+                    type="search"
+                    placeholder="Buscar por nome ou email..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                  />
+                </label>
+                <Select value={userRoleFilter} onValueChange={setUserRoleFilter}>
+                  <SelectTrigger aria-label="Filtrar papel" className="w-full sm:w-[160px]">
+                    <SelectValue placeholder="Filtrar papel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <Select value={userRoleFilter} onValueChange={setUserRoleFilter}>
-              <SelectTrigger aria-label="Filtrar papel" className="w-full sm:w-[160px]">
-                <SelectValue placeholder="Filtrar papel" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Table */}
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="hidden lg:table-cell">Email</TableHead>
-                      <TableHead className="hidden md:table-cell">Organização</TableHead>
-                      <TableHead>Papel</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="hidden sm:table-cell">Último acesso</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+            <div className="cartao__corpo">
+              <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Usuários globais">
+                <table className="tabela tabela--cab-cinza">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th className="hidden lg:table-cell">Email</th>
+                      <th className="hidden md:table-cell">Organização</th>
+                      <th>Papel</th>
+                      <th>Status</th>
+                      <th className="hidden sm:table-cell">Último acesso</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {filteredUsers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                      <tr>
+                        <td colSpan={6} className="centro suave py-8">
                           {loading ? 'Carregando...' : 'Nenhum usuário encontrado.'}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ) : (
                       filteredUsers.map((user) => (
-                        <TableRow key={user.id} className="hover:bg-muted/50">
-                          <TableCell className="font-medium">{user.name}</TableCell>
-                          <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
-                            {user.email}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell text-muted-foreground">
-                            {user.organization}
-                          </TableCell>
-                          <TableCell>{getRoleBadge(user.role)}</TableCell>
-                          <TableCell>{getStatusBadge(user.status)}</TableCell>
-                          <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                            {user.lastAccessAt ? formatDateTime(user.lastAccessAt) : '—'}
-                          </TableCell>
-                        </TableRow>
+                        <tr key={user.id}>
+                          <td>
+                            <div className="pessoa pessoa--forte">
+                              <span className="av av--sm av--verde" aria-hidden="true">{initials(user.name)}</span>
+                              <span><strong>{user.name}</strong><small className="lg:hidden">{user.email}</small></span>
+                            </div>
+                          </td>
+                          <td className="hidden lg:table-cell suave">{user.email}</td>
+                          <td className="hidden md:table-cell suave">{user.organization}</td>
+                          <td>{getRoleTag(user.role)}</td>
+                          <td>{getStatusTag(user.status)}</td>
+                          <td className="hidden sm:table-cell suave">{user.lastAccessAt ? formatDateTime(user.lastAccessAt) : '—'}</td>
+                        </tr>
                       ))
                     )}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </TabsContent>
 
-        {/* ── Tab 4: Sistema ──────────────────────────────────────────── */}
-        <TabsContent value="system" className="space-y-6">
-          {/* System Health */}
-          <div>
-            <h3 className="text-base font-semibold mb-3">Saúde do Sistema</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Database */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-500/10">
-                      <Database className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium">Banco de Dados</p>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${data?.system.databaseHealthy !== false ? 'bg-emerald-500 animate-pulse' : 'bg-destructive'}`} />
-                        <span className={`text-xs font-medium ${data?.system.databaseHealthy !== false ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'}`}>
-                          {data?.system.databaseHealthy !== false ? 'Operacional' : 'Indisponível'}
-                        </span>
-                      </div>
-                    </div>
+        {/* ── Sistema ─────────────────────────────────────────────── */}
+        <TabsContent value="system" className="space-y-[18px]">
+          <section aria-labelledby="t-saude">
+            <h2 id="t-saude" className="mb-3 text-base font-bold">Saúde do Sistema</h2>
+            <div className="grade grade-3">
+              <article className="cartao kpi-h">
+                <span className="kpi__icone tom-verde" aria-hidden="true"><Database className="ic" /></span>
+                <div>
+                  <p className="kpi-h__rotulo">Banco de Dados</p>
+                  <span className={`tag mt-1 ${dbOk ? 'tag--verde' : 'tag--vermelho'}`}>
+                    <span className="ponto" aria-hidden="true" />
+                    {dbOk ? 'Operacional' : 'Indisponível'}
+                  </span>
+                </div>
+              </article>
+              <article className="cartao kpi-h">
+                <span className="kpi__icone tom-verde" aria-hidden="true"><Shield className="ic" /></span>
+                <div>
+                  <p className="kpi-h__rotulo">Autenticação</p>
+                  <span className="tag tag--verde mt-1"><span className="ponto" aria-hidden="true" />Operacional</span>
+                </div>
+              </article>
+              <article className="cartao kpi-h">
+                <span className="kpi__icone tom-teal" aria-hidden="true"><HardDrive className="ic" /></span>
+                <div className="flex-1">
+                  <p className="kpi-h__rotulo">Armazenamento</p>
+                  <div className="linha-flex entre mt-1 text-xs suave">
+                    <span>{formatBytes(data?.system.storageBytes || 0)} / 10 GB</span>
+                    <span className="forte">{storagePct}%</span>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Auth */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-500/10">
-                      <Shield className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium">Autenticação</p>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Operacional</span>
-                      </div>
-                    </div>
+                  <div
+                    className="barra mt-2"
+                    role="progressbar"
+                    aria-label="Uso do armazenamento"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={storagePct}
+                  >
+                    <i style={{ width: `${storagePct}%` }} />
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Storage */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-teal-500/10">
-                      <HardDrive className="w-5 h-5 text-teal-700 dark:text-teal-400" />
-                    </div>
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <p className="text-sm font-medium">Armazenamento</p>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{formatBytes(data?.system.storageBytes || 0)} / 10 GB</span>
-                          <span className="font-medium text-teal-700 dark:text-teal-400">{storagePct}%</span>
-                        </div>
-                        <Progress value={storagePct} className="h-2" />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </article>
             </div>
-          </div>
+          </section>
 
-          {/* Activity Log */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="w-4 h-4 text-muted-foreground" />
-                Atividade Recente
-              </CardTitle>
-              <CardDescription>Últimas notificações geradas na plataforma</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[180px]">Data/Hora</TableHead>
-                      <TableHead>Ação</TableHead>
-                      <TableHead className="hidden md:table-cell">Organização</TableHead>
-                      <TableHead className="hidden lg:table-cell">Detalhes</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+          <section className="cartao" aria-labelledby="t-atividade">
+            <div className="cartao__cab">
+              <div>
+                <h2 id="t-atividade"><Activity className="ic verde-txt" aria-hidden="true" />Atividade Recente</h2>
+                <p>Últimas notificações geradas na plataforma</p>
+              </div>
+            </div>
+            <div className="cartao__corpo">
+              <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Atividade recente">
+                <table className="tabela tabela--cab-cinza">
+                  <thead>
+                    <tr>
+                      <th className="w-[180px]">Data/Hora</th>
+                      <th>Ação</th>
+                      <th className="hidden md:table-cell">Organização</th>
+                      <th className="hidden lg:table-cell">Detalhes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {(data?.activity || []).length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                      <tr>
+                        <td colSpan={4} className="centro suave py-8">
                           {loading ? 'Carregando...' : 'Nenhuma atividade recente.'}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ) : (
                       (data?.activity || []).map((entry) => (
-                        <TableRow key={entry.id}>
-                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                            {formatDateTime(entry.timestamp)}
-                          </TableCell>
-                          <TableCell className="font-medium text-sm">{entry.action}</TableCell>
-                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                            {entry.organization}
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-xs truncate">
-                            {entry.details || '—'}
-                          </TableCell>
-                        </TableRow>
+                        <tr key={entry.id}>
+                          <td className="suave whitespace-nowrap">{formatDateTime(entry.timestamp)}</td>
+                          <td className="forte">{entry.action}</td>
+                          <td className="hidden md:table-cell suave">{entry.organization}</td>
+                          <td className="hidden lg:table-cell suave max-w-xs truncate">{entry.details || '—'}</td>
+                        </tr>
                       ))
                     )}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </TabsContent>
       </Tabs>
 
-      {/* ── Organization Detail Dialog ───────────────────────────────── */}
+      {/* ── Detalhe da organização (portal: componentes shadcn) ─────── */}
       <Dialog open={!!selectedOrg} onOpenChange={(open) => !open && setSelectedOrg(null)}>
         <DialogContent className="sm:max-w-md">
           {selectedOrg && (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+                  <Building2 className="w-5 h-5 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
                   {selectedOrg.name}
                 </DialogTitle>
                 <DialogDescription>Detalhes da organização</DialogDescription>
@@ -696,6 +627,6 @@ export default function AdminView() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }

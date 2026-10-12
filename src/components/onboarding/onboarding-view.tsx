@@ -1,18 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
+import { useCallback, useEffect, useState } from 'react'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import {
-  Building2, Clock, DollarSign, QrCode, Users, FileBarChart, CheckCircle2,
-  ChevronLeft, ChevronRight, Plus, X, Zap,
+  Building2, Clock, DollarSign, QrCode, Users, FileBarChart, CheckCircle2, ArrowLeft, ArrowRight, Plus, Trash2, Zap,
+  Tag, Globe, Rocket, RefreshCw, type LucideIcon,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { toast } from 'sonner'
@@ -36,14 +27,15 @@ interface OnboardingState {
   reportWeekDay: string
 }
 
-const STEPS = [
-  { id: 'empresa', label: 'Empresa', icon: Building2 },
-  { id: 'horario', label: 'Horário', icon: Clock },
-  { id: 'meta', label: 'Meta', icon: DollarSign },
-  { id: 'whatsapp', label: 'WhatsApp', icon: QrCode },
-  { id: 'equipe', label: 'Equipe', icon: Users },
-  { id: 'relatorio', label: 'Relatório', icon: FileBarChart },
-  { id: 'revisao', label: 'Revisão', icon: CheckCircle2 },
+// Título de cada etapa no formato do pacote: texto + destaque verde
+const STEPS: { id: string; label: string; icon: LucideIcon; title: [string, string, string?]; sub: string }[] = [
+  { id: 'empresa', label: 'Empresa', icon: Building2, title: ['Vamos ativar seu ', 'AtendeRadar'], sub: 'Faltam poucos passos para começar a auditar suas conversas.' },
+  { id: 'horario', label: 'Horário', icon: Clock, title: ['Qual é o seu ', 'horário comercial', '?'], sub: 'Defina o horário comercial de cada dia da semana.' },
+  { id: 'meta', label: 'Meta', icon: DollarSign, title: ['Quanto vale cada ', 'conversa', '?'], sub: 'Esses dados ajudam a calcular o valor em risco nas conversas.' },
+  { id: 'whatsapp', label: 'WhatsApp', icon: QrCode, title: ['Conecte seu ', 'WhatsApp'], sub: 'Conecte sua conta do WhatsApp Business para começar a auditar conversas.' },
+  { id: 'equipe', label: 'Equipe', icon: Users, title: ['Quem atende no ', 'WhatsApp', '?'], sub: 'Adicione os atendentes da equipe.' },
+  { id: 'relatorio', label: 'Relatório', icon: FileBarChart, title: ['Quando receber seus ', 'relatórios', '?'], sub: 'Configure quando e como deseja receber seus relatórios.' },
+  { id: 'revisao', label: 'Revisão', icon: CheckCircle2, title: ['Revise e ', 'ative', ''], sub: 'Confira os dados antes de ativar a organização.' },
 ]
 
 const DAYS = [
@@ -67,6 +59,8 @@ const TIMEZONES = [
   'America/Porto_Velho', 'America/Rio_Branco', 'America/Boa_Vista',
 ]
 
+const REPORT_FREQ: Record<OnboardingState['reportFreq'], string> = { daily: 'Diário', weekly: 'Semanal', 'daily+weekly': 'Diário + Semanal' }
+
 const defaultHours: Record<string, { start: string; end: string; active: boolean }> = {}
 DAYS.forEach((d) => {
   defaultHours[d.key] = { start: '09:00', end: '18:00', active: !['dom', 'sab'].includes(d.key) }
@@ -86,6 +80,9 @@ const initialState: OnboardingState = {
   reportWeekDay: 'seg',
 }
 
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase()
+
+// Visual de onboarding.html do pacote, dentro do conteúdo do painel (o `.conta` ativa as regras de conta).
 export default function OnboardingView() {
   const { setView, setCurrentOrganization } = useAppStore()
   const [step, setStep] = useState(0)
@@ -96,6 +93,23 @@ export default function OnboardingView() {
 
   const update = (partial: Partial<OnboardingState>) =>
     setState((prev) => ({ ...prev, ...partial }))
+
+  // Estado real: há alguma conexão de WhatsApp conectada nesta empresa?
+  const [checkingWhatsapp, setCheckingWhatsapp] = useState(false)
+  const checkWhatsapp = useCallback(() => {
+    setCheckingWhatsapp(true)
+    fetch('/api/connections')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const list: { status: string }[] = Array.isArray(d) ? d : d?.connections ?? []
+        setState((prev) => ({ ...prev, whatsappConnected: list.some((c) => c.status === 'connected') }))
+      })
+      .catch(() => {})
+      .finally(() => setCheckingWhatsapp(false))
+  }, [])
+  useEffect(() => {
+    if (step === 3) checkWhatsapp()
+  }, [step, checkWhatsapp])
 
   const updateHours = (day: string, field: 'start' | 'end' | 'active', value: string | boolean) =>
     setState((prev) => ({
@@ -118,15 +132,17 @@ export default function OnboardingView() {
   const removeAgent = (email: string) =>
     update({ agents: state.agents.filter((a) => a.email !== email) })
 
-  const progress = ((step + 1) / STEPS.length) * 100
   const tzLabel = (tz: string) => tz.replace('America/', '').replace(/_/g, ' ')
+  const valuePerConversation = state.avgTicket && state.conversionRate
+    ? ((parseFloat(state.avgTicket) * parseFloat(state.conversionRate)) / 100).toFixed(2)
+    : null
 
   const canNext = () => {
     switch (step) {
       case 0: return state.orgName.trim() !== '' && state.segment !== ''
       case 1: return true
       case 2: return state.avgTicket !== '' && state.conversionRate !== ''
-      case 3: return state.whatsappConnected
+      case 3: return true // conectar o WhatsApp pode ficar para depois (tela Conexões)
       case 4: return state.agents.length > 0
       case 5: return true
       default: return true
@@ -193,239 +209,201 @@ export default function OnboardingView() {
     }
   }
 
+  // Resumo lateral: o que já foi preenchido em cada etapa (só dados digitados aqui)
+  const summary: Record<string, string> = {
+    empresa: state.orgName ? `${state.orgName}${state.segment ? ` · ${state.segment}` : ''}` : 'Pendente',
+    horario: `${DAYS.filter((d) => state.businessHours[d.key].active).length} dias com atendimento`,
+    meta: valuePerConversation ? `R$ ${valuePerConversation} por conversa` : 'Pendente',
+    whatsapp: state.whatsappConnected ? 'Conectado' : 'Não conectado',
+    equipe: state.agents.length === 0 ? 'Nenhum atendente' : state.agents.length === 1 ? '1 atendente' : `${state.agents.length} atendentes`,
+    relatorio: `${REPORT_FREQ[state.reportFreq]} às ${state.reportTime}`,
+    revisao: 'Ativar organização',
+  }
+
   const renderStep = () => {
     switch (step) {
       case 0:
         return (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="orgName">Nome da empresa</Label>
-              <Input
-                id="orgName"
-                placeholder="Ex: Minha Empresa LTDA"
-                value={state.orgName}
-                onChange={(e) => update({ orgName: e.target.value })}
-              />
+          <>
+            <div className="campo">
+              <label htmlFor="orgName">Nome da empresa</label>
+              <div className="campo-ic">
+                <Building2 className="ic" aria-hidden="true" />
+                <input className="entrada entrada--grande" id="orgName" placeholder="Ex.: Minha Empresa Ltda." value={state.orgName} onChange={(e) => update({ orgName: e.target.value })} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Segmento de atuação</Label>
-              <Select value={state.segment} onValueChange={(v) => update({ segment: v })}>
-                <SelectTrigger aria-label="Selecione o segmento"><SelectValue placeholder="Selecione o segmento" /></SelectTrigger>
-                <SelectContent>
-                  {SEGMENTS.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="campo">
+              <label htmlFor="orgSegment">Segmento de atuação</label>
+              <div className="campo-ic">
+                <Tag className="ic" aria-hidden="true" />
+                <select className="selecao entrada--grande" id="orgSegment" value={state.segment} onChange={(e) => update({ segment: e.target.value })}>
+                  <option value="">Selecione o segmento da sua empresa</option>
+                  {SEGMENTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Fuso horário</Label>
-              <Select value={state.timezone} onValueChange={(v) => update({ timezone: v })}>
-                <SelectTrigger aria-label="Fuso horário"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {TIMEZONES.map((tz) => (
-                    <SelectItem key={tz} value={tz}>{tzLabel(tz)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="campo">
+              <label htmlFor="orgTimezone">Fuso horário</label>
+              <div className="campo-ic">
+                <Globe className="ic" aria-hidden="true" />
+                <select className="selecao entrada--grande" id="orgTimezone" value={state.timezone} onChange={(e) => update({ timezone: e.target.value })}>
+                  {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tzLabel(tz)}</option>)}
+                </select>
+              </div>
             </div>
-          </div>
+          </>
         )
 
       case 1:
         return (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Defina o horário comercial de cada dia da semana.</p>
-            <div className="space-y-2">
-              {DAYS.map((d) => {
-                const h = state.businessHours[d.key]
-                return (
-                  <div key={d.key} className="flex items-center gap-3">
-                    <Label className="w-10 text-sm font-medium">{d.label}</Label>
-                    <input
-                      type="checkbox"
-                      checked={h.active}
-                      onChange={(e) => updateHours(d.key, 'active', e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 accent-primary"
-                    />
-                    {h.active && (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="time"
-                          value={h.start}
-                          onChange={(e) => updateHours(d.key, 'start', e.target.value)}
-                          className="w-32"
-                        />
-                        <span className="text-muted-foreground text-sm">até</span>
-                        <Input
-                          type="time"
-                          value={h.end}
-                          onChange={(e) => updateHours(d.key, 'end', e.target.value)}
-                          className="w-32"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          <ul className="lista-membros">
+            {DAYS.map((d) => {
+              const h = state.businessHours[d.key]
+              return (
+                <li key={d.key} className="grid-cols-[minmax(84px,auto)_1fr] gap-y-2">
+                  <label className="flex items-center gap-2.5 font-semibold">
+                    <input type="checkbox" className="size-[18px] accent-[var(--verde-600)]" checked={h.active} onChange={(e) => updateHours(d.key, 'active', e.target.checked)} />
+                    {d.label}
+                  </label>
+                  {h.active ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input type="time" className="entrada w-32" aria-label={`Início do atendimento (${d.label})`} value={h.start} onChange={(e) => updateHours(d.key, 'start', e.target.value)} />
+                      <span className="text-sm text-[var(--suave)]">até</span>
+                      <input type="time" className="entrada w-32" aria-label={`Fim do atendimento (${d.label})`} value={h.end} onChange={(e) => updateHours(d.key, 'end', e.target.value)} />
+                    </div>
+                  ) : (
+                    <span className="text-sm text-[var(--suave)]">Sem atendimento</span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
         )
 
       case 2:
         return (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Esses dados ajudam a calcular o valor em risco nas conversas.</p>
-            <div className="space-y-2">
-              <Label htmlFor="avgTicket">Ticket médio (R$)</Label>
-              <Input
-                id="avgTicket"
-                type="number"
-                placeholder="Ex: 350"
-                value={state.avgTicket}
-                onChange={(e) => update({ avgTicket: e.target.value })}
-              />
+          <>
+            <div className="grade-form">
+              <div className="campo">
+                <label htmlFor="avgTicket">Ticket médio (R$)</label>
+                <div className="campo-ic">
+                  <DollarSign className="ic" aria-hidden="true" />
+                  <input className="entrada entrada--grande" id="avgTicket" type="number" placeholder="Ex.: 350" value={state.avgTicket} onChange={(e) => update({ avgTicket: e.target.value })} />
+                </div>
+              </div>
+              <div className="campo">
+                <label htmlFor="convRate">Taxa de conversão esperada (%)</label>
+                <input className="entrada entrada--grande" id="convRate" type="number" min="0" max="100" placeholder="Ex.: 25" value={state.conversionRate} onChange={(e) => update({ conversionRate: e.target.value })} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="convRate">Taxa de conversão esperada (%)</Label>
-              <Input
-                id="convRate"
-                type="number"
-                min="0"
-                max="100"
-                placeholder="Ex: 25"
-                value={state.conversionRate}
-                onChange={(e) => update({ conversionRate: e.target.value })}
-              />
-            </div>
-            {state.avgTicket && state.conversionRate && (
-              <Card className="bg-muted/50">
-                <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground">Valor potencial por conversa</p>
-                  <p className="text-2xl font-bold text-primary">
-                    R$ {((parseFloat(state.avgTicket) * parseFloat(state.conversionRate)) / 100).toFixed(2)}
-                  </p>
-                </CardContent>
-              </Card>
+            {valuePerConversation && (
+              <div className="hoje-zero">
+                <DollarSign className="ic" aria-hidden="true" />
+                <span><b>R$ {valuePerConversation}</b><span>Valor potencial por conversa</span></span>
+              </div>
             )}
-          </div>
+          </>
         )
 
       case 3:
         return (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Conecte sua conta do WhatsApp Business para começar a auditar conversas.</p>
-            <div className="flex flex-col items-center justify-center py-8 gap-4">
-              {!state.whatsappConnected ? (
-                <>
-                  <div className="w-48 h-48 bg-muted rounded-xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                    <QrCode className="w-24 h-24 text-muted-foreground/40" />
-                  </div>
-                  <p className="text-sm text-muted-foreground text-center">
-                    Escaneie o QR Code com o WhatsApp Business<br />
-                    para conectar sua conta
-                  </p>
-                  <Button onClick={() => update({ whatsappConnected: true })}>
-                    <QrCode className="w-4 h-4 mr-2" />
-                    Simular conexão
-                  </Button>
-                </>
+          <div className="qr-onb">
+            <div className="grid aspect-square w-full max-w-[220px] place-items-center rounded-2xl border-2 border-dashed border-[var(--borda-forte)] bg-[var(--superficie-2)]">
+              {state.whatsappConnected
+                ? <CheckCircle2 className="ic text-[72px] text-[var(--verde-600)]" aria-hidden="true" />
+                : <QrCode className="ic text-[96px] text-[var(--muito-suave)]" aria-hidden="true" />}
+            </div>
+            <div className="grid justify-items-start gap-4">
+              <p className="text-[var(--texto-2)]">
+                A conexão é feita na tela Conexões: gere o QR Code e escaneie com o WhatsApp Business. Você pode seguir o assistente e conectar depois.
+              </p>
+              {state.whatsappConnected ? (
+                <span className="status-qr ok" role="status"><CheckCircle2 className="ic" aria-hidden="true" />WhatsApp conectado.</span>
               ) : (
-                <>
-                  <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-700 dark:text-emerald-400" />
-                  </div>
-                  <p className="font-medium text-emerald-700 dark:text-emerald-400">WhatsApp conectado com sucesso!</p>
-                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                    Conectado
-                  </Badge>
-                </>
+                <span className="status-qr" role="status">
+                  <QrCode className="ic" aria-hidden="true" />
+                  {checkingWhatsapp ? 'Verificando conexões…' : 'Nenhum WhatsApp conectado ainda.'}
+                </span>
               )}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn btn--lg" onClick={() => setView('connections')}>
+                  <QrCode className="ic" aria-hidden="true" />Abrir Conexões
+                </button>
+                <button type="button" className="btn btn--lg" onClick={checkWhatsapp} disabled={checkingWhatsapp}>
+                  <RefreshCw className={checkingWhatsapp ? 'ic girando' : 'ic'} aria-hidden="true" />Verificar de novo
+                </button>
+              </div>
             </div>
           </div>
         )
 
       case 4:
         return (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Adicione os atendentes da equipe.</p>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Nome do atendente"
-                value={agentNameInput}
-                onChange={(e) => setAgentNameInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAgent())}
-              />
-              <Input
-                type="email"
-                placeholder="E-mail"
-                value={agentEmailInput}
-                onChange={(e) => setAgentEmailInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAgent())}
-              />
-              <Button aria-label="Adicionar" onClick={addAgent} size="icon" disabled={!agentNameInput.trim() || !agentEmailInput.trim()}>
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {state.agents.map((agent) => (
-                <Badge key={agent.email} variant="secondary" className="gap-1.5 py-1.5 px-3 text-sm">
-                  {agent.name} <span className="text-muted-foreground">({agent.email})</span>
-                  <button onClick={() => removeAgent(agent.email)} className="hover:text-destructive">
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-              {state.agents.length === 0 && (
-                <p className="text-sm text-muted-foreground">Nenhum atendente adicionado ainda.</p>
-              )}
-            </div>
-          </div>
+          <>
+            <form
+              className="grade-form items-end md:grid-cols-[1fr_1fr_auto]"
+              onSubmit={(e) => { e.preventDefault(); addAgent() }}
+            >
+              <div className="campo">
+                <label htmlFor="agentName">Nome</label>
+                <input className="entrada" id="agentName" placeholder="Nome do atendente" value={agentNameInput} onChange={(e) => setAgentNameInput(e.target.value)} />
+              </div>
+              <div className="campo">
+                <label htmlFor="agentEmail">E-mail</label>
+                <input className="entrada" id="agentEmail" type="email" placeholder="atendente@empresa.com.br" value={agentEmailInput} onChange={(e) => setAgentEmailInput(e.target.value)} />
+              </div>
+              <button type="submit" className="btn btn--lg h-[46px]" disabled={!agentNameInput.trim() || !agentEmailInput.trim()}>
+                <Plus className="ic" aria-hidden="true" />Adicionar
+              </button>
+            </form>
+            {state.agents.length === 0 ? (
+              <p className="info-campo">Nenhum atendente adicionado ainda.</p>
+            ) : (
+              <ul className="lista-membros">
+                {state.agents.map((agent) => (
+                  <li key={agent.email}>
+                    <span className="av av--verde" aria-hidden="true">{initials(agent.name)}</span>
+                    <span className="min-w-0"><b>{agent.name}</b><br /><small className="suave break-all">{agent.email}</small></span>
+                    <span className="tag tag--verde">Atendente</span>
+                    <button type="button" className="btn btn--sm" onClick={() => removeAgent(agent.email)} aria-label={`Remover ${agent.name}`}>
+                      <Trash2 className="ic" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )
 
       case 5:
         return (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Configure quando e como deseja receber seus relatórios.</p>
-            <div className="space-y-2">
-              <Label>Frequência do relatório</Label>
-              <Select value={state.reportFreq} onValueChange={(v) => update({ reportFreq: v as OnboardingState['reportFreq'] })}>
-                <SelectTrigger aria-label="Frequência do relatório"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Diário</SelectItem>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="daily+weekly">Diário + Semanal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Horário de envio</Label>
-              <Input
-                type="time"
-                value={state.reportTime}
-                onChange={(e) => update({ reportTime: e.target.value })}
-                className="w-40"
-              />
+          <>
+            <div className="grade-form">
+              <div className="campo">
+                <label htmlFor="reportFreq">Frequência do relatório</label>
+                <select className="selecao" id="reportFreq" value={state.reportFreq} onChange={(e) => update({ reportFreq: e.target.value as OnboardingState['reportFreq'] })}>
+                  {Object.entries(REPORT_FREQ).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div className="campo">
+                <label htmlFor="reportTime">Horário de envio</label>
+                <input className="entrada" id="reportTime" type="time" value={state.reportTime} onChange={(e) => update({ reportTime: e.target.value })} />
+              </div>
             </div>
             {(state.reportFreq === 'weekly' || state.reportFreq === 'daily+weekly') && (
-              <div className="space-y-2">
-                <Label>Dia do relatório semanal</Label>
-                <Select value={state.reportWeekDay} onValueChange={(v) => update({ reportWeekDay: v })}>
-                  <SelectTrigger aria-label="Dia do relatório semanal"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DAYS.filter((d) => d.key !== 'dom').map((d) => (
-                      <SelectItem key={d.key} value={d.key}>{d.label}-feira</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="campo">
+                <label htmlFor="reportWeekDay">Dia do relatório semanal</label>
+                <select className="selecao" id="reportWeekDay" value={state.reportWeekDay} onChange={(e) => update({ reportWeekDay: e.target.value })}>
+                  {DAYS.filter((d) => d.key !== 'dom').map((d) => <option key={d.key} value={d.key}>{d.label}-feira</option>)}
+                </select>
               </div>
             )}
-          </div>
+          </>
         )
 
       case 6:
         return (
-          <div className="space-y-6">
+          <>
             <div className="grid gap-4 sm:grid-cols-2">
               <SummaryCard title="Empresa" items={[
                 { label: 'Nome', value: state.orgName || '—' },
@@ -435,29 +413,29 @@ export default function OnboardingView() {
               <SummaryCard title="Meta" items={[
                 { label: 'Ticket médio', value: state.avgTicket ? `R$ ${parseFloat(state.avgTicket).toFixed(2)}` : '—' },
                 { label: 'Taxa de conversão', value: state.conversionRate ? `${state.conversionRate}%` : '—' },
-                { label: 'Valor por conversa', value: state.avgTicket && state.conversionRate ? `R$ ${((parseFloat(state.avgTicket) * parseFloat(state.conversionRate)) / 100).toFixed(2)}` : '—' },
+                { label: 'Valor por conversa', value: valuePerConversation ? `R$ ${valuePerConversation}` : '—' },
               ]} />
               <SummaryCard title="WhatsApp" items={[
-                { label: 'Status', value: state.whatsappConnected ? '✅ Conectado' : '❌ Não conectado' },
+                { label: 'Status', value: state.whatsappConnected ? 'Conectado' : 'Não conectado' },
               ]} />
               <SummaryCard title="Equipe" items={[
                 { label: 'Atendentes', value: state.agents.length > 0 ? state.agents.map((a) => a.name).join(', ') : 'Nenhum' },
               ]} />
               <SummaryCard title="Relatórios" items={[
-                { label: 'Frequência', value: state.reportFreq === 'daily' ? 'Diário' : state.reportFreq === 'weekly' ? 'Semanal' : 'Diário + Semanal' },
+                { label: 'Frequência', value: REPORT_FREQ[state.reportFreq] },
                 { label: 'Horário', value: state.reportTime },
               ]} />
             </div>
-            <Button
-              size="lg"
-              className="w-full sm:w-auto"
+            <button
+              type="button"
+              className="btn btn--verde btn--xl btn--bloco"
               onClick={handleActivate}
               disabled={!state.orgName || !state.segment || activating}
             >
-              <Zap className="w-4 h-4 mr-2" />
+              <Zap className="ic" aria-hidden="true" />
               {activating ? 'Ativando...' : 'Ativar organização'}
-            </Button>
-          </div>
+            </button>
+          </>
         )
 
       default:
@@ -465,65 +443,79 @@ export default function OnboardingView() {
     }
   }
 
+  const current = STEPS[step]
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Configuração Inicial</h1>
-        <p className="text-muted-foreground mt-1">Complete as etapas abaixo para configurar sua organização.</p>
-      </div>
+    <div className="conta">
+      <div className="conta-cartao onboarding mt-0">
+        <ol className="etapas" aria-label="Etapas">
+          {STEPS.map((s, i) => {
+            const active = i === step
+            const done = i < step
+            return (
+              <li key={s.id} className={`etapa min-w-0 flex-1 w-auto${active ? ' atual' : ''}${done ? ' feita' : ''}`} aria-current={active ? 'step' : undefined}>
+                <button
+                  type="button"
+                  className="grid justify-items-center gap-2 border-0 bg-transparent p-0 text-inherit disabled:cursor-default"
+                  onClick={() => setStep(i)}
+                  disabled={i > step}
+                  aria-label={`Etapa ${i + 1}: ${s.label}`}
+                >
+                  <span className="etapa__num" aria-hidden="true">{done ? <CheckCircle2 className="ic" /> : i + 1}</span>
+                  <span className="hidden text-center md:inline" aria-hidden="true">{s.label}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ol>
 
-      {/* Step indicators */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-2">
-        {STEPS.map((s, i) => {
-          const Icon = s.icon
-          const active = i === step
-          const done = i < step
-          return (
-            <button
-              key={s.id}
-              onClick={() => i <= step && setStep(i)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                active
-                  ? 'bg-primary text-primary-foreground'
-                  : done
-                    ? 'bg-primary/10 text-foreground hover:bg-primary/20'
-                    : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">{s.label}</span>
-            </button>
-          )
-        })}
-      </div>
+        <div className="onboarding__corpo">
+          <div className="onboarding__form">
+            <div>
+              <h1>{current.title[0]}<span className="verde">{current.title[1]}</span>{current.title[2] ?? ''}</h1>
+              <p className="sub-conta mt-1.5">{current.sub}</p>
+            </div>
 
-      <Progress value={progress} className="h-2" />
+            {renderStep()}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            {(() => { const I = STEPS[step].icon; return <I className="w-5 h-5" /> })()}
-            {STEPS[step].label}
-          </CardTitle>
-          <CardDescription>Etapa {step + 1} de {STEPS.length}</CardDescription>
-        </CardHeader>
-        <CardContent>{renderStep()}</CardContent>
-      </Card>
+            <div className="grade-form">
+              <button type="button" className="btn btn--xl" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
+                <ArrowLeft className="ic" aria-hidden="true" />Voltar
+              </button>
+              {step < STEPS.length - 1 && (
+                <button type="button" className="btn btn--verde btn--xl" onClick={() => setStep((s) => s + 1)} disabled={!canNext()}>
+                  Próximo <ArrowRight className="ic" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={() => setStep((s) => s - 1)}
-          disabled={step === 0}
-        >
-          <ChevronLeft className="w-4 h-4 mr-1" /> Voltar
-        </Button>
-        {step < STEPS.length - 1 && (
-          <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext()}>
-            Próximo <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        )}
+          <aside className="onboarding__lado" aria-label="Resumo da configuração">
+            <div className="plano-topo">
+              <span className="coroa"><Rocket className="ic" aria-hidden="true" /></span>
+              <div>
+                <small>Configuração inicial</small>
+                <b>Etapa {step + 1} de {STEPS.length}</b>
+                <p>Complete as etapas para configurar sua organização.</p>
+              </div>
+            </div>
+            {STEPS.map((s, i) => {
+              const Icon = s.icon
+              const done = i < step
+              return (
+                <div key={s.id} className="ok-item">
+                  <span className={`bola${done ? '' : ' bg-[var(--superficie-3)] text-[var(--suave)]'}`}>
+                    {done ? <CheckCircle2 className="ic" aria-hidden="true" /> : <Icon className="ic" aria-hidden="true" />}
+                  </span>
+                  <span className="min-w-0">
+                    <b>{s.label}{done && <span className="sr-only"> (concluída)</span>}</b>
+                    <span className="block truncate" title={summary[s.id]}>{summary[s.id]}</span>
+                  </span>
+                </div>
+              )
+            })}
+          </aside>
+        </div>
       </div>
     </div>
   )
@@ -531,20 +523,16 @@ export default function OnboardingView() {
 
 function SummaryCard({ title, items }: { title: string; items: { label: string; value: string }[] }) {
   return (
-    <Card className="bg-muted/30">
-      <CardHeader className="pb-2 pt-4 px-4">
-        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-1">
+    <section className="rounded-2xl border border-[var(--borda)] bg-[var(--superficie)] p-4">
+      <h2 className="mb-2 text-sm font-bold">{title}</h2>
+      <dl className="grid gap-1">
         {items.map((item) => (
-          <div key={item.label} className="flex justify-between text-sm">
-            <span className="text-muted-foreground">{item.label}</span>
-            <span className="font-medium text-right max-w-[60%] truncate" title={item.value}>
-              {item.value}
-            </span>
+          <div key={item.label} className="flex justify-between gap-3 text-sm">
+            <dt className="text-[var(--suave)]">{item.label}</dt>
+            <dd className="max-w-[60%] truncate text-right font-medium" title={item.value}>{item.value}</dd>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </dl>
+    </section>
   )
 }
