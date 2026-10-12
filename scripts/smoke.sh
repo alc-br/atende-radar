@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Teste de fumaça contra o site no ar (somente leitura: não cria conta, não escreve nada).
-#   scripts/smoke.sh https://atende-radar.dev.alc.srv.br
+#   scripts/smoke.sh https://app.atenderadar.com.br
 set -u
-BASE="${1:-https://atende-radar.dev.alc.srv.br}"
+BASE="${1:-https://app.atenderadar.com.br}"
 FAIL=0
 check() { # descrição, esperado, obtido
   if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FALHOU $1 (esperado $2, obtido $3)"; FAIL=1; fi

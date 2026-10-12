@@ -30,7 +30,7 @@
 
 ## Webhook (configurar no painel do Pagar.me)
 
-- **URL:** `https://atende-radar.dev.alc.srv.br/api/billing/webhook`
+- **URL:** `https://app.atenderadar.com.br/api/billing/webhook`
 - **Autenticação:** Basic, com `PAGARME_WEBHOOK_USER` e `PAGARME_WEBHOOK_PASS`.
 - **Eventos:** `subscription.*`, `invoice.*` e `charge.*` (ou todos).
 

@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Testes de fumaça contra o site no ar
-        run: bash scripts/smoke.sh https://atende-radar.dev.alc.srv.br
+        run: bash scripts/smoke.sh https://app.atenderadar.com.br
 
       - name: "Abrir/atualizar issue quando falhar (alerta operacional sem depender de e-mail)"
         if: failure()
