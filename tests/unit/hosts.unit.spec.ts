@@ -14,7 +14,7 @@ const call = async (host: string, path: string, method = 'GET') => {
 
 test.describe('domínios do site e do app', () => {
   test('site serve a página de vendas, os arquivos dela e o catálogo de planos', async () => {
-    for (const path of ['/', '/brand/logo-atenderadar.webp', '/_next/static/x.js', '/api/public/plans', '/favicon.ico']) {
+    for (const path of ['/', '/brand/logo-atenderadar.webp', '/_next/static/x.js', '/api/public/plans', '/favicon.ico', '/conteudos', '/conteudos/vendas-perdidas-whatsapp', '/privacidade', '/termos', '/sitemap.xml', '/robots.txt']) {
       const r = await call('atenderadar.com.br', path)
       expect(r.location, path).toBeNull()
     }
@@ -48,6 +48,14 @@ test.describe('domínios do site e do app', () => {
     expect(home.location).toBeNull()
     expect(home.robots).toContain('noindex')
     expect((await call('app.atenderadar.com.br', '/api/me')).status).toBe(401)
+  })
+
+  test('no app, artigos e páginas legais levam ao site', async () => {
+    for (const path of ['/conteudos', '/conteudos/vendas-perdidas-whatsapp', '/privacidade', '/termos']) {
+      const r = await call('app.atenderadar.com.br', path)
+      expect(r.status, path).toBe(308)
+      expect(r.location).toBe(`https://atenderadar.com.br${path}`)
+    }
   })
 
   test('chamadas internas do servidor (health check) não são redirecionadas', async () => {

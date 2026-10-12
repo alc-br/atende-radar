@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
-import { APP_URL, SITE_URL, appHost, isSitePath, siteHost, splitHosts } from './lib/hosts'
+import { APP_URL, SITE_URL, appHost, isSiteOnlyPage, isSitePath, siteHost, splitHosts } from './lib/hosts'
 
 // Toda rota de API exige sessão válida. Ficam públicos: /api/auth/* (login/cadastro/recuperação) e /api/public/* (catálogo da página de vendas) e /api/gateway/* (serviço do WhatsApp, autenticado por segredo próprio na rota) e /api/billing/webhook (aviso do Pagar.me, autenticação básica própria).
 function apiNeedsSession(pathname: string) {
@@ -18,7 +18,8 @@ function routeByHost(req: NextRequest): NextResponse | null {
   if (host === siteHost) {
     return isSitePath(pathname) ? null : NextResponse.redirect(APP_URL + pathname + search, 308)
   }
-  if (host !== appHost && !pathname.startsWith('/api/')) {
+  if (host === appHost) return isSiteOnlyPage(pathname) ? NextResponse.redirect(SITE_URL + pathname + search, 308) : null
+  if (!pathname.startsWith('/api/')) {
     // domínio antigo: as páginas vão para o app; as APIs continuam respondendo (aviso do Pagar.me, gateway)
     return NextResponse.redirect(APP_URL + pathname + search, 308)
   }

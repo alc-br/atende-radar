@@ -1,4 +1,4 @@
-/* Ajustes sobre o CSS gerado do pacote de design (painel.css, conta.css e landing.css ficam iguais ao pacote).
+/* Ajustes sobre o CSS gerado do pacote de design (painel.css e conta.css ficam iguais ao pacote; site.css e blog.css são gerados dele).
    1) Fontes: o next/font carrega Inter e Plus Jakarta Sans com nomes próprios; os tokens apontam para elas.
    2) Contraste: alguns tons de texto do pacote ficam abaixo de 4,5:1 (WCAG AA) sobre os fundos coloridos das
       etiquetas. Escurecemos só o necessário para passar; fundos e desenho continuam os do pacote. */
@@ -30,13 +30,6 @@
   .dark .ar .av--verde { color: #6fe2aa; }
   .dark .ar .av--vermelho { color: #ff8d93; }
   .dark .ar .av--laranja { color: #ffae6b; }
-  /* Landing: "/mês" e o rodapé usam #8a94a3 (2,9:1 sobre branco); o --suave da própria landing passa de 4,5:1 */
-  .lp .plano__preco span,
-  .lp .rodape__copy { color: var(--suave); }
-  .lp {
-    --fonte: var(--font-jakarta), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-
   /* O painel do pacote é uma página por tela; aqui é uma aplicação só. Itens do menu são botões/links sem href real. */
   .ar .nav-lateral a { cursor: pointer; }
   .ar .nav-lateral a:focus-visible { outline: 2px solid var(--verde-400); outline-offset: 2px; }

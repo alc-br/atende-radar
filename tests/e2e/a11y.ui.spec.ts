@@ -56,7 +56,7 @@ test.describe('Acessibilidade e temas', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     const landing = await audit(page, `${info.project.name}-landing`)
     // em telas estreitas o "Entrar" fica no menu do topo
-    const entrar = page.getByRole('button', { name: 'Entrar', exact: true })
+    const entrar = page.locator('header').getByRole('link', { name: 'Entrar', exact: true })
     if (!(await entrar.first().isVisible())) await page.getByRole('button', { name: 'Abrir menu' }).click()
     await entrar.first().click()
     await expect(page.getByRole('heading', { name: 'Bem-vindo de volta' })).toBeVisible()

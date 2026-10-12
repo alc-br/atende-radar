@@ -2,7 +2,8 @@
 @import "tw-animate-css";
 @import "../styles/painel.css";
 @import "../styles/conta.css";
-@import "../styles/landing.css";
+@import "../styles/site.css";
+@import "../styles/blog.css";
 @import "../styles/painel-ajustes.css";
 
 @custom-variant dark (&:is(.dark *));

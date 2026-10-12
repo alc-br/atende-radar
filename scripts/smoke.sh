@@ -10,7 +10,7 @@ check() { # descrição, esperado, obtido
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
 check "página inicial abre" 200 "$(code "$BASE/")"
-check "login abre" 200 "$(code "$BASE/login")"
+check "login abre" 200 "$(code -L "$BASE/login")"
 check "planos públicos" 200 "$(code "$BASE/api/public/plans")"
 check "API fechada sem login (dashboard)" 401 "$(code "$BASE/api/dashboard")"
 check "API fechada sem login (membros)" 401 "$(code "$BASE/api/members")"

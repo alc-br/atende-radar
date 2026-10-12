@@ -17,10 +17,16 @@ export function appLink(path: string) {
   return splitHosts ? APP_URL + path : path
 }
 
+/** Páginas que só existem no site (conteúdos e páginas legais); no app elas levam ao site. */
+export function isSiteOnlyPage(pathname: string) {
+  return pathname === '/conteudos' || pathname.startsWith('/conteudos/') || pathname === '/privacidade' || pathname === '/termos'
+}
+
 /** O que o domínio do site serve; todo o resto é do app. */
 export function isSitePath(pathname: string) {
   return (
     pathname === '/' ||
+    isSiteOnlyPage(pathname) ||
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/brand/') ||
     pathname.startsWith('/api/public/') ||
