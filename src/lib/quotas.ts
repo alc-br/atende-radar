@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from './db'
 import { DEFAULT_RULE_NAMES } from './org-defaults'
+import { effectiveStatus, isActiveStatus } from './billing/core'
 
 export type QuotaKind = 'connections' | 'agents' | 'alertRules'
 
@@ -19,7 +20,7 @@ export async function enforceQuota(orgId: string, kind: QuotaKind): Promise<Next
   const sub = await db.subscription.findUnique({ where: { organizationId: orgId }, include: { plan: true } })
   if (!sub) return null
 
-  if (!['active', 'trialing'].includes(sub.status)) {
+  if (!isActiveStatus(effectiveStatus(sub))) {
     return NextResponse.json(
       { error: 'A assinatura desta empresa não está ativa. Contrate um plano para continuar cadastrando.', code: 'subscription_inactive' },
       { status: 402 }
@@ -37,7 +38,7 @@ export async function enforceQuota(orgId: string, kind: QuotaKind): Promise<Next
   if (used >= limit) {
     return NextResponse.json(
       {
-        error: `O plano ${sub.plan.name} permite até ${limit} ${LABEL[kind]} e você já usa ${used}. Peça a troca de plano para cadastrar mais.`,
+        error: `O plano ${sub.plan.name} permite até ${limit} ${LABEL[kind]} e você já usa ${used}. Troque de plano em Planos para cadastrar mais.`,
         code: 'quota_exceeded',
         limit,
         used,

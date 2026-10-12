@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
+import { effectiveStatus } from '@/lib/billing/core'
 
-// A troca de plano NÃO é mais feita pelo cliente: sem cobrança automática, qualquer administrador escolheria o plano mais
-// caro de graça. O cliente pede (POST /api/subscription/request) e o operador da plataforma ativa.
+// A troca de plano só acontece com pagamento confirmado: pelo checkout (POST /api/billing/checkout, Pagar.me) ou, sem
+// pagamento on-line configurado, pelo pedido (POST /api/subscription/request) que o operador da plataforma ativa.
 export async function PATCH() {
   const g = await guard('billing.manage')
   if (!g.ok) return g.res
   return NextResponse.json(
-    { error: 'A troca de plano depende de pagamento. Use "Solicitar troca" e nossa equipe conclui com você.', code: 'payment_required' },
+    { error: 'A troca de plano depende de pagamento. Contrate pelo checkout na tela Planos.', code: 'payment_required' },
     { status: 409 }
   )
 }
@@ -56,7 +57,7 @@ export async function GET() {
     return NextResponse.json({
       subscription: {
         id: subscription.id,
-        status: subscription.status,
+        status: effectiveStatus(subscription),
         plan: {
           id: subscription.plan.id,
           code: subscription.plan.code,

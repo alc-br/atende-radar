@@ -11,7 +11,7 @@ export type AuditAction =
   | 'team.created' | 'team.updated' | 'team.removed'
   | 'connection.created' | 'connection.updated' | 'connection.removed'
   | 'conversation.viewed' | 'privacy.exclude' | 'privacy.erase' | 'privacy.export'
-  | 'subscription.changed' | 'report.generated' | 'report.exported'
+  | 'subscription.changed' | 'subscription.canceled' | 'billing.card_updated' | 'report.generated' | 'report.exported'
 
 export interface AuditEntryInput {
   action: AuditAction
@@ -64,6 +64,8 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'privacy.erase': 'Apagou os dados de um cliente',
   'privacy.export': 'Exportou os dados de um cliente (portabilidade)',
   'subscription.changed': 'Alterou a assinatura',
+  'subscription.canceled': 'Cancelou a renovação da assinatura',
+  'billing.card_updated': 'Trocou o cartão da assinatura',
   'report.generated': 'Gerou relatório',
   'report.exported': 'Exportou dados',
 }

@@ -22,6 +22,7 @@ import OnboardingView from '@/components/onboarding/onboarding-view'
 import MembersView from '@/components/members/members-view'
 import TeamsView from '@/components/teams/teams-view'
 import PlansView from '@/components/plans/plans-view'
+import CheckoutView from '@/components/plans/checkout-view'
 import NotificationsView from '@/components/notifications/notifications-view'
 import LandingPage from '@/components/landing/landing-page'
 import LoginPage from '@/components/login/login-page'
@@ -115,6 +116,8 @@ function MainContent() {
         return <TeamsView />
       case 'plans':
         return <PlansView />
+      case 'checkout':
+        return <CheckoutView />
       case 'notifications':
         return <NotificationsView />
       case 'admin':

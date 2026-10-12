@@ -33,6 +33,10 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: E2E tests (API + telas, desktop e celular)
+        env:
+          # Cobrança contra o SANDBOX do Pagar.me (sem as chaves, os testes de cobrança são pulados)
+          PAGARME_PUBLIC_KEY_TEST: ${{ secrets.PAGARME_PUBLIC_KEY_TEST }}
+          PAGARME_SECRET_KEY_TEST: ${{ secrets.PAGARME_SECRET_KEY_TEST }}
         run: bun run test:e2e
 
       - name: Upload test report on failure
@@ -94,9 +98,21 @@ jobs:
         run: /usr/local/bin/bun run build
 
       - name: Variáveis do app (só cria as que faltam; segredos gerados no servidor, nunca vão ao git)
+        env:
+          PAGARME_PUBLIC_KEY: ${{ secrets.PAGARME_PUBLIC_KEY }}
+          PAGARME_SECRET_KEY: ${{ secrets.PAGARME_SECRET_KEY }}
+          PAGARME_PUBLIC_KEY_TEST: ${{ secrets.PAGARME_PUBLIC_KEY_TEST }}
+          PAGARME_SECRET_KEY_TEST: ${{ secrets.PAGARME_SECRET_KEY_TEST }}
+          PAGARME_WEBHOOK_USER: ${{ secrets.PAGARME_WEBHOOK_USER }}
+          PAGARME_WEBHOOK_PASS: ${{ secrets.PAGARME_WEBHOOK_PASS }}
         run: |
           ENVF=/opt/atende-radar/shared/app.env
           add_if_missing() { grep -q "^$1=" "$ENVF" || echo "$1=$2" >> "$ENVF"; }
+          # Chaves do Pagar.me vêm dos secrets do GitHub (valor nunca impresso); trocar o secret troca no servidor
+          set_from_secret() { [ -n "${!1}" ] || return 0; sed -i "/^$1=/d" "$ENVF"; echo "$1=${!1}" >> "$ENVF"; }
+          for v in PAGARME_PUBLIC_KEY PAGARME_SECRET_KEY PAGARME_PUBLIC_KEY_TEST PAGARME_SECRET_KEY_TEST PAGARME_WEBHOOK_USER PAGARME_WEBHOOK_PASS; do set_from_secret "$v"; done
+          # test = sandbox; muda para live no servidor quando a conta de produção estiver liberada
+          add_if_missing PAGARME_MODE test
           add_if_missing GATEWAY_SECRET "$(openssl rand -hex 32)"
           add_if_missing PHONE_HASH_SECRET "$(openssl rand -hex 32)"
           add_if_missing WHATSAPP_GATEWAY on

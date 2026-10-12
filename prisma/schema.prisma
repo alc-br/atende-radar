@@ -39,6 +39,7 @@ model Organization {
   notifications           Notification[]
   classificationFeedbacks ClassificationFeedback[]
   auditLogs               AuditLog[]
+  billingInvoices         BillingInvoice[]
 }
 
 model WhatsAppConnection {
@@ -546,19 +547,73 @@ model Plan {
 }
 
 model Subscription {
-  id                   String       @id @default(cuid())
-  organizationId       String       @unique
-  organization         Organization @relation(fields: [organizationId], references: [id])
-  planId               String
-  plan                 Plan         @relation(fields: [planId], references: [id])
-  stripeCustomerId     String?
-  stripeSubscriptionId String?
-  status               String       @default("active")
-  currentPeriodStart   DateTime     @default(now())
-  currentPeriodEnd     DateTime     @default(now())
-  trialEnd             DateTime?
-  cancelAtPeriodEnd    Boolean      @default(false)
-  createdAt            DateTime     @default(now())
+  id                            String       @id @default(cuid())
+  organizationId                String       @unique
+  organization                  Organization @relation(fields: [organizationId], references: [id])
+  planId                        String
+  plan                          Plan         @relation(fields: [planId], references: [id])
+  stripeCustomerId              String?
+  stripeSubscriptionId          String?
+  status                        String       @default("active")
+  currentPeriodStart            DateTime     @default(now())
+  currentPeriodEnd              DateTime     @default(now())
+  trialEnd                      DateTime?
+  cancelAtPeriodEnd             Boolean      @default(false)
+  createdAt                     DateTime     @default(now())
+  // Cobrança recorrente (Pagar.me). stripe* acima são legado, sem uso.
+  billingProvider               String? // "pagarme"
+  billingMode                   String? // "test" | "live" (as chaves usadas quando a assinatura foi criada)
+  providerCustomerId            String?
+  providerSubscriptionId        String?
+  pendingProviderSubscriptionId String? // troca de plano esperando a 1ª cobrança ser confirmada
+  billingCycle                  String       @default("monthly") // monthly | annual
+  paymentMethod                 String? // credit_card
+  cardBrand                     String?
+  cardLast4                     String?
+  lastPaymentError              String?
+  lastSyncedAt                  DateTime?
+
+  @@index([providerSubscriptionId])
+}
+
+// Faturas da cobrança recorrente, espelhadas do Pagar.me (a fonte de verdade é o provedor; isto é cache para a tela).
+model BillingInvoice {
+  id                     String       @id @default(cuid())
+  organizationId         String
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider               String       @default("pagarme")
+  providerInvoiceId      String       @unique
+  providerSubscriptionId String
+  providerChargeId       String?
+  planId                 String?
+  planName               String?
+  billingCycle           String?
+  amountCents            Int
+  status                 String // pending | paid | canceled | scheduled | failed
+  paymentMethod          String?
+  dueAt                  DateTime?
+  paidAt                 DateTime?
+  periodStart            DateTime?
+  periodEnd              DateTime?
+  failureMessage         String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@index([providerSubscriptionId])
+}
+
+// Avisos (webhooks) recebidos do provedor de pagamento: idempotência e diagnóstico. Sem dados de cartão.
+model PaymentEvent {
+  id                     String   @id @default(cuid())
+  provider               String   @default("pagarme")
+  providerEventId        String   @unique
+  type                   String
+  providerSubscriptionId String?
+  organizationId         String?
+  outcome                String? // synced | ignored | error
+  error                  String?
+  receivedAt             DateTime @default(now())
 }
 
 // Registro de auditoria (B4/B9): quem fez o quê. Só metadados — nunca texto de mensagem, telefone ou nome de cliente final.

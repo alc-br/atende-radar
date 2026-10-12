@@ -261,7 +261,7 @@ const ROLE_STEPS: Record<string, TourStep[]> = {
     { target: 'nav-settings', title: '3º passo: ajuste a sua empresa', body: 'Informe horário de atendimento, ticket médio e metas. Com o ticket médio, o sistema estima o valor das oportunidades.', placement: 'right' },
     { target: 'nav-alerts', title: 'Alertas: onde a ação acontece', body: 'Quando um cliente fica sem resposta ou uma promessa vence, aparece aqui. Sua equipe trata e o alerta se resolve sozinho quando a resposta sai.', placement: 'right' },
     { target: 'nav-reports', title: 'Relatórios', body: 'Baixe relatórios em Excel (CSV) ou para ler e imprimir em PDF, com os números reais da sua empresa.', placement: 'right' },
-    { target: 'nav-plans', title: 'Seu plano', body: 'Veja quantos dias faltam do teste grátis, os limites do plano e peça a troca quando precisar.', placement: 'right' },
+    { target: 'nav-plans', title: 'Seu plano', body: 'Veja quantos dias faltam do teste grátis, os limites do plano e contrate ou troque de plano com cartão de crédito.', placement: 'right' },
     help,
   ],
   gestor: [

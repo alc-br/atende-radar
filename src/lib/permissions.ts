@@ -65,6 +65,7 @@ export const VIEW_PERMISSION: Record<string, Permission | null> = {
   members: 'members.view',
   teams: 'teams.view',
   plans: 'plans.view',
+  checkout: 'billing.manage',
   notifications: 'notifications.view',
 }
 

@@ -16,6 +16,7 @@ interface Sub {
 export function TrialBanner() {
   const setView = useAppStore((s) => s.setView)
   const me = useAppStore((s) => s.me)
+  const refreshTrigger = useAppStore((s) => s.refreshTrigger)
   const [sub, setSub] = useState<Sub | null>(null)
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export function TrialBanner() {
         )
       )
       .catch(() => setSub(null))
-  }, [me?.role])
+  }, [me?.role, refreshTrigger])
 
   if (!sub) return null
   const trialing = sub.status === 'trialing'
@@ -43,7 +44,7 @@ export function TrialBanner() {
 
   const quotaText =
     quotaLevel === 'exceeded'
-      ? `Limite do plano ${sub.planName} atingido: ${conv!.current} de ${conv!.limit} conversas neste mês. As mensagens continuam sendo recebidas; peça a troca de plano.`
+      ? `Limite do plano ${sub.planName} atingido: ${conv!.current} de ${conv!.limit} conversas neste mês. As mensagens continuam sendo recebidas; troque de plano em Planos.`
       : quotaLevel !== 'none'
         ? `Você já usou ${conv!.current} de ${conv!.limit} conversas do plano ${sub.planName} neste mês (${pct}%).`
         : null
@@ -60,7 +61,7 @@ export function TrialBanner() {
           <span className="flex items-center gap-2">
             {inactive ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Clock className="w-4 h-4 shrink-0" />}
             {inactive
-              ? 'Seu teste grátis terminou ou a assinatura não está ativa. Peça um plano para continuar cadastrando.'
+              ? 'Seu teste grátis terminou ou a assinatura não está ativa. Contrate um plano para continuar cadastrando.'
               : `Teste grátis: ${sub.trialDaysLeft} ${sub.trialDaysLeft === 1 ? 'dia restante' : 'dias restantes'}.`}
           </span>
         )}
