@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { NextRequest } from 'next/server'
+import type { NextConfig } from 'next'
 
 // Domínios separados: site (página de vendas) em atenderadar.com.br, app (entrar, cadastro, painel) em app.atenderadar.com.br.
 // Os endereços entram no build; aqui ficam definidos antes de carregar o proxy.
@@ -31,8 +32,11 @@ test.describe('domínios do site e do app', () => {
   test('a raiz do site serve a página de vendas renderizada no servidor; /inicio não fica duplicado', async () => {
     const home = await call('atenderadar.com.br', '/?utm_source=x')
     expect(home.location).toBeNull()
-    expect(new URL(home.rewrite!).pathname).toBe('/inicio')
-    expect(new URL(home.rewrite!).search).toBe('?utm_source=x')
+    expect(home.rewrite).toBeNull() // o proxy não reescreve: o rewrite é do next.config (interno, sem depender de protocolo/porta)
+    const mod = (await import('../../next.config')) as unknown as { default: NextConfig & { default?: NextConfig } }
+    const nextConfig = mod.default.default ?? mod.default // interop ESM/CJS do carregador de testes
+    const rewrites = (await nextConfig.rewrites!()) as { beforeFiles: { source: string; destination: string; has?: { type: string; value?: string }[] }[] }
+    expect(rewrites.beforeFiles).toEqual([{ source: '/', has: [{ type: 'host', value: 'atenderadar.com.br' }], destination: '/inicio' }])
     for (const host of ['atenderadar.com.br', 'app.atenderadar.com.br']) {
       const r = await call(host, '/inicio')
       expect(r.status, host).toBe(308)

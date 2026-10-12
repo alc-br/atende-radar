@@ -18,11 +18,7 @@ function routeByHost(req: NextRequest): NextResponse | null {
   // A página de vendas renderizada no servidor mora em /inicio, mas o endereço público é a raiz do site
   if (pathname === SITE_HOME) return NextResponse.redirect(SITE_URL + '/' + search, 308)
   if (host === siteHost) {
-    if (pathname === '/') {
-      const url = req.nextUrl.clone()
-      url.pathname = SITE_HOME
-      return NextResponse.rewrite(url)
-    }
+    // "/" segue para a página de vendas renderizada no servidor pelo rewrite de next.config.ts
     return isSitePath(pathname) ? null : NextResponse.redirect(APP_URL + pathname + search, 308)
   }
   if (host === appHost) return isSiteOnlyPage(pathname) ? NextResponse.redirect(SITE_URL + pathname + search, 308) : null
