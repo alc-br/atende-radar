@@ -147,6 +147,7 @@ test.describe('Design QA · teclado', () => {
     await page.goto('/')
     await expect(page.locator('main').getByRole('heading', { name: /Vis[ãa]o Geral|Dashboard/i }).first()).toBeVisible()
 
+    await expect(page.locator('[data-tour="nav-alerts"]')).toBeVisible() // o menu depende do papel (/api/me); espera carregar
     let reached = false
     for (let i = 0; i < 40 && !reached; i++) {
       await page.keyboard.press('Tab')

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
+import { SITE_URL, splitHosts } from '@/lib/hosts'
 import { toast } from 'sonner'
 import {
   Mail, Lock, Eye, EyeOff, Loader2, User, Building2, ArrowLeft, ArrowRight, Play, Zap, Coins, CalendarCheck,
@@ -105,6 +106,10 @@ export default function LoginPage() {
   }
 
   const goHome = () => {
+    if (splitHosts) {
+      window.location.assign(SITE_URL) // a página inicial fica no domínio do site
+      return
+    }
     setShowLogin(false)
     setShowLanding(true)
   }

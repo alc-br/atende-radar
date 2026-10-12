@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { signIn } from 'next-auth/react'
+import { appLink, splitHosts } from '@/lib/hosts'
 import { useAppStore } from '@/lib/store'
 import { Icon } from './icons'
 
@@ -64,16 +65,22 @@ export default function LandingPage() {
   const [menuAberto, setMenuAberto] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  const handleStart = () => openAuth('signup')
+  // Com domínios separados, entrar/cadastro/demonstração abrem no app (a sessão é do domínio do app)
+  const handleStart = () => (splitHosts ? window.location.assign(appLink('/?modo=cadastro')) : openAuth('signup'))
   const handleLogin = (e?: MouseEvent) => {
     e?.preventDefault()
     setMenuAberto(false)
-    openAuth('login')
+    if (splitHosts) window.location.assign(appLink('/?modo=entrar'))
+    else openAuth('login')
   }
 
   // Demonstração: entra na conta pública de demonstração (ver B7: virá um ambiente demo separado).
   const handleDemo = async () => {
     setDemoLoading(true)
+    if (splitHosts) {
+      window.location.assign(appLink('/?demo=1'))
+      return
+    }
     const result = await signIn('credentials', { email: 'demo@atenderadar.com', password: 'demo123', redirect: false })
     setDemoLoading(false)
     if (result?.error) {

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useTheme } from 'next-themes'
 import { canOpenView } from '@/lib/permissions'
+import { SITE_URL, splitHosts } from '@/lib/hosts'
 
 // Mesmas opções do pacote de design; o valor é o que a API do painel entende
 export const PERIOD_OPTIONS = [
@@ -208,7 +209,7 @@ export function AppHeader() {
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={toggleStyle}><PanelLeft aria-hidden="true" />{style === 'claro' ? 'Menu lateral escuro' : 'Menu lateral claro'}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setTheme(dark ? 'light' : 'dark')}><Palette aria-hidden="true" />{dark ? 'Tema claro' : 'Tema escuro'}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setShowLanding(true)}><Home aria-hidden="true" />Página inicial do site</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => (splitHosts ? window.location.assign(SITE_URL) : setShowLanding(true))}><Home aria-hidden="true" />Página inicial do site</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => signOut({ callbackUrl: '/login' })}>
             <LogOut aria-hidden="true" />Sair

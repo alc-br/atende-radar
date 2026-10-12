@@ -99,7 +99,11 @@ jobs:
         working-directory: /opt/atende-radar/current
         env:
           NODE_OPTIONS: --max-old-space-size=1536
-        run: /usr/local/bin/bun run build
+        run: |
+          # Domínios separados (site e app): os endereços ficam no servidor e entram no build como NEXT_PUBLIC_*.
+          # Sem o arquivo, o sistema roda num domínio só.
+          if [ -f /opt/atende-radar/shared/dominios.env ]; then set -a; . /opt/atende-radar/shared/dominios.env; set +a; echo "site: $NEXT_PUBLIC_SITE_URL | app: $NEXT_PUBLIC_APP_URL"; fi
+          /usr/local/bin/bun run build
 
       - name: Variáveis do app (só cria as que faltam; segredos gerados no servidor, nunca vão ao git)
         env:

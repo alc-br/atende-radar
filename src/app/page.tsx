@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { signIn, useSession } from 'next-auth/react'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { AppHeader } from '@/components/layout/app-header'
 import { TourOverlay } from '@/components/tour/tour-overlay'
@@ -29,6 +29,7 @@ import LoginPage from '@/components/login/login-page'
 import AdminView from '@/components/admin/admin-view'
 import { canOpenView } from '@/lib/permissions'
 import { TrialBanner } from '@/components/layout/trial-banner'
+import { onAppHost } from '@/lib/hosts'
 
 function MainContent() {
   const { currentView, selectedConversationId, selectedAgentId, mobileNavOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
@@ -40,6 +41,22 @@ function MainContent() {
   const activeTour = useAppStore((s) => s.activeTour)
   const me = useAppStore((s) => s.me)
   const setMe = useAppStore((s) => s.setMe)
+  const openAuth = useAppStore((s) => s.openAuth)
+
+  // Links vindos do site (outro domínio) e do /login: ?modo=cadastro|entrar abre a tela certa; ?demo=1 entra na demonstração
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    const modo = q.get('modo')
+    const demo = q.get('demo') === '1'
+    if (!modo && !demo) return
+    window.history.replaceState(null, '', '/')
+    if (demo) {
+      openAuth('login')
+      void signIn('credentials', { email: 'demo@atenderadar.com', password: 'demo123', redirect: false })
+    } else {
+      openAuth(modo === 'cadastro' ? 'signup' : 'login')
+    }
+  }, [openAuth])
 
   // O Zustand store e efemero: qualquer refresh da arvore RSC (ex.: apos o
   // signIn) reinicia showLanding para o default (true). Sincroniza com a
@@ -137,7 +154,8 @@ function MainContent() {
 
   // Sem sessao valida, nunca renderiza o shell autenticado — so landing ou login.
   if (status !== 'authenticated') {
-    return showLogin ? <LoginPage /> : <LandingPage />
+    // No domínio do app não existe página de vendas: quem não entrou vê a tela de entrar
+    return showLogin || onAppHost() ? <LoginPage /> : <LandingPage />
   }
 
   // Mesma estrutura do pacote de design (painel/app.js): menu lateral fixo, véu do celular e coluna principal
