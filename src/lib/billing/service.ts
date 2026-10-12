@@ -55,10 +55,13 @@ const cardOf = (sub: Json) => {
   return { cardBrand: (card?.brand as string) ?? null, cardLast4: (card?.last_four_digits as string) ?? null }
 }
 
-async function invoicesFor(cfg: PagarmeConfig, subscriptionId: string, waitForFirst = false) {
+// No checkout, espera a 1ª fatura ter um desfecho (paga ou recusada): o Pagar.me às vezes leva alguns segundos para
+// cobrar o cartão. Se passar de ~15 s, a tela mostra "em análise" e a sincronização termina o serviço.
+async function invoicesFor(cfg: PagarmeConfig, subscriptionId: string, waitForOutcome = false) {
   for (let attempt = 0; ; attempt++) {
     const list = await pagarme.listInvoices(cfg, subscriptionId)
-    if (list.length || !waitForFirst || attempt >= 4) return list
+    const decided = list.some((i) => ['paid', 'failed', 'canceled'].includes(mapInvoice(i).status))
+    if (decided || !waitForOutcome || attempt >= 10) return list
     await new Promise((r) => setTimeout(r, 1500))
   }
 }
