@@ -140,3 +140,31 @@ test.describe('Página de vendas', () => {
     await page.screenshot({ path: `test-results/screens/landing-${info.project.name}.png`, fullPage: true })
   })
 })
+
+// SEO: a página de vendas que o site serve em "/" (rota /inicio) já vem com o texto e os preços no HTML, sem JavaScript.
+test.describe('Página de vendas renderizada no servidor', () => {
+  test('HTML tem título, descrição, canônico, dados estruturados, texto e preços reais', async ({ request }) => {
+    const { plans } = await (await request.get('/api/public/plans')).json()
+    const html = await (await request.get('/inicio')).text()
+    expect(html).toMatch(/<title>AtendeRadar: auditoria de vendas e atendimento no WhatsApp<\/title>/)
+    expect(html).toMatch(/<meta name="description" content="Descubra quantas vendas/)
+    expect(html).toMatch(/<link rel="canonical"/)
+    expect(html).toContain('application/ld+json')
+    expect(html).toContain('Quantas vendas sua empresa perde')
+    for (const plan of plans) {
+      expect(html).toContain(plan.name)
+      expect(html).toContain(`<strong>${plan.monthlyPrice.toLocaleString('pt-BR')}</strong>`)
+    }
+    expect(html).toContain('href="/conteudos"')
+  })
+
+  test('sem JavaScript, o conteúdo fica visível e os planos aparecem', async ({ browser }) => {
+    const ctx = await browser.newContext({ javaScriptEnabled: false })
+    const page = await ctx.newPage()
+    await page.goto('/inicio')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.locator('#planos .plano')).toHaveCount(3)
+    await expect(page.locator('#duvidas')).toBeVisible()
+    await ctx.close()
+  })
+})

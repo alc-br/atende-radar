@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
-import { APP_URL, SITE_URL, appHost, isSiteOnlyPage, isSitePath, siteHost, splitHosts } from './lib/hosts'
+import { APP_URL, SITE_HOME, SITE_URL, appHost, isSiteOnlyPage, isSitePath, siteHost, splitHosts } from './lib/hosts'
 
 // Toda rota de API exige sessão válida. Ficam públicos: /api/auth/* (login/cadastro/recuperação) e /api/public/* (catálogo da página de vendas) e /api/gateway/* (serviço do WhatsApp, autenticado por segredo próprio na rota) e /api/billing/webhook (aviso do Pagar.me, autenticação básica própria).
 function apiNeedsSession(pathname: string) {
@@ -15,7 +15,14 @@ function routeByHost(req: NextRequest): NextResponse | null {
   const { pathname, search } = req.nextUrl
   if (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host)) return null // health check e chamadas internas do servidor
   if (host === `www.${siteHost}`) return NextResponse.redirect(SITE_URL + pathname + search, 308)
+  // A página de vendas renderizada no servidor mora em /inicio, mas o endereço público é a raiz do site
+  if (pathname === SITE_HOME) return NextResponse.redirect(SITE_URL + '/' + search, 308)
   if (host === siteHost) {
+    if (pathname === '/') {
+      const url = req.nextUrl.clone()
+      url.pathname = SITE_HOME
+      return NextResponse.rewrite(url)
+    }
     return isSitePath(pathname) ? null : NextResponse.redirect(APP_URL + pathname + search, 308)
   }
   if (host === appHost) return isSiteOnlyPage(pathname) ? NextResponse.redirect(SITE_URL + pathname + search, 308) : null

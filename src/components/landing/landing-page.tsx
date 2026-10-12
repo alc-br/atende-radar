@@ -3,21 +3,10 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type SyntheticEvent } from 'react'
 import { signIn } from 'next-auth/react'
 import { appLink, splitHosts } from '@/lib/hosts'
+import type { PublicPlan } from '@/lib/public-plans'
 import { useAppStore } from '@/lib/store'
 import { LANDING_SPRITE } from '@/components/site/assets'
 import { Ic, SiteFooter, Sprite, atraso, useEscFecha, useRevelar } from '@/components/site/site-ui'
-
-interface PublicPlan {
-  code: string
-  name: string
-  description: string | null
-  monthlyPrice: number
-  annualPrice: number
-  highlight: boolean
-  trialDays: number
-  limits: { maxConnections: number; maxAgents: number; maxConversationsMonthly: number; retentionDays: number; maxAlertRules: number }
-  features: Record<string, boolean>
-}
 
 // O cadastro sempre começa com 14 dias de teste, sem cartão (api/auth/signup).
 const TESTE_DIAS = 14
@@ -88,9 +77,10 @@ const FAQ = [
   { q: 'O sistema detecta ou também responde?', a: 'Ele detecta. O AtendeRadar analisa as conversas e recomenda ações, mas não envia mensagens pelo seu número. Quem responde é sempre a sua equipe.' },
 ]
 
-export default function LandingPage() {
+/** initialPlans: planos lidos no servidor (página /inicio); sem eles, carrega pela API no navegador. */
+export default function LandingPage({ initialPlans = null }: { initialPlans?: PublicPlan[] | null } = {}) {
   const { setView, setShowLanding, setShowLogin, openAuth } = useAppStore()
-  const [plans, setPlans] = useState<PublicPlan[] | null>(null)
+  const [plans, setPlans] = useState<PublicPlan[] | null>(initialPlans)
   const [plansError, setPlansError] = useState(false)
   const [anual, setAnual] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
@@ -140,8 +130,8 @@ export default function LandingPage() {
     void fetchPlans()
   }
   useEffect(() => {
-    void fetchPlans()
-  }, [])
+    if (!initialPlans) void fetchPlans()
+  }, [initialPlans])
 
   const fecharMenu = useCallback(() => setMenuAberto(false), [])
   useEscFecha(fecharMenu)

@@ -9,7 +9,7 @@ process.env.NEXT_PUBLIC_APP_URL = 'https://app.atenderadar.com.br'
 const call = async (host: string, path: string, method = 'GET') => {
   const { proxy } = await import('../../src/proxy')
   const res = await proxy(new NextRequest(`https://${host}${path}`, { method, headers: { host } }))
-  return { status: res.status, location: res.headers.get('location'), robots: res.headers.get('x-robots-tag') }
+  return { status: res.status, location: res.headers.get('location'), robots: res.headers.get('x-robots-tag'), rewrite: res.headers.get('x-middleware-rewrite') }
 }
 
 test.describe('domínios do site e do app', () => {
@@ -26,6 +26,19 @@ test.describe('domínios do site e do app', () => {
       expect(r.status, path).toBe(308)
       expect(r.location).toBe(`https://app.atenderadar.com.br${path}`)
     }
+  })
+
+  test('a raiz do site serve a página de vendas renderizada no servidor; /inicio não fica duplicado', async () => {
+    const home = await call('atenderadar.com.br', '/?utm_source=x')
+    expect(home.location).toBeNull()
+    expect(new URL(home.rewrite!).pathname).toBe('/inicio')
+    expect(new URL(home.rewrite!).search).toBe('?utm_source=x')
+    for (const host of ['atenderadar.com.br', 'app.atenderadar.com.br']) {
+      const r = await call(host, '/inicio')
+      expect(r.status, host).toBe(308)
+      expect(r.location).toBe('https://atenderadar.com.br/')
+    }
+    expect((await call('app.atenderadar.com.br', '/')).rewrite).toBeNull() // no app, "/" continua sendo o login/painel
   })
 
   test('www vai para o domínio principal', async () => {

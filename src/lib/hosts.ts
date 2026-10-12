@@ -17,6 +17,9 @@ export function appLink(path: string) {
   return splitHosts ? APP_URL + path : path
 }
 
+/** Rota da página de vendas renderizada no servidor; no domínio do site ela é servida em "/" (src/proxy.ts). */
+export const SITE_HOME = '/inicio'
+
 /** Páginas que só existem no site (conteúdos e páginas legais); no app elas levam ao site. */
 export function isSiteOnlyPage(pathname: string) {
   return pathname === '/conteudos' || pathname.startsWith('/conteudos/') || pathname === '/privacidade' || pathname === '/termos'
