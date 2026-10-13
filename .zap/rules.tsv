@@ -1,0 +1,7 @@
+10010	FAIL	(Cookie sem HttpOnly)
+10011	FAIL	(Cookie sem Secure)
+10054	FAIL	(Cookie sem SameSite)
+10020	FAIL	(Sem proteção contra clickjacking)
+10021	FAIL	(Sem X-Content-Type-Options)
+10035	FAIL	(Sem HSTS)
+10037	FAIL	(Servidor revela tecnologia via X-Powered-By)

@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" source("../"); /* só src/: fora disso há bancos SQLite bloqueados durante os testes */
 @import "tw-animate-css";
 @import "../styles/painel.css";
 @import "../styles/conta.css";

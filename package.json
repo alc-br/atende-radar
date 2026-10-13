@@ -14,6 +14,7 @@
     "db:reset": "prisma migrate reset",
     "db:seed": "npx tsx prisma/seed.ts",
     "test:e2e": "playwright test",
+    "test:e2e:browsers": "CROSS_BROWSER=1 playwright test --project=ui-firefox --project=ui-safari --project=ui-iphone",
     "db:push:safe": "prisma db push",
     "db:backup": "bun scripts/backup-db.ts"
   },

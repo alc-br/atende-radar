@@ -3,6 +3,17 @@ import { defineConfig, devices } from '@playwright/test'
 const PORT = 3100
 const TEST_DB = 'file:./test.db'
 
+// Outros navegadores (Firefox, Safari no Mac e no iPhone): só os fluxos que vendem e cobram, em job próprio no CI.
+// Ligados por CROSS_BROWSER=1 (bun run test:e2e:browsers) para não pesar a suíte principal.
+const CROSS_BROWSER = /(landing|conteudos|first-run|qr|conversations|billing-checkout|jornada)\.ui\.spec\.ts$/
+const crossBrowserProjects = process.env.CROSS_BROWSER
+  ? [
+      { name: 'ui-firefox', testMatch: CROSS_BROWSER, use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } } },
+      { name: 'ui-safari', testMatch: CROSS_BROWSER, use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 800 } } },
+      { name: 'ui-iphone', testMatch: CROSS_BROWSER, use: { ...devices['iPhone 14'] } },
+    ]
+  : []
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -19,6 +30,7 @@ export default defineConfig({
     { name: 'ui-mobile', testMatch: /\.ui\.spec\.ts$/, use: { ...devices['Pixel 7'] } },
     // tablet: só as varreduras de layout (design e página de vendas)
     { name: 'ui-tablet', testMatch: /(design|landing)\.ui\.spec\.ts$/, use: { ...devices['iPad Mini'], browserName: 'chromium', defaultBrowserType: 'chromium' } },
+    ...crossBrowserProjects,
   ],
   webServer: {
     // Banco descartável: recriado e populado a cada execução, nunca toca dev.db nem produção.

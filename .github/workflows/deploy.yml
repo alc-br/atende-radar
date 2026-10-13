@@ -47,9 +47,41 @@ jobs:
           path: test-results/
           retention-days: 7
 
+  # 1b) Em paralelo: os fluxos que vendem e cobram no Firefox, no Safari (Mac) e no iPhone.
+  browsers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Prisma client
+        run: bunx prisma generate
+
+      - name: Install browsers (Firefox e WebKit)
+        run: bunx playwright install --with-deps firefox webkit
+
+      - name: E2E Firefox, Safari e iPhone
+        env:
+          PAGARME_PUBLIC_KEY_TEST: ${{ secrets.PAGARME_PUBLIC_KEY_TEST }}
+          PAGARME_SECRET_KEY_TEST: ${{ secrets.PAGARME_SECRET_KEY_TEST }}
+        run: bun run test:e2e:browsers
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-browsers
+          path: test-results/
+          retention-days: 7
+
   # 2) Só depois de os testes passarem: deploy no servidor (runner próprio).
   deploy:
-    needs: test
+    needs: [test, browsers]
     if: github.event_name != 'pull_request'
     runs-on: [self-hosted, atende-radar]
     steps:
@@ -67,6 +99,10 @@ jobs:
         env:
           BACKUP_REQUIRE_DB: 'true'
         run: /usr/local/bin/bun scripts/backup-db.ts
+
+      - name: "Ensaio de restauração (o backup recém-feito volta a ser um banco que o app lê)"
+        working-directory: /opt/atende-radar/current
+        run: /usr/local/bin/bun scripts/restore-drill.ts
 
       - name: Prisma generate & sync schema
         working-directory: /opt/atende-radar/current

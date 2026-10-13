@@ -18,6 +18,21 @@ export function allow(key: string, limit: number, windowMs: number): boolean {
   return true
 }
 
+/** Já passou do limite? (só consulta, não registra tentativa) */
+export function exceeded(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now()
+  return (hits.get(key) || []).filter((t) => now - t < windowMs).length >= limit
+}
+
+/**
+ * IP de quem chamou. Atrás do nginx o ÚLTIMO item do X-Forwarded-For é o que o próprio nginx viu; os anteriores vêm
+ * do cliente e podem ser inventados para escapar dos limites.
+ */
+export function ipFromHeaders(get: (name: string) => string | null | undefined): string {
+  const xff = get('x-forwarded-for')?.split(',').map((s) => s.trim()).filter(Boolean)
+  return xff?.at(-1) || get('x-real-ip') || 'unknown'
+}
+
 export function clientIp(req: Request): string {
-  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
+  return ipFromHeaders((n) => req.headers.get(n))
 }

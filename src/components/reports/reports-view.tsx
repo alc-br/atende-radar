@@ -130,7 +130,7 @@ export default function ReportsView() {
           recipients: configRecipients.split('\n').map((r) => r.trim()).filter(Boolean),
         }),
       })
-      if (!res.ok) throw new Error('Erro ao salvar configuração')
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'Erro ao salvar configuração')
       toast.success('Configuração salva.')
       setConfigDialogOpen(null)
       fetchData()
@@ -240,8 +240,8 @@ export default function ReportsView() {
                       <DialogHeader>
                         <DialogTitle>Configurar: {report.name}</DialogTitle>
                         <DialogDescription>
-                          Ajuste o agendamento e destinatários deste relatório. O envio automático por e-mail ainda não está ativo
-                          (depende do provedor de e-mail): por enquanto, gere e baixe o relatório por aqui.
+                          No horário agendado (horário de Brasília) o relatório é gerado e cada destinatário recebe o resumo por
+                          e-mail. Deixe o horário vazio para não enviar automaticamente.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
@@ -249,7 +249,7 @@ export default function ReportsView() {
                           <label htmlFor={`rel-agenda-${report.id}`} className="text-sm font-medium">Agendamento</label>
                           <Input
                             id={`rel-agenda-${report.id}`}
-                            type="text"
+                            type="time"
                             value={configSchedule}
                             onChange={(e) => setConfigSchedule(e.target.value)}
                           />

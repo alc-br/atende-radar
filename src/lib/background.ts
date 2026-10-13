@@ -1,6 +1,7 @@
 import { analyzeAll, analyzeOrganization } from './analysis/engine'
 import { startWhatsApp } from './whatsapp/manager'
 import { billingSweep } from './billing/service'
+import { runScheduledReports } from './reports/schedule'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -32,6 +33,9 @@ export function startBackgroundJobs() {
   // cobrança: renovações/recusas/cancelamentos lidos do Pagar.me a cada 15 min (cada assinatura no máx. 1x por hora)
   const billing = setInterval(() => safely('cobrança', () => billingSweep()), 15 * 60_000)
   billing.unref?.()
+  // relatórios agendados: confere a cada minuto quais chegaram no horário (fuso e dias de cada relatório)
+  const reports = setInterval(() => safely('relatórios agendados', () => runScheduledReports()), 60_000)
+  reports.unref?.()
   console.log('[analysis] agendador ligado (a cada 60 s)')
 }
 

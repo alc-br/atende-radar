@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useMemo, useState, useSyncExternalStore } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { SITE_URL, appLink } from '@/lib/hosts'
 import { ARTIGOS, FILTROS, dataPorExtenso, minutosDeLeitura, type Artigo, type Bloco, type Filtro } from '@/content/artigos'
 import { ARTE_CARTAO, CAPAS, ILU_VENDAS_PERDIDAS } from './assets'
@@ -47,6 +47,11 @@ function Arte() {
 export function ConteudosLista() {
   const [filtro, setFiltro] = useState<Filtro | 'todos'>('todos')
   const [busca, setBusca] = useState('')
+  // Quem digita antes de a página ficar interativa (celular lento) não perde a busca: lê o que já está no campo
+  const campo = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (campo.current?.value) setBusca(campo.current.value)
+  }, [])
   // Só aparecem os filtros que têm artigo
   const filtros = FILTROS.filter((f) => ARTIGOS.some((a) => a.filtros.includes(f.id)))
   const destaque = ARTIGOS.find((a) => a.destaque)
@@ -86,7 +91,7 @@ export function ConteudosLista() {
           <label className="busca">
             <span className="sr-only">Buscar conteúdos</span>
             <Ic n="lupa" />
-            <input type="search" placeholder="Busque por um assunto, palavra-chave ou tema..." autoComplete="off" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <input ref={campo} type="search" placeholder="Busque por um assunto, palavra-chave ou tema..." autoComplete="off" value={busca} onChange={(e) => setBusca(e.target.value)} />
           </label>
           <button className="pilula" type="button" aria-pressed={filtro === 'todos'} onClick={() => setFiltro('todos')}>Todos</button>
           {filtros.map((f) => (
