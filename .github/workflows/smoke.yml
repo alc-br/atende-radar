@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Testes de fumaça contra o site no ar
-        run: bash scripts/smoke.sh https://app.atenderadar.com.br
+      - name: Testes de fumaça contra o app e o site no ar
+        run: bash scripts/smoke.sh https://app.atenderadar.com.br https://atenderadar.com.br
 
       - name: "Abrir/atualizar issue quando falhar (alerta operacional sem depender de e-mail)"
         if: failure()
