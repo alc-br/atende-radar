@@ -96,7 +96,11 @@ test('jornada completa do cliente: do site ao cancelamento', async ({ page, brow
     await p2.locator('#login-email').fill(convidado.email)
     await p2.locator('#login-password').fill(STRONG)
     await p2.locator('form').getByRole('button', { name: 'Entrar', exact: true }).click()
-    await expect(p2.locator('nav.nav-lateral')).toBeVisible({ timeout: 20_000 })
+    // se o login falhar, o aviso aparece no lugar do painel (e o erro do teste diz qual foi)
+    const painelOuErro = p2.locator('nav.nav-lateral').or(p2.locator('[data-sonner-toast][data-type="error"]'))
+    await expect(painelOuErro.first()).toBeVisible({ timeout: 45_000 })
+    await expect(p2.locator('[data-sonner-toast][data-type="error"]')).toHaveCount(0)
+    await expect(p2.locator('nav.nav-lateral')).toBeVisible()
     await expect(p2.locator('nav.nav-lateral')).not.toContainText('Membros') // atendente não administra a equipe
     await ctx.close()
   })
