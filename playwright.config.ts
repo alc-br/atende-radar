@@ -5,7 +5,7 @@ const TEST_DB = 'file:./test.db'
 
 // Outros navegadores (Firefox, Safari no Mac e no iPhone): só os fluxos que vendem e cobram, em job próprio no CI.
 // Ligados por CROSS_BROWSER=1 (bun run test:e2e:browsers) para não pesar a suíte principal.
-const CROSS_BROWSER = /(landing|conteudos|first-run|qr|conversations|billing-checkout|jornada)\.ui\.spec\.ts$/
+const CROSS_BROWSER = /(landing|conteudos|first-run|qr|conversations|billing-checkout|jornada|csp)\.ui\.spec\.ts$/
 const crossBrowserProjects = process.env.CROSS_BROWSER
   ? [
       { name: 'ui-firefox', testMatch: CROSS_BROWSER, use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } } },

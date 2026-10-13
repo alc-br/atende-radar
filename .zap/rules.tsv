@@ -5,3 +5,4 @@
 10021	FAIL	(Sem X-Content-Type-Options)
 10035	FAIL	(Sem HSTS)
 10037	FAIL	(Servidor revela tecnologia via X-Powered-By)
+10038	FAIL	(Sem Content-Security-Policy)

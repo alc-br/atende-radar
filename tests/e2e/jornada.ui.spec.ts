@@ -63,6 +63,9 @@ test('jornada completa do cliente: do site ao cancelamento', async ({ page, brow
   })
 
   await test.step('alertas: vê o cliente na tela e resolve com o motivo', async () => {
+    // Servidor de desenvolvimento: a 1ª chamada a uma rota ainda não compilada perde o corpo do POST (o navegador aborta
+    // durante o Fast Refresh). Em produção a rota já vem compilada; aqui a gente compila antes (resposta 404, alerta inexistente).
+    await page.request.post('/api/alerts/aquecer/resolve', { data: { reason: 'aquecer' } })
     await page.reload()
     await irPara(page, 'alerts')
     const card = page.locator('main').locator('article, li, div').filter({ hasText: 'Cliente Jornada' }).filter({ has: page.getByRole('button', { name: /Resolver/ }) }).last()

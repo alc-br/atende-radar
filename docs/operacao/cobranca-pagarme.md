@@ -36,9 +36,13 @@
 
 O conteúdo do evento não é confiado: o sistema extrai só o id da assinatura e relê o estado direto da API. Eventos de outros sistemas da mesma conta (sem `metadata.app = atende-radar`) recebem `200 ignored`. Eventos repetidos são detectados e registrados uma só vez.
 
+## Chaves (painel Stone)
+
+O Pagar.me agora fica no painel da Stone: **conta.stone.com.br → Chaves de autenticação** (chaves do tipo “Nova integração”). A API continua a mesma (`api.pagar.me/core/v5`), então nada muda no código nem na CSP. Em 13/10/2026 foram criadas chaves novas de produção e de teste; as quatro foram conferidas direto na API (secretas respondem 200, públicas geram token) e gravadas nos secrets do GitHub.
+
 ## Passar para cobrança real
 
-1. No painel do Pagar.me, confirme que a conta de produção está ativa e copie as chaves **live**: `pk_…` e `sk_…`, sem `_test`.
+1. No painel da Stone, confirme que a conta de produção está ativa e copie as chaves de **produção**: `pk_…` e `sk_…`, sem `_test`.
 2. Atualize os secrets `PAGARME_PUBLIC_KEY` e `PAGARME_SECRET_KEY` e faça um deploy.
 3. No servidor, troque `PAGARME_MODE=test` por `PAGARME_MODE=live` em `app.env` e reinicie o serviço.
 4. Cadastre o webhook também no painel **live**.
