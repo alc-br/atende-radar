@@ -19,6 +19,8 @@ export interface Classification {
 // Ordem = prioridade: a intenção mais forte vence. Querer comprar/agendar/negociar vem antes de reclamação: o cliente
 // irritado que quer marcar continua sendo uma venda em risco (a irritação aparece no sentimento).
 const ABSURDO = /\b(absurd[oa]s?|que absurdo)\b/ // "absurdamente bom" é elogio
+// "tem vaga para auxiliar administrativo?" é candidato a emprego, não cliente querendo marcar
+const CARGO = String.raw`(?! (de |para |pra )?(emprego|trabalho|trabalhar|auxiliar|assistente|vendedor|atendente|recepcionista|estagi|jovem aprendiz|aprendiz|motorista|cozinheir|garcom|garconete|caixa|repositor|gerente|secretari|tecnic|analista|operador|entregador|faxineir|diarista|cabeleireir|manicure|professor|enfermeir|dentista|esteticista|balconista|estoquista))`
 const INTENTS: Array<[string, RegExp[]]> = [
   ['cancelamento', [/cancel/, /desmarcar/, /desist/, /nao vou mais/]],
   ['compra', [
@@ -30,7 +32,8 @@ const INTENTS: Array<[string, RegExp[]]> = [
   ['negociacao', [/negoci/, /faz por/, /melhor preco/, /abaixa/, /fecha por/, /consegue melhorar/, /\bproposta\b/, /\bse (fizer|fizerem|fazer) .{0,40}\b(fecho|fecha|fechamos|levo)\b/]],
   ['agendamento', [
     /agendar/, /marcar/, /reagendar/, /consulta (marcada|agendada)/, /\bvisitar\b/, /visita tecnica/, /\breservar\b/, /(quero|queria|gostaria de|vou) matricul/,
-    /\btem (vaga|horario|hora)\b/, /\bvaga para\b/, /\bencaixe\b/, /\bencaixar\b/,
+    new RegExp(String.raw`\btem (vaga|horario|hora)\b${CARGO}`), new RegExp(String.raw`\bvaga\b${CARGO} para\b`), /\bencaixe\b/, /\bencaixar\b/,
+    /\b(podem|pode|consegue|conseguem) me atender (no |na |nesse |nessa |esse |essa )?(sabado|domingo|amanha|hoje|segunda|terca|quarta|quinta|sexta|feriado|de manha|a tarde|a noite|as \d)/,
   ]],
   // "ninguém responde" é irritação com a espera (vai para o sentimento), não o assunto da conversa
   ['reclamacao', [ABSURDO, /pessim/, /horrivel/, /nao gostei/, /(?<!nao (estou|e) )reclam/, /insatisf/, /descaso/, /inaceitavel/, /procon/, /reclame aqui/]],
@@ -55,13 +58,22 @@ const STAGE_BY_INTENT: Record<string, string> = {
 
 const FRUSTRATED = [
   ABSURDO, /pessim/, /horrivel/, /nao gostei/, /(?<!nao (estou|e) )reclam/, /irritad/, /inaceitavel/, /vergonha/, /descaso/, /cansad[oa] de esperar/,
-  /falta de respeito/, /desrespeit/, /chatead/, /decepcion/, /indignad/, /revoltad/, /procon/, /reclame aqui/, /que demora/, /\bcade\b/,
-  // esperando sem resposta
-  /(ninguem|nao) (me )?(respond|atend)(e|em)/, /\b(alguem|voces) (pode |podem |vai |vao )?(me )?(responder|atender)\b/, /ninguem (nem )?(me )?(avisou|ligou|retornou|respondeu)/,
-  /desde ontem/, /\bha horas\b/, /\b(faz|ha) (\d+|dois|tres|quatro|varios|muitos) (dias|semanas|meses)\b/, /\bfaz (dois |tres |quatro )?dias\b/,
-  /(aguardando|esperando) (ha|faz|desde)\b/, /\bate agora (nada|ninguem|nao)\b/, /parad[oa] esperando/,
-  // já cobrou antes / coisa que devia ter acontecido
-  /(segunda|terceira|quarta|quinta|varias|\d+a?) vez(es)? que/, /\bja (perguntei|pedi|cobrei|liguei|mandei mensagem|falei)\b/,
+  /falta de respeito/, /desrespeit/, /chatead/, /decepcion/, /indignad/, /revoltad/, /procon/, /reclame aqui/, /\bcade\b/,
+  // "que demora!" é queixa; "quanto tempo que demora?" é pergunta
+  /(?<!\b(tempo|quanto|quantos|quantas|dias|horas|o|isso|so|ainda)\s)\bque demora\b/,
+  // esperando sem resposta (exige a queixa: "vocês podem me atender sábado?" e "não atendem aos sábados?" são perguntas)
+  /ninguem (me )?(respond|atend)(e|em)/, /\bnao me (respond|atend)(e|em)\b/,
+  /\bnao (respond|atend)(e|em)\b(?=\s*(o |a )?(telefone|celular|ligac|whats|zap|mensag|ninguem|nunca|mais|nada|[?!]*\s*$))/,
+  /\balguem (ai )?(pode |vai )?(me )?(responder|atender)\b(?=\s*([?!.]|por favor|pf|$))/, /\bvoces (vao|nao vao) (me )?(responder|atender)\b/,
+  /\bvoces (pode |podem )?(me )?responder\s*(\?|!|$|ou nao)/, /ninguem (nem )?(me )?(avisou|ligou|retornou|respondeu)/,
+  /desde ontem.{0,40}\b(e nada|nada ainda|sem (resposta|retorno)|ninguem|nao (me )?(respond|retorn|lig))/,
+  /\bha horas\b/, /(aguardando|esperando|espero|aguardo) (ha|faz|desde)\b/, /\bate agora (nada|ninguem|nao)\b/, /parad[oa] esperando/,
+  // "faz 2 meses que espero" é queixa; "comprei há 2 meses" é informação
+  /\b(faz|ha) ((\d+|dois|tres|quatro|cinco|varios|muitos|uns) )?(dias|semanas|meses)\b.{0,40}\b(espero|esperando|aguardo|aguardando|sem (resposta|retorno|solucao)|e nada|nada ainda|ninguem|nao (me )?(respond|retorn|resolv|cheg|entreg|lig)|peco|pedindo|cobro|cobrando|tento|tentando|ligo|ligando)/,
+  // já cobrou antes / coisa que devia ter acontecido ("é a segunda vez que compro" é elogio, não cobrança)
+  /(segunda|terceira|quarta|quinta|varias|\d+a?) vez(es)? que (eu )?(ja )?(me (falam|falaram|dizem|disseram|prometem|prometeram|enrolam|mandam)|peco|pedi|pergunto|perguntei|ligo|liguei|mando|mandei|cobro|cobrei|falo|falei|escrevo|escrevi|reclamo|reclamei|tento|tentei|chamo|chamei|explico|expliquei|repito|venho aqui|volto|voltei|aconte|da (problema|defeito)|deu (problema|defeito)|quebra|quebrou|estraga|estragou|para de|parou)/,
+  /\b(pedi|perguntei|liguei|mandei|cobrei|falei|expliquei|chamei)\b.{0,25}\b(\d+|duas|tres|quatro|varias|mil) vezes\b/,
+  /\bja (perguntei|pedi|cobrei|liguei|mandei mensagem|falei|avisei|expliquei)\b.{0,40}\b(e nada|e ninguem|e nao|e ate agora|sem resposta|nao (me )?(respond|retorn|resolv)|ninguem|(\d+|duas|tres|varias|mil) vezes|de novo|mais de uma vez|antes)/,
   /era para (ser|ter|estar) (entreg|instal|feit|pront|cheg)/, /(parou|quebrou|estragou|deu problema|voltou a dar) de novo/, /\bperdi (tudo|o dia|meu tempo)/, /cara na porta/,
   /(procurar|ir para) outr[ao] (lugar|loja|clinica|oficina|empresa)/,
 ]

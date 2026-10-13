@@ -4,6 +4,7 @@ import { extractPromise } from '../../src/lib/analysis/promises'
 import { attributeAgent } from '../../src/lib/analysis/agents'
 import { scoreConversation } from '../../src/lib/analysis/score'
 import { estimateOpportunity } from '../../src/lib/analysis/opportunity'
+import { normChat } from '../../src/lib/analysis/text'
 
 // B6 · Regras de análise (funções puras). Português de atendimento real, com acentos, gírias e erros de digitação.
 const inbound = (...texts: string[]) => texts.map((text, i) => ({ direction: 'inbound' as const, text, occurredAt: new Date(2026, 8, 1, 10, i) }))
@@ -60,6 +61,26 @@ test.describe('sentimento e urgência', () => {
   test('cliente irritado', () => {
     expect(classifyMessages(inbound('Ninguém responde!!! Que absurdo')).sentiment).toBe('frustrated')
     expect(classifyMessages(inbound('ESTOU ESPERANDO HÁ HORAS')).sentiment).toBe('frustrated')
+    for (const t of ['já é a terceira vez que peço', 'faz 2 meses que espero', 'ninguém me atende', 'que demora!', 'estou esperando desde ontem e nada',
+      'vcs n atendem o telefone?', 'já pedi isso 3 vezes', 'alguém pode me responder?', 'faz 3 dias que mandei mensagem e nada']) {
+      expect(classifyMessages(inbound(t)).sentiment, t).toBe('frustrated')
+    }
+  })
+  test('pergunta educada com pedaço de queixa não é cliente irritado', () => {
+    for (const t of ['Quanto tempo que demora pra chegar?', 'Vocês podem me atender sábado?', 'Vocês não atendem aos sábados?',
+      'Estou com dor de dente desde ontem', 'É a segunda vez que compro com vocês', 'Já pedi pelo site, como acompanho?', 'Comprei há 2 meses']) {
+      expect(classifyMessages(inbound(t)).sentiment, t).not.toBe('frustrated')
+    }
+  })
+  test('candidato a emprego não é agendamento; abreviações ambíguas não viram outra palavra', () => {
+    expect(classifyMessages(inbound('Tem vaga para auxiliar administrativo?')).intent).not.toBe('agendamento')
+    expect(classifyMessages(inbound('Tem vaga para amanhã às 10h?')).intent).toBe('agendamento')
+    expect(classifyMessages(inbound('qto custa?')).intent).toBe('preco')
+    expect(classifyMessages(inbound('o qto tem ar condicionado?')).intent).toBeNull()
+    expect(normChat('num instante')).toBe('num instante')
+    expect(normChat('num sei')).toBe('nao sei')
+    expect(normChat('plano Pro')).toBe('plano pro')
+    expect(normChat('vou pro centro')).toBe('vou para o centro')
   })
   test('cliente satisfeito', () => {
     expect(classifyMessages(inbound('Perfeito, muito obrigada! Adorei')).sentiment).toBe('positive')
@@ -106,6 +127,10 @@ test.describe('promessas da empresa', () => {
   test('mensagem comum não é promessa', () => {
     expect(extractPromise('Bom dia! Como posso ajudar?', now)).toBeNull()
     expect(extractPromise('O valor é R$ 150', now)).toBeNull()
+    expect(extractPromise('Segue o endereço, te envio o mapa aqui embaixo', now)).toBeNull()
+  })
+  test('"segue" como verbo continuar não anula a promessa', () => {
+    expect(extractPromise('Vou verificar se ainda segue em estoque e te aviso', now)).not.toBeNull()
   })
 })
 

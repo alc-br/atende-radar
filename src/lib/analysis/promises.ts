@@ -26,7 +26,8 @@ export function extractPromise(text: string | null | undefined, now: Date): Extr
   const t = normChat(text)
   if (!PROMISE.some((r) => r.test(t))) return null
   // "segue o endereço, te envio o mapa aqui embaixo": é envio na hora, não compromisso para depois
-  if (/\b(segue|seguem|aqui (embaixo|abaixo)|logo abaixo|em anexo)\b/.test(t) && !/\b(amanha|hoje|ate|assim que|depois|mais tarde|em \d+)\b/.test(t)) return null
+  // ("vou verificar se ainda segue em estoque" é o verbo seguir/continuar, não envio)
+  if (/(?<!\b(se|ainda|que|nao|ja|tudo|continua) )\b(segue|seguem|aqui (embaixo|abaixo)|logo abaixo|em anexo)\b/.test(t) && !/\b(amanha|hoje|ate|assim que|depois|mais tarde|em \d+)\b/.test(t)) return null
 
   let dueAt = new Date(now.getTime() + 24 * 3600000)
   const rel = t.match(/\bem (\d+) ?(min|minutos|minuto|hora|horas|h)\b/)
