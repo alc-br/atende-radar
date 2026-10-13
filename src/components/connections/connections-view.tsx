@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
+import { mutate } from '@/lib/mutation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -131,24 +132,24 @@ export default function ConnectionsView() {
   const [renameValue, setRenameValue] = useState('')
 
   const patchConnection = (connId: string, body: Record<string, unknown>) => {
-    fetch(`/api/connections/${connId}`, {
+    return mutate(`/api/connections/${connId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then(() => fetchData()).catch(() => {})
+      json: body,
+    }, { onSettled: fetchData })
   }
 
   const handleReconnect = (connId: string) => {
-    patchConnection(connId, { action: 'reconnect' })
-    toast.info('Conexão marcada para novo pareamento. Gere um novo QR Code.')
+    void patchConnection(connId, { action: 'reconnect' }).then((ok) => {
+      if (ok) toast.info('Conexão marcada para novo pareamento. Gere um novo QR Code.')
+    })
   }
 
   const handleDisconnect = (connId: string) => {
-    patchConnection(connId, { action: 'disconnect' })
+    void patchConnection(connId, { action: 'disconnect' })
   }
 
   const handleDeleteConnection = (connId: string) => {
-    fetch(`/api/connections/${connId}`, { method: 'DELETE' }).then(() => fetchData()).catch(() => {})
+    void mutate(`/api/connections/${connId}`, { method: 'DELETE' }, { onSettled: fetchData })
   }
 
   const openRenameDialog = (connId: string, currentName: string) => {
@@ -159,7 +160,7 @@ export default function ConnectionsView() {
 
   const confirmRename = () => {
     if (renameConnId && renameValue.trim()) {
-      patchConnection(renameConnId, { name: renameValue.trim() })
+      void patchConnection(renameConnId, { name: renameValue.trim() })
     }
     setRenameDialogOpen(false)
   }

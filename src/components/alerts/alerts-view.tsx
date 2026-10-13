@@ -58,6 +58,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 import { formatCurrency, timeAgo, cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
+import { mutate } from '@/lib/mutation'
 
 // ── Severity helpers ──────────────────────────────────────────────
 
@@ -429,11 +430,10 @@ export default function AlertsView() {
 
   function confirmResolve() {
     if (selectedAlertId && resolveReason) {
-      fetch(`/api/alerts/${selectedAlertId}/resolve`, {
+      void mutate(`/api/alerts/${selectedAlertId}/resolve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: resolveReason }),
-      }).then(() => fetchAlerts()).catch(() => {})
+        json: { reason: resolveReason },
+      }, { onSettled: fetchAlerts })
       setResolveDialogOpen(false)
       setSelectedAlertId(null)
       setResolveReason('')
@@ -442,11 +442,10 @@ export default function AlertsView() {
 
   function confirmIgnore() {
     if (selectedAlertId && ignoreReason) {
-      fetch(`/api/alerts/${selectedAlertId}/dismiss`, {
+      void mutate(`/api/alerts/${selectedAlertId}/dismiss`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: ignoreReason }),
-      }).then(() => fetchAlerts()).catch(() => {})
+        json: { reason: ignoreReason },
+      }, { onSettled: fetchAlerts })
       setIgnoreDialogOpen(false)
       setSelectedAlertId(null)
       setIgnoreReason('')
@@ -461,11 +460,10 @@ export default function AlertsView() {
 
   function confirmAssign() {
     if (selectedAlertId && assignAgentId) {
-      fetch(`/api/alerts/${selectedAlertId}`, {
+      void mutate(`/api/alerts/${selectedAlertId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedTo: assignAgentId }),
-      }).then(() => fetchAlerts()).catch(() => {})
+        json: { assignedTo: assignAgentId },
+      }, { onSettled: fetchAlerts })
     }
     setAssignDialogOpen(false)
     setSelectedAlertId(null)
@@ -473,34 +471,29 @@ export default function AlertsView() {
   }
 
   function handleFollowUp(alertId: string) {
-    fetch(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' })
-      .then(() => fetchAlerts()).catch(() => {})
+    void mutate(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' }, { onSettled: fetchAlerts })
   }
 
   function handleFalsePositive(alertId: string) {
-    fetch(`/api/alerts/${alertId}/false-positive`, { method: 'POST' })
-      .then(() => fetchAlerts()).catch(() => {})
+    void mutate(`/api/alerts/${alertId}/false-positive`, { method: 'POST' }, { onSettled: fetchAlerts })
   }
 
   function handleCreateRecovery(alertId: string) {
-    fetch(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' })
-      .then(() => fetchAlerts()).catch(() => {})
+    void mutate(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' }, { onSettled: fetchAlerts })
   }
 
   function handleResolveWithReason(alertId: string, reason: string) {
-    fetch(`/api/alerts/${alertId}/resolve`, {
+    void mutate(`/api/alerts/${alertId}/resolve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason }),
-    }).then(() => fetchAlerts()).catch(() => {})
+      json: { reason },
+    }, { onSettled: fetchAlerts })
   }
 
   function handleDismissWithReason(alertId: string, reason: string) {
-    fetch(`/api/alerts/${alertId}/dismiss`, {
+    void mutate(`/api/alerts/${alertId}/dismiss`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason }),
-    }).then(() => fetchAlerts()).catch(() => {})
+      json: { reason },
+    }, { onSettled: fetchAlerts })
   }
 
   function maskCustomerName(name: string): string {

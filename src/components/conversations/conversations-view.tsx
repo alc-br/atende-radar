@@ -33,6 +33,7 @@ import {
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { fetchMutation, runMutation } from '@/lib/mutation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -219,13 +220,12 @@ export default function ConversationsView() {
 
   const handleAssign = useCallback(() => {
     const ids = Array.from(selectedIds)
-    Promise.all(ids.map((id) =>
-      fetch(`/api/conversations/${id}`, {
+    void runMutation(() => Promise.all(ids.map((id) =>
+      fetchMutation(`/api/conversations/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: assignAgent }),
+        json: { agentId: assignAgent },
       })
-    )).then(() => fetchData()).catch(() => {})
+    )), { onSettled: fetchData })
     setAssignDialogOpen(false)
     setAssignAgent('')
     clearSelection()
@@ -234,13 +234,12 @@ export default function ConversationsView() {
   const handleAddTag = useCallback(() => {
     const ids = Array.from(selectedIds)
     const tag = tagInput.trim()
-    Promise.all(ids.map((id) =>
-      fetch(`/api/conversations/${id}`, {
+    void runMutation(() => Promise.all(ids.map((id) =>
+      fetchMutation(`/api/conversations/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addTag: tag }),
+        json: { addTag: tag },
       })
-    )).then(() => fetchData()).catch(() => {})
+    )), { onSettled: fetchData })
     setTagDialogOpen(false)
     setTagInput('')
     clearSelection()
@@ -251,13 +250,12 @@ export default function ConversationsView() {
     if (action === 'tag') setTagDialogOpen(true)
     if (action === 'review') {
       const ids = Array.from(selectedIds)
-      Promise.all(ids.map((id) =>
-        fetch(`/api/conversations/${id}`, {
+      void runMutation(() => Promise.all(ids.map((id) =>
+        fetchMutation(`/api/conversations/${id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ markReviewed: true }),
+          json: { markReviewed: true },
         })
-      )).then(() => fetchData()).catch(() => {})
+      )), { onSettled: fetchData })
       clearSelection()
     }
     if (action === 'recovery') {
@@ -269,7 +267,9 @@ export default function ConversationsView() {
         body: JSON.stringify({ conversationId: c.id, reason: 'Enviado manualmente para recuperação', customerName: c.customerName, originalAgentName: c.agentName, priorityScore: 0.5 }),
       }))).then((rs) => {
         const ok = rs.filter((r) => r.ok).length
-        toast.success(`${ok} conversa(s) enviada(s) para a fila de Recuperação.`)
+        if (ok === rs.length) toast.success(`${ok} conversa(s) enviada(s) para a fila de Recuperação.`)
+        else if (ok > 0) toast.warning(`${ok} de ${rs.length} conversa(s) enviada(s) para a Recuperação. As demais falharam; tente de novo.`)
+        else toast.error('Não foi possível enviar para a Recuperação.')
       }).catch(() => toast.error('Não foi possível enviar para a Recuperação.'))
       clearSelection()
     }

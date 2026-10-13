@@ -10,6 +10,7 @@ import {
 import { AuditLog } from './audit-log'
 import { useAppStore } from '@/lib/store'
 import { toast } from 'sonner'
+import { mutate } from '@/lib/mutation'
 
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 // Ordem de exibição: segunda a domingo (as chaves continuam 0 = domingo ... 6 = sábado)
@@ -306,11 +307,12 @@ export default function SettingsView() {
   }
 
   const toggleRule = (id: string, checked: boolean) => {
-    fetch(`/api/alert-rules/${id}`, {
+    void mutate(`/api/alert-rules/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: checked }),
-    }).then(() => fetch('/api/alert-rules').then(r => (r.ok ? r.json() : Promise.resolve({})) as Promise<any>).then(d => setRulesData(d.rules || [])).catch(() => {})).catch(() => {})
+      json: { active: checked },
+    }, {
+      onSettled: () => fetch('/api/alert-rules').then(r => (r.ok ? r.json() : Promise.resolve({})) as Promise<any>).then(d => setRulesData(d.rules || [])).catch(() => {}),
+    })
   }
 
   const confidencePct = Math.round(aiConfidence[0] * 100)

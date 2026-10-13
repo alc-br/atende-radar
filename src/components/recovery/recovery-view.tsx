@@ -29,6 +29,7 @@ import {
   timeAgo,
 } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
+import { mutate } from '@/lib/mutation'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { Button } from '@/components/ui/button'
@@ -353,11 +354,10 @@ export default function RecoveryView() {
 
   const confirmAssign = () => {
     if (assignItemId && assignAgent) {
-      fetch(`/api/recovery/${assignItemId}`, {
+      void mutate(`/api/recovery/${assignItemId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedTo: assignAgent, status: 'assigned' }),
-      }).then(() => fetchData()).catch(() => {})
+        json: { assignedTo: assignAgent, status: 'assigned' },
+      }, { onSettled: fetchData })
     }
     setAssignDialogOpen(false)
   }
@@ -373,11 +373,10 @@ export default function RecoveryView() {
       let newStatus = 'attempted'
       if (selectedOutcome === 'contato_feito') newStatus = 'contacted'
       if (selectedOutcome === 'agendamento' || selectedOutcome === 'venda_recuperada') newStatus = 'recovered'
-      fetch(`/api/recovery/${outcomeItemId}`, {
+      void mutate(`/api/recovery/${outcomeItemId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, outcome: outcomeLabels[selectedOutcome as OutcomeType] }),
-      }).then(() => fetchData()).catch(() => {})
+        json: { status: newStatus, outcome: outcomeLabels[selectedOutcome as OutcomeType] },
+      }, { onSettled: fetchData })
     }
     setOutcomeDialogOpen(false)
   }
@@ -392,11 +391,10 @@ export default function RecoveryView() {
     if (valueItemId) {
       const val = parseFloat(recoveredValueInput.replace(',', '.')) || 0
       if (val > 0) {
-        fetch(`/api/recovery/${valueItemId}`, {
+        void mutate(`/api/recovery/${valueItemId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'recovered', recoveredValue: val }),
-        }).then(() => fetchData()).catch(() => {})
+          json: { status: 'recovered', recoveredValue: val },
+        }, { onSettled: fetchData })
       }
     }
     setValueDialogOpen(false)
@@ -404,11 +402,10 @@ export default function RecoveryView() {
 
   const confirmDeadline = () => {
     if (deadlineItemId && deadlineInput) {
-      fetch(`/api/recovery/${deadlineItemId}`, {
+      void mutate(`/api/recovery/${deadlineItemId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dueAt: new Date(deadlineInput).toISOString() }),
-      }).then(() => fetchData()).catch(() => {})
+        json: { dueAt: new Date(deadlineInput).toISOString() },
+      }, { onSettled: fetchData })
     }
     setDeadlineDialogOpen(false)
   }
@@ -425,19 +422,17 @@ export default function RecoveryView() {
   }
 
   const handleAttempt = (id: string) => {
-    fetch(`/api/recovery/${id}`, {
+    void mutate(`/api/recovery/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'attempted', attempts: (recoveryItems.find((r: any) => r.id === id)?.attempts || 0) + 1 }),
-    }).then(() => fetchData()).catch(() => {})
+      json: { status: 'attempted', attempts: (recoveryItems.find((r: any) => r.id === id)?.attempts || 0) + 1 },
+    }, { onSettled: fetchData })
   }
 
   const handleReturnOriginal = (id: string) => {
-    fetch(`/api/recovery/${id}`, {
+    void mutate(`/api/recovery/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignedTo: null, status: 'new' }),
-    }).then(() => fetchData()).catch(() => {})
+      json: { assignedTo: null, status: 'new' },
+    }, { onSettled: fetchData })
   }
 
   const sortHeader = (field: SortField, label: string, className?: string) => (

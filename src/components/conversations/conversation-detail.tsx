@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
+import { mutate } from '@/lib/mutation'
 import { PrivacyMenu } from './privacy-menu'
 import {
   ArrowLeft,
@@ -279,19 +280,17 @@ export default function ConversationDetail() {
   const scoreDetail = data.scoreDetail
 
   const handleOutcome = (outcome: 'won' | 'lost', value?: number) => {
-    fetch(`/api/conversations/${selectedConversationId}/outcome`, {
+    void mutate(`/api/conversations/${selectedConversationId}/outcome`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ outcome, value }),
-    }).then(() => fetchData()).catch(() => {})
+      json: { outcome, value },
+    }, { onSettled: fetchData })
   }
 
   const handleFeedback = (type: string, previousValue: string, correctedValue: string, justification: string) => {
-    fetch(`/api/conversations/${selectedConversationId}/feedback`, {
+    void mutate(`/api/conversations/${selectedConversationId}/feedback`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, previousValue, correctedValue, justification }),
-    }).then(() => fetchData()).catch(() => {})
+      json: { type, previousValue, correctedValue, justification },
+    }, { onSettled: fetchData })
   }
 
   const handleBack = () => {
@@ -344,27 +343,24 @@ export default function ConversationDetail() {
   }
 
   const markQuestionAnswered = (questionId: string) => {
-    fetch(`/api/open-questions/${questionId}`, {
+    void mutate(`/api/open-questions/${questionId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'answered' }),
-    }).then(() => fetchData()).catch(() => {})
+      json: { status: 'answered' },
+    }, { onSettled: fetchData })
   }
 
   const setPromiseStatus = (promiseId: string, status: 'kept' | 'cancelled') => {
-    fetch(`/api/promises/${promiseId}`, {
+    void mutate(`/api/promises/${promiseId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    }).then(() => fetchData()).catch(() => {})
+      json: { status },
+    }, { onSettled: fetchData })
   }
 
   const markFindingFalsePositive = (findingId: string) => {
-    fetch(`/api/findings/${findingId}`, {
+    void mutate(`/api/findings/${findingId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ falsePositive: true }),
-    }).then(() => fetchData()).catch(() => {})
+      json: { falsePositive: true },
+    }, { onSettled: fetchData })
   }
 
   // Composição da nota: só os componentes que o motor calculou de verdade
