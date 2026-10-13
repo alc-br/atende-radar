@@ -17,8 +17,9 @@ test.describe('classificação de intenção', () => {
     ['Quero agendar uma consulta para amanhã', 'agendamento'],
     ['queria marcar um horário', 'agendamento'],
     ['Preciso remarcar minha consulta', 'agendamento'],
-    ['Tem horário disponível hoje?', 'disponibilidade'],
-    ['Vocês tem vaga na quinta?', 'disponibilidade'],
+    ['Tem horário disponível hoje?', 'agendamento'], // pedir horário = querer marcar (alta intenção)
+    ['Vocês tem vaga na quinta?', 'agendamento'],
+    ['Ainda tem o tênis 42 disponível?', 'disponibilidade'],
     ['Quero fechar o tratamento, como pago?', 'compra'],
     ['Pode mandar o link, vou levar', 'compra'],
     ['Quero cancelar meu plano', 'cancelamento'],
