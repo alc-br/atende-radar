@@ -90,6 +90,7 @@ test('jornada completa do cliente: do site ao cancelamento', async ({ page, brow
     await p2.locator('#new-password').fill(STRONG)
     await p2.locator('#confirm-password').fill(STRONG)
     await p2.locator('button[type="submit"]').click()
+    await expect(p2.getByRole('status')).toBeVisible({ timeout: 20_000 }) // convite aceito (o link abaixo existe desde o início)
     await p2.getByRole('link', { name: /Ir para o AtendeRadar/ }).click()
     await p2.locator('header').getByRole('link', { name: 'Entrar' }).click() // o link leva ao site; entra pelo cabeçalho
     await expect(p2.getByRole('heading', { name: /Bem-vindo de volta/ })).toBeVisible()

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, useSyncExternalStore } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, ShieldCheck, AlertCircle, ArrowLeft, ArrowRight, KeyRound, UserPlus, MailCheck, Lock, type LucideIcon } from 'lucide-react'
@@ -39,6 +39,8 @@ const COPY: Record<Kind, { title: string; subtitle: string; endpoint: string; bu
 
 const ERROR_BOX = 'flex items-start gap-3 rounded-xl border border-[var(--vermelho-borda)] bg-[var(--vermelho-fundo)] px-4 py-3 text-sm text-[var(--vermelho)]'
 
+const semAssinatura = () => () => {}
+
 function Inner({ kind }: { kind: Kind }) {
   const copy = COPY[kind]
   const Icon = copy.icon
@@ -47,6 +49,8 @@ function Inner({ kind }: { kind: Kind }) {
   const [confirm, setConfirm] = useState('')
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>(copy.needsPassword ? 'idle' : 'loading')
   const [error, setError] = useState('')
+  // Campos só liberam depois da hidratação: o que fosse digitado antes seria apagado pelo React (visto no Safari)
+  const pronto = useSyncExternalStore(semAssinatura, () => true, () => false)
 
   const submit = async (body: Record<string, string>) => {
     setState('loading')
@@ -125,7 +129,7 @@ function Inner({ kind }: { kind: Kind }) {
                     <label htmlFor="new-password">Nova senha</label>
                     <div className="campo-ic">
                       <Lock className="ic" aria-hidden="true" />
-                      <input className="entrada entrada--grande" id="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} autoComplete="new-password" aria-describedby="new-password-hint" disabled={state === 'loading'} />
+                      <input className="entrada entrada--grande" id="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} autoComplete="new-password" aria-describedby="new-password-hint" disabled={!pronto || state === 'loading'} />
                     </div>
                     <p id="new-password-hint" className="text-xs text-[var(--suave)]">Mínimo de 10 caracteres, com letras e números.</p>
                   </div>
@@ -133,10 +137,10 @@ function Inner({ kind }: { kind: Kind }) {
                     <label htmlFor="confirm-password">Repita a senha</label>
                     <div className="campo-ic">
                       <Lock className="ic" aria-hidden="true" />
-                      <input className="entrada entrada--grande" id="confirm-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" disabled={state === 'loading'} />
+                      <input className="entrada entrada--grande" id="confirm-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" disabled={!pronto || state === 'loading'} />
                     </div>
                   </div>
-                  <button type="submit" disabled={state === 'loading'} className="btn btn--verde btn--xl btn--bloco">
+                  <button type="submit" disabled={!pronto || state === 'loading'} className="btn btn--verde btn--xl btn--bloco">
                     {state === 'loading'
                       ? <><Loader2 className="ic animate-spin" aria-hidden="true" />Salvando...</>
                       : <>{copy.button} <ArrowRight className="ic" aria-hidden="true" /></>}
