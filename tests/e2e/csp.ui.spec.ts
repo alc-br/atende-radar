@@ -36,8 +36,10 @@ test('site: CSP em todas as páginas e nada bloqueado', async ({ page, browserNa
   // prova de que a política vale e de que o vigia enxerga: chamada a um domínio fora da lista é barrada
   // (o WebKit do Playwright no Windows não aplica connect-src; no Linux, onde o CI roda, a prova vale)
   if (browserName === 'webkit' && process.platform === 'win32') return
-  const passou = await page.evaluate(() => fetch('https://example.com/').then(() => true, () => false))
+  const passou = await page.evaluate(() => fetch('https://example.com/', { mode: 'no-cors' }).then(() => true, () => false))
   expect(passou).toBe(false)
+  // o WebKit barra a chamada mas não dispara o evento de violação nem avisa no console: a prova acima basta
+  if (browserName === 'webkit') return
   await expect.poll(async () => (await violacoes()).join(' ')).toMatch(/connect-src|example\.com/)
 })
 
