@@ -149,11 +149,6 @@ export default function SettingsView() {
       if (s.aiConfidence) setAiConfidence(s.aiConfidence)
       if (s.aiAudio !== undefined) setAiAudio(s.aiAudio)
       if (s.aiMasking !== undefined) setAiMasking(s.aiMasking)
-      if (s.notifDailyEnabled !== undefined) setNotifDailyEnabled(s.notifDailyEnabled)
-      if (s.notifDailyTime !== undefined) setNotifDailyTime(s.notifDailyTime)
-      if (s.notifDailyDays !== undefined) setNotifDailyDays(s.notifDailyDays)
-      if (s.notifWeeklyEnabled !== undefined) setNotifWeeklyEnabled(s.notifWeeklyEnabled)
-      if (s.notifWeeklyTime !== undefined) setNotifWeeklyTime(s.notifWeeklyTime)
       if (s.notifImmediate !== undefined) setNotifImmediate(s.notifImmediate)
       if (s.notifDigestEnabled !== undefined) setNotifDigestEnabled(s.notifDigestEnabled)
       if (s.notifDigestFreq !== undefined) setNotifDigestFreq(s.notifDigestFreq)
@@ -245,7 +240,7 @@ export default function SettingsView() {
   const [products, setProducts] = useState<Array<{ name: string; value: string }>>([])
   const [intentions, setIntentions] = useState<Array<{ name: string; probability: string }>>([])
   const [minSample, setMinSample] = useState('5')
-  const [opportunityCeiling, setOpportunityCeiling] = useState('15000')
+  const [opportunityCeiling, setOpportunityCeiling] = useState('')
   const [showEstimates, setShowEstimates] = useState(true)
 
   // --- IA ---
@@ -257,11 +252,6 @@ export default function SettingsView() {
   const [aiMasking, setAiMasking] = useState(true)
 
   // --- Notificações ---
-  const [notifDailyEnabled, setNotifDailyEnabled] = useState(true)
-  const [notifDailyTime, setNotifDailyTime] = useState('18:00')
-  const [notifDailyDays, setNotifDailyDays] = useState('2,3,4,5,6')
-  const [notifWeeklyEnabled, setNotifWeeklyEnabled] = useState(true)
-  const [notifWeeklyTime, setNotifWeeklyTime] = useState('09:00')
   const [notifImmediate, setNotifImmediate] = useState(true)
   const [notifDigestEnabled, setNotifDigestEnabled] = useState(true)
   const [notifDigestFreq, setNotifDigestFreq] = useState('15')
@@ -520,17 +510,19 @@ export default function SettingsView() {
                   <input className="entrada" id="f-conv" type="number" min={0} max={100} value={convRate} onChange={e => setConvRate(e.target.value)} />
                 </div>
                 <div className="campo">
-                  <label htmlFor="f-amostra">Amostra mínima</label>
-                  <input className="entrada" id="f-amostra" type="number" min={0} value={minSample} onChange={e => setMinSample(e.target.value)} />
+                  <label htmlFor="f-amostra">Amostra mínima (vendas)</label>
+                  <p className="ajuda-campo" id="f-amostra-ajuda">Com este número de vendas confirmadas (conversas marcadas como ganhas, com valor), o ticket passa a ser a média delas. 0 = usar sempre o ticket acima.</p>
+                  <input className="entrada" id="f-amostra" type="number" min={0} aria-describedby="f-amostra-ajuda" value={minSample} onChange={e => setMinSample(e.target.value)} />
                 </div>
                 <div className="campo">
                   <label htmlFor="f-teto">Teto por oportunidade (R$)</label>
-                  <input className="entrada" id="f-teto" type="number" min={0} value={opportunityCeiling} onChange={e => setOpportunityCeiling(e.target.value)} />
+                  <p className="ajuda-campo" id="f-teto-ajuda">Nenhuma oportunidade é estimada acima deste valor. Vazio = sem teto.</p>
+                  <input className="entrada" id="f-teto" type="number" min={0} placeholder="Sem teto" aria-describedby="f-teto-ajuda" value={opportunityCeiling} onChange={e => setOpportunityCeiling(e.target.value)} />
                 </div>
                 <Opcao
                   icon={<DollarSign className="ic" />} tone="tom-verde"
                   title="Exibir estimativas de valor nas conversas"
-                  desc="Mostra o valor potencial calculado com estes parâmetros."
+                  desc="Mostra o valor potencial nas telas de Conversas. Desligado, o valor continua sendo calculado para o painel e os relatórios."
                   checked={showEstimates} onChange={setShowEstimates}
                 />
               </div>
@@ -688,35 +680,21 @@ export default function SettingsView() {
             onSubmit={(e) => {
               e.preventDefault()
               void saveSettingsSlice('notificacoes', {
-                notifDailyEnabled, notifDailyTime, notifDailyDays, notifWeeklyEnabled, notifWeeklyTime,
                 notifImmediate, notifDigestEnabled, notifDigestFreq, notifRecipients, silenceStart, silenceEnd,
               }, 'Preferências de notificação')
             }}
           >
-            <section className="cartao secao-notif" aria-labelledby="t-relatorios">
+            <section className="cartao secao-notif" aria-labelledby="t-relatorios" data-testid="settings-reports-link">
               <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Calendar className="ic" /></span>
               <div>
                 <h2 id="t-relatorios">Relatórios Agendados</h2>
-                <p className="suave">Os relatórios são gerados na hora, na tela Relatórios. O envio automático por e-mail ainda não está ativo (depende do provedor de e-mail); estes ajustes ficam guardados para quando estiver.</p>
-                <div className="notif-item">
-                  <Interruptor checked={notifDailyEnabled} onChange={setNotifDailyEnabled} label="Relatório diário" />
-                  <div className="notif-item__corpo">
-                    <b>Relatório diário</b><small>Receba um relatório diário por e-mail.</small>
-                    <div className="notif-item__campos">
-                      <div className="campo"><label htmlFor="n-hd">Horário</label><input className="entrada campo-hora" id="n-hd" type="time" value={notifDailyTime} onChange={e => setNotifDailyTime(e.target.value)} disabled={!notifDailyEnabled} /></div>
-                      <div className="campo campo--largo"><label htmlFor="n-dias">Dias (2=seg, 3=ter, ..., 6=sáb)</label><input className="entrada mono" id="n-dias" value={notifDailyDays} onChange={e => setNotifDailyDays(e.target.value)} disabled={!notifDailyEnabled} /></div>
-                    </div>
-                  </div>
-                </div>
-                <div className="notif-item">
-                  <Interruptor checked={notifWeeklyEnabled} onChange={setNotifWeeklyEnabled} label="Relatório semanal" />
-                  <div className="notif-item__corpo">
-                    <b>Relatório semanal</b><small>Receba um relatório semanal por e-mail.</small>
-                    <div className="notif-item__campos">
-                      <div className="campo"><label htmlFor="n-hs">Horário</label><input className="entrada campo-hora" id="n-hs" type="time" value={notifWeeklyTime} onChange={e => setNotifWeeklyTime(e.target.value)} disabled={!notifWeeklyEnabled} /></div>
-                    </div>
-                  </div>
-                </div>
+                <p className="suave">
+                  O envio automático por e-mail de cada relatório (inclusive o diário e o semanal) é configurado na tela Relatórios: horário, dias da semana e destinatários.
+                  No horário escolhido, cada destinatário recebe o resumo com o PDF em anexo.
+                </p>
+                <button type="button" className="btn btn--sm mt-2" onClick={() => setView('reports')}>
+                  <Calendar className="ic" aria-hidden="true" />Configurar envios em Relatórios
+                </button>
               </div>
             </section>
 
@@ -798,7 +776,8 @@ export default function SettingsView() {
             <div className="form-grade">
               <div className="campo">
                 <label htmlFor="p-ret-conteudo">Retenção conteúdo (dias)</label>
-                <input className="entrada" id="p-ret-conteudo" type="number" min={1} value={retContent} onChange={e => setRetContent(e.target.value)} />
+                <p className="ajuda-campo" id="p-ret-conteudo-ajuda">Depois deste prazo o texto das mensagens é apagado.</p>
+                <input className="entrada" id="p-ret-conteudo" type="number" min={1} aria-describedby="p-ret-conteudo-ajuda" value={retContent} onChange={e => setRetContent(e.target.value)} />
               </div>
               <div className="campo">
                 <label htmlFor="p-ret-meta">Retenção metadados (dias)</label>
@@ -807,25 +786,28 @@ export default function SettingsView() {
               </div>
               <div className="campo">
                 <label htmlFor="p-ret-anexos">Retenção anexos (dias)</label>
-                <input className="entrada" id="p-ret-anexos" type="number" min={1} value={retAttachments} onChange={e => setRetAttachments(e.target.value)} />
+                <p className="ajuda-campo" id="p-ret-anexos-ajuda">Informativo, sem efeito automático: o AtendeRadar não guarda anexos (fotos, áudios, documentos), só o tipo da mensagem.</p>
+                <input className="entrada" id="p-ret-anexos" type="number" min={1} aria-describedby="p-ret-anexos-ajuda" value={retAttachments} onChange={e => setRetAttachments(e.target.value)} />
               </div>
               <Opcao
                 icon={<EyeOff className="ic" />} tone="tom-verde"
-                title="Mascaramento automático" desc="Ocultar dados sensíveis (CPF, cartão, etc.) nas análises."
+                title="Mascaramento automático" desc="CPF, cartão e CVV são guardados e mostrados mascarados. Desligado, as mensagens novas ficam como chegaram (alertas e achados continuam mascarados)."
                 checked={privMasking} onChange={setPrivMasking}
               />
               <Opcao
                 icon={<Download className="ic" />} tone="tom-verde"
-                title="Exportação pelo titular" desc="Permitir que o titular dos dados solicite exportação."
+                title="Exportação pelo titular" desc="Libera, na tela da conversa, o arquivo com os dados de um cliente para entregar a ele (portabilidade). Desligado, a exportação fica bloqueada."
                 checked={privExport} onChange={setPrivExport}
               />
               <div className="campo form-grade__todo">
                 <label htmlFor="p-excluidos">Números excluídos do monitoramento (um por linha)</label>
-                <textarea className="area mono" id="p-excluidos" rows={3} placeholder={'11999999999\n11888888888'} value={privExcluded} onChange={e => setPrivExcluded(e.target.value)} />
+                <p className="ajuda-campo" id="p-excluidos-ajuda">Mensagens destes números não são guardadas nem analisadas. Ao salvar, conversas que já existiam com eles saem das telas e os alertas abertos são dispensados. Tirar um número da lista não volta a monitorar o que já foi excluído.</p>
+                <textarea className="area mono" id="p-excluidos" rows={3} aria-describedby="p-excluidos-ajuda" placeholder={'11999999999\n11888888888'} value={privExcluded} onChange={e => setPrivExcluded(e.target.value)} />
               </div>
               <div className="campo">
                 <label htmlFor="p-base">Base legal</label>
-                <select className="selecao" id="p-base" value={privLegalBasis} onChange={e => setPrivLegalBasis(e.target.value)}>
+                <p className="ajuda-campo" id="p-base-ajuda">Informativo, sem efeito automático: sai no arquivo exportado para o titular.</p>
+                <select className="selecao" id="p-base" aria-describedby="p-base-ajuda" value={privLegalBasis} onChange={e => setPrivLegalBasis(e.target.value)}>
                   <option value="consentimento">Consentimento do titular</option>
                   <option value="legitimo_interesse">Legítimo interesse</option>
                   <option value="obrigacao_legal">Obrigação legal</option>
@@ -834,7 +816,8 @@ export default function SettingsView() {
               </div>
               <div className="campo">
                 <label htmlFor="p-dpo">Contato do encarregado (DPO)</label>
-                <input className="entrada" id="p-dpo" value={privDPO} onChange={e => setPrivDPO(e.target.value)} />
+                <p className="ajuda-campo" id="p-dpo-ajuda">Informativo, sem efeito automático: sai no arquivo exportado para o titular.</p>
+                <input className="entrada" id="p-dpo" aria-describedby="p-dpo-ajuda" value={privDPO} onChange={e => setPrivDPO(e.target.value)} />
               </div>
             </div>
             <Rodape saving={savingTab === 'privacidade'} />

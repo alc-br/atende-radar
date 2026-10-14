@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { guard, notFound } from '@/lib/api-auth'
 import { audit } from '@/lib/audit'
 import { maskSensitive } from '@/lib/mask-sensitive'
+import { LEGAL_BASIS_LABELS, privacySettings } from '@/lib/privacy-settings'
 
 // Portabilidade (LGPD): tudo o que a empresa guarda sobre UM cliente final, em JSON legível, para entregar ao titular.
 // Só quem configura a empresa (privacy.manage). O telefone completo nunca é guardado, então nunca sai daqui.
@@ -13,6 +14,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const conv = await db.conversation.findFirst({ where: { id, organizationId: g.auth.orgId }, select: { id: true, contactId: true } })
   if (!conv) return notFound('Conversation')
+
+  // Configurações › Privacidade › "Exportação pelo titular" desligada: a empresa optou por não exportar por aqui
+  const privacy = await privacySettings(g.auth.orgId)
+  if (!privacy.exportEnabled) {
+    return NextResponse.json(
+      { error: 'A exportação pelo titular está desligada em Configurações › Privacidade.', code: 'export_disabled' },
+      { status: 403 }
+    )
+  }
 
   const [org, contact, conversations] = await Promise.all([
     db.organization.findUnique({ where: { id: g.auth.orgId }, select: { name: true, displayName: true } }),
@@ -36,6 +46,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     formato: 'AtendeRadar · exportação de dados de um cliente (LGPD, portabilidade)',
     geradoEm: new Date().toISOString(),
     empresa: org?.displayName || org?.name || null,
+    // registro informativo da empresa (Configurações › Privacidade)
+    baseLegal: privacy.legalBasis ? LEGAL_BASIS_LABELS[privacy.legalBasis] ?? privacy.legalBasis : null,
+    encarregado: privacy.dpo,
     contact: contact
       ? { displayName: contact.displayName, phoneLast4: contact.phoneLast4, excluded: contact.excluded, firstSeenAt: contact.firstSeenAt?.toISOString() ?? null, lastSeenAt: contact.lastSeenAt?.toISOString() ?? null }
       : null,

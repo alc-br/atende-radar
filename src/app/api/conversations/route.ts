@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { guard, conversationScope } from '@/lib/api-auth'
 import { Prisma } from '@prisma/client'
 import { pageParams } from '@/lib/pagination'
+import { financialSettings } from '@/lib/analysis/revenue-params'
 
 export async function GET(request: Request) {
   try {
@@ -105,6 +106,10 @@ export async function GET(request: Request) {
         : []
     )
 
+    // P2 · "Exibir estimativas de valor nas conversas" desligado: a lista não mostra valor estimado
+    const orgRow = await db.organization.findUnique({ where: { id: org.id }, select: { settingsJson: true } })
+    const estimatesHidden = !financialSettings((() => { try { return JSON.parse(orgRow?.settingsJson || '{}') as Record<string, unknown> } catch { return {} } })()).showEstimates
+
     const formatted = conversations.map((c) => {
       const waitingMs = c.waitingSince
         ? Date.now() - new Date(c.waitingSince).getTime()
@@ -128,19 +133,20 @@ export async function GET(request: Request) {
         urgency: c.urgency,
         sentiment: c.sentiment,
         score: Math.round(c.score),
-        potentialValue: Math.round(c.potentialValue),
+        potentialValue: estimatesHidden ? 0 : Math.round(c.potentialValue),
         confidence: +c.confidence.toFixed(2),
         messagesCount: messagesCount.get(c.id) ?? 0,
         lastActivity: (c.lastInboundAt || c.lastOutboundAt || c.updatedAt).toISOString(),
         waitingMinutes: c.operationalStatus === 'waiting_company' ? Math.floor(waitingMs / 60000) : 0,
         alertCount: c.alerts.length,
         tags: (() => { try { return JSON.parse(c.tags || '[]') as string[] } catch { return [] } })(),
-        hasOpportunity: c.potentialValue > 0,
+        hasOpportunity: !estimatesHidden && c.potentialValue > 0,
       }
     })
 
     return NextResponse.json({
       conversations: formatted,
+      estimatesHidden,
       pagination: {
         page,
         limit,

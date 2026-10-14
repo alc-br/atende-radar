@@ -4,7 +4,9 @@ import { extractPromise } from './promises'
 import { decideAgent } from './agents'
 import { attributionFor, conversationsOfIdentities, reattributeConversations, recordSightings, refreshIdentityStats, refreshSuggestions } from '../agent-identities'
 import { scoreConversation } from './score'
-import { estimateOpportunity, revenueSettings } from './opportunity'
+import { estimateOpportunity } from './opportunity'
+import { revenueParams } from './revenue-params'
+import { analysisGate, type PauseReason } from '../billing/analysis-gate'
 import { recomputeMetrics } from './metrics'
 import { detectIgnoredQuestions } from './questions'
 import { purgeExpired } from '../privacy'
@@ -36,6 +38,8 @@ export interface AnalysisSummary {
   conversations: number
   alertsOpened: number
   alertsResolved: number
+  paused?: PauseReason // T11: teste vencido/assinatura encerrada, nada analisado
+  overQuota?: number // T11: conversas do mês acima do limite do plano, não analisadas
 }
 
 const parseJson = <T,>(s: string | null | undefined, fallback: T): T => {
@@ -77,6 +81,9 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   const org = await db.organization.findUnique({ where: { id: orgId } })
   if (!org || org.deletionRequestedAt) return summary // empresa em exclusão: nada mais é analisado
   await purgeExpired(orgId, org.settingsJson, now) // retenção: apaga o que passou do prazo antes de analisar
+  const gate = await analysisGate(orgId, now) // T11: plano vencido pausa; acima do limite do mês não analisa
+  if (gate.paused) return { ...summary, paused: gate.paused }
+  if (gate.skipped.size) summary.overQuota = gate.skipped.size
   const [rules, agents, connections] = await Promise.all([
     db.alertRule.findMany({ where: { organizationId: orgId, active: true } }),
     db.agent.findMany({ where: { organizationId: orgId, status: 'active' } }),
@@ -86,7 +93,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   // A tela de Configurações grava tudo na raiz de `settings` (avgTicket, convRate em %, businessHours, slaFirst, …).
   type OrgSettings = HoursSettings & { avgTicket?: string | number; convRate?: string | number; slaFirst?: string | number; slaContinuity?: string | number; abandonTime?: string | number; inactivityClose?: string | number }
   const settings = parseJson<OrgSettings>(org.settingsJson, {})
-  const { avgTicket, conversionRate } = revenueSettings(settings)
+  const { avgTicket, conversionRate, ceiling, ticketSource } = await revenueParams(orgId, settings as Record<string, unknown>) // P2 · Financeiro
   // P2 · Horário comercial e regra fora do expediente:
   //   ignora → alertas e nota só contam minutos de expediente · atraso → tudo em tempo corrido · alerta → alerta em tempo corrido, nota em expediente
   const schedule = scheduleFrom(settings, org.timezone)
@@ -107,7 +114,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   //  · abertas e paradas há mais que o prazo de inatividade (encerramento).
   // Conversa quieta e sem pendência não é reprocessada (custo cresce com o que muda, não com o histórico).
   const staleBefore = new Date(now.getTime() - inactivityHours * 3600000)
-  const conversations = await db.conversation.findMany({
+  const conversations = (await db.conversation.findMany({
     where: {
       organizationId: orgId,
       ...REAL,
@@ -122,7 +129,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
       ],
     },
     include: { contact: true, agent: true, messages: { orderBy: { occurredAt: 'asc' } } },
-  })
+  })).filter((c) => !gate.skipped.has(c.id))
   const convIds = conversations.map((c) => c.id)
 
   const [promises, feedbacks, opportunities, openAlerts, recoveries, classifications, questions] = await Promise.all([
@@ -233,7 +240,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     const waitingForScore = waitingCompany && conv.waitingSince ? forScore(conv.waitingSince, now) : 0
     let closed = conv.closedAt != null || CLOSED_OUTCOMES.includes(conv.operationalStatus)
 
-    const est = estimateOpportunity(intent, avgTicket, conversionRate)
+    const est = estimateOpportunity(intent, avgTicket, conversionRate, ceiling)
     let opp = opportunities.find((o) => o.conversationId === conv.id)
     let oppId = opp?.id
 
@@ -252,7 +259,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
           // registra a oportunidade perdida (valor que escapou), mesmo que o motor nunca a tenha visto ativa
           opp = await db.revenueOpportunity.create({
             data: {
-              conversationId: conv.id, status: 'lost', baseTicket: est.baseTicket, ticketSource: 'org_setting', probability: est.probability,
+              conversationId: conv.id, status: 'lost', baseTicket: est.baseTicket, ticketSource, probability: est.probability,
               probabilitySource: 'org_setting', intentFactor: est.intentFactor, expectedValue: est.expectedValue, rangeLow: est.rangeLow, rangeHigh: est.rangeHigh, confidence: cls.confidence,
             },
           })
@@ -280,17 +287,17 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     if (est && !opp && !closed) {
       const created = await db.revenueOpportunity.create({
         data: {
-          conversationId: conv.id, status: 'active', baseTicket: est.baseTicket, ticketSource: 'org_setting', probability: est.probability,
+          conversationId: conv.id, status: 'active', baseTicket: est.baseTicket, ticketSource, probability: est.probability,
           probabilitySource: 'org_setting', intentFactor: est.intentFactor, expectedValue: est.expectedValue, rangeLow: est.rangeLow, rangeHigh: est.rangeHigh, confidence: cls.confidence,
         },
       })
       oppId = created.id
       opportunities.push(created)
     } else if (est && opp && opp.status === 'active') {
-      if (opp.expectedValue !== est.expectedValue || opp.baseTicket !== est.baseTicket) {
+      if (opp.expectedValue !== est.expectedValue || opp.baseTicket !== est.baseTicket || opp.ticketSource !== ticketSource) {
         await db.revenueOpportunity.update({
           where: { id: opp.id },
-          data: { baseTicket: est.baseTicket, probability: est.probability, intentFactor: est.intentFactor, expectedValue: est.expectedValue, rangeLow: est.rangeLow, rangeHigh: est.rangeHigh, confidence: cls.confidence },
+          data: { baseTicket: est.baseTicket, ticketSource, probability: est.probability, intentFactor: est.intentFactor, expectedValue: est.expectedValue, rangeLow: est.rangeLow, rangeHigh: est.rangeHigh, confidence: cls.confidence },
         })
       }
     }

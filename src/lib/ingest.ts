@@ -1,9 +1,13 @@
-import { createHmac } from 'node:crypto'
 import { z } from 'zod'
 import { db } from './db'
 import { requestAnalysis } from './background'
 import { maskSensitive } from './mask-sensitive'
 import { milestone } from './product-events'
+import { phoneHash } from './phone-hash'
+import { isExcludedNumber } from './excluded-numbers'
+import { maskingEnabled } from './privacy-settings'
+
+export { phoneHash }
 
 // ---------- contrato dos eventos (gateway → sistema) ----------
 export const EventSchema = z.object({
@@ -34,12 +38,6 @@ const QrPayload = z.object({ qr: z.string().min(1).max(4000) })
 export type IngestResult =
   | { ok: true; duplicate?: true; ignored?: string }
   | { ok: false; status: 400 | 404; error: string }
-
-/** O telefone nunca é guardado em claro: só HMAC (para reconhecer o mesmo contato) e os 4 últimos dígitos (para exibir). */
-export function phoneHash(orgId: string, digits: string): string {
-  const key = process.env.PHONE_HASH_SECRET || process.env.NEXTAUTH_SECRET || 'atenderadar-dev-only'
-  return createHmac('sha256', key).update(`${orgId}:${digits}`).digest('hex')
-}
 
 const digitsOf = (jid: string) => jid.split('@')[0].split(':')[0].replace(/\D/g, '')
 const maxDate = (a: Date | null | undefined, b: Date) => (a && a > b ? a : b)
@@ -151,8 +149,9 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
 
   // Mesma mensagem do WhatsApp chegando de novo (histórico/reconexão) com outro eventId.
   // Contato que o cliente pediu para NÃO monitorar: nada é guardado.
+  // Idem para os "Números excluídos do monitoramento" (Configurações › Privacidade), comparados pelo hash.
   const existingContact = await db.contact.findFirst({ where: { organizationId: connection.organizationId, phoneHash: hash }, select: { excluded: true } })
-  if (existingContact?.excluded) {
+  if (existingContact?.excluded || (await isExcludedNumber(connection.organizationId, hash))) {
     await db.rawChannelEvent.update({ where: { eventId: evt.eventId }, data: { processingStatus: 'ignored' } })
     return { ok: true, ignored: 'excluded' }
   }
@@ -160,6 +159,7 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
   const already = await db.message.findUnique({ where: { connectionId_externalId: { connectionId: connection.id, externalId: msg.externalId } } })
   if (already) return { ok: true, duplicate: true }
 
+  const mask = await maskingEnabled(connection.organizationId) // T17 · "Mascaramento automático" (padrão ligado)
   let openedConversation = false
   await db.$transaction(async (tx) => {
     let contact = await tx.contact.findFirst({ where: { organizationId: connection.organizationId, phoneHash: hash } })
@@ -231,8 +231,8 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
         direction: inbound ? 'inbound' : 'outbound',
         senderType: inbound ? 'customer' : 'agent',
         messageType: msg.messageType,
-        // LGPD: CPF, cartão e CVV já entram mascarados (antes do motor e de qualquer log)
-        text: maskSensitive(msg.text) ?? null,
+        // LGPD: CPF, cartão e CVV já entram mascarados (antes do motor e de qualquer log), salvo se a empresa desligou
+        text: (mask ? maskSensitive(msg.text) : msg.text) ?? null,
         occurredAt,
       },
     })

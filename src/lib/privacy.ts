@@ -36,13 +36,20 @@ export async function eraseConversations(orgId: string, conversationIds: string[
 export async function excludeContactOf(orgId: string, conversationId: string): Promise<boolean> {
   const conv = await db.conversation.findFirst({ where: { id: conversationId, organizationId: orgId }, select: { contactId: true } })
   if (!conv?.contactId) return false
-  await db.contact.update({ where: { id: conv.contactId }, data: { excluded: true } })
-  const convs = await db.conversation.findMany({ where: { organizationId: orgId, contactId: conv.contactId }, select: { id: true } })
+  await excludeContacts(orgId, [conv.contactId])
+  return true
+}
+
+/** Marca os contatos (da PRÓPRIA organização) como excluídos do monitoramento e dispensa os alertas abertos deles. */
+export async function excludeContacts(orgId: string, contactIds: string[]): Promise<number> {
+  if (contactIds.length === 0) return 0
+  const { count } = await db.contact.updateMany({ where: { organizationId: orgId, id: { in: contactIds } }, data: { excluded: true } })
+  const convs = await db.conversation.findMany({ where: { organizationId: orgId, contactId: { in: contactIds } }, select: { id: true } })
   await db.alert.updateMany({
     where: { organizationId: orgId, conversationId: { in: convs.map((c) => c.id) }, status: { in: ['new', 'acknowledged', 'in_progress'] } },
     data: { status: 'dismissed', dismissedReason: 'Contato excluído do monitoramento' },
   })
-  return true
+  return count
 }
 
 const parseDays = (v: unknown, fallback: number) => {

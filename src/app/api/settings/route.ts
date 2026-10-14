@@ -3,6 +3,8 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 import { readJson } from '@/lib/json-body'
+import { applyReportPrefs, splitReportPrefs } from '@/lib/reports/settings-sync'
+import { applyExcludedNumbers } from '@/lib/excluded-numbers'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -103,9 +105,11 @@ export async function PATCH(request: Request) {
     if (website !== undefined) data.website = website
     if (phone !== undefined) data.phone = phone
     if (adminEmail !== undefined) data.adminEmail = adminEmail
-    if (settings !== undefined) {
+    // relatório diário/semanal: vira o agendamento real (tela Relatórios), não fica solto no JSON
+    const split = settings !== undefined && settings && typeof settings === 'object' ? splitReportPrefs(settings) : null
+    if (split) {
       const current = safeJsonParse<Record<string, unknown>>(org.settingsJson, {})
-      data.settingsJson = JSON.stringify({ ...current, ...settings })
+      data.settingsJson = JSON.stringify({ ...current, ...split.rest })
     }
 
     const updated = await db.organization.update({
@@ -114,12 +118,24 @@ export async function PATCH(request: Request) {
     })
     const orgKeys = Object.keys(data).filter((k) => !['updatedAt', 'settingsJson'].includes(k))
     if (orgKeys.length) await audit(g.auth, { action: 'organization.updated', targetType: 'organization', targetId: org.id, details: { keys: orgKeys } })
-    if (settings !== undefined) await audit(g.auth, { action: 'settings.updated', targetType: 'organization', targetId: org.id, details: { keys: Object.keys(settings).slice(0, 50) } })
+    let reportsUpdated: string[] = []
+    let excludedContacts = 0
+    if (split) {
+      await audit(g.auth, { action: 'settings.updated', targetType: 'organization', targetId: org.id, details: { keys: Object.keys(settings!).slice(0, 50) } })
+      if (Object.keys(split.prefs).length) reportsUpdated = await applyReportPrefs(org.id, split.prefs)
+      // "Números excluídos do monitoramento": quem já tinha conversa com esses números para de ser monitorado agora
+      if (split.rest.privExcluded !== undefined) {
+        excludedContacts = await applyExcludedNumbers(org.id, split.rest.privExcluded)
+        if (excludedContacts > 0) await audit(g.auth, { action: 'privacy.exclude', targetType: 'organization', targetId: org.id, details: { source: 'settings', contacts: excludedContacts } })
+      }
+    }
 
     return NextResponse.json({
       success: true,
       organization: updated,
       settings: safeJsonParse<Record<string, unknown>>(updated.settingsJson, {}),
+      reportsUpdated,
+      excludedContacts,
     })
   } catch (error) {
     console.error('Settings PATCH error:', error)

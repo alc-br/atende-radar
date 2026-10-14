@@ -3,7 +3,9 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { maskSensitive } from '@/lib/mask-sensitive'
 import { guard, conversationScope, badRequest } from '@/lib/api-auth'
-import { opportunityBreakdown, revenueSettings } from '@/lib/analysis/opportunity'
+import { opportunityBreakdown } from '@/lib/analysis/opportunity'
+import { revenueParams } from '@/lib/analysis/revenue-params'
+import { privacySettingsFrom } from '@/lib/privacy-settings'
 import { readJson } from '@/lib/json-body'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
@@ -118,10 +120,13 @@ export async function GET(
 
     // P6 · "Como calculamos" o valor em risco: o MESMO cálculo do motor, com as Configurações atuais da empresa.
     // Só sai quando bate com o valor exibido (se as Configurações mudaram depois de a conversa encerrar, não inventa).
-    const potentialValue = Math.round(conversation.potentialValue)
+    // P2 · Financeiro: teto por oportunidade, amostra mínima (ticket das vendas confirmadas) e "Exibir estimativas".
     const org = await db.organization.findUnique({ where: { id: conversation.organizationId }, select: { settingsJson: true } })
-    const { avgTicket, conversionRate } = revenueSettings(safeJsonParse<Record<string, unknown>>(org?.settingsJson, {}))
-    const breakdown = potentialValue > 0 ? opportunityBreakdown(conversation.primaryIntent, avgTicket, conversionRate) : null
+    const orgSettings = safeJsonParse<Record<string, unknown>>(org?.settingsJson, {})
+    const rp = await revenueParams(conversation.organizationId, orgSettings)
+    const estimatesHidden = !rp.showEstimates
+    const potentialValue = estimatesHidden ? 0 : Math.round(conversation.potentialValue)
+    const breakdown = potentialValue > 0 ? opportunityBreakdown(conversation.primaryIntent, rp.avgTicket, rp.conversionRate, rp.ceiling) : null
     const valueExplanation = breakdown && breakdown.expectedValue === potentialValue
       ? {
           intent: breakdown.intent,
@@ -136,8 +141,17 @@ export async function GET(
           rangeSpread: breakdown.rangeSpread,
           rangeLow: breakdown.rangeLow,
           rangeHigh: breakdown.rangeHigh,
+          ticketSource: rp.ticketSource, // org_setting = ticket informado · confirmed_sales = média das vendas confirmadas
+          salesSample: rp.salesSample,
+          minSample: rp.minSample,
+          ceiling: breakdown.ceiling,
+          ceilingApplied: breakdown.ceilingApplied,
+          uncappedValue: breakdown.uncappedValue,
         }
       : null
+    // T17 · "Mascaramento automático" desligado: a conversa mostra o texto como foi recebido
+    const { masking } = privacySettingsFrom(org?.settingsJson)
+    const showText = (t: string | null) => (masking ? maskSensitive(t) : t)
 
     const waitingMs = conversation.waitingSince
       ? Date.now() - new Date(conversation.waitingSince).getTime()
@@ -155,6 +169,7 @@ export async function GET(
       riskScore: Math.round(conversation.riskScore * 100) / 100,
       potentialValue,
       valueExplanation,
+      estimatesHidden,
       confidence: +conversation.confidence.toFixed(2),
       tags: safeJsonParse<string[]>(conversation.tags, []),
       waitingMinutes: Math.floor(waitingMs / 60000),
@@ -206,7 +221,7 @@ export async function GET(
         direction: m.direction,
         senderType: m.senderType,
         messageType: m.messageType,
-        text: maskSensitive(m.text), // rede de segurança para mensagens gravadas antes da máscara na entrada
+        text: showText(m.text), // rede de segurança para mensagens gravadas antes da máscara na entrada
         occurredAt: m.occurredAt.toISOString(),
         isAutomatic: m.isAutomatic,
         deliveryStatus: m.deliveryStatus,
@@ -242,7 +257,7 @@ export async function GET(
       })),
 
       // Opportunities
-      opportunities: conversation.opportunities.map((o) => ({
+      opportunities: (estimatesHidden ? [] : conversation.opportunities).map((o) => ({
         id: o.id,
         status: o.status,
         intentFactor: o.intentFactor,

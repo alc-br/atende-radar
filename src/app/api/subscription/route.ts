@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
 import { effectiveStatus } from '@/lib/billing/core'
 import { countExports, currentUsage, usagePeriodStart } from '@/lib/quotas'
+import { analysisGateStatus } from '@/lib/billing/analysis-gate'
 
 // A troca de plano só acontece com pagamento confirmado: pelo checkout (POST /api/billing/checkout, Pagar.me) ou, sem
 // pagamento on-line configurado, pelo pedido (POST /api/subscription/request) que o operador da plataforma ativa.
@@ -37,7 +38,7 @@ export async function GET() {
 
     // Uso no mês (conversas, mensagens, exportações) e uso fixo contado como nas cotas (as 8 regras padrão não contam)
     const currentMonth = usagePeriodStart()
-    const [conversationCount, messageCount, fixed, exportCount] = await Promise.all([
+    const [conversationCount, messageCount, fixed, exportCount, gate] = await Promise.all([
       db.conversation.count({
         where: { organizationId: org.id, createdAt: { gte: currentMonth } },
       }),
@@ -48,6 +49,7 @@ export async function GET() {
       }),
       currentUsage(org.id),
       countExports(org.id),
+      analysisGateStatus(org.id),
     ])
     const { connections: connectionCount, agents: agentCount, alertRules: alertRuleCount } = fixed
     const pct = (current: number, limit: number | null) => (limit ? Math.round((current / limit) * 100) : 0)
@@ -77,6 +79,8 @@ export async function GET() {
         alertRules: { current: alertRuleCount, limit: subscription.plan.maxAlertRules, percentage: pct(alertRuleCount, subscription.plan.maxAlertRules) },
         exports: { current: exportCount, limit: subscription.plan.maxExports, percentage: pct(exportCount, subscription.plan.maxExports) },
       },
+      // T11 · análise pausada (teste vencido / assinatura encerrada) e conversas do mês acima do limite, sem análise
+      analysis: { paused: gate.paused, unanalyzed: gate.skipped.size },
     })
   } catch (error) {
     console.error('Subscription GET error:', error)

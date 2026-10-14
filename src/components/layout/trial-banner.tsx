@@ -9,6 +9,8 @@ interface Sub {
   trialDaysLeft: number | null
   planName: string
   conversations: { current: number; limit: number } | null
+  unanalyzed: number
+  paused: boolean
 }
 
 // Faixa sobre o conteúdo: mostra quanto falta do teste grátis (ou que a assinatura não está ativa). Só para quem administra a assinatura.
@@ -25,7 +27,7 @@ export function TrialBanner() {
       .then((d) =>
         setSub(
           d?.subscription
-            ? { status: d.subscription.status, trialDaysLeft: d.subscription.trialDaysLeft, planName: d.subscription.plan?.name ?? 'atual', conversations: d.usage?.conversations ?? null }
+            ? { status: d.subscription.status, trialDaysLeft: d.subscription.trialDaysLeft, planName: d.subscription.plan?.name ?? 'atual', conversations: d.usage?.conversations ?? null, unanalyzed: d.analysis?.unanalyzed ?? 0, paused: !!d.analysis?.paused }
             : null
         )
       )
@@ -43,7 +45,7 @@ export function TrialBanner() {
 
   const quotaText =
     quotaLevel === 'exceeded'
-      ? `Limite do plano ${sub.planName} atingido: ${conv!.current} de ${conv!.limit} conversas neste mês. As mensagens continuam sendo recebidas; troque de plano em Planos.`
+      ? `Limite do plano ${sub.planName} atingido: ${conv!.current} de ${conv!.limit} conversas neste mês. As mensagens continuam sendo recebidas, mas as conversas novas acima do limite não são analisadas${sub.unanalyzed > 0 ? ` (${sub.unanalyzed} sem análise)` : ''}; troque de plano em Planos.`
       : quotaLevel !== 'none'
         ? `Você já usou ${conv!.current} de ${conv!.limit} conversas do plano ${sub.planName} neste mês (${pct}%).`
         : null
@@ -72,7 +74,9 @@ export function TrialBanner() {
           {(trialing || inactive) && (
             <span>
               {inactive
-                ? 'Seu teste grátis terminou ou a assinatura não está ativa. Contrate um plano para continuar cadastrando.'
+                ? sub.paused
+                  ? <span data-testid="analysis-paused">Seu teste grátis terminou ou a assinatura não está ativa. A análise das conversas está pausada (as mensagens continuam sendo recebidas). Contrate um plano para retomar e continuar cadastrando.</span>
+                  : 'Seu teste grátis terminou ou a assinatura não está ativa. Contrate um plano para continuar cadastrando.'
                 : ending
                   ? <>Seu teste grátis termina <b data-testid="trial-days-left">{lastDay ? 'em até 1 dia' : `em ${daysLeft} dias`}</b>. Contrate um plano para não perder o acesso.</>
                   : <>Teste grátis: <b data-testid="trial-days-left">{sub.trialDaysLeft} {sub.trialDaysLeft === 1 ? 'dia restante' : 'dias restantes'}</b>.</>}

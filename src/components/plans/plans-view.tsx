@@ -136,6 +136,7 @@ export default function PlansView() {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
   const [usage, setUsage] = useState<Record<string, UsageEntry> | null>(null)
   const [billing, setBilling] = useState<Billing | null>(null)
+  const [analysis, setAnalysis] = useState<{ paused: string | null; unanalyzed: number } | null>(null)
   const [cycle, setCycle] = useState<Cycle>('monthly')
 
   const fetchData = useCallback(async () => {
@@ -154,6 +155,7 @@ export default function PlansView() {
       setPlans(plansData.plans || [])
       setSubscription(subData.subscription || null)
       setUsage(subData.usage || null)
+      setAnalysis(subData.analysis || null)
       setBilling(billingData)
       if (billingData?.subscription?.recurring) setCycle(billingData.subscription.billingCycle)
     } catch (e) {
@@ -341,6 +343,18 @@ export default function PlansView() {
                 <div><h2 id="t-uso"><Sparkles className="ic verde-txt" aria-hidden="true" />Uso este mês</h2></div>
               </div>
               <div className="cartao__corpo space-y-5">
+                {/* T11 · o que o plano deixou de analisar */}
+                {analysis?.paused ? (
+                  <p className="aviso aviso--ambar" role="status" data-testid="plans-analysis-paused">
+                    {analysis.paused === 'trial_expired' ? 'Seu teste grátis terminou' : 'Sua assinatura foi encerrada'}: a análise das conversas está pausada.
+                    As mensagens continuam sendo recebidas e voltam a ser analisadas quando você contratar um plano.
+                  </p>
+                ) : analysis && analysis.unanalyzed > 0 ? (
+                  <p className="aviso aviso--ambar" role="status" data-testid="plans-quota-unanalyzed">
+                    {analysis.unanalyzed} {analysis.unanalyzed === 1 ? 'conversa deste mês passou' : 'conversas deste mês passaram'} do limite do plano e não {analysis.unanalyzed === 1 ? 'foi analisada' : 'foram analisadas'}.
+                    Elas estão guardadas e são analisadas quando o plano mudar para um limite maior ou quando o mês virar.
+                  </p>
+                ) : null}
                 {usage && USAGE_METRICS.map((metric) => {
                   const entry = usage[metric.key]
                   if (!entry) return null

@@ -32,6 +32,9 @@ export interface OpportunityBreakdown extends OpportunityEstimate {
   rawProbability: number // conversão × fator, antes do teto
   capped: boolean // a chance bateu no teto de 95 %
   rangeSpread: number
+  ceiling: number | null // Configurações › Financeiro › "Teto por oportunidade" (null = sem teto)
+  ceilingApplied: boolean // o valor estimado passou do teto e foi limitado a ele
+  uncappedValue: number // valor antes do teto
 }
 
 /** Ticket médio e taxa de conversão das Configurações (mesma leitura do motor; conversão aceita "20" ou "0.2"). */
@@ -43,11 +46,15 @@ export function revenueSettings(settings: { avgTicket?: unknown; convRate?: unkn
 }
 
 /** O cálculo completo, passo a passo. null = essa intenção não é oportunidade de venda. */
-export function opportunityBreakdown(intent: string | null, avgTicket: number, conversionRate: number): OpportunityBreakdown | null {
+export function opportunityBreakdown(intent: string | null, avgTicket: number, conversionRate: number, ceiling: number | null = null): OpportunityBreakdown | null {
   if (!intent || !(intent in FACTOR)) return null
   const rawProbability = conversionRate * FACTOR[intent]
   const probability = Math.min(MAX_PROBABILITY, rawProbability)
-  const expectedValue = Math.round(avgTicket * probability)
+  const uncappedValue = Math.round(avgTicket * probability)
+  const limit = ceiling && ceiling > 0 ? Math.round(ceiling) : null
+  const ceilingApplied = limit !== null && uncappedValue > limit
+  const expectedValue = ceilingApplied ? limit : uncappedValue
+  const high = Math.round(expectedValue * (1 + RANGE_SPREAD))
   return {
     intent,
     conversionRate,
@@ -59,13 +66,16 @@ export function opportunityBreakdown(intent: string | null, avgTicket: number, c
     intentFactor: FACTOR[intent],
     expectedValue,
     rangeLow: Math.round(expectedValue * (1 - RANGE_SPREAD)),
-    rangeHigh: Math.round(expectedValue * (1 + RANGE_SPREAD)),
+    rangeHigh: limit !== null ? Math.min(high, limit) : high,
+    ceiling: limit,
+    ceilingApplied,
+    uncappedValue,
   }
 }
 
 /** null = essa intenção não é oportunidade de venda (suporte, reclamação, cancelamento...). É sempre uma ESTIMATIVA, com faixa. */
-export function estimateOpportunity(intent: string | null, avgTicket: number, conversionRate: number): OpportunityEstimate | null {
-  const b = opportunityBreakdown(intent, avgTicket, conversionRate)
+export function estimateOpportunity(intent: string | null, avgTicket: number, conversionRate: number, ceiling: number | null = null): OpportunityEstimate | null {
+  const b = opportunityBreakdown(intent, avgTicket, conversionRate, ceiling)
   if (!b) return null
   const { baseTicket, probability, intentFactor, expectedValue, rangeLow, rangeHigh } = b
   return { baseTicket, probability, intentFactor, expectedValue, rangeLow, rangeHigh }

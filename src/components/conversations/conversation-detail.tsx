@@ -187,7 +187,20 @@ interface ValueExplanationData {
   rangeSpread: number
   rangeLow: number
   rangeHigh: number
+  ticketSource?: string
+  salesSample?: number
+  minSample?: number
+  ceiling?: number | null
+  ceilingApplied?: boolean
+  uncappedValue?: number
 }
+
+/** De onde veio o ticket médio usado no cálculo (Configurações › Financeiro › Amostra mínima). */
+const TICKET_SOURCE_LABEL: Record<string, string> = {
+  org_setting: 'Ticket médio informado nas Configurações',
+  confirmed_sales: 'Média das vendas confirmadas',
+}
+const ticketSourceLabel = (s: string | null | undefined) => (s && TICKET_SOURCE_LABEL[s]) || s || '—'
 
 const pct = (x: number) => `${(x * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
 const factor = (x: number) => `×${x.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`
@@ -202,7 +215,13 @@ function ValueExplanation({ explanation: e, shownValue }: { explanation: ValueEx
       {e ? (
         <>
           <dl className="calculo mt-2">
-            <div><dt>Ticket médio da empresa</dt><dd>{formatCurrency(e.avgTicket)}</dd></div>
+            <div>
+              <dt>Ticket médio da empresa</dt>
+              <dd>
+                {formatCurrency(e.avgTicket)}
+                {e.ticketSource === 'confirmed_sales' && ` (média de ${e.salesSample} vendas confirmadas)`}
+              </dd>
+            </div>
             <div><dt>Taxa de conversão da empresa</dt><dd>{pct(e.conversionRate)}</dd></div>
             <div>
               <dt>Sinal detectado</dt>
@@ -219,13 +238,14 @@ function ValueExplanation({ explanation: e, shownValue }: { explanation: ValueEx
             <div>
               <dt>Valor em risco</dt>
               <dd className="forte" data-testid="value-explanation-result">
-                {formatCurrency(e.avgTicket)} × {pct(Math.min(e.rawProbability, 0.95))} = {formatCurrency(e.expectedValue)}
+                {formatCurrency(e.avgTicket)} × {pct(Math.min(e.rawProbability, 0.95))} = {formatCurrency(e.ceilingApplied && e.uncappedValue ? e.uncappedValue : e.expectedValue)}
+                {e.ceilingApplied && e.ceiling ? `, limitado ao teto por oportunidade de ${formatCurrency(e.ceiling)}` : ''}
               </dd>
             </div>
             <div><dt>Faixa (±{pct(e.rangeSpread)})</dt><dd>{formatCurrency(e.rangeLow)} – {formatCurrency(e.rangeHigh)}</dd></div>
           </dl>
           <p className="suave mt-2 text-xs">
-            Ticket médio e taxa de conversão vêm de Configurações › Financeiro. É uma estimativa, não uma venda confirmada.
+            Ticket médio, taxa de conversão, amostra mínima e teto vêm de Configurações › Financeiro. É uma estimativa, não uma venda confirmada.
           </p>
         </>
       ) : (
@@ -783,7 +803,7 @@ export default function ConversationDetail() {
                 </header>
                 <dl className="calculo">
                   <div><dt>Ticket usado</dt><dd className="forte">{formatCurrency(valueMemory.ticketUsed)}</dd></div>
-                  <div><dt>Fonte do ticket</dt><dd className="suave">{valueMemory.ticketSource}</dd></div>
+                  <div><dt>Fonte do ticket</dt><dd className="suave">{ticketSourceLabel(valueMemory.ticketSource)}</dd></div>
                   <div><dt>Probabilidade</dt><dd className="forte">{(valueMemory.probability * 100).toFixed(0)}%</dd></div>
                   <div><dt>Fonte prob.</dt><dd className="suave">{valueMemory.probabilitySource}</dd></div>
                   <div><dt>Faixa</dt><dd className="forte">{formatCurrency(valueMemory.range[0])} – {formatCurrency(valueMemory.range[1])}</dd></div>
