@@ -40,6 +40,7 @@ export const PERMISSIONS = {
   'privacy.manage': CONFIG,
   'audit.view': CONFIG,
   'billing.manage': ADMIN,
+  'organization.delete': ADMIN, // encerrar a conta: só o dono (o admin criado no cadastro e quem ele promover)
   'plans.view': ADMIN, // a tela usa a assinatura (billing), restrita ao admin
 } as const satisfies Record<string, readonly Role[]>
 

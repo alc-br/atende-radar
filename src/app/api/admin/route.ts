@@ -104,7 +104,14 @@ export async function GET() {
         agents: o._count.agents,
         status: o.status,
         createdAt: o.createdAt.toISOString(),
+        // exclusão pedida pelo dono (some de vez nesta data, salvo desistência)
+        deletionRequestedAt: o.deletionRequestedAt?.toISOString() || null,
+        deletionScheduledFor: o.deletionScheduledFor?.toISOString() || null,
       })),
+      pendingDeletions: organizations
+        .filter((o) => o.deletionScheduledFor)
+        .sort((a, b) => a.deletionScheduledFor!.getTime() - b.deletionScheduledFor!.getTime())
+        .map((o) => ({ id: o.id, name: o.displayName, requestedAt: o.deletionRequestedAt?.toISOString() || null, scheduledFor: o.deletionScheduledFor!.toISOString() })),
       users: globalUsers.map((m) => ({
         id: m.id,
         name: m.name,

@@ -56,7 +56,7 @@ const withTag = (tagsJson: string, tag: string) => {
 export async function analyzeAll(now = new Date()): Promise<AnalysisSummary> {
   // A organização de demonstração fica de fora: seus dados são fixos e não devem gerar alertas nem mudar sozinhos.
   // Inclui organizações que só têm conexões (a conexão pode cair antes da primeira mensagem)
-  const orgs = await db.organization.findMany({ where: { status: 'active', id: { not: process.env.DEMO_ORG_ID || 'org_seed_1' }, OR: [{ conversations: { some: REAL } }, { connections: { some: {} } }] }, select: { id: true } })
+  const orgs = await db.organization.findMany({ where: { status: 'active', deletionRequestedAt: null, id: { not: process.env.DEMO_ORG_ID || 'org_seed_1' }, OR: [{ conversations: { some: REAL } }, { connections: { some: {} } }] }, select: { id: true } })
   const total: AnalysisSummary = { organizations: 0, conversations: 0, alertsOpened: 0, alertsResolved: 0 }
   for (const o of orgs) {
     const s = await analyzeOrganization(o.id, now)
@@ -72,7 +72,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   const summary: AnalysisSummary = { organizations: 1, conversations: 0, alertsOpened: 0, alertsResolved: 0 }
 
   const org = await db.organization.findUnique({ where: { id: orgId } })
-  if (!org) return summary
+  if (!org || org.deletionRequestedAt) return summary // empresa em exclusão: nada mais é analisado
   await purgeExpired(orgId, org.settingsJson, now) // retenção: apaga o que passou do prazo antes de analisar
   const [rules, agents, connections] = await Promise.all([
     db.alertRule.findMany({ where: { organizationId: orgId, active: true } }),

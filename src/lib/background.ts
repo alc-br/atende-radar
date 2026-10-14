@@ -4,6 +4,7 @@ import { billingSweep } from './billing/service'
 import { trialEndingNotices } from './billing/trial'
 import { runScheduledReports } from './reports/schedule'
 import { runWebhookOutbox } from './webhooks'
+import { purgeDueDeletions } from './org-deletion'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -45,6 +46,9 @@ export function startBackgroundJobs() {
   // webhooks dos clientes: novas tentativas das entregas que falharam (a 1ª vai logo após o alerta)
   const webhooks = setInterval(() => safely('webhooks', () => runWebhookOutbox()), 60_000)
   webhooks.unref?.()
+  // encerramento de conta: apaga as empresas cujo prazo de desistência (7 dias) acabou
+  const deletions = setInterval(() => safely('exclusão de empresas', () => purgeDueDeletions()), 15 * 60_000)
+  deletions.unref?.()
   console.log('[analysis] agendador ligado (a cada 60 s)')
 }
 

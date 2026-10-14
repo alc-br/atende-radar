@@ -76,6 +76,9 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['POST', '/api/billing/checkout'],
   ['POST', '/api/billing/cancel'],
   ['POST', '/api/billing/card'],
+  ['GET', '/api/organization/deletion'],
+  ['POST', '/api/organization/deletion'],
+  ['DELETE', '/api/organization/deletion'],
 ]
 
 /** Faz login pelo fluxo real do NextAuth (csrf + callback) e devolve um contexto com o cookie de sessão. */

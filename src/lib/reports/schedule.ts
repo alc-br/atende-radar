@@ -67,7 +67,7 @@ export async function runScheduledReports(now = new Date(), orgId?: string): Pro
   const demoOrg = process.env.DEMO_ORG_ID || 'org_seed_1' // dados fictícios: nunca envia e-mail a ninguém
   if (orgId === demoOrg) return { generated: 0, emails: 0 }
   const defs = await db.reportDefinition.findMany({
-    where: { schedule: { not: null }, organization: { status: 'active', id: orgId ?? { not: demoOrg } } },
+    where: { schedule: { not: null }, organization: { status: 'active', deletionRequestedAt: null, id: orgId ?? { not: demoOrg } } },
     include: { organization: { select: { name: true } } },
   })
 

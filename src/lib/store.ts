@@ -24,6 +24,15 @@ interface Me {
   team?: string | null
   isPlatformOperator: boolean
   organizationName?: string | null
+  /** Exclusão da empresa pedida pelo dono (null = conta normal). */
+  organizationDeletion?: OrganizationDeletion | null
+}
+
+export interface OrganizationDeletion {
+  requestedAt: string
+  scheduledFor: string
+  daysLeft: number
+  requestedBy: string | null
 }
 
 interface AppState {

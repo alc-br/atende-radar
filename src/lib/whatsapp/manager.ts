@@ -163,6 +163,14 @@ async function stopSession(connectionId: string, opts: { logout?: boolean } = {}
   if (opts.logout) fs.rmSync(authDir(connectionId), { recursive: true, force: true })
 }
 
+/** Empresa apagada: encerra a sessão (se aberta neste processo) e apaga as credenciais do número no disco. */
+export async function discardSession(connectionId: string) {
+  if (!/^[A-Za-z0-9_-]+$/.test(connectionId)) return // nunca sai da pasta de sessões
+  parked().delete(connectionId)
+  await stopSession(connectionId, { logout: true })
+  fs.rmSync(authDir(connectionId), { recursive: true, force: true })
+}
+
 /** Compara o que o cliente pediu (banco) com as sessões abertas e ajusta. Roda a cada 15 s. */
 export async function reconcile() {
   // A organização de demonstração tem conexões fictícias: nunca são abertas no WhatsApp.

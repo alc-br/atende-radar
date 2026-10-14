@@ -21,6 +21,10 @@ model Organization {
   phone                   String?
   adminEmail              String?
   settingsJson            String?
+  // Encerramento da conta pelo próprio cliente (LGPD): apagada de vez em deletionScheduledFor, salvo se desistir antes
+  deletionRequestedAt     DateTime?
+  deletionScheduledFor    DateTime?
+  deletionRequestedBy     String? // id do membro (dono) que pediu
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   connections             WhatsAppConnection[]

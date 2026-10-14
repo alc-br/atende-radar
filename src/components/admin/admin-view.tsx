@@ -65,6 +65,15 @@ interface AdminOrganization {
   agents: number
   status: string
   createdAt: string
+  deletionRequestedAt?: string | null
+  deletionScheduledFor?: string | null
+}
+
+interface AdminPendingDeletion {
+  id: string
+  name: string
+  requestedAt: string | null
+  scheduledFor: string
 }
 
 interface AdminPlan {
@@ -104,6 +113,7 @@ interface AdminData {
   }
   organizations: AdminOrganization[]
   plans: AdminPlan[]
+  pendingDeletions?: AdminPendingDeletion[]
   users: AdminUser[]
   activity: AdminActivity[]
   system: {
@@ -182,6 +192,14 @@ const getStatusTag = (status: string) => (
   <span className={`tag ${STATUS_TAGS[status] || 'tag--cinza'}`}>
     {status === 'active' && <span className="ponto" aria-hidden="true" />}
     {STATUS_LABELS[status] || status}
+  </span>
+)
+
+/** Status + aviso de exclusão agendada pelo dono (a empresa some de vez na data). */
+const orgStatusCell = (org: AdminOrganization) => (
+  <span className="flex flex-wrap gap-1">
+    {getStatusTag(org.status)}
+    {org.deletionScheduledFor && <span className="tag tag--vermelho">Exclusão em {formatDate(org.deletionScheduledFor)}</span>}
   </span>
 )
 
@@ -295,6 +313,7 @@ export default function AdminView() {
 
   const organizations = data?.organizations || []
   const users = data?.users || []
+  const pendingDeletions = data?.pendingDeletions || []
 
   const filteredOrganizations = useMemo(() => {
     return organizations.filter((org) => {
@@ -389,6 +408,35 @@ export default function AdminView() {
               })}
           </div>
 
+          {pendingDeletions.length > 0 && (
+            <section className="cartao" aria-labelledby="t-exclusoes" data-testid="admin-pending-deletions">
+              <div className="cartao__cab">
+                <div>
+                  <h2 id="t-exclusoes">Exclusões agendadas</h2>
+                  <p>Empresas cujo dono pediu o encerramento da conta. Na data, a empresa e todos os dados são apagados.</p>
+                </div>
+              </div>
+              <div className="cartao__corpo">
+                <div className="tabela-wrap" tabIndex={0} role="region" aria-label="Exclusões agendadas">
+                  <table className="tabela tabela--cab-cinza">
+                    <thead>
+                      <tr><th>Nome</th><th className="hidden sm:table-cell">Pedido em</th><th>Apagada em</th></tr>
+                    </thead>
+                    <tbody>
+                      {pendingDeletions.map((d) => (
+                        <tr key={d.id}>
+                          <td className="forte">{d.name}</td>
+                          <td className="hidden sm:table-cell suave">{d.requestedAt ? formatDateTime(d.requestedAt) : '—'}</td>
+                          <td><span className="tag tag--vermelho">{formatDateTime(d.scheduledFor)}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          )}
+
           <section className="cartao" aria-labelledby="t-orgs-recentes">
             <div className="cartao__cab">
               <div>
@@ -416,7 +464,7 @@ export default function AdminView() {
                         <td>{orgNameCell(org)}</td>
                         <td className="hidden sm:table-cell">{org.plan ? <span className="tag tag--contorno">{org.plan}</span> : '—'}</td>
                         <td className="hidden md:table-cell">{org.connections}</td>
-                        <td>{getStatusTag(org.status)}</td>
+                        <td>{orgStatusCell(org)}</td>
                         <td className="hidden lg:table-cell suave">{formatDate(org.createdAt)}</td>
                       </tr>
                     ))}
@@ -488,7 +536,7 @@ export default function AdminView() {
                           <td>{org.plan ? <span className="tag tag--contorno">{org.plan}</span> : '—'}</td>
                           <td className="hidden md:table-cell">{org.connections}</td>
                           <td className="hidden lg:table-cell">{org.agents}</td>
-                          <td>{getStatusTag(org.status)}</td>
+                          <td>{orgStatusCell(org)}</td>
                           <td className="hidden sm:table-cell suave">{formatDate(org.createdAt)}</td>
                         </tr>
                       ))

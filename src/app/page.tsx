@@ -30,6 +30,7 @@ import AdminView from '@/components/admin/admin-view'
 import ProfileView from '@/components/profile/profile-view'
 import { canOpenView } from '@/lib/permissions'
 import { TrialBanner } from '@/components/layout/trial-banner'
+import { DeletionBanner } from '@/components/layout/deletion-banner'
 import { onAppHost } from '@/lib/hosts'
 
 function MainContent() {
@@ -77,7 +78,7 @@ function MainContent() {
     }
     fetch('/api/me')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName } : null))
+      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName, organizationDeletion: d.organizationDeletion ?? null } : null))
       .catch(() => setMe(null))
   }, [status, setMe])
 
@@ -168,6 +169,7 @@ function MainContent() {
       <AppSidebar />
       <div className="principal">
         <AppHeader />
+        <DeletionBanner />
         <TrialBanner />
         <main className="conteudo">{renderView()}</main>
         <footer className="rodape-app">

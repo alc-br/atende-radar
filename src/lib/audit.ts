@@ -8,7 +8,7 @@ export type AuditAction =
   | 'member.invited' | 'member.role_changed' | 'member.status_changed' | 'member.team_changed' | 'member.removed'
   | 'member.invite_resent' | 'member.invite_canceled'
   | 'account.profile_updated' | 'account.password_changed' | 'account.sessions_revoked'
-  | 'settings.updated' | 'organization.updated'
+  | 'settings.updated' | 'organization.updated' | 'organization.deletion_requested' | 'organization.deletion_canceled'
   | 'alert_rule.created' | 'alert_rule.updated'
   | 'team.created' | 'team.updated' | 'team.removed'
   | 'connection.created' | 'connection.updated' | 'connection.removed'
@@ -59,6 +59,8 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'account.sessions_revoked': 'Saiu de todos os aparelhos',
   'settings.updated': 'Alterou configurações',
   'organization.updated': 'Alterou dados da empresa',
+  'organization.deletion_requested': 'Pediu o encerramento da conta e a exclusão da empresa',
+  'organization.deletion_canceled': 'Desistiu da exclusão da empresa',
   'alert_rule.created': 'Criou regra de alerta',
   'alert_rule.updated': 'Alterou regra de alerta',
   'team.created': 'Criou equipe',

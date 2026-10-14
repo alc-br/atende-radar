@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { AuditLog } from './audit-log'
 import { WebhookSettings } from './webhook-settings'
+import { DangerZone } from './danger-zone'
 import { useAppStore } from '@/lib/store'
 import { toast } from 'sonner'
 import { mutate } from '@/lib/mutation'
@@ -778,7 +779,7 @@ export default function SettingsView() {
         </TabsContent>
 
         {/* ====== PRIVACIDADE ====== */}
-        <TabsContent value="privacidade">
+        <TabsContent value="privacidade" className="painel-config">
           <form
             className="cartao secao-config"
             onSubmit={(e) => {
@@ -833,6 +834,7 @@ export default function SettingsView() {
             </div>
             <Rodape saving={savingTab === 'privacidade'} />
           </form>
+          <DangerZone />
         </TabsContent>
 
         {/* ====== REGRAS (da API) ====== */}

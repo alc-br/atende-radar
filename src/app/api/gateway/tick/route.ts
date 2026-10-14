@@ -5,10 +5,13 @@ import { runScheduledReports } from '@/lib/reports/schedule'
 import { readJson } from '@/lib/json-body'
 import { trialEndingNotices } from '@/lib/billing/trial'
 import { processWebhookOutbox } from '@/lib/webhooks'
+import { purgeDueDeletions } from '@/lib/org-deletion'
 
 // Roda o motor de análise agora (mesma função que o agendador interno chama a cada minuto).
 // Serve também para um agendador externo (cron) e para os testes. Também processa a fila de webhooks. Exige o segredo do gateway.
 // Com { reportsAt: ISO } roda os relatórios agendados como se fosse aquele instante (testes de horário/dia da semana).
+// Com { deletionsAt: ISO } apaga as empresas cujo prazo de exclusão vence até aquele instante. Só fora de produção:
+// em produção adiantar o relógio apagaria empresas antes do prazo de desistência.
 export async function POST(request: Request) {
   const denied = gatewayGuard(request)
   if (denied) return denied
@@ -27,8 +30,15 @@ export async function POST(request: Request) {
     if (Number.isNaN(at.getTime())) return NextResponse.json({ error: 'trialNoticesAt inválido' }, { status: 400 })
     return NextResponse.json({ ok: true, trialNotices: await trialEndingNotices(at, orgId ?? undefined) })
   }
+  if (body && 'deletionsAt' in body) {
+    if (process.env.NODE_ENV === 'production') return NextResponse.json({ error: 'deletionsAt só existe fora de produção' }, { status: 400 })
+    const at = new Date(String((body as { deletionsAt?: unknown }).deletionsAt))
+    if (Number.isNaN(at.getTime())) return NextResponse.json({ error: 'deletionsAt inválido' }, { status: 400 })
+    return NextResponse.json({ ok: true, ...(await purgeDueDeletions(at, orgId ?? undefined)) })
+  }
+  const deletions = await purgeDueDeletions()
   const summary = orgId ? await analyzeOrganization(orgId) : await analyzeAll()
   // fila de webhooks: entrega o que venceu (nos testes o agendador está desligado; isto deixa o envio determinístico)
   const webhooks = await processWebhookOutbox(orgId ? { organizationId: orgId } : {})
-  return NextResponse.json({ ok: true, ...summary, webhooks })
+  return NextResponse.json({ ok: true, ...summary, webhooks, deletedOrganizations: deletions.deleted })
 }
