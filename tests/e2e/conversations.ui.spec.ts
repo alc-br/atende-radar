@@ -57,7 +57,7 @@ test('Detalhe da conversa: "Voltar" funciona e o menu de Privacidade aparece par
   await page.getByRole('button', { name: 'Privacidade do cliente' }).click()
   await expect(page.getByRole('menuitem', { name: /Parar de monitorar/ })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: /Apagar dados/ })).toBeVisible()
-  await expect(page.getByRole('menuitem', { name: /Exportar dados/ })).toHaveAttribute('href', /\/privacy\/export$/)
+  await expect(page.getByRole('menuitem', { name: /Exportar dados/ })).toBeVisible() // baixa ou avisa: privacy-export.ui.spec.ts
   await page.keyboard.press('Escape')
 
   // voltar para a lista
@@ -65,3 +65,38 @@ test('Detalhe da conversa: "Voltar" funciona e o menu de Privacidade aparece par
   await expect(page.locator('main').getByRole('heading', { name: /Conversas/i }).first()).toBeVisible()
   expect(errors, errors.join('\n')).toEqual([])
 })
+
+// Detalhe de uma conversa que não existe mais (404): "Conversa não encontrada", não "Erro ao carregar".
+// Falha do servidor (500) continua como erro, com "Tentar novamente".
+for (const [status, text] of [[404, 'Conversa não encontrada'], [500, 'Erro ao carregar conversa']] as const) {
+  test(`Detalhe da conversa com resposta ${status}: "${text}"`, async ({ page, context, isMobile }) => {
+    const api = await loginAs('admin.a@test.local')
+    for (const tourId of ['welcome', 'conversations', 'conversation-detail']) await api.patch('/api/tours', { data: { tourId } })
+    await context.addCookies((await api.storageState()).cookies)
+    await api.dispose()
+
+    await page.goto('/')
+    if (isMobile) await page.getByRole('button', { name: 'Abrir menu' }).click()
+    await page.locator('[data-tour="nav-conversations"]').click()
+    const row = isMobile ? page.getByTestId('conversation-cards').getByRole('button').first() : page.locator('table tbody tr').first()
+    await expect(row).toBeVisible({ timeout: 20000 })
+    // só o detalhe (GET /api/conversations/{id}) responde com o status do teste; a lista já carregou
+    await page.route(/\/api\/conversations\/[^/?]+$/, (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: status === 404 ? 'Conversation not found' : 'boom' }) })
+        : route.continue()
+    )
+    await row.click()
+
+    const main = page.locator('main')
+    await expect(main.getByText(text, { exact: true })).toBeVisible({ timeout: 20000 })
+    if (status === 404) {
+      await expect(main.getByText('Erro ao carregar conversa')).toHaveCount(0)
+      await expect(main.getByRole('button', { name: 'Tentar novamente' })).toHaveCount(0)
+    } else {
+      await expect(main.getByRole('button', { name: 'Tentar novamente' })).toBeVisible()
+    }
+    await main.getByRole('button', { name: 'Voltar para Conversas' }).click()
+    await expect(main.getByRole('heading', { name: /Conversas/i }).first()).toBeVisible()
+  })
+}
