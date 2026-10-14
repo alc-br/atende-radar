@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { guard, conversationScope } from '@/lib/api-auth'
+import { guard, conversationScope, supervisorTeam, agentScope } from '@/lib/api-auth'
+import { dayMetrics, type DayMetricData } from '@/lib/analysis/metrics'
 import { Prisma } from '@prisma/client'
 
 interface DashboardSummary {
@@ -89,10 +90,35 @@ function resolveWindows(period: string): { curStart: number; curEnd: number; pre
   }
 }
 
-function sumOrAvg(rows: { [key: string]: unknown }[], field: string, mode: 'sum' | 'avg'): number {
+function sumOrAvg(rows: object[], field: string, mode: 'sum' | 'avg'): number {
   if (rows.length === 0) return 0
-  const total = rows.reduce((acc, r) => acc + (Number(r[field]) || 0), 0)
+  const total = rows.reduce((acc: number, r) => acc + (Number((r as Record<string, unknown>)[field]) || 0), 0)
   return mode === 'sum' ? total : total / rows.length
+}
+
+type DayRow = DayMetricData & { date: string }
+
+/** Linhas diárias (mesmo formato de DailyMetric) calculadas só sobre as conversas do escopo, de hoje até `daysBack` dias atrás. */
+async function scopedDailyRows(orgId: string, where: Prisma.ConversationWhereInput, daysBack: number): Promise<DayRow[]> {
+  const org = await db.organization.findUnique({ where: { id: orgId }, select: { timezone: true } })
+  const tz = org?.timezone || 'America/Sao_Paulo'
+  const now = new Date()
+  const since = new Date(now.getTime() - (daysBack + 2) * 86400000)
+  const [convs, promises] = await Promise.all([
+    db.conversation.findMany({
+      // conversa encerrada antes da janela não muda nenhum número dela
+      where: { AND: [where, { OR: [{ closedAt: null }, { closedAt: { gte: since } }, { openedAt: { gte: since } }] }] },
+      include: { messages: { select: { direction: true, occurredAt: true } }, opportunities: true },
+    }),
+    db.promise.findMany({ where: { conversation: where, status: 'open' }, select: { status: true, dueAt: true } }),
+  ])
+  const rows: DayRow[] = []
+  for (let i = daysBack; i >= 0; i--) {
+    const date = dateStr(new Date(now.getTime() - i * 86400000))
+    const data = dayMetrics(convs, promises, date, tz, now)
+    if (data) rows.push({ date, ...data })
+  }
+  return rows
 }
 
 export async function GET(request: Request) {
@@ -112,10 +138,20 @@ export async function GET(request: Request) {
     const prevFrom = dateStr(new Date(Date.now() - prevStart * 86400000))
     const prevTo = dateStr(new Date(Date.now() - prevEnd * 86400000))
 
-    const [curRows, prevRows] = await Promise.all([
-      db.dailyMetric.findMany({ where: { organizationId: org.id, date: { gte: curFrom, lte: curTo } } }),
-      db.dailyMetric.findMany({ where: { organizationId: org.id, date: { gte: prevFrom, lte: prevTo } } }),
-    ])
+    // B4 · Supervisor com equipe: TODOS os números saem só da equipe dele + o que ainda não tem atendente
+    // (mesmo escopo de Conversas/Alertas). Os números diários gravados (DailyMetric) são da organização inteira,
+    // então para ele são recalculados na hora, pela mesma função que o motor usa para gravá-los.
+    const team = supervisorTeam(g.auth)
+    const convWhere: Prisma.ConversationWhereInput = team ? conversationScope(g.auth) : { organizationId: org.id }
+    const teamRows = team ? await scopedDailyRows(g.auth.orgId, convWhere, Math.max(prevStart, 13)) : null
+    const inRange = (from: string, to: string) => (teamRows ?? []).filter((r) => r.date >= from && r.date <= to)
+
+    const [curRows, prevRows]: [object[], object[]] = teamRows
+      ? [inRange(curFrom, curTo), inRange(prevFrom, prevTo)]
+      : await Promise.all([
+          db.dailyMetric.findMany({ where: { organizationId: org.id, date: { gte: curFrom, lte: curTo } } }),
+          db.dailyMetric.findMany({ where: { organizationId: org.id, date: { gte: prevFrom, lte: prevTo } } }),
+        ])
 
     const calcChange = (curVal: number, prevVal: number): number => {
       if (prevVal === 0) return curVal > 0 ? 100 : 0
@@ -157,22 +193,22 @@ export async function GET(request: Request) {
 
     // --- Audit Funnel ---
     const allConversations = await db.conversation.count({
-      where: { organizationId: org.id },
+      where: convWhere,
     })
     const opportunityCount = await db.revenueOpportunity.count({
-      where: { conversation: { organizationId: org.id } },
+      where: { conversation: convWhere },
     })
     const priceStage = await db.conversation.count({
-      where: { organizationId: org.id, inferredStage: 'price' },
+      where: { ...convWhere, inferredStage: 'price' },
     })
     const proposalStage = await db.conversation.count({
-      where: { organizationId: org.id, inferredStage: 'proposal' },
+      where: { ...convWhere, inferredStage: 'proposal' },
     })
     const wonCount = await db.conversation.count({
-      where: { organizationId: org.id, operationalStatus: 'won' },
+      where: { ...convWhere, operationalStatus: 'won' },
     })
     const lostCount = await db.conversation.count({
-      where: { organizationId: org.id, operationalStatus: 'lost' },
+      where: { ...convWhere, operationalStatus: 'lost' },
     })
     const noOutcome = allConversations - wonCount - lostCount
 
@@ -189,7 +225,7 @@ export async function GET(request: Request) {
     // --- Failures by Type ---
     const findingsGrouped = await db.auditFinding.groupBy({
       by: ['type', 'severity'],
-      where: { conversation: { organizationId: org.id } },
+      where: { conversation: convWhere },
       _count: { id: true },
       orderBy: { _count: { id: 'desc' } },
     })
@@ -212,10 +248,12 @@ export async function GET(request: Request) {
 
     // --- Evolution Data (last 14 days) ---
     const fourteenDaysAgo = new Date(Date.now() - 13 * 86400000).toISOString().split('T')[0]
-    const dailyData = await db.dailyMetric.findMany({
-      where: { organizationId: org.id, date: { gte: fourteenDaysAgo } },
-      orderBy: { date: 'asc' },
-    })
+    const dailyData: DayRow[] = teamRows
+      ? teamRows.filter((r) => r.date >= fourteenDaysAgo)
+      : await db.dailyMetric.findMany({
+          where: { organizationId: org.id, date: { gte: fourteenDaysAgo } },
+          orderBy: { date: 'asc' },
+        })
 
     // Fill missing dates
     const evolution: EvolutionPoint[] = []
@@ -265,7 +303,7 @@ export async function GET(request: Request) {
 
     // --- Team Performance ---
     const agentsWithMetrics = await db.agent.findMany({
-      where: { organizationId: org.id, status: 'active' },
+      where: { ...agentScope(g.auth), status: 'active' },
       include: { metrics: { orderBy: { date: 'desc' }, take: 2 } },
     })
 

@@ -386,14 +386,10 @@ export default function DashboardView() {
       {header}
 
       {teamScoped && (
-        <div role="note" data-testid="team-scope-note" className="aviso aviso--ambar">
-          <span className="aviso__ic">
-            <CircleAlert className="ic" aria-hidden="true" />
-          </span>
-          <p>
-            Os números desta tela são da organização inteira. Conversas, Alertas, Recuperação e Equipe mostram só a sua equipe ({me?.team}) e o que ainda não tem atendente.
-          </p>
-        </div>
+        <p role="note" data-testid="team-scope-note" className="suave flex items-center gap-2 text-sm">
+          <Users className="ic shrink-0" aria-hidden="true" />
+          Números da sua equipe ({me?.team}) e das conversas que ainda não têm atendente.
+        </p>
       )}
 
       <SetupChecklist />

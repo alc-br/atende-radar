@@ -1,6 +1,6 @@
 import { db } from '../db'
 
-const dayKey = (d: Date, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+export const dayKey = (d: Date, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
 
 const median = (xs: number[]) => {
   if (xs.length === 0) return 0
@@ -10,6 +10,70 @@ const median = (xs: number[]) => {
 }
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
 const minutes = (a: Date, b: Date) => Math.max(0, (b.getTime() - a.getTime()) / 60000)
+
+/** O mínimo de uma conversa que os números do painel usam. */
+export interface MetricConversation {
+  openedAt: Date
+  closedAt: Date | null
+  operationalStatus: string
+  score: number
+  messages: Array<{ direction: string; occurredAt: Date }>
+  opportunities: Array<{ status: string; expectedValue: number; createdAt: Date }>
+}
+export interface MetricPromise {
+  status: string
+  dueAt: Date | null
+}
+export interface DayMetricData {
+  conversationsStarted: number
+  customersWaiting: number
+  medianFirstResponse: number
+  opportunitiesDetected: number
+  opportunitiesAtRisk: number
+  overduePromises: number
+  potentialValueAtRisk: number
+  overallScore: number
+  messagesReceived: number
+  messagesSent: number
+}
+
+export function firstResponseMinutes(c: MetricConversation): number | null {
+  const inbound = c.messages.filter((m) => m.direction === 'inbound').sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())[0]
+  if (!inbound) return null
+  const out = c.messages.filter((m) => m.direction === 'outbound' && m.occurredAt > inbound.occurredAt).sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())[0]
+  return out ? minutes(inbound.occurredAt, out.occurredAt) : null
+}
+
+/**
+ * Números de UM dia do painel a partir de um conjunto de conversas (a organização inteira ou só uma equipe).
+ * Retrato do momento (esperando, em risco, promessas vencidas) só vale para hoje; outros dias ficam 0.
+ * null = dia sem movimento (não vira linha, igual ao que o motor grava).
+ */
+export function dayMetrics(convs: MetricConversation[], promises: MetricPromise[], date: string, tz: string, now: Date): DayMetricData | null {
+  const isToday = date === dayKey(now, tz)
+  const opened = convs.filter((c) => dayKey(c.openedAt, tz) === date)
+  const msgsOfDay = convs.flatMap((c) => c.messages).filter((m) => dayKey(m.occurredAt, tz) === date)
+  if (!isToday && opened.length === 0 && msgsOfDay.length === 0) return null
+
+  const open = convs.filter((c) => c.closedAt == null && !['won', 'lost'].includes(c.operationalStatus))
+  const waiting = open.filter((c) => c.operationalStatus === 'waiting_company')
+  const atRiskOpps = waiting.flatMap((c) => c.opportunities.filter((o) => o.status === 'active'))
+  const scores = opened.filter((c) => c.messages.length >= 2).map((c) => c.score)
+  const firsts = opened.map(firstResponseMinutes).filter((x): x is number => x != null)
+
+  return {
+    conversationsStarted: opened.length,
+    customersWaiting: isToday ? waiting.length : 0,
+    medianFirstResponse: +median(firsts).toFixed(1),
+    opportunitiesDetected: convs.flatMap((c) => c.opportunities).filter((o) => dayKey(o.createdAt, tz) === date).length,
+    opportunitiesAtRisk: isToday ? atRiskOpps.length : 0,
+    overduePromises: isToday ? promises.filter((p) => p.status === 'open' && p.dueAt && p.dueAt < now).length : 0,
+    potentialValueAtRisk: isToday ? Math.round(atRiskOpps.reduce((s, o) => s + o.expectedValue, 0)) : 0,
+    overallScore: Math.round(mean(scores)),
+    messagesReceived: msgsOfDay.filter((m) => m.direction === 'inbound').length,
+    messagesSent: msgsOfDay.filter((m) => m.direction === 'outbound').length,
+  }
+}
 
 /**
  * Recalcula os números do painel (DailyMetric) e do desempenho por atendente (AgentMetric) a partir das conversas REAIS.
@@ -26,37 +90,10 @@ export async function recomputeMetrics(orgId: string, timezone: string, now = ne
   })
   const promises = await db.promise.findMany({ where: { conversation: { organizationId: orgId } }, include: { conversation: { select: { agentId: true } } } })
 
-  const firstResponse = (c: (typeof convs)[number]) => {
-    const inbound = c.messages.filter((m) => m.direction === 'inbound').sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())[0]
-    if (!inbound) return null
-    const out = c.messages.filter((m) => m.direction === 'outbound' && m.occurredAt > inbound.occurredAt).sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())[0]
-    return out ? minutes(inbound.occurredAt, out.occurredAt) : null
-  }
-
   for (const date of [today, yesterday]) {
-    const isToday = date === today
+    const data = dayMetrics(convs, promises, date, tz, now)
+    if (!data) continue
     const opened = convs.filter((c) => dayKey(c.openedAt, tz) === date)
-    const msgsOfDay = convs.flatMap((c) => c.messages).filter((m) => dayKey(m.occurredAt, tz) === date)
-    if (!isToday && opened.length === 0 && msgsOfDay.length === 0) continue
-
-    const open = convs.filter((c) => c.closedAt == null && !['won', 'lost'].includes(c.operationalStatus))
-    const waiting = open.filter((c) => c.operationalStatus === 'waiting_company')
-    const atRiskOpps = waiting.flatMap((c) => c.opportunities.filter((o) => o.status === 'active'))
-    const scores = opened.filter((c) => c.messages.length >= 2).map((c) => c.score)
-    const firsts = opened.map(firstResponse).filter((x): x is number => x != null)
-
-    const data = {
-      conversationsStarted: opened.length,
-      customersWaiting: isToday ? waiting.length : 0,
-      medianFirstResponse: +median(firsts).toFixed(1),
-      opportunitiesDetected: convs.flatMap((c) => c.opportunities).filter((o) => dayKey(o.createdAt, tz) === date).length,
-      opportunitiesAtRisk: isToday ? atRiskOpps.length : 0,
-      overduePromises: isToday ? promises.filter((p) => p.status === 'open' && p.dueAt && p.dueAt < now).length : 0,
-      potentialValueAtRisk: isToday ? Math.round(atRiskOpps.reduce((s, o) => s + o.expectedValue, 0)) : 0,
-      overallScore: Math.round(mean(scores)),
-      messagesReceived: msgsOfDay.filter((m) => m.direction === 'inbound').length,
-      messagesSent: msgsOfDay.filter((m) => m.direction === 'outbound').length,
-    }
     const existing = await db.dailyMetric.findFirst({ where: { organizationId: orgId, date, connectionId: null, teamId: null } })
     if (existing) await db.dailyMetric.update({ where: { id: existing.id }, data })
     else await db.dailyMetric.create({ data: { organizationId: orgId, date, ...data } })
@@ -65,7 +102,7 @@ export async function recomputeMetrics(orgId: string, timezone: string, now = ne
     const byAgent = new Map<string, typeof opened>()
     for (const c of opened) if (c.agentId) byAgent.set(c.agentId, [...(byAgent.get(c.agentId) ?? []), c])
     for (const [agentId, list] of byAgent) {
-      const fr = list.map(firstResponse).filter((x): x is number => x != null)
+      const fr = list.map(firstResponseMinutes).filter((x): x is number => x != null)
       const agentPromises = promises.filter((p) => p.conversation.agentId === agentId)
       const agentData = {
         conversations: list.length,
@@ -80,7 +117,7 @@ export async function recomputeMetrics(orgId: string, timezone: string, now = ne
       }
       const ex = await db.agentMetric.findFirst({ where: { organizationId: orgId, agentId, date } })
       if (ex) await db.agentMetric.update({ where: { id: ex.id }, data: agentData })
-      else await db.agentMetric.create({ data: { organizationId: orgId, agentId, date, ...agentData } })
+      else await db.agentMetric.create({ data: { organizationId: orgId, date, agentId, ...agentData } })
     }
   }
 }

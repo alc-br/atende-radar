@@ -54,7 +54,7 @@ test('administrador vê "Adicionar membro", o menu de ações e "Criar equipe"',
   await expect(page.getByRole('button', { name: 'Criar equipe' })).toBeVisible()
 })
 
-test('supervisor com equipe vê na Visão Geral o aviso de que os números são da organização inteira', async ({ page, context }) => {
+test('supervisor com equipe vê na Visão Geral que os números são da equipe dele', async ({ page, context }) => {
   const adm = await loginAs('admin.a@test.local')
   const email = `rbacui.supteam.${uid()}@test.local`
   const sup = await createUser(adm, { email, role: 'supervisor' })
