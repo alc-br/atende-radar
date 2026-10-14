@@ -45,7 +45,7 @@ Sem segredos aqui: o repositório é público.
 - Não rodar duas execuções do Playwright ao mesmo tempo (o servidor de teste usa a porta 3100 e o `prisma/test.db`). Se o servidor de teste "não sobe em 180 s" logo após outra execução, rode de novo.
 - Antes de push: `bunx tsc --noEmit` e `bunx eslint . --ignore-pattern ".tmp/**" --ignore-pattern ".bun-cache/**"` (`eslint .` sem isso varre o cache do Playwright).
 - Disco apertado: `bun install` com `BUN_INSTALL_CACHE_DIR`, `TEMP` e `TMP` apontando para uma pasta do D:. `bun run build` falha no Windows no `cp -r` (o `next build` funciona).
-- Mudança de schema só aditiva: o deploy usa `db push` sem `--accept-data-loss`. Migrações versionadas (card B10, decisão: com baseline) ficam para depois que as mudanças atuais estiverem no ar.
+- Mudança de schema: `bun run db:migrate --name <descricao>` e commitar `prisma/migrations` (B10). O deploy aplica só as migrações que faltam (`db:migrate:deploy`); o CI barra schema sem migração (`db:check`). Ver `docs/operacao/migracoes.md`.
 
 ## Cuidados
 
@@ -69,7 +69,7 @@ Sem segredos aqui: o repositório é público.
 - **Disco (máquina de dev):** o D: lota durante a suíte; quem cresce é o disco virtual do WSL do dono (`D:\WSL\Ubuntu\ext4.vhdx`, não mexer). Para rodar a suíte: `.next` como junção para uma pasta no C: (precisa de uma junção `node_modules` ao lado, senão os chunks não acham `next/server`) e `TEMP`/`TMP` no C:.
 - **Suíte completa (1748):** passou, depois destas correções: Configurações travam os formulários até os dados chegarem (antes, o que se digitava cedo era sobrescrito e o Salvar gravava o valor antigo); o guia rápido só fecha a gaveta do celular que ele abriu; no tour pelo sistema, o passo que aponta para o menu reabre a gaveta se a pessoa tocar fora; corpo do painel do tour focável (axe). Testes: período sem contar o anunciador de rotas do Next, nome longo só no elemento visível.
 - **Novos no backlog (pedidos do dono):** S1 ambiente de simulação só do operador, que o agente também consegue rodar (plano em `docs/planos/ambiente-de-simulacao.md`); S2 áudio do tour gravado no 1º play (TTS no servidor, Piper) e narração que explica, não só lê.
-- **B10 (migrações):** pronto na branch `b10-migracoes`; sobe num deploy separado, depois deste (a baseline exige que o banco de produção esteja igual à `0_init`).
+- **B10 (migrações versionadas):** `prisma/migrations/0_init` + `scripts/db-migrate.ts`; no 1º deploy o banco de produção vira baseline só se for igual à `0_init` (senão para sem alterar nada). Subiu num deploy separado, depois do anterior.
 - **Falta:** V2 (preços/limites, depende do dono), item 8 (chips); provedor de IA (P6 resumo, P9 áudio, B6 cobertura); infra do dono (I2 staging/demo, I3 Sentry/Uptime, I4 rotação, I6 proteção da main, T16 backup externo).
 
 ### 13/10/2026
