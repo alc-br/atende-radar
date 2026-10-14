@@ -60,6 +60,15 @@ Sem segredos aqui: o repositório é público.
 
 ### 14/10/2026
 
+- **S1 Ambiente de simulação (branch `wave-s1`, não está no ar):** fases 1 a 3 do plano `docs/planos/ambiente-de-simulacao.md`.
+  - Empresas `isSimulation` ficam isoladas: fora do motor agendado, de e-mails, webhooks, cobrança, relatórios, analytics e Admin.
+  - O provider `simulator` passa pela mesma ingestão do WhatsApp real. O relógio é virtual.
+  - São 16 cenários com verificações, rodados pelo CLI `bun scripts/simular.ts`, pela API `/api/admin/simulation/*` e pela aba Simulação do Admin.
+  - Migração `20261014230746_simulation`. Manual: `docs/operacao/simulacao.md`.
+  - O deploy cria `SIMULATION_ENABLED=off`. Ligar é decisão do dono.
+  - Pendentes: "entrar como gestor/atendente" e os cenários da fase 4.
+  - De quebra, a exclusão de empresa passou a apagar também o webhook (endereço e segredo) e a fila de entregas, que antes ficavam no banco.
+
 - **Noite (deploy 6513534, no ar):**
   - **S2 Narração do tour:** voz da Azure Speech, plano F0, com a voz pt-BR-FranciscaNeural (`src/lib/system-tour/tts.ts`, rota `/api/tour-audio/...`).
     - Cada texto é gerado uma vez e fica em cache por sha256 em `TOUR_AUDIO_DIR` (`/opt/atende-radar/shared/tour-audio`, fora do `current/`).

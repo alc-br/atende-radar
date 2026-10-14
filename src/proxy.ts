@@ -8,6 +8,11 @@ function apiNeedsSession(pathname: string) {
   return !/^\/api\/(auth|public|gateway)(\/|$)/.test(pathname) && pathname !== '/api/billing/webhook'
 }
 
+// Ambiente de simulação (S1): o agente de IA chama /api/admin/simulation/* com Bearer SIMULATION_SECRET, sem sessão.
+// Só a presença do cabeçalho passa daqui; a rota confere o segredo (e responde 404 com a simulação desligada).
+const simulationToken = (req: NextRequest) =>
+  req.nextUrl.pathname.startsWith('/api/admin/simulation/') && /^Bearer\s+\S/.test(req.headers.get('authorization') || '')
+
 // Domínios (só em produção, ver src/lib/hosts.ts): site = página de vendas; app = entrar, cadastro e painel.
 function routeByHost(req: NextRequest): NextResponse | null {
   if (!splitHosts) return null
@@ -33,7 +38,7 @@ export async function proxy(req: NextRequest) {
   const moved = routeByHost(req)
   if (moved) return moved
 
-  if (apiNeedsSession(req.nextUrl.pathname)) {
+  if (apiNeedsSession(req.nextUrl.pathname) && !simulationToken(req)) {
     const token = await getToken({ req })
     if (!token?.sub) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })

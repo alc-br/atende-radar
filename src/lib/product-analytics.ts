@@ -1,5 +1,6 @@
 import { db } from './db'
 import { dayKey, FUNNEL_MILESTONES, type MilestoneName } from './product-events'
+import { demoOrgId, simulationOrgIds } from './sandbox'
 
 // I7 · Números do produto para o operador da plataforma (Admin › Produto). Só agregados: nenhuma linha devolvida
 // identifica pessoa; por empresa aparece só o nome dela (o operador já vê a lista de empresas no Admin).
@@ -22,8 +23,6 @@ const parseProps = (s: string | null): Record<string, unknown> => {
     return {}
   }
 }
-// a organização de demonstração (senha pública) não entra no uso por tela nem no tour
-const demoOrgId = () => process.env.DEMO_ORG_ID || 'org_seed_1'
 
 export const STAGE_LABELS: Record<'visit' | MilestoneName, string> = {
   visit: 'Visita à página de vendas',
@@ -39,7 +38,9 @@ export async function productAnalytics(days: number, now = new Date()) {
 
   // ---- funil: visitas (contador do dia) + empresas que se cadastraram no período e até onde chegaram ----
   const views = await db.pageViewDaily.aggregate({ where: { page: 'landing', day: { gte: dayKey(since) } }, _sum: { count: true } })
-  const signups = await db.productMilestone.findMany({ where: { name: 'signup', reachedAt: { gte: since } }, select: { organizationId: true, reachedAt: true } })
+  // empresas simuladas (S1) não entram em nenhum número (o simulador nem grava eventos delas; isto é a segunda trava)
+  const simIds = await simulationOrgIds()
+  const signups = await db.productMilestone.findMany({ where: { name: 'signup', reachedAt: { gte: since }, organizationId: { notIn: simIds } }, select: { organizationId: true, reachedAt: true } })
   const signupAt = new Map(signups.map((s) => [s.organizationId, s.reachedAt]))
   const cohort = [...signupAt.keys()]
   const later = cohort.length
@@ -88,7 +89,8 @@ export async function productAnalytics(days: number, now = new Date()) {
   })
 
   // ---- uso por tela ----
-  const notDemo = { organizationId: { not: demoOrgId() } }
+  // a organização de demonstração (senha pública) não entra no uso por tela nem no tour
+  const notDemo = { organizationId: { notIn: [demoOrgId(), ...simIds] } }
   const screenRows = await db.productEvent.groupBy({ by: ['props'], where: { name: 'screen_view', createdAt: { gte: since }, ...notDemo }, _count: { _all: true } })
   const screenOrgs = await db.productEvent.groupBy({ by: ['props', 'organizationId'], where: { name: 'screen_view', createdAt: { gte: since }, ...notDemo } })
   const orgsPerScreen = new Map<string, number>()
@@ -114,12 +116,12 @@ export async function productAnalytics(days: number, now = new Date()) {
   // ---- custo de IA por organização ----
   const aiRows = await db.aiUsage.groupBy({
     by: ['organizationId'],
-    where: { createdAt: { gte: since } },
+    where: { createdAt: { gte: since }, organizationId: { notIn: simIds } },
     _sum: { costBrl: true, inputTokens: true, outputTokens: true },
     _count: { _all: true },
   })
   const aiConvs = aiRows.length
-    ? await db.aiUsage.groupBy({ by: ['organizationId', 'conversationId'], where: { createdAt: { gte: since }, conversationId: { not: null } } })
+    ? await db.aiUsage.groupBy({ by: ['organizationId', 'conversationId'], where: { createdAt: { gte: since }, conversationId: { not: null }, organizationId: { notIn: simIds } } })
     : []
   const convsPerOrg = new Map<string, number>()
   for (const r of aiConvs) convsPerOrg.set(r.organizationId, (convsPerOrg.get(r.organizationId) ?? 0) + 1)

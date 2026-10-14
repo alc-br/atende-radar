@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { db } from './db'
+import { isSimulationOrg } from './sandbox'
 
 // Eventos analíticos do produto (I7), first-party: nada sai do servidor, nenhum script de terceiro.
 // Nada aqui lança erro: medir nunca pode derrubar a ação principal (falha só vai para o log do servidor).
@@ -18,6 +19,7 @@ export async function milestone(organizationId: string, name: MilestoneName, at 
   const key = `${organizationId}:${name}`
   if (reached.has(key)) return false
   try {
+    if (await isSimulationOrg(organizationId)) return false // empresa simulada (S1) não entra no funil
     await db.productMilestone.create({ data: { organizationId, name, reachedAt: at } })
     reached.add(key)
     return true
@@ -43,6 +45,7 @@ export async function track(
   props?: Record<string, PropValue>,
 ): Promise<void> {
   try {
+    if (await isSimulationOrg(ctx.organizationId)) return // empresa simulada (S1) não entra no uso por tela
     let json = props ? JSON.stringify(props) : null
     if (json && json.length > MAX_PROPS) json = JSON.stringify({ truncated: true })
     await db.productEvent.create({ data: { name, organizationId: ctx.organizationId ?? null, memberId: ctx.memberId ?? null, props: json } })

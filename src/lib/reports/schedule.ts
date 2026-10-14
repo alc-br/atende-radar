@@ -4,6 +4,7 @@ import { buildReport, REPORT_TITLES, REPORT_TYPES, type ReportContent, type Repo
 import { toPdf } from './pdf'
 import { reportFileName } from './render'
 import { safeTimeZone } from './types'
+import { REAL_ORGS, isIsolatedOrg } from '../sandbox'
 
 // Relatórios agendados: no horário configurado (fuso da empresa, dias da semana escolhidos) o relatório é gerado com os
 // dados reais e cada destinatário recebe UM e-mail com o resumo de todos os relatórios daquele horário e o PDF
@@ -160,10 +161,10 @@ export interface ScheduledSummary {
 }
 
 export async function runScheduledReports(now = new Date(), orgId?: string): Promise<ScheduledSummary> {
-  const demoOrg = process.env.DEMO_ORG_ID || 'org_seed_1' // dados fictícios: nunca envia e-mail a ninguém
-  if (orgId === demoOrg) return { generated: 0, emails: 0, failed: 0 }
+  // demonstração e simulação (dados fictícios): nunca enviam e-mail a ninguém
+  if (orgId && (await isIsolatedOrg(orgId))) return { generated: 0, emails: 0, failed: 0 }
   const defs = await db.reportDefinition.findMany({
-    where: { schedule: { not: null }, organization: { status: 'active', deletionRequestedAt: null, id: orgId ?? { not: demoOrg } } },
+    where: { schedule: { not: null }, organization: { status: 'active', deletionRequestedAt: null, ...REAL_ORGS(), ...(orgId ? { id: orgId } : {}) } },
     include: { organization: { select: { name: true, timezone: true } } },
   })
 

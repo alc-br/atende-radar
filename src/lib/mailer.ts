@@ -1,4 +1,5 @@
 import { db } from './db'
+import { isSimulationEmail } from './sandbox'
 
 export interface MailAttachment {
   filename: string
@@ -75,6 +76,8 @@ export async function sendMail(mail: Mail): Promise<MailStatus> {
 
 /** Igual a sendMail, devolvendo também o id do registro no EmailOutbox. */
 export async function sendMailRow(mail: Mail): Promise<{ id: string; status: MailStatus }> {
+  // membros sintéticos das empresas simuladas (@sim.invalid): nada vai para a fila nem para o provedor
+  if (isSimulationEmail(mail.to)) return { id: '', status: 'failed' }
   const attachments = mail.attachments?.length ? JSON.stringify(mail.attachments.map((a) => ({ filename: a.filename, size: a.content.byteLength }))) : null
   const row = await db.emailOutbox.create({
     data: {

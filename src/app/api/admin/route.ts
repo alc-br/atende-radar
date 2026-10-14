@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { guard, isPlatformOperator } from '@/lib/api-auth'
 import { maskSensitive } from '@/lib/mask-sensitive'
 import { effectiveStatus } from '@/lib/billing/core'
+import { NOT_SIMULATION } from '@/lib/sandbox'
 import fs from 'fs'
 import path from 'path'
 
@@ -24,6 +25,8 @@ export async function GET() {
 
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
+    // empresas simuladas (S1) ficam fora de todos os números e listas do painel (têm a aba Simulação)
+    const real = { organization: NOT_SIMULATION }
 
     const [
       organizations,
@@ -36,18 +39,20 @@ export async function GET() {
       plans,
     ] = await Promise.all([
       db.organization.findMany({
+        where: NOT_SIMULATION,
         include: {
           _count: { select: { connections: true, agents: true } },
           subscription: { include: { plan: { select: { name: true } } } },
         },
         orderBy: { createdAt: 'desc' },
       }),
-      db.organizationMember.count(),
-      db.whatsAppConnection.count(),
-      db.conversation.count({ where: { createdAt: { gte: todayStart } } }),
-      db.alert.count({ where: { status: 'new' } }),
-      db.subscription.findMany({ include: { plan: { select: { monthlyPrice: true } } } }),
+      db.organizationMember.count({ where: real }),
+      db.whatsAppConnection.count({ where: real }),
+      db.conversation.count({ where: { createdAt: { gte: todayStart }, ...real } }),
+      db.alert.count({ where: { status: 'new', ...real } }),
+      db.subscription.findMany({ where: real, include: { plan: { select: { monthlyPrice: true } } } }),
       db.notification.findMany({
+        where: real,
         orderBy: { createdAt: 'desc' },
         take: 15,
         include: { organization: { select: { name: true } } },
@@ -56,6 +61,7 @@ export async function GET() {
     ])
 
     const globalUsers = await db.organizationMember.findMany({
+      where: real,
       include: { organization: { select: { name: true } } },
       orderBy: { lastAccessAt: 'desc' },
     })

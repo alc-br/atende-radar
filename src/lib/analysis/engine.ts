@@ -15,6 +15,7 @@ import { enqueueAlertEvent } from '../webhooks'
 import { queueAlertEmails } from '../alert-email'
 import { milestone } from '../product-events'
 import { businessMinutesBetween, outsideRuleFrom, scheduleFrom, type HoursSettings } from './business-hours'
+import { REAL_ORGS } from '../sandbox'
 
 // Só conversas que vieram do WhatsApp de verdade (têm mensagem com externalId) entram no motor.
 // Dados de demonstração/seed ficam intocados.
@@ -62,8 +63,9 @@ const withTag = (tagsJson: string, tag: string) => {
 /** Roda o motor em todas as organizações com conversas reais ou conexões. */
 export async function analyzeAll(now = new Date()): Promise<AnalysisSummary> {
   // A organização de demonstração fica de fora: seus dados são fixos e não devem gerar alertas nem mudar sozinhos.
+  // As simuladas também: o relógio delas é o do cenário (o simulador chama analyzeOrganization com o "agora" simulado).
   // Inclui organizações que só têm conexões (a conexão pode cair antes da primeira mensagem)
-  const orgs = await db.organization.findMany({ where: { status: 'active', deletionRequestedAt: null, id: { not: process.env.DEMO_ORG_ID || 'org_seed_1' }, OR: [{ conversations: { some: REAL } }, { connections: { some: {} } }] }, select: { id: true } })
+  const orgs = await db.organization.findMany({ where: { status: 'active', deletionRequestedAt: null, ...REAL_ORGS(), OR: [{ conversations: { some: REAL } }, { connections: { some: {} } }] }, select: { id: true } })
   const total: AnalysisSummary = { organizations: 0, conversations: 0, alertsOpened: 0, alertsResolved: 0 }
   for (const o of orgs) {
     const s = await analyzeOrganization(o.id, now)

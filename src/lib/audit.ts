@@ -17,6 +17,7 @@ export type AuditAction =
   | 'report.sent' | 'report.retried'
   | 'webhook.created' | 'webhook.updated' | 'webhook.secret_rotated' | 'webhook.removed'
   | 'agent_identity.confirmed' | 'agent_identity.changed' | 'agent_identity.ignored' | 'agent_identity.undone'
+  | 'simulation.run' | 'simulation.inject' | 'simulation.tick' | 'simulation.clean' | 'simulation.viewed'
 
 export interface AuditEntryInput {
   action: AuditAction
@@ -91,4 +92,9 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'agent_identity.changed': 'Trocou o atendente de uma identidade do WhatsApp',
   'agent_identity.ignored': 'Marcou identidade do WhatsApp como "não é atendente"',
   'agent_identity.undone': 'Desfez o vínculo de uma identidade do WhatsApp',
+  'simulation.run': 'Rodou cenário(s) do ambiente de simulação',
+  'simulation.inject': 'Injetou mensagem numa empresa simulada',
+  'simulation.tick': 'Rodou o motor numa empresa simulada',
+  'simulation.clean': 'Apagou as empresas simuladas',
+  'simulation.viewed': 'Abriu uma empresa simulada',
 }

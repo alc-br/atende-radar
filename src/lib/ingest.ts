@@ -6,6 +6,7 @@ import { milestone } from './product-events'
 import { phoneHash } from './phone-hash'
 import { isExcludedNumber } from './excluded-numbers'
 import { maskingEnabled } from './privacy-settings'
+import { SIMULATOR_PROVIDER } from './sandbox'
 
 export { phoneHash }
 
@@ -46,9 +47,18 @@ const maxDate = (a: Date | null | undefined, b: Date) => (a && a > b ? a : b)
  * Se o processamento falhar DEPOIS de gravar o registro de idempotência (ex.: banco ocupado), o registro é desfeito:
  * senão o reenvio seria tratado como duplicado e a mensagem se perderia para sempre.
  */
-export async function ingestEvent(raw: unknown): Promise<IngestResult> {
+export interface IngestOptions {
+  /**
+   * Quem entrega o evento. 'gateway' (padrão): WhatsApp real (POST /api/gateway/events e o gerenciador Baileys).
+   * 'simulator': o ambiente de simulação (S1), em processo. As duas origens nunca se cruzam: o gateway não alimenta
+   * conexão simulada e o simulador não alimenta conexão real (as duas respondem "Conexão não encontrada").
+   */
+  source?: 'gateway' | 'simulator'
+}
+
+export async function ingestEvent(raw: unknown, opts: IngestOptions = {}): Promise<IngestResult> {
   try {
-    return await ingestEventInner(raw)
+    return await ingestEventInner(raw, opts.source ?? 'gateway')
   } catch (e) {
     const eventId = (raw as { eventId?: unknown } | null)?.eventId
     if (typeof eventId === 'string') await db.rawChannelEvent.deleteMany({ where: { eventId, processingStatus: 'received' } }).catch(() => {})
@@ -56,7 +66,7 @@ export async function ingestEvent(raw: unknown): Promise<IngestResult> {
   }
 }
 
-async function ingestEventInner(raw: unknown): Promise<IngestResult> {
+async function ingestEventInner(raw: unknown, source: 'gateway' | 'simulator'): Promise<IngestResult> {
   const parsed = EventSchema.safeParse(raw)
   if (!parsed.success) return { ok: false, status: 400, error: 'Evento inválido' }
   const evt = parsed.data
@@ -64,6 +74,7 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
   // A organização vem SEMPRE da conexão cadastrada, nunca do que o gateway diz.
   const connection = await db.whatsAppConnection.findUnique({ where: { id: evt.connectionId } })
   if (!connection) return { ok: false, status: 404, error: 'Conexão não encontrada' }
+  if ((connection.provider === SIMULATOR_PROVIDER) !== (source === 'simulator')) return { ok: false, status: 404, error: 'Conexão não encontrada' }
 
   const occurredAt = evt.occurredAt ? new Date(evt.occurredAt) : new Date()
 
@@ -257,6 +268,7 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
 
   await db.whatsAppConnection.update({ where: { id: connection.id }, data: { lastEventAt: new Date() } })
   if (openedConversation) await milestone(connection.organizationId, 'first_conversation') // funil (I7)
-  requestAnalysis(connection.organizationId)
+  // simulação: quem roda a análise é o relógio simulado do cenário (analyzeOrganization com o horário virtual)
+  if (source !== 'simulator') requestAnalysis(connection.organizationId)
   return { ok: true }
 }

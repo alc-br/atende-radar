@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { REAL_ORGS, isIsolatedOrg } from '@/lib/sandbox'
 
 // T11 · avisos de fim do teste grátis dentro do sistema: um quando faltam 3 dias ou menos e outro quando falta 1 dia ou
 // menos. Cada aviso sai UMA vez por fim de teste (se o operador estender o teste, os avisos valem de novo para a data nova).
@@ -34,13 +35,12 @@ function noticeText(stage: TrialStage, trialEnd: Date, now: Date) {
 
 /** Cria os avisos devidos. Idempotente: confere se o aviso daquele estágio e daquele fim de teste já existe. */
 export async function trialEndingNotices(now = new Date(), orgId?: string): Promise<number> {
-  const demoOrg = process.env.DEMO_ORG_ID || 'org_seed_1'
-  if (orgId === demoOrg) return 0
+  if (orgId && (await isIsolatedOrg(orgId))) return 0 // demonstração e simulação não recebem aviso de fim de teste
   const subs = await db.subscription.findMany({
     where: {
       status: 'trialing',
       trialEnd: { gt: now, lte: new Date(now.getTime() + 3 * DAY) },
-      organization: { status: 'active', id: orgId ?? { not: demoOrg } },
+      organization: { status: 'active', ...REAL_ORGS(), ...(orgId ? { id: orgId } : {}) },
     },
     select: { organizationId: true, trialEnd: true },
     take: 1000,

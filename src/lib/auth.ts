@@ -3,6 +3,7 @@ import Credentials from 'next-auth/providers/credentials'
 import { db } from './db'
 import { hashPassword, verifyPassword } from './passwords'
 import { allow, exceeded, ipFromHeaders } from './rate-limit'
+import { demoOrgId, isSimulationEmail } from './sandbox'
 
 const MAX_FAILED_LOGINS = 5
 const LOCK_MINUTES = 15
@@ -13,7 +14,6 @@ const IP_WINDOW = 15 * 60000
 
 // Modo demonstração (até o B7 separar o ambiente demo): a senha pública só vale na organização de demonstração.
 const demoEnabled = () => process.env.DEMO_AUTH_ENABLED !== 'false'
-const demoOrgId = () => process.env.DEMO_ORG_ID || 'org_seed_1'
 
 // Hash "de mentira" para gastar o mesmo tempo quando o e-mail não existe.
 const DUMMY_HASH = hashPassword('nao-e-uma-senha-de-verdade')
@@ -71,7 +71,11 @@ export const authOptions: NextAuthOptions = {
 
 async function check(rawEmail: string, password: string) {
   const email = rawEmail.trim().toLowerCase()
-
+  // Membros sintéticos das empresas simuladas (@sim.invalid) nunca entram pelo login comum.
+  if (isSimulationEmail(email)) {
+    verifyPassword(password, DUMMY_HASH)
+    return null
+  }
 
   const member = await db.organizationMember.findFirst({ where: { email } })
 

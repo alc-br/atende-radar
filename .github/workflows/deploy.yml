@@ -164,6 +164,10 @@ jobs:
           add_if_missing GATEWAY_SECRET "$(openssl rand -hex 32)"
           add_if_missing PHONE_HASH_SECRET "$(openssl rand -hex 32)"
           add_if_missing WHATSAPP_GATEWAY on
+          # Ambiente de simulação (docs/operacao/simulacao.md): desligado por padrão em todo servidor. Ligar (on) é decisão
+          # do dono, editando o app.env no servidor; o deploy nunca muda um valor que já existe. SIMULATION_SECRET (acesso
+          # do CLI/agente pela API) não é criado aqui: sem ele, só o operador logado usa a aba Simulação.
+          add_if_missing SIMULATION_ENABLED off
           add_if_missing WA_SESSIONS_DIR /opt/atende-radar/wa-sessions
           mkdir -p /opt/atende-radar/wa-sessions && chmod 700 /opt/atende-radar/wa-sessions
           # Chave que cifra as credenciais do WhatsApp em disco (docs/operacao/sessoes-whatsapp.md).
