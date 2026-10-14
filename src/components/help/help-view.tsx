@@ -7,6 +7,7 @@ import { useAppStore, type View } from '@/lib/store'
 import { TOURS } from '@/lib/tours'
 import { fetchMutation } from '@/lib/mutation'
 import { APP_VERSION } from '@/lib/app-version'
+import { supportStatusLabel, supportStatusTone } from '@/lib/support'
 import { SITE_URL, splitHosts } from '@/lib/hosts'
 import { ARTIGOS_AJUDA, CATEGORIAS_AJUDA, buscarAjuda, type ArtigoAjuda, type BlocoAjuda } from '@/content/ajuda'
 import { Rico } from '@/components/site/rico'
@@ -141,7 +142,7 @@ function FalarComSuporte({ tela }: { tela: string | null }) {
       if (inputArquivo.current) inputArquivo.current.value = ''
       carregar()
     } catch (err) {
-      setErro(err instanceof Error && err.message ? err.message : 'Não foi possível enviar. Tente de novo.')
+      setErro(err instanceof Error && err.message ? err.message : 'Não foi possível enviar. Tente novamente.')
     } finally {
       setEnviando(false)
     }
@@ -195,7 +196,7 @@ function FalarComSuporte({ tela }: { tela: string | null }) {
                 <span>{c.subject}</span>
                 <span className="flex items-center gap-2">
                   <span className="suave">{new Date(c.createdAt).toLocaleDateString('pt-BR')}</span>
-                  <span className={`tag ${c.status === 'resolved' ? 'tag--verde' : 'tag--ambar'}`}>{c.status === 'resolved' ? 'Resolvido' : 'Em aberto'}</span>
+                  <span className={`tag ${supportStatusTone(c.status)}`}>{supportStatusLabel(c.status)}</span>
                 </span>
               </li>
             ))}

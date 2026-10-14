@@ -16,6 +16,37 @@ export const MESSAGE_MAX = 5000
 
 export type ScreenshotType = 'image/png' | 'image/jpeg' | 'image/webp'
 
+/** Situação do chamado: aberto (aguarda o suporte), respondido (o suporte respondeu por e-mail), fechado. */
+export const SUPPORT_STATUSES = ['open', 'answered', 'resolved'] as const
+export type SupportStatus = (typeof SUPPORT_STATUSES)[number]
+export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = { open: 'Aberto', answered: 'Respondido', resolved: 'Fechado' }
+export const isSupportStatus = (v: unknown): v is SupportStatus => typeof v === 'string' && (SUPPORT_STATUSES as readonly string[]).includes(v)
+export const supportStatusLabel = (s: string) => (isSupportStatus(s) ? SUPPORT_STATUS_LABELS[s] : s)
+/** Classe da etiqueta (pacote de design: tag--*). */
+export const supportStatusTone = (s: string) => (s === 'resolved' ? 'tag--verde' : s === 'answered' ? 'tag--azul' : 'tag--ambar')
+
+// Resposta do operador: vai por e-mail ao autor e fica no EmailOutbox (kind + cabeçalho com o id do chamado),
+// que é o registro da resposta no chamado (sem tabela própria de respostas).
+export const SUPPORT_REPLY_KIND = 'support_reply'
+export const SUPPORT_TICKET_HEADER = 'X-AtendeRadar-Ticket'
+export const REPLY_MIN = 2
+export const REPLY_MAX = 5000
+/** Separa a resposta da cópia do chamado original no corpo do e-mail. */
+export const REPLY_QUOTE_SEPARATOR = '\n\n--- Sua mensagem original ---\n'
+
+export function supportReplyMail(t: { subject: string; message: string; authorName: string }, reply: string) {
+  return {
+    subject: `Re: ${t.subject} (suporte AtendeRadar)`,
+    text: `Olá, ${t.authorName}.\n\n${reply}\n\nEquipe de suporte AtendeRadar${REPLY_QUOTE_SEPARATOR}${t.message}`,
+  }
+}
+
+/** Texto da resposta guardado no e-mail (sem a saudação, a assinatura e a cópia do chamado). */
+export function replyTextFromMail(body: string): string {
+  const head = body.split(REPLY_QUOTE_SEPARATOR)[0] ?? body
+  return head.replace(/^Olá, [^\n]*\n\n/, '').replace(/\n\nEquipe de suporte AtendeRadar$/, '')
+}
+
 /**
  * Tipo REAL da imagem pelos primeiros bytes (assinatura do arquivo), não pelo nome nem pelo tipo que o navegador
  * declarou: um .txt renomeado para .png é recusado. null = não é png, jpg nem webp.

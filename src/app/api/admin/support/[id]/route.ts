@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { readJson } from '@/lib/json-body'
 import { TICKET_LIST_SELECT } from '@/lib/support'
-import { adminTicket, operatorGuard } from '@/lib/support-admin'
+import { adminTicket, operatorGuard, ticketReplies } from '@/lib/support-admin'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -13,10 +13,10 @@ export async function GET(_request: Request, { params }: Params) {
   if (!g.ok) return g.res
   const { id } = await params
   const ticket = await db.supportTicket.findUnique({ where: { id }, select: TICKET_LIST_SELECT })
-  return ticket ? NextResponse.json({ ticket: adminTicket(ticket) }) : notFound()
+  return ticket ? NextResponse.json({ ticket: adminTicket(ticket), replies: await ticketReplies(id) }) : notFound()
 }
 
-/** Marca como resolvido (ou reabre): { status: 'resolved' | 'open' }. */
+/** Fecha (resolved) ou reabre (open) o chamado. Respondido (answered) vem de POST .../reply. */
 export async function PATCH(request: Request, { params }: Params) {
   const g = await operatorGuard()
   if (!g.ok) return g.res

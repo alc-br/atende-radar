@@ -81,6 +81,50 @@ test('abre chamado com e sem captura; valida tipo e tamanho da imagem; o operado
   await c.dispose()
 })
 
+test('o operador responde: e-mail ao autor (EmailOutbox), resposta registrada no chamado, aberto → respondido → fechado', async () => {
+  const { email, password } = await signupOrg()
+  const c = await loginAs(email, password)
+  const t = (await (await c.post('/api/support', ticket())).json()).ticket as { id: string }
+  const op = await loginAs('platform@test.local')
+
+  expect((await op.post(`/api/admin/support/${t.id}/reply`, { data: { message: '  ' } })).status()).toBe(400)
+  expect((await op.post('/api/admin/support/nao-existe/reply', { data: { message: 'Olá' } })).status()).toBe(404)
+
+  const r1 = await op.post(`/api/admin/support/${t.id}/reply`, { data: { message: 'Recarregue a página e gere o QR de novo.' } })
+  expect(r1.status()).toBe(201)
+  const b1 = await r1.json()
+  expect(b1.ticket.status).toBe('answered')
+  expect(['queued', 'sent', 'failed']).toContain(b1.emailStatus) // nos testes não há provedor: fica na fila
+  expect(b1.replies).toHaveLength(1)
+  expect(b1.replies[0].text).toBe('Recarregue a página e gere o QR de novo.')
+  expect(b1.replies[0].to).toBe(email)
+
+  // o e-mail vai para quem abriu, pelo EmailOutbox, com o assunto do chamado e a mensagem original citada
+  const mails = await testDb.emailOutbox.findMany({ where: { kind: 'support_reply', toEmail: email } })
+  expect(mails).toHaveLength(1)
+  expect(mails[0].subject).toContain('Não consigo gerar o QR')
+  expect(mails[0].body).toContain('Recarregue a página e gere o QR de novo.')
+  expect(mails[0].body).toContain('O botão Gerar QR fica carregando')
+  expect(JSON.parse(mails[0].headers ?? '{}')['X-AtendeRadar-Ticket']).toBe(t.id)
+
+  // o autor vê "respondido" na lista dele; a lista do operador filtra por respondidos
+  const meus = (await (await c.get('/api/support')).json()).tickets as Array<{ id: string; status: string }>
+  expect(meus.find((x) => x.id === t.id)?.status).toBe('answered')
+  const respondidos = (await (await op.get('/api/admin/support?status=answered')).json()).tickets as Array<{ id: string }>
+  expect(respondidos.map((x) => x.id)).toContain(t.id)
+
+  // segunda resposta fechando o chamado; o detalhe mostra as duas
+  const r2 = await op.post(`/api/admin/support/${t.id}/reply`, { data: { message: 'Resolvido do nosso lado.', close: true } })
+  expect(r2.status()).toBe(201)
+  expect((await r2.json()).ticket.status).toBe('resolved')
+  const detalhe = await (await op.get(`/api/admin/support/${t.id}`)).json()
+  expect(detalhe.replies.map((r: { text: string }) => r.text)).toEqual(['Recarregue a página e gere o QR de novo.', 'Resolvido do nosso lado.'])
+  expect((await testDb.supportTicket.findUniqueOrThrow({ where: { id: t.id } })).resolvedBy).toBe('platform@test.local')
+
+  await op.dispose()
+  await c.dispose()
+})
+
 test('assunto e mensagem obrigatórios; corpo precisa ser multipart', async () => {
   const c = await newOwner()
   expect((await c.post('/api/support', ticket({ subject: '' }))).status()).toBe(400)
@@ -113,6 +157,7 @@ test('isolamento: admin de outra empresa não vê o chamado nem acessa as rotas 
     expect((await ctx.get(`/api/admin/support/${id}`)).status()).toBe(403)
     expect((await ctx.get(`/api/admin/support/${id}/screenshot`)).status()).toBe(403)
     expect((await ctx.patch(`/api/admin/support/${id}`, { data: { status: 'resolved' } })).status()).toBe(403)
+    expect((await ctx.post(`/api/admin/support/${id}/reply`, { data: { message: 'Resposta indevida' } })).status()).toBe(403)
   }
   expect((await testDb.supportTicket.findUniqueOrThrow({ where: { id } })).status).toBe('open')
 

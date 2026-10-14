@@ -96,6 +96,7 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['GET', '/api/admin/support'],
   ['GET', '/api/admin/support/x'],
   ['PATCH', '/api/admin/support/x'],
+  ['POST', '/api/admin/support/x/reply'],
   ['GET', '/api/admin/support/x/screenshot'],
 ]
 

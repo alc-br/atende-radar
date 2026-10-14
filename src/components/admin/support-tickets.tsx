@@ -1,12 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { LifeBuoy } from 'lucide-react'
+import { toast } from 'sonner'
+import { LifeBuoy, Send } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { mutate } from '@/lib/mutation'
+import { fetchMutation, mutate, MUTATION_ERROR_MESSAGE } from '@/lib/mutation'
+import { REPLY_MAX, supportStatusLabel, supportStatusTone } from '@/lib/support'
 
-// Chamados de "Falar com o suporte" (P8) para o operador da plataforma: lista, detalhe e resolver/reabrir.
+// Chamados de "Falar com o suporte" (P8) para o operador da plataforma: lista, detalhe, responder por e-mail,
+// fechar e reabrir. Situação: aberto → respondido (resposta enviada) → fechado.
 
 interface AdminTicket {
   id: string
@@ -26,14 +29,23 @@ interface AdminTicket {
   createdAt: string
 }
 
-type Filtro = 'open' | 'resolved' | 'all'
+interface TicketReply {
+  id: string
+  text: string
+  to: string
+  emailStatus: string
+  sentAt: string | null
+  createdAt: string
+}
+
+type Filtro = 'open' | 'answered' | 'resolved' | 'all'
 
 const formatDateTime = (d: string) =>
   new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-const statusTag = (status: string) => (
-  <span className={`tag ${status === 'resolved' ? 'tag--verde' : 'tag--ambar'}`}>{status === 'resolved' ? 'Resolvido' : 'Em aberto'}</span>
-)
+const statusTag = (status: string) => <span className={`tag ${supportStatusTone(status)}`}>{supportStatusLabel(status)}</span>
+
+const EMAIL_STATUS: Record<string, string> = { sent: 'e-mail enviado', queued: 'e-mail na fila', failed: 'e-mail falhou (nova tentativa automática)', sending: 'enviando e-mail' }
 
 export function SupportTickets() {
   const [filtro, setFiltro] = useState<Filtro>('open')
@@ -41,6 +53,9 @@ export function SupportTickets() {
   const [abertos, setAbertos] = useState(0)
   const [erro, setErro] = useState(false)
   const [selecionado, setSelecionado] = useState<AdminTicket | null>(null)
+  const [respostas, setRespostas] = useState<TicketReply[]>([])
+  const [resposta, setResposta] = useState('')
+  const [fecharAoResponder, setFecharAoResponder] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
   const carregar = useCallback(async (): Promise<AdminTicket[] | null> => {
@@ -61,6 +76,21 @@ export function SupportTickets() {
 
   useEffect(() => { void carregar() }, [carregar])
 
+  const abrir = async (t: AdminTicket) => {
+    setSelecionado(t)
+    setRespostas([])
+    setResposta('')
+    setFecharAoResponder(false)
+    try {
+      const res = await fetch(`/api/admin/support/${t.id}`)
+      if (res.ok) {
+        const d = (await res.json()) as { ticket: AdminTicket; replies: TicketReply[] }
+        setSelecionado(d.ticket)
+        setRespostas(d.replies)
+      }
+    } catch { /* fica o que veio da lista */ }
+  }
+
   const alterarStatus = async (t: AdminTicket, status: 'open' | 'resolved') => {
     setSalvando(true)
     const ok = await mutate(`/api/admin/support/${t.id}`, { method: 'PATCH', json: { status } }, { onSettled: carregar })
@@ -68,15 +98,36 @@ export function SupportTickets() {
     if (ok) setSelecionado({ ...t, status, resolvedAt: status === 'resolved' ? new Date().toISOString() : null })
   }
 
+  const responder = async (t: AdminTicket) => {
+    if (!resposta.trim()) return
+    setSalvando(true)
+    try {
+      const res = await fetchMutation(`/api/admin/support/${t.id}/reply`, { json: { message: resposta, close: fecharAoResponder } })
+      const d = (await res.json()) as { ticket: AdminTicket; replies: TicketReply[]; emailStatus: string }
+      setSelecionado(d.ticket)
+      setRespostas(d.replies)
+      setResposta('')
+      setFecharAoResponder(false)
+      if (d.emailStatus === 'sent') toast.success(`Resposta enviada por e-mail para ${t.authorEmail}.`)
+      else if (d.emailStatus === 'queued') toast.warning('Resposta registrada, mas o e-mail ficou na fila: o provedor de e-mail não está configurado.')
+      else toast.error('Resposta registrada, mas o e-mail não foi entregue. O sistema tenta de novo sozinho.')
+      void carregar()
+    } catch (e) {
+      toast.error(e instanceof Error && !e.message.startsWith('HTTP ') ? e.message : MUTATION_ERROR_MESSAGE)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
   return (
     <section className="cartao" aria-labelledby="t-suporte-admin" data-testid="admin-suporte">
       <div className="cartao__cab flex-wrap">
         <div>
           <h2 id="t-suporte-admin"><LifeBuoy className="ic verde-txt" aria-hidden="true" />Chamados de suporte</h2>
-          <p>{abertos === 1 ? '1 chamado em aberto' : `${abertos} chamados em aberto`}</p>
+          <p>{abertos === 1 ? '1 chamado aberto' : `${abertos} chamados abertos`}</p>
         </div>
         <div className="abas" role="group" aria-label="Filtrar chamados">
-          {([['open', 'Em aberto'], ['resolved', 'Resolvidos'], ['all', 'Todos']] as const).map(([v, label]) => (
+          {([['open', 'Abertos'], ['answered', 'Respondidos'], ['resolved', 'Fechados'], ['all', 'Todos']] as const).map(([v, label]) => (
             <button key={v} type="button" className={`btn btn--sm ${filtro === v ? 'btn--escuro' : ''}`} aria-pressed={filtro === v} onClick={() => setFiltro(v)}>
               {label}
             </button>
@@ -104,9 +155,9 @@ export function SupportTickets() {
                 </tr>
               ) : (
                 tickets.map((t) => (
-                  <tr key={t.id} className="cursor-pointer" onClick={() => setSelecionado(t)}>
+                  <tr key={t.id} className="cursor-pointer" onClick={() => void abrir(t)}>
                     <td>
-                      <button type="button" className="forte text-left hover:underline" onClick={(e) => { e.stopPropagation(); setSelecionado(t) }}>
+                      <button type="button" className="forte text-left hover:underline" onClick={(e) => { e.stopPropagation(); void abrir(t) }}>
                         {t.subject}
                       </button>
                     </td>
@@ -133,10 +184,10 @@ export function SupportTickets() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2" data-testid="chamado-status">
                   {statusTag(selecionado.status)}
                   <span className="text-muted-foreground">Recebido em {formatDateTime(selecionado.createdAt)}</span>
-                  {selecionado.resolvedAt && <span className="text-muted-foreground">· resolvido em {formatDateTime(selecionado.resolvedAt)}</span>}
+                  {selecionado.resolvedAt && <span className="text-muted-foreground">· fechado em {formatDateTime(selecionado.resolvedAt)}</span>}
                 </div>
                 <p className="whitespace-pre-wrap break-words">{selecionado.message}</p>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
@@ -153,14 +204,51 @@ export function SupportTickets() {
                     />
                   </a>
                 )}
+
+                {respostas.length > 0 && (
+                  <div className="grid gap-2">
+                    <h3 className="text-[14px] font-bold">Respostas enviadas</h3>
+                    <ol className="grid gap-2" aria-label="Respostas enviadas">
+                      {respostas.map((r) => (
+                        <li key={r.id} className="rounded-lg border p-3">
+                          <p className="text-xs text-muted-foreground">
+                            {formatDateTime(r.createdAt)} · para {r.to} · {EMAIL_STATUS[r.emailStatus] ?? r.emailStatus}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap break-words">{r.text}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                <div className="grid gap-2">
+                  <label htmlFor="resposta-chamado" className="text-[14px] font-bold">Responder por e-mail</label>
+                  <textarea
+                    className="area"
+                    id="resposta-chamado"
+                    rows={5}
+                    maxLength={REPLY_MAX}
+                    value={resposta}
+                    onChange={(e) => setResposta(e.target.value)}
+                    placeholder={`A resposta vai para ${selecionado.authorEmail}`}
+                  />
+                  <label className="flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={fecharAoResponder} onChange={(e) => setFecharAoResponder(e.target.checked)} />
+                    Fechar o chamado ao enviar
+                  </label>
+                  <Button type="button" disabled={salvando || !resposta.trim()} onClick={() => void responder(selecionado)}>
+                    <Send className="ic" aria-hidden="true" />{salvando ? 'Enviando...' : 'Enviar resposta'}
+                  </Button>
+                </div>
+
                 <div className="flex gap-2">
                   {selecionado.status === 'resolved' ? (
                     <Button type="button" variant="outline" className="flex-1" disabled={salvando} onClick={() => void alterarStatus(selecionado, 'open')}>
                       Reabrir chamado
                     </Button>
                   ) : (
-                    <Button type="button" className="flex-1" disabled={salvando} onClick={() => void alterarStatus(selecionado, 'resolved')}>
-                      {salvando ? 'Salvando...' : 'Marcar como resolvido'}
+                    <Button type="button" variant="outline" className="flex-1" disabled={salvando} onClick={() => void alterarStatus(selecionado, 'resolved')}>
+                      Fechar chamado
                     </Button>
                   )}
                 </div>
