@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, alertScope } from '@/lib/api-auth'
+import { readJson } from '@/lib/json-body'
 
 export async function PUT(
   request: Request,
@@ -10,7 +11,9 @@ export async function PUT(
     const g = await guard('alerts.manage')
     if (!g.ok) return g.res
     const { id } = await params
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { assignedTo, status } = body as { assignedTo?: string; status?: string }
 
     const existing = await db.alert.findFirst({ where: { id, ...alertScope(g.auth) } })

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
+import { readJson } from '@/lib/json-body'
 
 export async function PATCH(
   request: Request,
@@ -10,7 +11,9 @@ export async function PATCH(
     const g = await guard('conversations.manage')
     if (!g.ok) return g.res
     const { id } = await params
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { falsePositive, status } = body as { falsePositive?: boolean; status?: string }
 
     const existing = await db.auditFinding.findFirst({ where: { id, conversation: { organizationId: g.auth.orgId } } })

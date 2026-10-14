@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, badRequest } from '@/lib/api-auth'
 import { SCHEDULE_RE, isValidRecipient } from '@/lib/reports/schedule'
+import { readJson } from '@/lib/json-body'
 
 export async function PATCH(
   request: Request,
@@ -20,7 +21,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Report definition not found' }, { status: 404 })
     }
 
-    const body = await request.json().catch(() => null)
+    const j = await readJson(request, { optional: true })
+    if (!j.ok) return j.res
+    const body = j.body
     const { schedule, recipients } = (body ?? {}) as { schedule?: string | null; recipients?: unknown[] }
 
     const data: Record<string, unknown> = {}

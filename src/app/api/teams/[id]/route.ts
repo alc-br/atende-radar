@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
 import { validateTeamRefs } from '@/lib/team-refs'
+import { readJson } from '@/lib/json-body'
 
 export async function PATCH(
   request: Request,
@@ -12,7 +13,9 @@ export async function PATCH(
     const g = await guard('teams.manage')
     if (!g.ok) return g.res
     const { id } = await params
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { name, supervisorId, active, connectionIds, slaConfig, goals } = body as {
       name?: string
       supervisorId?: string | null

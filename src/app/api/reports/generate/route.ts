@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
 import { buildReport, REPORT_TYPES, type ReportType } from '@/lib/reports/build'
+import { readJson } from '@/lib/json-body'
 
 interface GenerateBody {
   reportTypeId: string
@@ -17,7 +18,9 @@ export async function POST(request: Request) {
     if (!g.ok) return g.res
     const orgId = g.auth.orgId
 
-    const body = (await request.json().catch(() => null)) as GenerateBody | null
+    const j = await readJson<GenerateBody>(request, { optional: true })
+    if (!j.ok) return j.res
+    const body = j.body
     if (!body?.reportTypeId || !body.periodStart || !body.periodEnd) {
       return badRequest('reportTypeId, periodStart e periodEnd são obrigatórios')
     }

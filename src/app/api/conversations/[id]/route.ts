@@ -4,6 +4,7 @@ import { audit } from '@/lib/audit'
 import { maskSensitive } from '@/lib/mask-sensitive'
 import { guard, conversationScope, badRequest } from '@/lib/api-auth'
 import { opportunityBreakdown, revenueSettings } from '@/lib/analysis/opportunity'
+import { readJson } from '@/lib/json-body'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -21,7 +22,9 @@ export async function PATCH(
     const g = await guard('conversations.manage')
     if (!g.ok) return g.res
     const { id } = await params
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { agentId, addTag, markReviewed } = body as { agentId?: string; addTag?: string; markReviewed?: boolean }
 
     const existing = await db.conversation.findFirst({ where: { id, organizationId: g.auth.orgId }, select: { tags: true } })

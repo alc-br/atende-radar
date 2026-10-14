@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, badRequest, notFound } from '@/lib/api-auth'
 import { sendMail } from '@/lib/mailer'
+import { readJson } from '@/lib/json-body'
 
 // Pedido de troca de plano. Enquanto não há cobrança automática, quem troca é a equipe (operador da plataforma).
 export async function POST(request: Request) {
   const g = await guard('billing.manage')
   if (!g.ok) return g.res
-  const body = (await request.json().catch(() => null)) as { planId?: string } | null
+  const j = await readJson<{ planId?: string }>(request, { optional: true })
+  if (!j.ok) return j.res
+  const body = j.body
   if (!body?.planId) return badRequest('planId é obrigatório')
 
   const plan = await db.plan.findFirst({ where: { id: body.planId, active: true } })

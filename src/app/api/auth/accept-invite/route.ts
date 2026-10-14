@@ -4,6 +4,7 @@ import { consumeToken } from '@/lib/auth-tokens'
 import { hashPassword, passwordProblem } from '@/lib/passwords'
 import { allow, clientIp } from '@/lib/rate-limit'
 import { TERMS_REQUIRED_MESSAGE, termsAcceptance } from '@/lib/legal'
+import { readJson } from '@/lib/json-body'
 
 const INVALID = 'Convite inválido ou expirado. Peça um novo ao administrador.'
 
@@ -11,7 +12,9 @@ export async function POST(request: Request) {
   if (!allow(`invite:${clientIp(request)}`, Number(process.env.INVITE_RATE_LIMIT_PER_HOUR || 30), 60 * 60 * 1000)) {
     return NextResponse.json({ error: 'Muitas tentativas. Tente novamente mais tarde.' }, { status: 429 })
   }
-  const body = (await request.json().catch(() => null)) as { token?: string; password?: string; name?: string; acceptTerms?: unknown } | null
+  const j = await readJson<{ token?: string; password?: string; name?: string; acceptTerms?: unknown }>(request, { optional: true })
+  if (!j.ok) return j.res
+  const body = j.body
   if (!body?.token || !body.password) return NextResponse.json({ error: INVALID }, { status: 400 })
 
   // Recusas que não gastam o token (senha fraca, termos não aceitos): o link continua valendo para tentar de novo.

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, agentScope } from '@/lib/api-auth'
 import { enforceQuota } from '@/lib/quotas'
+import { readJson } from '@/lib/json-body'
 
 export async function GET() {
   try {
@@ -66,7 +67,9 @@ export async function POST(request: Request) {
     const overQuota = await enforceQuota(g.auth.orgId, 'agents')
     if (overQuota) return overQuota
 
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { name, email, role, team } = body as {
       name?: string
       email?: string

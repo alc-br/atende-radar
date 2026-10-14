@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
+import { readJson } from '@/lib/json-body'
 
 export async function PUT(
   request: Request,
@@ -11,7 +12,9 @@ export async function PUT(
     const g = await guard('alert_rules.manage')
     if (!g.ok) return g.res
     const { id } = await params
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const {
       name,
       type,

@@ -3,10 +3,13 @@ import { db } from '@/lib/db'
 import { issueToken } from '@/lib/auth-tokens'
 import { appUrl, sendMail } from '@/lib/mailer'
 import { allow, clientIp } from '@/lib/rate-limit'
+import { readJson } from '@/lib/json-body'
 
 // Sempre responde 200 (não revela se o e-mail tem conta). Só o limite de pedidos responde diferente.
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { email?: string } | null
+  const j = await readJson<{ email?: string }>(request, { optional: true })
+  if (!j.ok) return j.res
+  const body = j.body
   const email = (body?.email || '').trim().toLowerCase()
   if (!email || !email.includes('@')) {
     return NextResponse.json({ error: 'Informe o e-mail.' }, { status: 400 })

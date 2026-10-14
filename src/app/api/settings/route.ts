@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
+import { readJson } from '@/lib/json-body'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -65,7 +66,9 @@ export async function PATCH(request: Request) {
     if (!g.ok) return g.res
     const org = await db.organization.findUniqueOrThrow({ where: { id: g.auth.orgId } })
 
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const {
       displayName,
       cnpj,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
+import { readJson } from '@/lib/json-body'
 
 interface OutcomeBody {
   outcome: 'won' | 'lost'
@@ -16,7 +17,9 @@ export async function POST(
     const g = await guard('conversations.manage')
     if (!g.ok) return g.res
     const { id } = await params
-    const body = (await request.json()) as OutcomeBody
+    const j = await readJson<OutcomeBody>(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { outcome, value, reason } = body
 
     if (!outcome || !['won', 'lost'].includes(outcome)) {

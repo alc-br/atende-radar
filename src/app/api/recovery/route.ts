@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, recoveryScope, badRequest } from '@/lib/api-auth'
 import { Prisma } from '@prisma/client'
+import { readJson } from '@/lib/json-body'
 
 export async function GET(request: Request) {
   try {
@@ -85,7 +86,9 @@ export async function POST(request: Request) {
     if (!g.ok) return g.res
     const org = { id: g.auth.orgId }
 
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const {
       conversationId,
       opportunityId,

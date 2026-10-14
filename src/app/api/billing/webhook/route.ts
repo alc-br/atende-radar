@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { checkBasicAuth, subscriptionIdFromEvent } from '@/lib/billing/core'
 import { pagarme, pagarmeConfig, PagarmeError } from '@/lib/billing/pagarme'
 import { applyProviderState, APP_TAG } from '@/lib/billing/service'
+import { readJson } from '@/lib/json-body'
 
 // Aviso (webhook) do Pagar.me. Público (fora do proxy de sessão), protegido por autenticação básica
 // (PAGARME_WEBHOOK_USER / PAGARME_WEBHOOK_PASS, as mesmas cadastradas no painel do Pagar.me).
@@ -15,7 +16,9 @@ export async function POST(request: Request) {
   const cfg = pagarmeConfig()
   if (!cfg) return NextResponse.json({ error: 'Pagamento não configurado' }, { status: 503 })
 
-  const event = (await request.json().catch(() => null)) as { id?: string; type?: string } | null
+  const j = await readJson<{ id?: string; type?: string }>(request, { optional: true })
+  if (!j.ok) return j.res
+  const event = j.body
   if (!event?.id || !event.type) return NextResponse.json({ error: 'Aviso inválido' }, { status: 400 })
 
   const already = await db.paymentEvent.findUnique({ where: { providerEventId: String(event.id) } })

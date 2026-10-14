@@ -7,6 +7,7 @@ import { appUrl, sendMail } from '@/lib/mailer'
 import { allow, clientIp } from '@/lib/rate-limit'
 import { createOrganizationDefaults } from '@/lib/org-defaults'
 import { TERMS_REQUIRED_MESSAGE, termsAcceptance } from '@/lib/legal'
+import { readJson } from '@/lib/json-body'
 
 const Body = z.object({
   name: z.string().trim().min(2, 'Informe o seu nome.').max(120),
@@ -23,7 +24,9 @@ export async function POST(request: Request) {
   if (!allow(`signup:${clientIp(request)}`, Number(process.env.SIGNUP_RATE_LIMIT_PER_HOUR || 20), 60 * 60 * 1000)) {
     return NextResponse.json({ error: 'Muitas tentativas. Tente novamente mais tarde.' }, { status: 429 })
   }
-  const parsed = Body.safeParse(await request.json().catch(() => null))
+  const j = await readJson(request, { optional: true })
+  if (!j.ok) return j.res
+  const parsed = Body.safeParse(j.body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Dados inválidos.' }, { status: 400 })
   }

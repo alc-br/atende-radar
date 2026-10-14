@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, badRequest } from '@/lib/api-auth'
+import { readJson } from '@/lib/json-body'
 
 interface FeedbackBody {
   type: string
@@ -17,7 +18,9 @@ export async function POST(
     const g = await guard('conversations.manage')
     if (!g.ok) return g.res
     const { id } = await params
-    const body = (await request.json()) as FeedbackBody
+    const j = await readJson<FeedbackBody>(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { type, previousValue, correctedValue, justification } = body
 
     if (!type || !previousValue || !correctedValue) {

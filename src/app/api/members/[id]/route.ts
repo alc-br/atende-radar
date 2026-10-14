@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, notFound, badRequest, publicMember } from '@/lib/api-auth'
 import { isRole } from '@/lib/permissions'
+import { readJson } from '@/lib/json-body'
 
 const STATUSES = ['active', 'suspended']
 // 'invited' só sai de convite aceito; reativar um convidado não pode pular a criação de senha.
@@ -15,7 +16,9 @@ export async function PATCH(
     const g = await guard('members.manage')
     if (!g.ok) return g.res
     const { id } = await params
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { role, team, status } = body as { role?: string; team?: string; status?: string }
 
     const existing = await db.organizationMember.findFirst({ where: { id, organizationId: g.auth.orgId } })

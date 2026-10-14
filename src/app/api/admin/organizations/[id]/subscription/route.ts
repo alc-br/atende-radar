@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, isPlatformOperator, badRequest, notFound } from '@/lib/api-auth'
+import { readJson } from '@/lib/json-body'
 
 const STATUSES = ['trialing', 'active', 'past_due', 'canceled', 'expired']
 
@@ -13,7 +14,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 })
   }
   const { id } = await params
-  const body = (await request.json().catch(() => null)) as { planId?: string; status?: string; periodEnd?: string } | null
+  const j = await readJson<{ planId?: string; status?: string; periodEnd?: string }>(request, { optional: true })
+  if (!j.ok) return j.res
+  const body = j.body
   if (!body) return badRequest('Corpo inválido')
 
   const org = await db.organization.findUnique({ where: { id }, select: { id: true } })

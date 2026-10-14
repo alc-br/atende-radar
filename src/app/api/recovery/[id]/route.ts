@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, recoveryScope } from '@/lib/api-auth'
+import { readJson } from '@/lib/json-body'
 
 interface PatchBody {
   status?: string
@@ -19,7 +20,9 @@ export async function PATCH(
     const g = await guard('recovery.manage')
     if (!g.ok) return g.res
     const { id } = await params
-    const body = (await request.json()) as PatchBody
+    const j = await readJson<PatchBody>(request)
+    if (!j.ok) return j.res
+    const body = j.body
 
     const existing = await db.recoveryItem.findFirst({ where: { id, ...recoveryScope(g.auth) } })
     if (!existing) {

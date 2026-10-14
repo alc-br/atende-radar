@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
+import { readJson } from '@/lib/json-body'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -26,7 +27,9 @@ export async function PATCH(request: Request) {
   const g = await guard('tours.use')
   if (!g.ok) return g.res
 
-  const body = await request.json()
+  const j = await readJson(request)
+  if (!j.ok) return j.res
+  const body = j.body
   const { tourId } = body as { tourId?: string }
   if (!tourId) {
     return NextResponse.json({ error: 'tourId é obrigatório' }, { status: 400 })

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { consumeToken } from '@/lib/auth-tokens'
 import { hashPassword, passwordProblem } from '@/lib/passwords'
 import { allow, clientIp } from '@/lib/rate-limit'
+import { readJson } from '@/lib/json-body'
 
 const INVALID = 'Link inválido ou expirado. Peça um novo.'
 
@@ -10,7 +11,9 @@ export async function POST(request: Request) {
   if (!allow(`reset:${clientIp(request)}`, 30, 60 * 60 * 1000)) {
     return NextResponse.json({ error: 'Muitas tentativas. Tente novamente mais tarde.' }, { status: 429 })
   }
-  const body = (await request.json().catch(() => null)) as { token?: string; password?: string } | null
+  const j = await readJson<{ token?: string; password?: string }>(request, { optional: true })
+  if (!j.ok) return j.res
+  const body = j.body
   if (!body?.token || !body.password) return NextResponse.json({ error: INVALID }, { status: 400 })
 
   // Senha fraca é recusada ANTES de gastar o token, para o link não ser queimado por engano.

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
 import { validateTeamRefs } from '@/lib/team-refs'
+import { readJson } from '@/lib/json-body'
 
 export async function GET() {
   try {
@@ -53,7 +54,9 @@ export async function POST(request: Request) {
     if (!g.ok) return g.res
     const org = { id: g.auth.orgId }
 
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { name, code, supervisorId, connectionIds, slaConfig, goals } = body as {
       name?: string
       code?: string

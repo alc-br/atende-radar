@@ -4,6 +4,7 @@ import { audit } from '@/lib/audit'
 import { guard, badRequest, publicMember } from '@/lib/api-auth'
 import { sendInvite } from '@/lib/invites'
 import { isRole } from '@/lib/permissions'
+import { readJson } from '@/lib/json-body'
 
 export async function GET() {
   try {
@@ -43,7 +44,9 @@ export async function POST(request: Request) {
     if (!g.ok) return g.res
     const org = { id: g.auth.orgId }
 
-    const body = await request.json()
+    const j = await readJson(request)
+    if (!j.ok) return j.res
+    const body = j.body
     const { name, email, role, team } = body as {
       name?: string
       email?: string

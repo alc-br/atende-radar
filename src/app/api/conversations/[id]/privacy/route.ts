@@ -3,13 +3,16 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, badRequest, notFound } from '@/lib/api-auth'
 import { eraseConversations, excludeContactOf } from '@/lib/privacy'
+import { readJson } from '@/lib/json-body'
 
 // Pedidos de privacidade sobre UM cliente (titular): parar de monitorar ou apagar todos os dados dele.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const g = await guard('privacy.manage')
   if (!g.ok) return g.res
   const { id } = await params
-  const body = (await request.json().catch(() => null)) as { action?: string } | null
+  const j = await readJson<{ action?: string }>(request, { optional: true })
+  if (!j.ok) return j.res
+  const body = j.body
   if (body?.action !== 'exclude' && body?.action !== 'erase') return badRequest('action deve ser "exclude" ou "erase"')
 
   const conv = await db.conversation.findFirst({ where: { id, organizationId: g.auth.orgId }, select: { id: true, contactId: true } })
