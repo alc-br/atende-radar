@@ -32,7 +32,7 @@ const adminNavItems: NavItem[] = [
 ]
 
 export function AppSidebar() {
-  const { currentView, setView, refreshTrigger, setMobileNavOpen, startTour } = useAppStore()
+  const { currentView, setView, refreshTrigger, setMobileNavOpen, openHelp } = useAppStore()
   const me = useAppStore((st) => st.me)
   // Só mostra o que o papel pode abrir. Enquanto /api/me carrega, não mostra nada restrito.
   const visible = (item: { view: View }) =>
@@ -153,18 +153,21 @@ export function AppSidebar() {
           <p>Responda rápido: quanto antes o cliente recebe retorno, menor a chance de ele fechar com outro.</p>
         </div>
 
+        {/* Abre a central de ajuda (artigos, busca, suporte); de lá dá para reabrir o guia da tela em que estava */}
         <button
           className="ajuda"
           type="button"
+          data-testid="abrir-ajuda"
+          aria-current={currentView === 'help' ? 'page' : undefined}
           onClick={() => {
             setMobileNavOpen(false)
-            startTour(currentView)
+            openHelp()
           }}
         >
           <CircleHelp className="ic" aria-hidden="true" />
           <span>
             <strong>Precisa de ajuda?</strong>
-            <span>Guia desta tela</span>
+            <span>Central de ajuda e guias</span>
           </span>
         </button>
       </aside>

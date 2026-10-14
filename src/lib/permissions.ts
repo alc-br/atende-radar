@@ -69,6 +69,7 @@ export const VIEW_PERMISSION: Record<string, Permission | null> = {
   checkout: 'billing.manage',
   notifications: 'notifications.view',
   profile: null, // o próprio perfil: qualquer pessoa logada
+  help: null, // central de ajuda e "Falar com o suporte": qualquer pessoa logada
 }
 
 export function canOpenView(role: string | null | undefined, view: string): boolean {

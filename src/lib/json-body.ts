@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 
 /**
- * Limite do corpo das rotas de API que recebem JSON. Nenhuma rota recebe arquivo: os maiores corpos legítimos
- * (eventos do gateway, com texto até 20 mil caracteres; avisos do Pagar.me) têm poucos KB.
+ * Limite do corpo das rotas de API que recebem JSON. Os maiores corpos JSON legítimos (eventos do gateway, com texto
+ * até 20 mil caracteres; avisos do Pagar.me) têm poucos KB. O único envio de arquivo (captura de tela do suporte,
+ * POST /api/support) é multipart e tem limite próprio em src/lib/support.ts.
  */
 export const MAX_JSON_BYTES = 5 * 1024 * 1024
 

@@ -5,21 +5,13 @@ import { SITE_URL, appLink } from '@/lib/hosts'
 import { ARTIGOS, FILTROS, dataPorExtenso, minutosDeLeitura, type Artigo, type Bloco, type Filtro } from '@/content/artigos'
 import { ARTE_CARTAO, CAPAS, ILU_VENDAS_PERDIDAS } from './assets'
 import { useAviso } from './blog-shell'
+import { Rico } from './rico'
 import { Ic, atraso } from './site-ui'
 
 /** Capa ilustrada do artigo (desenho do pacote). */
 function Capa({ i }: { i: number }) {
   const c = CAPAS[i] ?? CAPAS[0]
   return <div className={`capa ${c.variante}`.trim()} aria-hidden="true" dangerouslySetInnerHTML={{ __html: c.svg }} />
-}
-
-/** **negrito** → <strong> (texto do próprio projeto). */
-function Rico({ x }: { x: string }) {
-  return (
-    <>
-      {x.split(/\*\*(.+?)\*\*/g).map((parte, i) => (i % 2 ? <strong key={i}>{parte}</strong> : <Fragment key={i}>{parte}</Fragment>))}
-    </>
-  )
 }
 
 function Meta({ a, completo }: { a: Artigo; completo?: boolean }) {

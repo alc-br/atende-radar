@@ -15,7 +15,7 @@ const call = async (host: string, path: string, method = 'GET') => {
 
 test.describe('domínios do site e do app', () => {
   test('site serve a página de vendas, os arquivos dela e o catálogo de planos', async () => {
-    for (const path of ['/', '/brand/logo-atenderadar.webp', '/_next/static/x.js', '/api/public/plans', '/favicon.ico', '/conteudos', '/conteudos/vendas-perdidas-whatsapp', '/privacidade', '/termos', '/sitemap.xml', '/robots.txt']) {
+    for (const path of ['/', '/brand/logo-atenderadar.webp', '/_next/static/x.js', '/api/public/plans', '/favicon.ico', '/conteudos', '/conteudos/vendas-perdidas-whatsapp', '/privacidade', '/termos', '/status', '/api/public/status', '/sitemap.xml', '/robots.txt']) {
       const r = await call('atenderadar.com.br', path)
       expect(r.location, path).toBeNull()
     }
@@ -67,8 +67,8 @@ test.describe('domínios do site e do app', () => {
     expect((await call('app.atenderadar.com.br', '/api/me')).status).toBe(401)
   })
 
-  test('no app, artigos e páginas legais levam ao site', async () => {
-    for (const path of ['/conteudos', '/conteudos/vendas-perdidas-whatsapp', '/privacidade', '/termos']) {
+  test('no app, artigos, páginas legais e o status do serviço levam ao site', async () => {
+    for (const path of ['/conteudos', '/conteudos/vendas-perdidas-whatsapp', '/privacidade', '/termos', '/status']) {
       const r = await call('app.atenderadar.com.br', path)
       expect(r.status, path).toBe(308)
       expect(r.location).toBe(`https://atenderadar.com.br${path}`)

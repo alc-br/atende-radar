@@ -293,3 +293,14 @@ html:has(.blog) {scroll-behavior: auto;}
 
 /* O reset do Tailwind tira o negrito padrão dos títulos; o pacote conta com ele. */
 .blog h1, .blog h2, .blog h3, .blog h4, .blog b, .blog strong {font-weight: 700;}
+
+/* Página pública /status: situação do serviço em linguagem simples. */
+.blog .status-geral {display: flex; align-items: center; gap: 14px; margin-top: 18px; padding: 18px 20px;}
+.blog .status-geral b {font-size: 17px; color: var(--tinta);}
+.blog .status-geral p {color: var(--suave); font-size: 14px;}
+.blog .status-ponto {width: 14px; height: 14px; flex-shrink: 0; border-radius: 50%; background: var(--verde-500); box-shadow: 0 0 0 5px var(--verde-100);}
+.blog .status-ponto--degraded {background: #d48a00; box-shadow: 0 0 0 5px var(--ambar-f);}
+.blog .status-ponto--down {background: var(--vermelho); box-shadow: 0 0 0 5px var(--vermelho-f);}
+.blog .status-lista {display: grid; gap: 10px; margin-top: 16px;}
+.blog .status-lista li {display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px;}
+.blog .status-lista span {font-size: 14px; color: var(--suave);}

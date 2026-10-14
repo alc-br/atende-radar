@@ -34,7 +34,7 @@ export const TOURS: Record<string, TourStep[]> = {
     {
       target: 'header-help',
       title: 'Precisa rever algo?',
-      body: 'Clique aqui a qualquer momento para reabrir o tour da tela em que você está, ou este tour de boas-vindas de novo.',
+      body: 'Clique aqui a qualquer momento para abrir a central de ajuda (artigos e falar com o suporte), reabrir o tour da tela em que você está ou este tour de boas-vindas de novo.',
       placement: 'bottom',
     },
   ],
@@ -250,7 +250,7 @@ const ROLE_LABEL: Record<string, string> = {
 const help: TourStep = {
   target: 'header-help',
   title: 'Precisa rever algo?',
-  body: 'Clique aqui a qualquer momento para reabrir o tour da tela em que você está ou este tour de boas-vindas.',
+  body: 'Clique aqui a qualquer momento para abrir a central de ajuda, falar com o suporte, reabrir o tour da tela em que você está ou este tour de boas-vindas.',
   placement: 'bottom',
 }
 

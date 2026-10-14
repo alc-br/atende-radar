@@ -1,4 +1,10 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "node:fs";
+
+// Versão mostrada no rodapé do painel e anexada aos chamados de suporte: a do package.json + o commit do build no CI.
+const pkgVersion = (JSON.parse(readFileSync("./package.json", "utf8")) as { version?: string }).version || "0.0.0";
+const commit = (process.env.GITHUB_SHA || "").slice(0, 7);
+const appVersion = commit ? `${pkgVersion}+${commit}` : pkgVersion;
 
 // No domínio do site, "/" é a página de vendas renderizada no servidor (src/app/inicio). Rewrite interno do Next,
 // decidido pelo host; o endereço entra no build (NEXT_PUBLIC_SITE_URL, ver src/lib/hosts.ts).
@@ -31,6 +37,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactStrictMode: false,
   poweredByHeader: false,
+  env: { NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION || appVersion },
   async rewrites() {
     if (!siteHostname) return { beforeFiles: [] };
     return { beforeFiles: [{ source: '/', has: [{ type: 'host', value: siteHostname }], destination: '/inicio' }] };

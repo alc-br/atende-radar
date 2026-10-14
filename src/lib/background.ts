@@ -11,7 +11,14 @@ import { purgeProductEvents } from './privacy'
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
 // ANALYSIS_SCHEDULER=off desliga (usado nos testes, que chamam /api/gateway/tick quando querem).
-const g = globalThis as { __arJobsStarted?: boolean; __arRunning?: boolean; __arTimers?: Map<string, ReturnType<typeof setTimeout>> }
+const g = globalThis as {
+  __arJobsStarted?: boolean
+  __arRunning?: boolean
+  __arTimers?: Map<string, ReturnType<typeof setTimeout>>
+  /** Quando o agendador ligou e quando terminou o último ciclo do motor (lidos pela página /status). */
+  __arStartedAt?: number
+  __arLastCycleAt?: number
+}
 
 const enabled = () => process.env.ANALYSIS_SCHEDULER !== 'off'
 

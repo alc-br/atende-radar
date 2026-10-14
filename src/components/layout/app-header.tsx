@@ -5,7 +5,7 @@ import { useAppStore } from '@/lib/store'
 import { useSession, signOut } from 'next-auth/react'
 import {
   Moon, Sun, Menu, Search, ChevronDown, LogOut, CircleHelp, Crown, Settings, PanelLeft, Palette,
-  Bell, CalendarDays, ArrowRight, TriangleAlert, Home, UserRound,
+  Bell, CalendarDays, ArrowRight, TriangleAlert, Home, UserRound, LifeBuoy,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup,
@@ -45,7 +45,7 @@ function useSidebarStyle() {
 }
 
 export function AppHeader() {
-  const { setMobileNavOpen, mobileNavOpen, setView, setPendingSearch, currentView, startTour, period, setPeriod, refreshTrigger, setShowLanding } = useAppStore()
+  const { setMobileNavOpen, mobileNavOpen, setView, setPendingSearch, currentView, startTour, openHelp, period, setPeriod, refreshTrigger, setShowLanding } = useAppStore()
   const me = useAppStore((s) => s.me)
   const { data: session } = useSession()
   const orgName = me?.organizationName || 'AtendeRadar'
@@ -205,6 +205,7 @@ export function AppHeader() {
           {can('settings') && (
             <DropdownMenuItem onClick={() => setView('settings')}><Settings aria-hidden="true" />Configurações</DropdownMenuItem>
           )}
+          <DropdownMenuItem onClick={openHelp}><LifeBuoy aria-hidden="true" />Central de ajuda e suporte</DropdownMenuItem>
           <DropdownMenuItem onClick={() => startTour(currentView)}><CircleHelp aria-hidden="true" />Tour desta tela</DropdownMenuItem>
           <DropdownMenuItem onClick={() => startTour('welcome')}><CircleHelp aria-hidden="true" />Tour de boas-vindas</DropdownMenuItem>
           <DropdownMenuSeparator />

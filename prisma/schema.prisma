@@ -44,6 +44,7 @@ model Organization {
   classificationFeedbacks ClassificationFeedback[]
   auditLogs               AuditLog[]
   billingInvoices         BillingInvoice[]
+  supportTickets          SupportTicket[]
 }
 
 model WhatsAppConnection {
@@ -800,4 +801,31 @@ model AiUsage {
 
   @@index([organizationId, createdAt])
   @@index([createdAt])
+}
+
+/// Chamado aberto pelo "Falar com o suporte" da central de ajuda. Visto pelo operador da plataforma no Admin.
+/// A captura de tela (opcional, png/jpg/webp, até 2 MB) fica no próprio banco: entra no backup e sai junto com a empresa.
+model SupportTicket {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberId       String?
+  authorName     String
+  authorEmail    String
+  subject        String
+  message        String
+  appVersion     String?
+  screen         String? // tela do painel em que o cliente estava
+  userAgent      String?
+  screenshot     Bytes?
+  screenshotType String? // image/png | image/jpeg | image/webp
+  screenshotSize Int?
+  status         String       @default("open") // open | resolved
+  resolvedAt     DateTime?
+  resolvedBy     String? // e-mail do operador
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([status, createdAt])
+  @@index([organizationId, createdAt])
 }

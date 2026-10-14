@@ -28,6 +28,8 @@ import LandingPage from '@/components/landing/landing-page'
 import LoginPage from '@/components/login/login-page'
 import AdminView from '@/components/admin/admin-view'
 import ProfileView from '@/components/profile/profile-view'
+import HelpView from '@/components/help/help-view'
+import { APP_VERSION } from '@/lib/app-version'
 import { canOpenView } from '@/lib/permissions'
 import { TrialBanner } from '@/components/layout/trial-banner'
 import { DeletionBanner } from '@/components/layout/deletion-banner'
@@ -158,6 +160,8 @@ function MainContent() {
         return <AdminView />
       case 'profile':
         return <ProfileView />
+      case 'help':
+        return <HelpView />
       case 'landing':
         return <LandingPage />
       case 'login':
@@ -191,7 +195,7 @@ function MainContent() {
           <span>© {new Date().getFullYear()} AtendeRadar. Auditor de Receita e Qualidade no WhatsApp.</span>
           <span className="rodape-app__status">
             <span><i />Sistema operacional</span>
-            <span>v1.0.0 MVP</span>
+            <span>v{APP_VERSION}</span>
           </span>
         </footer>
       </div>

@@ -149,6 +149,8 @@ export async function hardDeleteOrganization(orgId: string, now = new Date()): P
       await tx.billingInvoice.deleteMany({ where })
       await tx.subscription.deleteMany({ where })
       await tx.paymentEvent.deleteMany({ where })
+      // chamados de suporte (com as capturas de tela, guardadas no próprio banco)
+      await tx.supportTicket.deleteMany({ where })
       await tx.auditLog.deleteMany({ where })
       // eventos analíticos (I7): marcos do funil, uso por tela/tour e uso de IA
       await tx.productEvent.deleteMany({ where })

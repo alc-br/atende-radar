@@ -109,6 +109,7 @@ export function SiteFooter() {
             <nav aria-label="Legal">
               <a href="/privacidade">Política de Privacidade</a>
               <a href="/termos">Termos de Uso</a>
+              <a href="/status">Status do serviço</a>
             </nav>
           </div>
         </div>

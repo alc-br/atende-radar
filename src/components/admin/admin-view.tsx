@@ -16,9 +16,11 @@ import {
   RefreshCw,
   Settings,
   BarChart3,
+  LifeBuoy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ProductAnalyticsPanel } from '@/components/admin/product-analytics'
+import { SupportTickets } from './support-tickets'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -392,6 +394,7 @@ export default function AdminView() {
           <TabsTrigger value="users"><Users className="ic" aria-hidden="true" />Usuários Globais</TabsTrigger>
           <TabsTrigger value="system"><Server className="ic" aria-hidden="true" />Sistema</TabsTrigger>
           <TabsTrigger value="product"><BarChart3 className="ic" aria-hidden="true" />Produto</TabsTrigger>
+          <TabsTrigger value="support"><LifeBuoy className="ic" aria-hidden="true" />Suporte</TabsTrigger>
         </TabsList>
 
         {/* ── Produto (I7): funil, ativação, retenção, uso por tela, tour e custo de IA ── */}
@@ -715,6 +718,11 @@ export default function AdminView() {
               </div>
             </div>
           </section>
+        </TabsContent>
+
+        {/* ── Suporte (chamados de "Falar com o suporte") ─────────── */}
+        <TabsContent value="support">
+          <SupportTickets />
         </TabsContent>
       </Tabs>
 

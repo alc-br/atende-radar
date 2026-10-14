@@ -22,7 +22,7 @@ async function vigiaCsp(page: Page) {
 test('site: CSP em todas as páginas e nada bloqueado', async ({ page, browserName }) => {
   test.setTimeout(180_000) // em dev cada página compila na primeira visita
   const violacoes = await vigiaCsp(page)
-  for (const caminho of ['/', '/conteudos', '/conteudos/vendas-perdidas-whatsapp', '/privacidade', '/termos', '/login']) {
+  for (const caminho of ['/', '/conteudos', '/conteudos/vendas-perdidas-whatsapp', '/privacidade', '/termos', '/status', '/login']) {
     const res = await page.goto(caminho)
     expect(res?.status(), caminho).toBe(200)
     const csp = res!.headers()['content-security-policy'] || ''

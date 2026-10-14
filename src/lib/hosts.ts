@@ -20,9 +20,15 @@ export function appLink(path: string) {
 /** Rota da página de vendas renderizada no servidor; no domínio do site ela é servida em "/" (src/proxy.ts). */
 export const SITE_HOME = '/inicio'
 
-/** Páginas que só existem no site (conteúdos e páginas legais); no app elas levam ao site. */
+/** Páginas que só existem no site (conteúdos, páginas legais e status do serviço); no app elas levam ao site. */
 export function isSiteOnlyPage(pathname: string) {
-  return pathname === '/conteudos' || pathname.startsWith('/conteudos/') || pathname === '/privacidade' || pathname === '/termos'
+  return (
+    pathname === '/conteudos' ||
+    pathname.startsWith('/conteudos/') ||
+    pathname === '/privacidade' ||
+    pathname === '/termos' ||
+    pathname === '/status'
+  )
 }
 
 /** O que o domínio do site serve; todo o resto é do app. */

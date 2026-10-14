@@ -1,7 +1,7 @@
 'use client'
 import { create } from 'zustand'
 
-export type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'checkout' | 'notifications' | 'admin' | 'profile' | 'landing' | 'login'
+export type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'checkout' | 'notifications' | 'admin' | 'profile' | 'help' | 'landing' | 'login'
 
 interface CurrentOrganization {
   id: string
@@ -66,6 +66,9 @@ interface AppState {
   setSeenTours: (seen: string[]) => void
   markTourSeen: (tourId: string) => void
   setView: (view: View) => void
+  /** Tela em que a pessoa estava quando abriu a central de ajuda (o guia oferecido é o dela). */
+  helpFrom: View | null
+  openHelp: () => void
   /** Checkout do plano escolhido (tela própria, pagamento pelo Pagar.me). */
   checkout: { planId: string; cycle: 'monthly' | 'annual' } | null
   startCheckout: (planId: string, cycle: 'monthly' | 'annual') => void
@@ -106,6 +109,8 @@ export const useAppStore = create<AppState>((set) => ({
   setSeenTours: (seen) => set({ seenTours: seen, toursLoaded: true }),
   markTourSeen: (tourId) => set((s) => ({ seenTours: s.seenTours.includes(tourId) ? s.seenTours : [...s.seenTours, tourId] })),
   setView: (view) => set({ currentView: view }),
+  helpFrom: null,
+  openHelp: () => set((s) => ({ helpFrom: s.currentView === 'help' ? s.helpFrom : s.currentView, currentView: 'help' })),
   checkout: null,
   startCheckout: (planId, cycle) => set({ checkout: { planId, cycle }, currentView: 'checkout' }),
   selectConversation: (id) => set({ selectedConversationId: id, currentView: id ? 'conversation-detail' : 'conversations' }),
