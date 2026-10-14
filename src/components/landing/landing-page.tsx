@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent, type Synthet
 import { signIn } from 'next-auth/react'
 import { appLink, splitHosts } from '@/lib/hosts'
 import type { PublicPlan } from '@/lib/public-plans'
+import { PLAN_FEATURES } from '@/lib/plan-catalog'
+import { FAQ } from '@/lib/faq'
 import { useAppStore } from '@/lib/store'
 import { LANDING_SPRITE } from '@/components/site/assets'
 import { Ic, SiteFooter, Sprite, atraso, useEscFecha, useRevelar } from '@/components/site/site-ui'
@@ -12,16 +14,7 @@ import { Ic, SiteFooter, Sprite, atraso, useEscFecha, useRevelar } from '@/compo
 const TESTE_DIAS = 14
 
 // Nome de cada recurso do plano (chaves do campo features no banco), na ordem em que aparecem.
-const RECURSOS: [string, string][] = [
-  ['conversation_audit', 'Auditoria de conversas'],
-  ['alert_rules', 'Alertas de oportunidades em risco'],
-  ['basic_dashboard', 'Painel de visão geral'],
-  ['daily_report', 'Relatório diário'],
-  ['team_management', 'Gestão de equipes'],
-  ['advanced_dashboard', 'Painel avançado'],
-  ['custom_reports', 'Relatórios personalizados'],
-  ['api_access', 'Acesso à API'],
-]
+const RECURSOS = PLAN_FEATURES
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 
@@ -70,12 +63,6 @@ const SEGMENTOS = [
   { ic: 'megafone', cor: 't-rosa', t: 'Agências', p: 'Mais clientes e acompanhamento do funil comercial.' },
 ]
 
-const FAQ = [
-  { q: 'Preciso trocar meu WhatsApp?', a: 'Não. Você conecta o número que já usa hoje lendo um QR Code e continua atendendo normalmente pelo mesmo aparelho.' },
-  { q: 'Quem pode ver os dados?', a: 'Somente as pessoas que você convidar para a sua conta. Você define quem é administrador, gestor ou atendente, e cada um vê apenas o que a função permite.' },
-  { q: 'Como funciona a privacidade?', a: 'As conversas ficam na sua conta e são usadas só para gerar as análises dela. Você pode excluir um contato da auditoria e apagar de forma definitiva as conversas e os dados dele quando precisar atender a um pedido de titular (LGPD).' },
-  { q: 'O sistema detecta ou também responde?', a: 'Ele detecta. O AtendeRadar analisa as conversas e recomenda ações, mas não envia mensagens pelo seu número. Quem responde é sempre a sua equipe.' },
-]
 
 /** initialPlans: planos lidos no servidor (página /inicio); sem eles, carrega pela API no navegador. */
 export default function LandingPage({ initialPlans = null }: { initialPlans?: PublicPlan[] | null } = {}) {
