@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db } from './db'
 import { requestAnalysis } from './background'
 import { maskSensitive } from './mask-sensitive'
+import { milestone } from './product-events'
 
 // ---------- contrato dos eventos (gateway → sistema) ----------
 export const EventSchema = z.object({
@@ -129,6 +130,7 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
         },
       }),
     ])
+    if (p.data.status === 'connected') await milestone(connection.organizationId, 'first_connection') // funil (I7)
     return { ok: true }
   }
 
@@ -158,6 +160,7 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
   const already = await db.message.findUnique({ where: { connectionId_externalId: { connectionId: connection.id, externalId: msg.externalId } } })
   if (already) return { ok: true, duplicate: true }
 
+  let openedConversation = false
   await db.$transaction(async (tx) => {
     let contact = await tx.contact.findFirst({ where: { organizationId: connection.organizationId, phoneHash: hash } })
     if (!contact) {
@@ -217,6 +220,7 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
           operationalStatus: inbound ? 'waiting_company' : 'waiting_customer',
         },
       })
+      openedConversation = true
     }
 
     await tx.message.create({
@@ -252,6 +256,7 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
   })
 
   await db.whatsAppConnection.update({ where: { id: connection.id }, data: { lastEventAt: new Date() } })
+  if (openedConversation) await milestone(connection.organizationId, 'first_conversation') // funil (I7)
   requestAnalysis(connection.organizationId)
   return { ok: true }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
 import { readJson } from '@/lib/json-body'
+import { track } from '@/lib/product-events'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -30,10 +31,16 @@ export async function PATCH(request: Request) {
   const j = await readJson(request)
   if (!j.ok) return j.res
   const body = j.body
-  const { tourId } = body as { tourId?: string }
+  const { tourId, outcome } = body as { tourId?: string; outcome?: unknown }
   if (!tourId) {
     return NextResponse.json({ error: 'tourId é obrigatório' }, { status: 400 })
   }
+  // I7 · taxa de conclusão do tour: "Concluir" no último passo = completed; "Pular tour" ou fechar = skipped
+  const tourEvent = outcome === 'completed' ? 'tour_completed' : outcome === 'skipped' ? 'tour_skipped' : null
+  const trackTour = () =>
+    tourEvent && typeof tourId === 'string' && tourId.length <= 60
+      ? track(tourEvent, { organizationId: g.auth.orgId, memberId: g.auth.memberId }, { tour: tourId })
+      : Promise.resolve()
 
   // Ler-alterar-gravar com troca condicional: duas abas (ou dois pedidos ao mesmo tempo) não apagam o tour que a outra marcou
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -48,7 +55,10 @@ export async function PATCH(request: Request) {
       where: { id: member.id, seenToursJson: member.seenToursJson },
       data: { seenToursJson: JSON.stringify(seen) },
     })
-    if (count === 1) return NextResponse.json({ success: true, seen })
+    if (count === 1) {
+      await trackTour() // só na 1ª vez que o tour é marcado (repetir o PATCH não conta de novo)
+      return NextResponse.json({ success: true, seen })
+    }
   }
   return NextResponse.json({ error: 'Tente de novo' }, { status: 409 })
 }

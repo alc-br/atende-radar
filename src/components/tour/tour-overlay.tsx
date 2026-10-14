@@ -97,12 +97,13 @@ export function TourOverlay() {
     cardStyle.top = Math.min(Math.max(rect.top, 16), window.innerHeight - 220)
   }
 
-  const handleFinish = () => {
+  // outcome alimenta a taxa de conclusão do tour (Admin › Produto): "Concluir" no último passo x "Pular"/fechar
+  const handleFinish = (outcome: 'completed' | 'skipped') => {
     markTourSeen(activeTour)
     fetch('/api/tours', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tourId: activeTour }),
+      body: JSON.stringify({ tourId: activeTour, outcome }),
     }).catch(() => {})
     endTour()
   }
@@ -131,7 +132,7 @@ export function TourOverlay() {
       >
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-semibold text-sm">{step.title}</h3>
-          <button onClick={handleFinish} className="text-muted-foreground hover:text-foreground shrink-0">
+          <button onClick={() => handleFinish('skipped')} className="text-muted-foreground hover:text-foreground shrink-0">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -144,8 +145,8 @@ export function TourOverlay() {
             {activeStep > 0 && (
               <Button variant="outline" size="sm" onClick={prevTourStep}>Voltar</Button>
             )}
-            <Button variant="ghost" size="sm" onClick={handleFinish}>Pular tour</Button>
-            <Button size="sm" onClick={isLast ? handleFinish : nextTourStep}>
+            <Button variant="ghost" size="sm" onClick={() => handleFinish('skipped')}>Pular tour</Button>
+            <Button size="sm" onClick={isLast ? () => handleFinish('completed') : nextTourStep}>
               {isLast ? 'Concluir' : 'Próximo'}
             </Button>
           </div>

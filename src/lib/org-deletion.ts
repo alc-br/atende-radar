@@ -150,6 +150,10 @@ export async function hardDeleteOrganization(orgId: string, now = new Date()): P
       await tx.subscription.deleteMany({ where })
       await tx.paymentEvent.deleteMany({ where })
       await tx.auditLog.deleteMany({ where })
+      // eventos analíticos (I7): marcos do funil, uso por tela/tour e uso de IA
+      await tx.productEvent.deleteMany({ where })
+      await tx.productMilestone.deleteMany({ where })
+      await tx.aiUsage.deleteMany({ where })
       await tx.organization.delete({ where: { id: orgId } })
       // e-mails enviados a quem não tem mais conta em lugar nenhum
       const emails = [...new Set(members.map((m) => m.email.toLowerCase()))]

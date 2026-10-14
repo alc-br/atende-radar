@@ -6,6 +6,7 @@ import { readJson } from '@/lib/json-body'
 import { trialEndingNotices } from '@/lib/billing/trial'
 import { processWebhookOutbox } from '@/lib/webhooks'
 import { purgeDueDeletions } from '@/lib/org-deletion'
+import { purgeProductEvents } from '@/lib/privacy'
 
 // Roda o motor de análise agora (mesma função que o agendador interno chama a cada minuto).
 // Serve também para um agendador externo (cron) e para os testes. Também processa a fila de webhooks. Exige o segredo do gateway.
@@ -37,8 +38,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...(await purgeDueDeletions(at, orgId ?? undefined)) })
   }
   const deletions = await purgeDueDeletions()
+  const productEvents = await purgeProductEvents().catch((e) => {
+    console.error('[tick] retenção dos eventos de produto falhou', e instanceof Error ? e.message : e)
+    return null
+  })
   const summary = orgId ? await analyzeOrganization(orgId) : await analyzeAll()
   // fila de webhooks: entrega o que venceu (nos testes o agendador está desligado; isto deixa o envio determinístico)
   const webhooks = await processWebhookOutbox(orgId ? { organizationId: orgId } : {})
-  return NextResponse.json({ ok: true, ...summary, webhooks, deletedOrganizations: deletions.deleted })
+  return NextResponse.json({ ok: true, ...summary, webhooks, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
 }

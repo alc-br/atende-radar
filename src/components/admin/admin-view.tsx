@@ -15,8 +15,10 @@ import {
   Search,
   RefreshCw,
   Settings,
+  BarChart3,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ProductAnalyticsPanel } from '@/components/admin/product-analytics'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -389,7 +391,13 @@ export default function AdminView() {
           <TabsTrigger value="organizations"><Building2 className="ic" aria-hidden="true" />Organizações</TabsTrigger>
           <TabsTrigger value="users"><Users className="ic" aria-hidden="true" />Usuários Globais</TabsTrigger>
           <TabsTrigger value="system"><Server className="ic" aria-hidden="true" />Sistema</TabsTrigger>
+          <TabsTrigger value="product"><BarChart3 className="ic" aria-hidden="true" />Produto</TabsTrigger>
         </TabsList>
+
+        {/* ── Produto (I7): funil, ativação, retenção, uso por tela, tour e custo de IA ── */}
+        <TabsContent value="product">
+          <ProductAnalyticsPanel />
+        </TabsContent>
 
         {/* ── Visão Geral ─────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-[18px]">

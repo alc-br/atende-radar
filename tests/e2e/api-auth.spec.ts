@@ -19,6 +19,7 @@ const PUBLIC_ROUTES: Record<string, string> = {
   '/api/auth/accept-invite': 'aceite de convite com token do e-mail (limite por IP)',
   '/api/auth/verify-email': 'confirmação de e-mail com token',
   '/api/public/plans': 'catálogo de planos da página de vendas',
+  '/api/public/pageview': 'contador diário de visitas à página de vendas (sem cookie nem IP gravado, limite por IP) — product-events.spec.ts',
 }
 
 /**

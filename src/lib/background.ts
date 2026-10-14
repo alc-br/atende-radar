@@ -6,6 +6,7 @@ import { runScheduledReports } from './reports/schedule'
 import { runWebhookOutbox } from './webhooks'
 import { purgeDueDeletions } from './org-deletion'
 import { optimizeDb } from './db'
+import { purgeProductEvents } from './privacy'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -48,7 +49,11 @@ export function startBackgroundJobs() {
   const webhooks = setInterval(() => safely('webhooks', () => runWebhookOutbox()), 60_000)
   webhooks.unref?.()
   // encerramento de conta: apaga as empresas cujo prazo de desistência (7 dias) acabou
-  const deletions = setInterval(() => safely('exclusão de empresas', () => purgeDueDeletions()), 15 * 60_000)
+  // e, no mesmo passo, a retenção dos eventos analíticos (PRODUCT_EVENTS_RETENTION_DAYS)
+  const deletions = setInterval(async () => {
+    await safely('exclusão de empresas', () => purgeDueDeletions())
+    await safely('retenção dos eventos de produto', () => purgeProductEvents())
+  }, 15 * 60_000)
   deletions.unref?.()
   // estatísticas do banco para o planejador de consultas (T15): logo depois de subir e a cada 6 h
   const optimize = () => safely('estatísticas do banco', () => optimizeDb())

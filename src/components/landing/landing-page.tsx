@@ -133,6 +133,19 @@ export default function LandingPage({ initialPlans = null }: { initialPlans?: Pu
     if (!initialPlans) void fetchPlans()
   }, [initialPlans])
 
+  // I7 · visita à página de vendas: só soma 1 no contador do dia (sem cookie, sem IP gravado, mesmo domínio).
+  const visitaContada = useRef(false)
+  useEffect(() => {
+    if (visitaContada.current) return
+    visitaContada.current = true
+    fetch('/api/public/pageview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 'landing' }),
+      keepalive: true,
+    }).catch(() => {})
+  }, [])
+
   const fecharMenu = useCallback(() => setMenuAberto(false), [])
   useEscFecha(fecharMenu)
   // Roda de novo quando os planos chegam (cartões novos para revelar).

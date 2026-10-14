@@ -102,6 +102,21 @@ function MainContent() {
     }
   }, [toursLoaded, seenTours, currentView, activeTour, startTour, me])
 
+  // I7 · uso por tela: avisa o servidor da tela onde o usuário PAROU (1,5 s sem trocar). Só o nome da tela, sem dado
+  // pessoal; falha é ignorada (medir nunca atrapalha o uso). A demonstração fica fora dos números do Admin.
+  useEffect(() => {
+    if (status !== 'authenticated' || currentView === 'landing' || currentView === 'login') return
+    const id = window.setTimeout(() => {
+      fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'screen_view', view: currentView }),
+        keepalive: true,
+      }).catch(() => {})
+    }, 1500)
+    return () => window.clearTimeout(id)
+  }, [status, currentView])
+
   const renderView = () => {
     // Tela que o papel não pode abrir (ex.: link antigo / estado persistido) volta para a Visão Geral.
     const allowed = currentView === 'admin' ? !!me?.isPlatformOperator : !me || canOpenView(me.role, currentView)

@@ -50,6 +50,24 @@ const parseDays = (v: unknown, fallback: number) => {
   return Number.isFinite(n) && n >= 1 ? Math.floor(n) : fallback
 }
 
+/** Prazo dos eventos analíticos brutos (I7): PRODUCT_EVENTS_RETENTION_DAYS, padrão 400 dias. */
+export const productEventsRetentionDays = () => parseDays(process.env.PRODUCT_EVENTS_RETENTION_DAYS, 400)
+
+/**
+ * Retenção dos eventos analíticos (I7): apaga eventos de produto, uso de IA e contadores de visita mais velhos que o prazo.
+ * Os marcos do funil (um por empresa) ficam enquanto a empresa existir e saem junto com ela.
+ */
+export async function purgeProductEvents(now = new Date(), days = productEventsRetentionDays()) {
+  const cutoff = new Date(now.getTime() - days * 86400000)
+  const cutoffDay = cutoff.toISOString().slice(0, 10)
+  const [events, ai, views] = await Promise.all([
+    db.productEvent.deleteMany({ where: { createdAt: { lt: cutoff } } }),
+    db.aiUsage.deleteMany({ where: { createdAt: { lt: cutoff } } }),
+    db.pageViewDaily.deleteMany({ where: { day: { lt: cutoffDay } } }),
+  ])
+  return { productEvents: events.count, aiUsage: ai.count, pageViewDays: views.count }
+}
+
 /** Retenção: apaga o TEXTO das mensagens depois de `retContent` dias (padrão 365), as conversas inteiras e o registro de auditoria depois de `retMetadata` dias (padrão 730). */
 export async function purgeExpired(orgId: string, settingsJson: string | null, now = new Date()) {
   let settings: { retContent?: unknown; retMetadata?: unknown } = {}

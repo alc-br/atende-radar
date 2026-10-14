@@ -717,3 +717,56 @@ model AuditLog {
   @@index([organizationId, createdAt])
   @@index([organizationId, action])
 }
+
+// Eventos de produto (I7): uso por tela, tour. First-party, sem dado pessoal: só ids internos e props pequenas
+// (nada de texto de mensagem, telefone, e-mail ou nome). Apagados depois de PRODUCT_EVENTS_RETENTION_DAYS (padrão 400).
+model ProductEvent {
+  id             String   @id @default(cuid())
+  organizationId String?
+  memberId       String?
+  name           String // screen_view | tour_completed | tour_skipped
+  props          String? // JSON pequeno (até 500 caracteres)
+  createdAt      DateTime @default(now())
+
+  @@index([name, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([createdAt])
+}
+
+// Marcos do funil (I7), um por organização: cadastro, 1ª conexão, 1ª conversa, 1º alerta, 1º pagamento.
+// A chave composta garante que cada marco é gravado uma vez só. Ficam enquanto a organização existir.
+model ProductMilestone {
+  organizationId String
+  name           String // signup | first_connection | first_conversation | first_alert | first_payment
+  reachedAt      DateTime @default(now())
+
+  @@id([organizationId, name])
+  @@index([name, reachedAt])
+}
+
+// Visitas à página de vendas (I7): só um contador por dia e página. Sem cookie, sem IP, sem identificador.
+model PageViewDaily {
+  day   String // AAAA-MM-DD no horário de Brasília
+  page  String // landing
+  count Int    @default(0)
+
+  @@id([day, page])
+}
+
+// Uso de provedor de IA (I7): tokens e custo estimado por chamada. Hoje a análise é por regras (nenhuma linha);
+// quando um provedor entrar, cada chamada registra aqui por recordAiUsage() (src/lib/product-events.ts).
+model AiUsage {
+  id             String   @id @default(cuid())
+  organizationId String
+  conversationId String?
+  provider       String
+  model          String
+  feature        String // classify | ...
+  inputTokens    Int      @default(0)
+  outputTokens   Int      @default(0)
+  costBrl        Float    @default(0) // estimativa pelo preço configurado (AI_PRICE_BRL_PER_MTOK_IN/OUT)
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([createdAt])
+}

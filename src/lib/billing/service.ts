@@ -6,6 +6,7 @@ import {
 } from './core'
 import { pagarme, pagarmeConfig, PagarmeError, type Address, type PagarmeConfig } from './pagarme'
 import { overageMessage, planOverage } from '@/lib/quotas'
+import { milestone } from '@/lib/product-events'
 
 // Cobrança recorrente (B8) com Pagar.me. A fonte de verdade é o provedor: toda mudança de situação passa por
 // applyProviderState(), que lê a assinatura e as faturas DIRETO da API (o conteúdo do webhook nunca é confiado).
@@ -146,6 +147,7 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
       await pagarme.cancelSubscription(cfg, previous).catch((e) => console.error('[billing] falha ao cancelar assinatura anterior', previous, e instanceof Error ? e.message : e))
     }
     await db.notification.create({ data: { organizationId: orgId, type: 'billing', title: `Plano ${plan.name} ativo`, message: `Pagamento confirmado. A renovação é automática (${cycle === 'annual' ? 'anual' : 'mensal'}) no mesmo cartão.` } })
+    await milestone(orgId, 'first_payment') // funil (I7): só a 1ª ativação paga conta; nunca lança erro
     return { kind: 'activated', planName: plan.name }
   }
   if (providerStatus === 'canceled' || invoices.some((i) => i.status === 'failed')) {
