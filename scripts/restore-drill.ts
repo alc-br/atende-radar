@@ -31,8 +31,11 @@ try {
     alertas: await prisma.alert.count(),
     assinaturas: await prisma.subscription.count(),
   }
-  // consulta com relações, como as telas fazem
-  const org = await prisma.organization.findFirst({ include: { members: { take: 1 }, conversations: { take: 1 } } })
+  // consulta com relações, como as telas fazem. Só colunas antigas: o backup é feito ANTES das migrações deste deploy,
+  // então ainda não tem as colunas novas que o cliente Prisma (já gerado com o schema novo) conhece.
+  const org = await prisma.organization.findFirst({
+    select: { id: true, members: { take: 1, select: { id: true } }, conversations: { take: 1, select: { id: true } } },
+  })
   if (counts.empresas === 0 || !org) throw new Error('backup restaurado sem nenhuma empresa')
 
   // o backup foi feito agora há pouco: não pode ter MAIS empresas que o banco em uso
