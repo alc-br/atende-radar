@@ -281,7 +281,7 @@ test.describe('leitura em voz alta', () => {
     expect(await ttsCalls(page), 'com o áudio do servidor, a voz do navegador não fala').toEqual([])
   })
 
-  test('Ler automaticamente: lê, avança sozinho 2 passos na mesma velocidade, espera o clique e pausa', async ({ page, context, isMobile }) => {
+  test('Ler automaticamente: lê, avança sozinho 2 passos na mesma velocidade, simula o clique e pausa', async ({ page, context, isMobile }) => {
     await page.addInitScript(fakeSpeechSynthesis)
     await page.addInitScript(spyAudioPlay)
     // versão antiga guardava { auto: true }: a leitura automática NÃO liga sozinha
@@ -316,20 +316,22 @@ test.describe('leitura em voz alta', () => {
     await expect.poll(async () => (await audioPlays(page)).length).toBe(3)
     expect((await audioPlays(page))[2].src).toContain(stepAudio(2))
 
-    // passo de clique: lê e espera a pessoa (não avança sozinho); o clique avança e a leitura continua
-    await expect(p.getByRole('button', { name: 'Ouvir' })).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(1200)
-    await expect(step).toHaveText(/Passo 3 de \d+/)
+    // passo de clique: ninguém clica; o cursor simulado vai até "Alertas", clica de verdade e a leitura continua
+    const ghost = page.getByTestId('system-tour-ghost')
+    await expect(ghost).toBeAttached({ timeout: 15000 })
+    await expect(ghost).toHaveAttribute('aria-hidden', 'true')
+    expect(await ghost.evaluate((el) => [getComputedStyle(el).pointerEvents, getComputedStyle(el).zIndex])).toEqual(['none', '55'])
+    await expect(step).toHaveText(/Passo 4 de \d+/, { timeout: 15000 })
+    await expect(page.locator('main').getByRole('heading', { name: 'Alertas', level: 1 })).toBeVisible()
     await expect(auto).toHaveAttribute('aria-pressed', 'true')
-    await page.locator('[data-tour="nav-alerts"]').click()
-    await expect(step).toHaveText(/Passo 4 de \d+/)
     await expect.poll(async () => (await audioPlays(page)).length).toBe(4)
     expect((await audioPlays(page))[3].src).toContain(stepAudio(3))
 
-    // Pausar leitura: a fala para e o passo não avança mais
+    // Pausar leitura: a fala para, o cursor some e o passo não avança mais
     await auto.click()
     await expect(auto).toHaveAccessibleName('Ler automaticamente')
     await expect(auto).toHaveAttribute('aria-pressed', 'false')
+    await expect(ghost).toHaveCount(0)
     await page.waitForTimeout(2500)
     await expect(step).toHaveText(/Passo 4 de \d+/)
     expect((await audioPlays(page)).length).toBe(4)
@@ -370,6 +372,92 @@ test.describe('leitura em voz alta', () => {
     await expect(auto).toHaveAttribute('aria-pressed', 'false', { timeout: 15000 })
     await expect(step).toHaveText(new RegExp(`Passo ${total} de ${total}`))
     await expect(p.getByRole('button', { name: 'Concluir capítulo' })).toBeVisible()
+  })
+
+  test.describe('Ler automaticamente simula as ações', () => {
+    /** Vai até o passo de clique do primeiro capítulo ("abra os Alertas") sem a leitura automática. */
+    async function toClickStep(page: Page, isMobile: boolean) {
+      await page.addInitScript(fakeSpeechSynthesis)
+      await enterAsNewOwner(page.context())
+      await openSystemTour(page, isMobile)
+      await startChapter(page, 'primeiros-passos')
+      const p = panel(page)
+      await p.getByRole('button', { name: 'Próximo' }).click()
+      await p.getByRole('button', { name: 'Próximo' }).click()
+      await expect(p.getByRole('heading', { name: 'Experimente: abra os Alertas' })).toBeVisible()
+      return p
+    }
+
+    test('Pausar no meio do movimento cancela o cursor e o clique pendente', async ({ page, isMobile }) => {
+      const p = await toClickStep(page, !!isMobile)
+      const auto = p.getByTestId('system-tour-auto')
+      await auto.click()
+      const ghost = page.getByTestId('system-tour-ghost')
+      await expect(ghost).toBeAttached({ timeout: 15000 })
+      await auto.click()
+      await expect(auto).toHaveAttribute('aria-pressed', 'false')
+      await expect(ghost).toHaveCount(0)
+      await page.waitForTimeout(2500)
+      await expect(p.getByTestId('system-tour-step')).toHaveText(/Passo 3 de \d+/)
+      await expect(page.locator('main').getByRole('heading', { name: 'Alertas', level: 1 })).toHaveCount(0)
+    })
+
+    test('com movimento reduzido, o cursor não desliza: destaque parado e depois o clique', async ({ page, isMobile }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      const p = await toClickStep(page, !!isMobile)
+      // registra se o cursor chegou a deslizar e se o item ficou destacado parado
+      await page.evaluate(() => {
+        const w = window as unknown as { __glide: boolean; __still: boolean }
+        w.__glide = false
+        w.__still = false
+        new MutationObserver(() => {
+          if (document.querySelector('.tour-fantasma--deslizando')) w.__glide = true
+          if (document.querySelector('[data-tour="nav-alerts"].tour-alvo--parado')) w.__still = true
+        }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] })
+      })
+      await p.getByTestId('system-tour-auto').click()
+      await expect(p.getByTestId('system-tour-step')).toHaveText(/Passo 4 de \d+/, { timeout: 15000 })
+      await expect(page.locator('main').getByRole('heading', { name: 'Alertas', level: 1 })).toBeVisible()
+      const seen = await page.evaluate(() => {
+        const w = window as unknown as { __glide: boolean; __still: boolean }
+        return { glide: w.__glide, still: w.__still }
+      })
+      expect(seen).toEqual({ glide: false, still: true })
+    })
+
+    test('passo de cadastro só é demonstrado: o formulário abre, nada é criado e o tour segue', async ({ page, context, isMobile }) => {
+      await page.addInitScript(fakeSpeechSynthesis)
+      await enterAsRole(context, 'admin')
+      const writes: string[] = []
+      page.on('request', (r) => {
+        if (r.method() !== 'GET' && /\/api\/teams/.test(r.url())) writes.push(`${r.method()} ${r.url()}`)
+      })
+      await openSystemTour(page, !!isMobile)
+      await startChapter(page, 'equipes')
+      const p = panel(page)
+      const step = p.getByTestId('system-tour-step')
+      await expect(p.getByRole('heading', { name: 'Abra Equipes' })).toBeVisible()
+      await p.getByTestId('system-tour-auto').click()
+
+      // abre Equipes, lê a lista e clica sozinho em "Criar equipe" (só abre o formulário)
+      const dialog = page.getByRole('dialog', { name: 'Criar equipe' })
+      await expect(dialog).toBeVisible({ timeout: 30000 })
+      // demonstração: aviso no painel e no balão, um exemplo digitado e apagado, nada enviado
+      await expect(page.getByTestId('system-tour-ghost-balloon')).toHaveText(
+        'Na leitura automática só mostramos onde fica. Faça você mesmo quando quiser.',
+        { timeout: 15000 },
+      )
+      await expect(p.getByTestId('system-tour-demo-note')).toBeAttached()
+      await expect(dialog.locator('#team-name')).toHaveValue('')
+      // o formulário aberto pelo tour fecha e o tour segue para o próximo passo
+      await expect(dialog).toHaveCount(0, { timeout: 10000 })
+      await expect(p.getByRole('heading', { name: 'Sua equipe apareceu' })).toBeVisible({ timeout: 10000 })
+      await expect(step).toHaveText(/Passo \d+ de \d+/)
+
+      expect(writes, 'a leitura automática nunca cria nada').toEqual([])
+      const teams = (await (await page.request.get('/api/teams')).json()) as { teams: Array<{ name: string }> }
+      expect(teams.teams.some((t) => t.name === 'Exemplo' || t.name.startsWith('Exemp'))).toBe(false)
+    })
   })
 
   test('se o servidor não tiver o áudio (503), a voz do navegador lê a narração em português', async ({ page, context, isMobile }) => {

@@ -10,6 +10,13 @@ import type { TourSignal } from './signals'
  */
 export type SystemStepKind = 'info' | 'click' | 'task'
 
+/** Ação simulada pela leitura automática (ver SystemTourStep.autoAction). */
+export type AutoAction = 'click' | 'select' | 'demo'
+
+/** O que a leitura automática faz no passo: cadastro nunca é executado; sem definição, só demonstra. */
+export const autoActionOf = (step: { kind: SystemStepKind; autoAction?: AutoAction }): AutoAction =>
+  step.kind === 'click' ? step.autoAction ?? 'demo' : 'demo'
+
 /** Texto do passo: parágrafos e listas curtas. **negrito** vira <strong>. */
 export type SystemTourBlock = string | { list: string[] }
 
@@ -27,6 +34,14 @@ export interface SystemTourStep {
   signal?: TourSignal
   /** Instrução curta mostrada em destaque (ex.: "Clique em Criar equipe"). */
   action?: string
+  /**
+   * O que a leitura automática faz neste passo (ninguém clica nada nesse modo; um cursor simulado mostra a ação):
+   * - click: navegação (menu, tela, botão que só abre um formulário); o tour clica de verdade.
+   * - select: aba ou filtro; o item aparece escolhido e o tour clica de verdade.
+   * - demo: só mostra onde fica, sem executar. Padrão quando não definido, e sempre em "task" (cadastro, envio,
+   *   exclusão, pagamento nunca são executados pelo tour).
+   */
+  autoAction?: AutoAction
   /** Passo só aparece para quem tem esta permissão. */
   requires?: Permission
   /**

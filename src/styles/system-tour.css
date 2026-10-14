@@ -165,3 +165,71 @@
   .ar .tour-sistema { animation: none; }
   .ar .tour-sistema__destaque, .ar .tour-sistema__barra > span { transition: none; }
 }
+
+/* Leitura automática: cursor simulado (auto-actions.ts). Fica no <body>, acima do painel (46) e dos formulários (50),
+   abaixo de menus e toasts. Não recebe cliques nem foco. */
+.tour-fantasma {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 55;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+.tour-fantasma--deslizando { transition: transform .6s cubic-bezier(.22, .8, .3, 1); }
+.tour-fantasma__seta {
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35));
+}
+.tour-fantasma__seta path { fill: #fff; stroke: #0a5c37; stroke-width: 1.6; stroke-linejoin: round; }
+.tour-fantasma[data-state="press"] .tour-fantasma__seta { transform: scale(.86); transform-origin: 4px 3px; transition: transform .12s ease; }
+.tour-fantasma__onda {
+  position: absolute;
+  left: -22px;
+  top: -22px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid #12a862;
+  background: rgba(18, 168, 98, .22);
+  opacity: 0;
+}
+.tour-fantasma__onda--ativa { animation: tour-fantasma-onda .65s ease-out; }
+.tour-fantasma__balao {
+  position: absolute;
+  left: 18px;
+  top: 24px;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 32px));
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #0a3d26;
+  color: #fff;
+  font: 600 13px/1.4 system-ui, sans-serif;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s ease, visibility .2s;
+}
+.tour-fantasma--balao .tour-fantasma__balao { opacity: 1; visibility: visible; }
+.tour-fantasma--balao-esq .tour-fantasma__balao { left: auto; right: 8px; }
+.tour-fantasma--balao-cima .tour-fantasma__balao { top: auto; bottom: 14px; }
+
+/* o item que o cursor "aperta", escolhe ou só aponta */
+.tour-alvo--apertado { transform: scale(.95); transition: transform .12s ease; box-shadow: 0 0 0 3px rgba(18, 168, 98, .55) !important; }
+.tour-alvo--escolhendo { outline: 3px solid #12a862 !important; outline-offset: 2px; background-color: rgba(18, 168, 98, .14) !important; }
+.tour-alvo--parado { outline: 3px solid #12a862 !important; outline-offset: 3px; box-shadow: 0 0 0 7px rgba(18, 168, 98, .25) !important; }
+
+@keyframes tour-fantasma-onda {
+  0% { opacity: 1; transform: scale(.35); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-fantasma--deslizando, .tour-fantasma__balao, .tour-alvo--apertado { transition: none; }
+  .tour-fantasma__onda--ativa { animation: none; opacity: 1; }
+  .tour-alvo--apertado { transform: none; }
+}

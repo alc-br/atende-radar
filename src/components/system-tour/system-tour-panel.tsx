@@ -25,6 +25,7 @@ import type { SystemTourChapter } from '@/lib/system-tour/types'
 import { useSystemTourProgress } from './progress-store'
 import { RATE_OPTIONS, type SpeakHandlers, useSpeech } from './use-speech'
 import { StepBody } from './rich-text'
+import { AUTO_DEMO_MESSAGE, GhostCursor, isAborted, runAutoAction } from './auto-actions'
 
 // Painel do passo do "Tour pelo sistema": destaca o item da tela (sem bloquear cliques), explica, detecta o clique ou
 // o cadastro pedido e navega entre as telas. Não é modal: a pessoa usa o sistema normalmente com ele aberto.
@@ -133,13 +134,22 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     if (back instanceof HTMLElement && back.isConnected) back.focus()
   }, [closeSystemTour, setMobileNavOpen, speech])
 
+  /** Passos de cadastro que a leitura automática só demonstrou (a pessoa não fez): o capítulo não vira "concluído". */
+  const demoed = useRef(new Set<number>())
+
   const finish = useCallback(() => {
     speech.stop()
     if (openedDrawer.current) setMobileNavOpen(false)
-    void save({ chapterId: chapter.id, step: idx, done: true })
-    const progress = useSystemTourProgress.getState().progress
-    const everything = allDone(chapters, progress)
-    toast.success(everything ? 'Parabéns! Você concluiu todos os capítulos do manual.' : `Capítulo "${chapter.title}" concluído.`)
+    if (demoed.current.size > 0) {
+      // só "demonstrado": guarda o passo, mas o capítulo não conta como concluído
+      void save({ chapterId: chapter.id, step: idx })
+      toast.info(`Capítulo "${chapter.title}" lido. Os cadastros foram só demonstrados: faça-os quando quiser para concluir o capítulo.`)
+    } else {
+      void save({ chapterId: chapter.id, step: idx, done: true })
+      const progress = useSystemTourProgress.getState().progress
+      const everything = allDone(chapters, progress)
+      toast.success(everything ? 'Parabéns! Você concluiu todos os capítulos do manual.' : `Capítulo "${chapter.title}" concluído.`)
+    }
     openSystemTour() // volta para a lista de capítulos
   }, [chapter.id, chapter.title, chapters, idx, openSystemTour, save, setMobileNavOpen, speech])
 
@@ -150,7 +160,8 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
 
   // ── leitura automática (só nesta visita ao capítulo; não fica salva) ──
   // Lê o passo; ao terminar a fala, espera um pouco e vai para o próximo passo, até o fim do capítulo. Passo de clique ou
-  // de cadastro: lê e espera a ação (quando ela avança o passo, continua lendo). Voltar, Próximo, Parar e fechar desligam.
+  // de cadastro: um cursor simulado mostra a ação (navegação é clicada de verdade; cadastro só é demonstrado, nunca
+  // executado) e o tour segue. O clique da própria pessoa continua valendo. Voltar, Próximo, Pausar e fechar desligam.
   const [autoRead, setAutoRead] = useState(false)
   const autoRef = useRef(false)
   /** Passo cuja fala terminou com a leitura automática ligada (null = ainda falando ou não lido). */
@@ -303,15 +314,17 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     if (step.kind !== 'task' || !step.signal) return
     const wanted = step.signal
     return onTourSignal((name) => {
-      if (name === wanted) next()
+      if (name !== wanted) return
+      demoed.current.delete(idx) // a pessoa fez de verdade
+      next()
     })
-  }, [step.kind, step.signal, next])
+  }, [step.kind, step.signal, next, idx])
 
   // ── teclado: Esc fecha (progresso salvo), ← volta, → avança só em passo de explicação ──
   const advancesByArrow = step.kind === 'info' || (step.kind === 'click' && missing)
 
   // Fala do passo terminou (leitura automática): passo de explicação avança sozinho; no último passo para e mostra o
-  // "Concluir capítulo" (não pula para outro capítulo); clique/cadastro esperam a pessoa.
+  // "Concluir capítulo" (não pula para outro capítulo); clique/cadastro são simulados pelo efeito abaixo.
   useEffect(() => {
     if (!autoRead || narrated !== idx || !advancesByArrow) return
     const t = window.setTimeout(
@@ -328,6 +341,66 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     )
     return () => window.clearTimeout(t)
   }, [autoRead, narrated, idx, advancesByArrow, isLast, goTo, stopAuto])
+
+  // Fala terminou num passo de clique ou de cadastro (leitura automática): simula a ação com o cursor.
+  const ghost = useRef<GhostCursor | null>(null)
+  /** Passo em que o tour clicou sozinho (o formulário que ele abriu é fechado depois da demonstração). */
+  const simulatedStep = useRef<number | null>(null)
+  const [demoNote, setDemoNote] = useState<number | null>(null)
+  const simulates = autoRead && narrated === idx && !advancesByArrow
+  useEffect(() => {
+    if (!simulates) return
+    const ctrl = new AbortController()
+    if (!ghost.current) ghost.current = new GhostCursor()
+    const closeDialogAfter = simulatedStep.current === idx - 1
+    if (step.kind === 'click' && (step.autoAction === 'click' || step.autoAction === 'select')) simulatedStep.current = idx
+    let fallback: number | undefined
+    runAutoAction(step, {
+      ghost: ghost.current,
+      signal: ctrl.signal,
+      reduced: reducedMotion(),
+      closeDialogAfter,
+      onDemo: () => setDemoNote(idx),
+    }).then(
+      (result) => {
+        if (ctrl.signal.aborted || !autoRef.current) return
+        if (result === 'demo') demoed.current.add(idx)
+        // o clique normalmente já avançou (ouvinte do passo); se não avançou, segue mesmo assim. Último passo
+        // demonstrado: para e mostra o "Concluir capítulo".
+        fallback = window.setTimeout(
+          () => {
+            if (!autoRef.current) return
+            setNarrated(null)
+            if (isLast && result !== 'clicked') stopAuto()
+            else next()
+          },
+          result === 'clicked' ? 400 : AUTO_ADVANCE_MS,
+        )
+      },
+      (e: unknown) => {
+        if (!isAborted(e)) console.error(e)
+      },
+    )
+    return () => {
+      ctrl.abort()
+      if (fallback) window.clearTimeout(fallback)
+      ghost.current?.idle()
+    }
+  }, [simulates, idx, chapter.id]) // só ao começar a simular (step, next e isLast mudam junto com idx)
+
+  // Pausou ou saiu do capítulo: o cursor some.
+  useEffect(() => {
+    if (autoRead) return
+    ghost.current?.destroy()
+    ghost.current = null
+  }, [autoRead])
+  useEffect(
+    () => () => {
+      ghost.current?.destroy()
+      ghost.current = null
+    },
+    [],
+  )
 
   // Botões e setas: a pessoa assumiu a navegação, a leitura automática desliga.
   const manualNext = useCallback(() => {
@@ -422,6 +495,11 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
             <p className="tour-sistema__acao">
               {step.kind === 'task' ? <ClipboardCheck className="ic" aria-hidden="true" /> : <MousePointerClick className="ic" aria-hidden="true" />}
               {step.action}
+            </p>
+          )}
+          {autoRead && demoNote === idx && (
+            <p className="tour-sistema__aviso" role="status" data-testid="system-tour-demo-note">
+              {AUTO_DEMO_MESSAGE}
             </p>
           )}
           {step.target && missing && (

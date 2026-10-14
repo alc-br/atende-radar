@@ -7,7 +7,7 @@
 export const NARRATIONS: Record<string, string> = {
   // ── 1. Primeiros passos ──
   'primeiros-passos/boas-vindas':
-    'Olá! Este manual vai com você pelas telas do Atende Radar, uma de cada vez. A ideia é simples: o sistema acompanha as conversas de WhatsApp da sua empresa e mostra onde o atendimento está deixando venda escapar. Em cada passo eu destaco um item e explico para que ele serve. Às vezes vou pedir que você clique em algo ou faça um cadastro de verdade, e eu sigo sozinho quando perceber que deu certo. Se preferir, toque em Ler automaticamente: eu leio cada passo e sigo para o próximo sozinho. Pode fechar quando quiser: o seu progresso fica guardado.',
+    'Olá! Este manual vai com você pelas telas do Atende Radar, uma de cada vez. A ideia é simples: o sistema acompanha as conversas de WhatsApp da sua empresa e mostra onde o atendimento está deixando venda escapar. Em cada passo eu destaco um item e explico para que ele serve. Às vezes vou pedir que você clique em algo ou faça um cadastro de verdade, e eu sigo sozinho quando perceber que deu certo. Se preferir, toque em Ler automaticamente: eu leio, mostro onde clicar e sigo sozinho. Cadastros eu só mostro. Pode fechar quando quiser: o seu progresso fica guardado.',
   'primeiros-passos/menu':
     'Este é o menu lateral, o caminho para todas as telas. Repare que ele muda conforme o seu papel: um atendente vê só o que precisa para o dia a dia, enquanto o administrador vê também conexões, membros e plano. Isso evita confusão e protege informações sensíveis. No celular, o menu fica escondido atrás do botão de três tracinhos, no alto da tela.',
   'primeiros-passos/clicar-alertas':

@@ -32,7 +32,7 @@ const CHAPTERS: SystemTourChapter[] = [
             'Setas ← e → do teclado: voltar e avançar.',
             'Esc: fecha o manual. O seu progresso fica salvo e você continua de onde parou.',
             'Ouvir: explica o passo em voz alta.',
-            'Ler automaticamente: lê cada passo e avança sozinho até o fim do capítulo (escolha a velocidade, até 2×).',
+            'Ler automaticamente: lê cada passo, mostra com um cursor onde clicar e avança sozinho até o fim do capítulo (escolha a velocidade, até 2×). Cadastros são só mostrados, nunca feitos pelo manual.',
           ] },
         ],
       },
@@ -49,6 +49,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'clicar-alertas',
         kind: 'click',
+        autoAction: 'click',
         title: 'Experimente: abra os Alertas',
         target: 'nav-alerts',
         body: [
@@ -116,6 +117,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir-conexoes',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra a tela de Conexões',
         target: 'nav-connections',
         body: [
@@ -137,6 +139,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'nova',
         kind: 'click',
+        autoAction: 'click',
         title: 'Crie uma conexão',
         target: 'connections-new',
         requires: 'connections.manage',
@@ -203,6 +206,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra a Visão Geral',
         target: 'nav-dashboard',
         body: ['A Visão Geral é a primeira tela do sistema: um resumo do atendimento no período escolhido.'],
@@ -304,6 +308,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra os Alertas',
         target: 'nav-alerts',
         body: ['Os alertas avisam quando algo saiu do combinado: cliente sem resposta, promessa vencida, oportunidade parada.'],
@@ -355,6 +360,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'aba-regras',
         kind: 'click',
+        autoAction: 'select',
         title: 'Veja as regras',
         target: 'alerts-tab-rules',
         view: 'alerts',
@@ -378,6 +384,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'nova-regra',
         kind: 'click',
+        autoAction: 'click',
         title: 'Crie uma regra',
         target: 'alerts-new-rule',
         view: 'alerts',
@@ -421,6 +428,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra as Conversas',
         target: 'nav-conversations',
         body: ['A tela de Conversas lista os atendimentos coletados do WhatsApp, já analisados.'],
@@ -492,6 +500,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra a Recuperação',
         target: 'nav-recovery',
         body: ['Na Recuperação ficam as oportunidades que esfriaram e merecem um novo contato.'],
@@ -541,6 +550,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra a Equipe',
         target: 'nav-team',
         body: ['A tela Equipe mostra como cada atendente está indo.'],
@@ -587,6 +597,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra Membros',
         target: 'nav-members',
         body: ['Membros são as pessoas que entram no AtendeRadar da sua empresa.'],
@@ -613,6 +624,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'botao',
         kind: 'click',
+        autoAction: 'click',
         title: 'Convide alguém',
         target: 'members-add',
         view: 'members',
@@ -657,6 +669,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra Equipes',
         target: 'nav-teams',
         body: ['Equipes agrupam atendentes sob um supervisor. O supervisor passa a ver os números da equipe dele.'],
@@ -673,6 +686,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'botao',
         kind: 'click',
+        autoAction: 'click',
         title: 'Crie uma equipe',
         target: 'teams-create',
         view: 'teams',
@@ -717,6 +731,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra os Relatórios',
         target: 'nav-reports',
         body: ['Aqui você tira os números do sistema em arquivo.'],
@@ -787,6 +802,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra as Configurações',
         target: 'nav-settings',
         body: ['As configurações ajustam a análise ao jeito da sua empresa.'],
@@ -861,6 +877,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra os Planos',
         target: 'nav-plans',
         body: ['Toda empresa nova começa com **14 dias de teste grátis**.'],
@@ -899,6 +916,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'aba',
         kind: 'click',
+        autoAction: 'select',
         title: 'Abra a aba Privacidade',
         target: 'settings-tab-privacy',
         view: 'settings',
@@ -959,6 +977,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra a Central de ajuda',
         target: 'sidebar-help',
         body: ['Sempre que tiver dúvida, comece pela Central de ajuda.'],
@@ -1005,6 +1024,7 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'abrir',
         kind: 'click',
+        autoAction: 'click',
         title: 'Abra o Admin',
         target: 'nav-admin',
         body: ['Este painel só aparece para quem opera a plataforma. Ele mostra todas as empresas clientes.'],

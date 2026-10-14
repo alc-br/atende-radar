@@ -7,6 +7,7 @@ import { NARRATIONS } from '../../src/lib/system-tour/narration'
 import { buildSsml, DEFAULT_VOICE, escapeXml, looksLikeMp3, normalizeTtsText, silentMp3, tourAudioKey, ttsConfig } from '../../src/lib/system-tour/tts'
 import { applyUpdate, EMPTY_PROGRESS, isChapterId, parseProgress, parseUpdate } from '../../src/lib/system-tour/progress'
 import { TOUR_SIGNALS } from '../../src/lib/system-tour/signals'
+import { autoActionOf } from '../../src/lib/system-tour/types'
 import { can, canOpenView, ROLES } from '../../src/lib/permissions'
 
 // Tour pelo sistema: o conteúdo é coerente com as telas e cada papel recebe só o que pode usar.
@@ -280,4 +281,19 @@ test.describe('áudio da narração (Azure Speech + cache)', () => {
     expect(looksLikeMp3(Buffer.from('RIFF....WAVE'))).toBe(false)
     expect(looksLikeMp3(Buffer.from('ID3\u0004\u0000'))).toBe(true)
   })
+})
+
+test('leitura automática: todo passo de clique diz o que simular; cadastro nunca é executado', () => {
+  for (const ch of SYSTEM_TOUR_CHAPTERS) {
+    for (const st of ch.steps) {
+      const where = `${ch.id}/${st.id}`
+      if (st.kind === 'click') expect(st.autoAction, `${where}: passo de clique sem autoAction`).toBeDefined()
+      else expect(st.autoAction, `${where}: autoAction só vale em passo de clique`).toBeUndefined()
+      if (st.kind === 'task') expect(autoActionOf(st), where).toBe('demo')
+    }
+  }
+  // sem definição, o padrão seguro é só demonstrar
+  expect(autoActionOf({ kind: 'click' })).toBe('demo')
+  expect(autoActionOf({ kind: 'task', autoAction: 'click' })).toBe('demo')
+  expect(autoActionOf({ kind: 'click', autoAction: 'select' })).toBe('select')
 })

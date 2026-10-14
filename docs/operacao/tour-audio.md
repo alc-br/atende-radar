@@ -27,9 +27,21 @@ clientes ou da empresa.
 ## No navegador
 - **Ouvir**, **Pausar/Continuar** e **Parar** no painel do passo.
 - **Ler automaticamente** (rodapé, entre Voltar e Próximo): lê o passo, espera ~0,6 s depois do fim do áudio e avança,
-  até o fim do capítulo (não pula para outro). Passos de clique ou cadastro: lê e espera a ação; quando ela avança,
-  continua lendo. Vira **Pausar leitura** enquanto está ligado. Desliga com Voltar, Próximo, Parar, setas ou ao fechar.
-  Se o áudio do servidor e a voz do navegador falharem, desliga (sem loop). Não fica salvo entre visitas.
+  até o fim do capítulo (não pula para outro). Vira **Pausar leitura** enquanto está ligado. Desliga com Voltar,
+  Próximo, Parar, setas ou ao fechar. Se o áudio do servidor e a voz do navegador falharem, desliga (sem loop). Não fica
+  salvo entre visitas.
+- **Ações simuladas** (`src/components/system-tour/auto-actions.ts`): quem liga a leitura automática não clica em nada,
+  então, ao fim da fala de um passo de clique ou de cadastro, um cursor simulado (`aria-hidden`, sem foco, sem receber
+  cliques, z-index 55: acima do painel e dos formulários) desliza ~600 ms até o item, mostra uma onda e "aperta" o item.
+  O que acontece depois vem de `autoAction` no passo (`src/lib/system-tour/content.ts`):
+  - `click` (menu, tela, botão que só abre formulário) e `select` (aba/filtro; o item aparece escolhido antes): clique
+    de verdade, a tela muda e o passo avança como se a pessoa tivesse clicado.
+  - `demo` (padrão quando não definido, e sempre nos passos de cadastro): NUNCA executa. Aponta o campo (digita
+    "Exemplo" e apaga) e o botão de concluir, mostra "Na leitura automática só mostramos onde fica. Faça você mesmo
+    quando quiser.", fecha o formulário se foi o próprio tour que o abriu e segue. O passo fica "demonstrado": o
+    capítulo terminado assim não conta como concluído (o cadastro feito de verdade no passo volta a contar).
+  - Item não aparece em ~3 s: segue sem simulação. O clique da própria pessoa continua valendo; Pausar cancela o
+    cursor e a ação pendente. Com `prefers-reduced-motion`, sem deslize: destaque parado de ~400 ms e a ação.
 - **Velocidade**: 0,8× a 2× (`playbackRate` com `preservesPitch`; na voz do navegador, `rate`). Fica salva por pessoa
   no navegador (`localStorage`, chave `ar.systemTour.tts`) e vale para todos os passos.
 
@@ -94,5 +106,5 @@ Se mudar algo que altera o som sem mudar o texto (o SSML, por exemplo), aumente 
   (`tests/e2e/tour-audio-env.ts`).
 - `tests/unit/system-tour.unit.spec.ts`: chave do cache, SSML (escape e voz) e configuração.
 - `tests/e2e/tour-audio.spec.ts` (projeto `api`): 401, 404, geração única, ETag, 304, Range e pedidos simultâneos.
-- `tests/e2e/system-tour.ui.spec.ts`: áudio do servidor, volta para a voz do navegador, Ler automaticamente (avança e
-  pausa) e velocidade (1,5× e 2× aplicadas ao `<audio>`).
+- `tests/e2e/system-tour.ui.spec.ts`: áudio do servidor, volta para a voz do navegador, Ler automaticamente (avança, simula
+  o clique de navegação, só demonstra o cadastro sem criar nada, Pausar cancela o cursor, movimento reduzido) e velocidade (1,5× e 2× aplicadas ao `<audio>`).
