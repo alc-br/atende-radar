@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAppStore } from '@/lib/store'
 import { TOURS, welcomeStepsFor } from '@/lib/tours'
 import { Button } from '@/components/ui/button'
@@ -41,13 +41,25 @@ export function TourOverlay() {
   }, [step, activeTour, activeStep, steps.length, nextTourStep, endTour, markTourSeen])
 
   // No celular o menu é uma gaveta: abre quando o passo aponta para um item do menu e fecha nos demais.
+  // Só fecha a gaveta que o próprio guia abriu: a que a pessoa abriu continua aberta quando o guia termina.
+  const openedDrawer = useRef(false)
   useEffect(() => {
     if (!activeTour || !step) return
-    if (window.matchMedia('(max-width: 1023px)').matches) setMobileNavOpen(step.target.startsWith('nav-'))
+    if (!window.matchMedia('(max-width: 1023px)').matches) return
+    if (step.target.startsWith('nav-')) {
+      setMobileNavOpen(true)
+      openedDrawer.current = true
+    } else if (openedDrawer.current) {
+      setMobileNavOpen(false)
+      openedDrawer.current = false
+    }
   }, [activeTour, step, setMobileNavOpen])
 
   useEffect(() => {
-    if (!activeTour) setMobileNavOpen(false)
+    if (!activeTour && openedDrawer.current) {
+      setMobileNavOpen(false)
+      openedDrawer.current = false
+    }
   }, [activeTour, setMobileNavOpen])
 
   useEffect(() => {

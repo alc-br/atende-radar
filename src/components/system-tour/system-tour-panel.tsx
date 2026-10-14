@@ -150,6 +150,15 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     titleRef.current?.focus({ preventScroll: true })
   }, [chapter.id, idx]) // só ao trocar de passo
 
+  // Passo que aponta para o menu, no celular: tocar fora fecha a gaveta e o item some da tela. Reabre,
+  // para a pessoa não ficar presa num passo cujo item não dá para ver (sair do tour continua no "Fechar").
+  const mobileNavOpen = useAppStore((s) => s.mobileNavOpen)
+  useEffect(() => {
+    if (mobileNavOpen || !openedDrawer.current || !isSidebarTarget(step.target) || !matches(DRAWER_QUERY)) return
+    const id = window.setTimeout(() => setMobileNavOpen(true), 250)
+    return () => window.clearTimeout(id)
+  }, [mobileNavOpen, step.target, setMobileNavOpen])
+
   const speechText = stepSpeechText(step)
   useEffect(() => {
     speech.stop()
@@ -310,7 +319,8 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
           <span style={{ width: `${percent}%` }} />
         </div>
 
-        <div className="tour-sistema__corpo">
+        {/* rola no celular: focável para quem usa só o teclado (axe: scrollable-region-focusable) */}
+        <div className="tour-sistema__corpo" tabIndex={0} role="region" aria-labelledby={titleId}>
           <h2 id={titleId} ref={titleRef} tabIndex={-1} className="tour-sistema__titulo">
             {step.title}
           </h2>

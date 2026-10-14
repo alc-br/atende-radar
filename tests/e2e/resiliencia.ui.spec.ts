@@ -68,12 +68,12 @@ test.describe('Nome muito longo', () => {
     await enter(context, c.email, c.password)
     await home(page)
     await openView(page, 'conversations', !!isMobile)
-    await expect(page.getByText(LONG).first()).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(LONG).filter({ visible: true }).first()).toBeVisible({ timeout: 15000 })
     await noHorizontalScroll(page, 'Conversas')
 
     if (isMobile) await page.getByTestId('conversation-cards').getByRole('button').first().click()
     else await page.locator('table tbody tr').first().click()
-    await expect(page.getByText(LONG).first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(LONG).filter({ visible: true }).first()).toBeVisible({ timeout: 20000 })
     await noHorizontalScroll(page, 'Detalhe da conversa')
 
     await openView(page, 'alerts', !!isMobile)
@@ -81,7 +81,7 @@ test.describe('Nome muito longo', () => {
     await noHorizontalScroll(page, 'Alertas')
 
     await openView(page, 'recovery', !!isMobile)
-    await expect(page.getByText(LONG).first()).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(LONG).filter({ visible: true }).first()).toBeVisible({ timeout: 15000 })
     await noHorizontalScroll(page, 'Recuperação')
     await c.dispose()
   })

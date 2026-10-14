@@ -341,6 +341,9 @@ export default function SettingsView() {
           <TabsTrigger value="auditoria"><History className="ic" aria-hidden="true" />Auditoria</TabsTrigger>
         </TabsList>
 
+        {/* Até os dados chegarem, os formulários ficam travados: o que a pessoa digitasse antes seria
+            sobrescrito pela resposta e o "Salvar" gravaria o valor antigo. */}
+        <fieldset disabled={isLoading} aria-busy={isLoading} className="contents m-0 p-0 border-0 min-w-0">
         {/* ====== EMPRESA ====== */}
         <TabsContent value="empresa" className="painel-config">
           <form className="cartao secao-config" onSubmit={(e) => { e.preventDefault(); void saveOrganization() }}>
@@ -827,6 +830,7 @@ export default function SettingsView() {
           </form>
           <DangerZone />
         </TabsContent>
+        </fieldset>
 
         {/* ====== REGRAS (da API) ====== */}
         <TabsContent value="regras">

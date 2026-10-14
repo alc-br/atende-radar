@@ -219,7 +219,8 @@ test.describe('Visão Geral: período', () => {
     await page.getByRole('menuitemradio', { name: 'Últimos 30 dias' }).click()
     await req
     await expect(periodo).toContainText('Últimos 30 dias')
-    await expect(page.getByRole('alert')).toHaveCount(0)
+    // só os avisos do app (fora do <main> fica o anunciador de rotas do Next, que também tem role=alert)
+    await expect(page.locator('main').getByRole('alert')).toHaveCount(0)
     await expect(page.locator('[data-tour="dashboard-kpis"]')).toBeVisible({ timeout: 15000 })
 
     const req2 = page.waitForRequest((r) => /\/api\/dashboard\?period=today$/.test(r.url()))
