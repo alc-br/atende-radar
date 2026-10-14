@@ -62,6 +62,28 @@ test.describe('B10 · backup do banco', () => {
     }
   })
 
+  test('P7 · fotos do perfil e logotipos (UPLOADS_DIR) também entram no backup, com a mesma retenção', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ar-backup-'))
+    const up = mkdtempSync(join(tmpdir(), 'ar-uploads-'))
+    try {
+      mkdirSync(join(up, 'org1'))
+      writeFileSync(join(up, 'org1', 'logo'), 'imagem-de-teste')
+      for (let i = 0; i < 3; i++) {
+        execFileSync('bun', ['scripts/backup-db.ts'], {
+          env: { ...process.env, DATABASE_URL: 'file:./test.db', BACKUP_DIR: dir, BACKUP_KEEP: '2', UPLOADS_DIR: up },
+          encoding: 'utf-8',
+          shell: process.platform === 'win32',
+        })
+      }
+      const copies = readdirSync(dir).filter((f) => f.startsWith('uploads-'))
+      expect(copies).toHaveLength(2)
+      expect(readFileSync(join(dir, copies[0], 'org1', 'logo'), 'utf-8')).toBe('imagem-de-teste')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+      rmSync(up, { recursive: true, force: true })
+    }
+  })
+
   test('sem banco ainda (primeiro deploy) não é erro', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ar-backup-'))
     try {

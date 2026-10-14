@@ -43,7 +43,7 @@ export async function excludeContactOf(orgId: string, conversationId: string): P
 /** Marca os contatos (da PRÓPRIA organização) como excluídos do monitoramento e dispensa os alertas abertos deles. */
 export async function excludeContacts(orgId: string, contactIds: string[]): Promise<number> {
   if (contactIds.length === 0) return 0
-  const { count } = await db.contact.updateMany({ where: { organizationId: orgId, id: { in: contactIds } }, data: { excluded: true } })
+  const { count } = await db.contact.updateMany({ where: { organizationId: orgId, id: { in: contactIds } }, data: { excluded: true, phoneEncrypted: null } }) // não monitorar = não guardar o telefone completo
   const convs = await db.conversation.findMany({ where: { organizationId: orgId, contactId: { in: contactIds } }, select: { id: true } })
   await db.alert.updateMany({
     where: { organizationId: orgId, conversationId: { in: convs.map((c) => c.id) }, status: { in: ['new', 'acknowledged', 'in_progress'] } },

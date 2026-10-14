@@ -6,9 +6,9 @@ import Link from 'next/link'
 import { TermsCheckbox } from './terms-checkbox'
 import { Loader2, ShieldCheck, AlertCircle, ArrowLeft, ArrowRight, KeyRound, UserPlus, MailCheck, Lock, type LucideIcon } from 'lucide-react'
 
-type Kind = 'reset' | 'invite' | 'verify'
+type Kind = 'reset' | 'invite' | 'verify' | 'email_change'
 
-const COPY: Record<Kind, { title: string; subtitle: string; endpoint: string; button: string; done: string; needsPassword: boolean; icon: LucideIcon }> = {
+const COPY: Record<Kind, { title: string; subtitle: string; endpoint: string; button: string; done: string; needsPassword: boolean; needsClick?: boolean; icon: LucideIcon }> = {
   reset: {
     title: 'Criar nova senha',
     subtitle: 'Escolha uma senha nova para a sua conta.',
@@ -36,6 +36,17 @@ const COPY: Record<Kind, { title: string; subtitle: string; endpoint: string; bu
     needsPassword: false,
     icon: MailCheck,
   },
+  // troca de e-mail: pede um clique (não confirma sozinho) para um leitor automático de links não trocar o acesso
+  email_change: {
+    title: 'Confirmar o novo e-mail',
+    subtitle: 'Confirme para passar a entrar no AtendeRadar com este endereço.',
+    endpoint: '/api/auth/confirm-email',
+    button: 'Confirmar novo e-mail',
+    done: 'E-mail alterado! Use o novo e-mail para entrar.',
+    needsPassword: false,
+    needsClick: true,
+    icon: MailCheck,
+  },
 }
 
 const ERROR_BOX = 'flex items-start gap-3 rounded-xl border border-[var(--vermelho-borda)] bg-[var(--vermelho-fundo)] px-4 py-3 text-sm text-[var(--vermelho)]'
@@ -48,7 +59,7 @@ function Inner({ kind }: { kind: Kind }) {
   const token = useSearchParams().get('token') || ''
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>(copy.needsPassword ? 'idle' : 'loading')
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>(copy.needsPassword || copy.needsClick ? 'idle' : 'loading')
   const [error, setError] = useState('')
   const [acceptTerms, setAcceptTerms] = useState(false) // só no convite: quem entra pela 1ª vez aceita os termos
   // Campos só liberam depois da hidratação: o que fosse digitado antes seria apagado pelo React (visto no Safari)
@@ -73,7 +84,7 @@ function Inner({ kind }: { kind: Kind }) {
 
   // Confirmação de e-mail não pede nada: usa o link direto.
   useEffect(() => {
-    if (copy.needsPassword) return
+    if (copy.needsPassword || copy.needsClick) return
     const id = window.setTimeout(() => void submit({ token }), 0)
     return () => window.clearTimeout(id)
   }, [])
@@ -153,7 +164,15 @@ function Inner({ kind }: { kind: Kind }) {
                 </form>
               )}
 
-              {token && !copy.needsPassword && state === 'loading' && (
+              {token && copy.needsClick && (state === 'idle' || state === 'loading') && (
+                <button type="button" onClick={() => void submit({ token })} disabled={!pronto || state === 'loading'} className="btn btn--verde btn--xl btn--bloco">
+                  {state === 'loading'
+                    ? <><Loader2 className="ic animate-spin" aria-hidden="true" />Confirmando...</>
+                    : <>{copy.button} <ArrowRight className="ic" aria-hidden="true" /></>}
+                </button>
+              )}
+
+              {token && !copy.needsPassword && !copy.needsClick && state === 'loading' && (
                 <div className="flex justify-center py-2" role="status" aria-label="Confirmando">
                   <Loader2 className="ic animate-spin text-xl text-[var(--suave)]" aria-hidden="true" />
                 </div>

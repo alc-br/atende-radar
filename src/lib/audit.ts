@@ -8,6 +8,9 @@ export type AuditAction =
   | 'member.invited' | 'member.role_changed' | 'member.status_changed' | 'member.team_changed' | 'member.removed'
   | 'member.invite_resent' | 'member.invite_canceled'
   | 'account.profile_updated' | 'account.password_changed' | 'account.sessions_revoked' | 'account.alert_emails_changed'
+  | 'account.email_change_requested' | 'account.email_change_canceled' | 'account.email_changed'
+  | 'account.avatar_changed' | 'account.avatar_removed' | 'organization.logo_changed' | 'organization.logo_removed'
+  | 'contact.phone_viewed'
   | 'settings.updated' | 'organization.updated' | 'organization.deletion_requested' | 'organization.deletion_canceled'
   | 'alert_rule.created' | 'alert_rule.updated'
   | 'team.created' | 'team.updated' | 'team.removed'
@@ -60,6 +63,14 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'account.password_changed': 'Trocou a própria senha',
   'account.sessions_revoked': 'Saiu de todos os aparelhos',
   'account.alert_emails_changed': 'Ligou ou desligou os alertas por e-mail',
+  'account.email_change_requested': 'Pediu a troca do próprio e-mail de acesso',
+  'account.email_change_canceled': 'Cancelou a troca do próprio e-mail',
+  'account.email_changed': 'Confirmou o novo e-mail de acesso',
+  'account.avatar_changed': 'Trocou a própria foto',
+  'account.avatar_removed': 'Tirou a própria foto',
+  'organization.logo_changed': 'Trocou o logotipo da empresa',
+  'organization.logo_removed': 'Tirou o logotipo da empresa',
+  'contact.phone_viewed': 'Viu o telefone completo de um cliente',
   'settings.updated': 'Alterou configurações',
   'organization.updated': 'Alterou dados da empresa',
   'organization.deletion_requested': 'Pediu o encerramento da conta e a exclusão da empresa',

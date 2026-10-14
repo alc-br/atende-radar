@@ -363,6 +363,12 @@ position: relative;
   font-size: 13px; font-weight: 700; color: #fff;
   background: linear-gradient(180deg, #0f6b43, #08482c);
 }
+.ar .usuario .avatar-u img {
+  width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+}
+.ar .org .org-logo {
+  width: 24px; height: 24px; border-radius: 6px; object-fit: contain; background: var(--superficie);
+}
 .ar .usuario .avatar-u::after {
 content: ""; position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border-radius: 50%; background: var(--verde-400); border: 2px solid var(--superficie);
 }
@@ -2261,6 +2267,27 @@ display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: cen
 }
 .ar .form-grade {
 display: grid; grid-template-columns: 1fr 1fr; gap: 16px 36px;
+}
+/* Meu perfil / Configurações (P7): foto do perfil, logotipo da empresa e troca de e-mail pendente */
+.ar .perfil-foto {
+width: 56px; height: 56px; border-radius: 50%; overflow: hidden;
+  display: grid; place-items: center;
+  font-size: 22px; font-weight: 700; color: #fff;
+  background: linear-gradient(180deg, #0f6b43, #08482c);
+}
+.ar .perfil-foto img {
+width: 100%; height: 100%; object-fit: cover;
+}
+.ar .perfil-foto--logo {
+border-radius: 12px; background: var(--superficie-2); border: 1px solid var(--borda); color: var(--suave); font-size: 20px;
+}
+.ar .perfil-foto--logo img {
+object-fit: contain;
+}
+.ar .aviso-pendente {
+display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 18px; padding: 12px 14px; font-size: 14px;
+  color: var(--texto); background: var(--ambar-fundo); border: 1px solid color-mix(in srgb, var(--ambar) 35%, transparent); border-radius: 10px;
 }
 .ar .form-grade__todo {
 grid-column: 1 / -1;

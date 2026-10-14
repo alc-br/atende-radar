@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { signOut } from 'next-auth/react'
 import { toast } from 'sonner'
-import { UserRound, KeyRound, MonitorSmartphone, Save, LogOut, FileCheck, Mail } from 'lucide-react'
+import { UserRound, KeyRound, MonitorSmartphone, Save, LogOut, FileCheck, Mail, AtSign, ImageUp, Trash2, X } from 'lucide-react'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,6 +20,8 @@ interface Profile {
   termsVersion: string | null
   termsAcceptedAt: string | null
   alertEmails: boolean
+  pendingEmail: string | null
+  avatarUrl: string | null
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -54,6 +56,12 @@ export default function ProfileView() {
   const [confirmLogoutAll, setConfirmLogoutAll] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [savingAlertEmails, setSavingAlertEmails] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [emailPassword, setEmailPassword] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
+  const [savingAvatar, setSavingAvatar] = useState(false)
+  const avatarInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -140,6 +148,73 @@ export default function ProfileView() {
     }
   }
 
+  const requestEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEmailError('')
+    setSavingEmail(true)
+    try {
+      const res = await fetchMutation('/api/profile/email', { method: 'POST', json: { newEmail, currentPassword: emailPassword } })
+      const data = (await res.json().catch(() => ({}))) as { pendingEmail?: string }
+      setProfile((p) => (p ? { ...p, pendingEmail: data.pendingEmail || newEmail.trim().toLowerCase() } : p))
+      setNewEmail('')
+      setEmailPassword('')
+      toast.success('Enviamos um link de confirmação para o novo e-mail.')
+    } catch (err) {
+      setEmailError(erro(err))
+    } finally {
+      setSavingEmail(false)
+    }
+  }
+
+  const cancelEmailChange = async () => {
+    setSavingEmail(true)
+    try {
+      await fetchMutation('/api/profile/email', { method: 'DELETE' })
+      setProfile((p) => (p ? { ...p, pendingEmail: null } : p))
+      toast.success('Troca de e-mail cancelada. O link enviado não vale mais.')
+    } catch (err) {
+      toast.error(erro(err))
+    } finally {
+      setSavingEmail(false)
+    }
+  }
+
+  const setAvatar = (url: string | null) => {
+    setProfile((p) => (p ? { ...p, avatarUrl: url } : p))
+    if (me) setMe({ ...me, avatarUrl: url })
+  }
+
+  const uploadAvatar = async (file: File | undefined) => {
+    if (!file) return
+    setSavingAvatar(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetchMutation('/api/profile/avatar', { method: 'POST', body: form })
+      const data = (await res.json()) as { avatarUrl: string | null }
+      setAvatar(data.avatarUrl)
+      toast.success('Foto atualizada.')
+    } catch (err) {
+      toast.error(erro(err))
+    } finally {
+      setSavingAvatar(false)
+      if (avatarInput.current) avatarInput.current.value = ''
+    }
+  }
+
+  const removeAvatar = async () => {
+    setSavingAvatar(true)
+    try {
+      await fetchMutation('/api/profile/avatar', { method: 'DELETE' })
+      setAvatar(null)
+      toast.success('Foto removida.')
+    } catch (err) {
+      toast.error(erro(err))
+    } finally {
+      setSavingAvatar(false)
+    }
+  }
+
   if (loadError) {
     return (
       <div className="cartao vazio" role="alert">
@@ -178,7 +253,7 @@ export default function ProfileView() {
               <div className="campo">
                 <label htmlFor="profile-email">E-mail</label>
                 <input className="entrada" id="profile-email" type="email" value={profile.email} readOnly aria-describedby="profile-email-hint" />
-                <p id="profile-email-hint" className="ajuda-campo">O e-mail é o seu login. Para trocá-lo, fale com o administrador da conta.</p>
+                <p id="profile-email-hint" className="ajuda-campo">O e-mail é o seu login. Para trocá-lo, use “Trocar e-mail” abaixo.</p>
               </div>
               <div className="campo">
                 <span className="text-sm font-medium">Função</span>
@@ -190,6 +265,63 @@ export default function ProfileView() {
                 <Save className="ic" aria-hidden="true" />{savingName ? 'Salvando...' : 'Salvar nome'}
               </button>
             </footer>
+          </form>
+
+          <section className="cartao secao-config secao-config--linha" aria-labelledby="t-perfil-foto">
+            <span className="perfil-foto" aria-hidden="true">
+              {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : (profile.name.trim()[0] || '?').toUpperCase()}
+            </span>
+            <div>
+              <h2 id="t-perfil-foto">Foto do perfil</h2>
+              <p className="suave">Aparece no menu do usuário. PNG, JPG ou WEBP de até 2 MB; a imagem é recortada em quadrado.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input ref={avatarInput} id="profile-avatar-file" type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" aria-label="Escolher foto do perfil" onChange={(e) => void uploadAvatar(e.target.files?.[0])} disabled={savingAvatar} />
+              <button className="btn btn--lg" type="button" onClick={() => avatarInput.current?.click()} disabled={savingAvatar}>
+                <ImageUp className="ic" aria-hidden="true" />{savingAvatar ? 'Enviando...' : profile.avatarUrl ? 'Trocar foto' : 'Enviar foto'}
+              </button>
+              {profile.avatarUrl && (
+                <button className="btn btn--lg" type="button" onClick={() => void removeAvatar()} disabled={savingAvatar}>
+                  <Trash2 className="ic" aria-hidden="true" />Remover foto
+                </button>
+              )}
+            </div>
+          </section>
+
+          <form className="cartao secao-config" onSubmit={requestEmailChange} aria-labelledby="t-perfil-email">
+            <SecaoCab icon={<AtSign className="ic" />} title="Trocar e-mail" id="t-perfil-email">
+              Enviamos um link para o novo endereço. O e-mail de acesso só muda quando você abrir esse link; o e-mail atual recebe um aviso.
+            </SecaoCab>
+            {profile.pendingEmail && (
+              <div role="status" className="aviso-pendente">
+                <span>Aguardando confirmação de <strong>{profile.pendingEmail}</strong>. Abra o link enviado para esse endereço (vale por 24 horas).</span>
+                <button className="btn" type="button" onClick={() => void cancelEmailChange()} disabled={savingEmail}>
+                  <X className="ic" aria-hidden="true" />Cancelar troca
+                </button>
+              </div>
+            )}
+            {profile.hasPassword ? (
+              <>
+                <div className="form-grade">
+                  <div className="campo">
+                    <label htmlFor="profile-new-email">Novo e-mail</label>
+                    <input className="entrada" id="profile-new-email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required maxLength={200} autoComplete="email" disabled={savingEmail} />
+                  </div>
+                  <div className="campo">
+                    <label htmlFor="profile-email-password">Senha atual</label>
+                    <input className="entrada" id="profile-email-password" type="password" value={emailPassword} onChange={(e) => setEmailPassword(e.target.value)} required autoComplete="current-password" disabled={savingEmail} />
+                  </div>
+                  {emailError && <p role="alert" className="form-grade__todo text-sm text-[var(--vermelho)]">{emailError}</p>}
+                </div>
+                <footer className="secao-config__rodape">
+                  <button className="btn btn--escuro btn--lg" type="submit" disabled={savingEmail || !newEmail.trim() || !emailPassword}>
+                    <Mail className="ic" aria-hidden="true" />{savingEmail ? 'Enviando...' : 'Enviar link de confirmação'}
+                  </button>
+                </footer>
+              </>
+            ) : (
+              <p className="suave">Para trocar o e-mail, primeiro crie uma senha própria com “Esqueceu sua senha?” na tela de entrar.</p>
+            )}
           </form>
 
           <form className="cartao secao-config" onSubmit={changePassword} aria-labelledby="t-perfil-senha">

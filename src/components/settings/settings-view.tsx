@@ -1,5 +1,6 @@
 'use client'
 
+import { LogoCard } from './logo-card'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -397,6 +398,8 @@ export default function SettingsView() {
             </div>
             <Rodape saving={savingTab === 'empresa'} label="Salvar alterações" />
           </form>
+
+          <LogoCard />
 
           <section className="cartao secao-config secao-config--linha" aria-labelledby="t-onboarding">
             <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><WandSparkles className="ic" /></span>

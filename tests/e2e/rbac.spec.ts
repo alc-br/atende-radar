@@ -125,6 +125,16 @@ const MATRIX: Row[] = [
   ['GET', '/api/tours/system', ALL],
   ['PATCH', '/api/tours/system', ALL],
   ['GET', '/api/tours/system/audio', ALL], // sem capítulo/passo: 404 (nunca 401/403)
+  // P7 · foto, logotipo e troca de e-mail; B5/B9 · telefone completo (sem formulário/senha: 400; id "x": 404)
+  ['POST', '/api/profile/avatar', ALL],
+  ['DELETE', '/api/profile/avatar', ALL],
+  ['POST', '/api/profile/email', ALL],
+  ['DELETE', '/api/profile/email', ALL],
+  ['POST', '/api/organization/logo', CONFIG],
+  ['DELETE', '/api/organization/logo', CONFIG],
+  ['GET', '/api/media/avatar/x', ALL],
+  ['GET', '/api/media/logo/x', ALL],
+  ['GET', '/api/conversations/x/phone', OPERACAO],
   // por último: "sair de todos os aparelhos" troca a versão da sessão (a de quem pediu é regravada e continua valendo)
   ['DELETE', '/api/profile/sessions', ALL],
 ]

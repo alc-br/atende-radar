@@ -16,7 +16,9 @@ model Organization {
   timezone                String                   @default("America/Sao_Paulo")
   currency                String                   @default("BRL")
   status                  String                   @default("active")
-  logoUrl                 String?
+  logoUrl                 String? // legado (URL digitada); o logotipo enviado fica em UPLOADS_DIR (logoType/logoUpdatedAt)
+  logoType                String? // image/webp | image/png | image/jpeg: logotipo enviado em Configurações › Empresa
+  logoUpdatedAt           DateTime?
   website                 String?
   phone                   String?
   adminEmail              String?
@@ -96,7 +98,7 @@ model Contact {
   connectionId   String?
   displayName    String?
   phoneHash      String?
-  phoneEncrypted String?
+  phoneEncrypted String? // B5/B9 · telefone completo cifrado (AES-256-GCM, PHONE_ENC_KEY); null sem a chave
   phoneLast4     String?
   isGroup        Boolean        @default(false)
   excluded       Boolean        @default(false)
@@ -568,13 +570,18 @@ model OrganizationMember {
   termsAcceptedAt DateTime?
   // Alertas por e-mail (regras com canal "email"): ligado por padrão; o link "parar de receber" do e-mail desliga
   alertEmails     Boolean      @default(true)
+  // Foto do perfil (P7): arquivo em UPLOADS_DIR/<organização>/avatar-<membro>; null = mostra a inicial
+  avatarType      String?
+  avatarUpdatedAt DateTime?
+  // Troca de e-mail (P7): o novo e-mail fica aqui até ser confirmado pelo link enviado a ele (token email_change)
+  pendingEmail    String?
 }
 
 // Tokens de uso único enviados por e-mail (recuperar senha, aceitar convite, confirmar e-mail). Só o hash é guardado.
 model AuthToken {
   id        String    @id @default(cuid())
   memberId  String
-  type      String // reset | invite | verify
+  type      String // reset | invite | verify | email_change
   tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?

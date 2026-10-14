@@ -4,6 +4,7 @@ import { audit } from '@/lib/audit'
 import { guard, notFound, badRequest, publicMember } from '@/lib/api-auth'
 import { isRole } from '@/lib/permissions'
 import { readJson } from '@/lib/json-body'
+import { deleteImage } from '@/lib/uploads'
 
 const STATUSES = ['active', 'suspended']
 // 'invited' só sai de convite aceito; reativar um convidado não pode pular a criação de senha.
@@ -63,6 +64,7 @@ export async function DELETE(
     if (id === g.auth.memberId) return badRequest('Você não pode remover a si mesmo')
 
     await db.organizationMember.delete({ where: { id } })
+    if (existing.avatarType) await deleteImage(g.auth.orgId, 'avatar', id)
     await audit(g.auth, { action: 'member.removed', targetType: 'member', targetId: id, targetLabel: existing.email, details: { role: existing.role } })
 
     return NextResponse.json({ success: true })

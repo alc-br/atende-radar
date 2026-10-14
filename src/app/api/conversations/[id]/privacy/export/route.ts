@@ -4,9 +4,16 @@ import { guard, notFound } from '@/lib/api-auth'
 import { audit } from '@/lib/audit'
 import { maskSensitive } from '@/lib/mask-sensitive'
 import { LEGAL_BASIS_LABELS, privacySettings } from '@/lib/privacy-settings'
+import { decryptPhone, formatPhone } from '@/lib/phone-crypto'
 
 // Portabilidade (LGPD): tudo o que a empresa guarda sobre UM cliente final, em JSON legível, para entregar ao titular.
-// Só quem configura a empresa (privacy.manage). O telefone completo nunca é guardado, então nunca sai daqui.
+// Só quem configura a empresa (privacy.manage). O telefone completo (B5/B9) vai decifrado, porque é dado do próprio
+// titular; sem PHONE_ENC_KEY (ou contato anterior à chave) sai só o final.
+const phoneOf = (orgId: string, enc: string | null) => {
+  const digits = decryptPhone(orgId, enc)
+  return digits ? formatPhone(digits) : null
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const g = await guard('privacy.manage')
   if (!g.ok) return g.res
@@ -50,7 +57,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     baseLegal: privacy.legalBasis ? LEGAL_BASIS_LABELS[privacy.legalBasis] ?? privacy.legalBasis : null,
     encarregado: privacy.dpo,
     contact: contact
-      ? { displayName: contact.displayName, phoneLast4: contact.phoneLast4, excluded: contact.excluded, firstSeenAt: contact.firstSeenAt?.toISOString() ?? null, lastSeenAt: contact.lastSeenAt?.toISOString() ?? null }
+      ? { displayName: contact.displayName, phone: phoneOf(g.auth.orgId, contact.phoneEncrypted), phoneLast4: contact.phoneLast4, excluded: contact.excluded, firstSeenAt: contact.firstSeenAt?.toISOString() ?? null, lastSeenAt: contact.lastSeenAt?.toISOString() ?? null }
       : null,
     conversations: conversations.map((c) => ({
       id: c.id,

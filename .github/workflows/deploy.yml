@@ -181,6 +181,12 @@ jobs:
           mkdir -p /opt/atende-radar/shared/tour-audio
           # o warm (usuário do runner) e o serviço gravam aqui; só áudio da narração, nada secreto
           chmod a+rwx /opt/atende-radar/shared/tour-audio 2>/dev/null || echo "::warning::não deu para liberar a pasta do áudio do tour"
+          # Foto do perfil e logotipo das empresas (P7): fora de current/ (o rsync --delete não apaga); só o serviço lê e grava
+          add_if_missing UPLOADS_DIR /opt/atende-radar/shared/uploads
+          mkdir -p /opt/atende-radar/shared/uploads && chmod 750 /opt/atende-radar/shared/uploads
+          # Chave do telefone completo cifrado dos contatos (B5/B9, docs/operacao/telefone-cifrado.md). Gerada uma vez
+          # aqui e nunca impressa; perder a chave = perder os telefones completos (o resto continua). Guardar cópia fora.
+          add_if_missing PHONE_ENC_KEY "$(openssl rand -base64 32)"
           # restos da voz antiga (Piper), que não é mais usada
           sed -i '/^PIPER_BIN=/d; /^PIPER_VOICE=/d' "$ENVF"
           echo "variáveis presentes: $(sed -E 's/=.*//' "$ENVF" | grep -vE '^#|^$' | tr '\n' ' ')"

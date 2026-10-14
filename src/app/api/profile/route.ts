@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
+import { avatarUrl } from '@/lib/uploads'
 
 // Meu perfil (P7): qualquer pessoa logada vê e altera os PRÓPRIOS dados. Nunca outro membro.
 
@@ -22,6 +23,8 @@ export async function GET() {
       termsVersion: m.termsVersion,
       termsAcceptedAt: m.termsAcceptedAt?.toISOString() || null,
       alertEmails: m.alertEmails,
+      pendingEmail: m.pendingEmail,
+      avatarUrl: avatarUrl(m),
     },
   })
 }

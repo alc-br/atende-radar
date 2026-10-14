@@ -36,6 +36,7 @@ Sem segredos aqui: o repositório é público.
 - Definir `SUPPORT_EMAIL` no servidor para receber por e-mail os chamados do "Falar com o suporte" (sem ela, os chamados ficam só no Admin › Suporte).
 - Depois que a migração cifrada estiver confirmada, apagar à mão o backup `.tar.gz` das sessões feito antes da cifra (guarda credenciais em texto puro).
 - Retenção de dados (card V2): definir prazos.
+- Guardar fora do servidor uma cópia da `PHONE_ENC_KEY` (criada pelo deploy em `app.env`; sem ela os telefones completos dos clientes, no banco e nos backups, não abrem). Ver `docs/operacao/telefone-cifrado.md`.
 
 ## Como rodar os testes (Windows)
 
@@ -60,6 +61,12 @@ Sem segredos aqui: o repositório é público.
 
 ### 14/10/2026
 
+- **Branch `wave-p7` (sem deploy):**
+  - **P7 Meu perfil:**
+    - Troca de e-mail: pede a senha atual e manda um link de uso único (24 h) para o NOVO e-mail. O e-mail só muda depois da confirmação, e o antigo é avisado no pedido e na troca.
+    - Foto do perfil aparece no menu do usuário. Logotipo da empresa (Configurações › Empresa) aparece na barra superior.
+    - As imagens ficam em `UPLOADS_DIR` (`/opt/atende-radar/shared/uploads`), servidas por `/api/media/...` só para a própria empresa. Entram no backup.
+  - **B5/B9:** telefone completo do cliente cifrado em `Contact.phoneEncrypted` com a `PHONE_ENC_KEY`. Aparece no detalhe da conversa ("Mostrar", auditado) e na exportação LGPD. Doc: `docs/operacao/telefone-cifrado.md`.
 - **Noite (deploy 6513534, no ar):**
   - **S2 Narração do tour:** voz da Azure Speech, plano F0, com a voz pt-BR-FranciscaNeural (`src/lib/system-tour/tts.ts`, rota `/api/tour-audio/...`).
     - Cada texto é gerado uma vez e fica em cache por sha256 em `TOUR_AUDIO_DIR` (`/opt/atende-radar/shared/tour-audio`, fora do `current/`).

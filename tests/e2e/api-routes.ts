@@ -17,6 +17,7 @@ export const PUBLIC_ROUTES: Record<string, string> = {
   '/api/auth/reset': 'troca de senha com token do e-mail (limite por IP)',
   '/api/auth/accept-invite': 'aceite de convite com token do e-mail (limite por IP)',
   '/api/auth/verify-email': 'confirmação de e-mail com token',
+  '/api/auth/confirm-email': 'confirmação da troca de e-mail (P7) com token de uso único do link enviado ao novo endereço (limite por IP) — email-change.spec.ts',
   '/api/public/plans': 'catálogo de planos da página de vendas',
   '/api/public/pageview': 'contador diário de visitas à página de vendas (sem cookie nem IP gravado, limite por IP) — product-events.spec.ts',
   '/api/public/status': 'situação do serviço para monitores externos (só ok/atraso/fora, sem detalhe técnico)',

@@ -7,6 +7,7 @@ import { allow } from './rate-limit'
 import { cancelAtPeriodEnd } from './billing/service'
 import { pagarme, pagarmeConfig } from './billing/pagarme'
 import { discardSession } from './whatsapp/manager'
+import { deleteOrganizationUploads } from './uploads'
 
 // Encerramento da conta pelo próprio cliente (LGPD · T17). O dono pede, a empresa fica 7 dias "em exclusão" (dá para
 // desistir) e depois o agendador apaga a organização e TUDO dela. Sobra só uma linha no log do servidor (sem dado pessoal).
@@ -169,6 +170,8 @@ export async function hardDeleteOrganization(orgId: string, now = new Date()): P
     { timeout: 120_000, maxWait: 30_000 },
   )
 
+  // foto dos membros e logotipo (UPLOADS_DIR/<organização>)
+  await deleteOrganizationUploads(orgId)
   // credenciais dos números no disco (WA_SESSIONS_DIR/<conexão>)
   for (const id of connectionIds) {
     await discardSession(id).catch((e) => console.error('[org-deletion] falha ao apagar sessão do WhatsApp', id, e instanceof Error ? e.message : e))

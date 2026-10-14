@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 import { TOUR_AUDIO_TEST_ENV } from './tests/e2e/tour-audio-env'
+import { MEDIA_TEST_ENV } from './tests/e2e/media-env'
 import { TEST_DB_URL } from './tests/e2e/test-db-url'
 
 // E2E_PORT: outra porta para rodar duas execuções ao mesmo tempo em checkouts diferentes (cada um tem seu prisma/test.db)
@@ -62,6 +63,8 @@ export default defineConfig({
       WEBHOOK_ALLOW_LOCAL: '1',
       // Narração do tour: TTS falso (MP3 de silêncio, sem rede) e cache descartável em .tmp/ (tests/e2e/tour-audio-env.ts)
       ...TOUR_AUDIO_TEST_ENV,
+      // Foto/logotipo em .tmp/uploads-e2e e chave FIXA de teste do telefone cifrado (tests/e2e/media-env.ts)
+      ...MEDIA_TEST_ENV,
     },
   },
 })
