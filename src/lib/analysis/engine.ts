@@ -8,6 +8,7 @@ import { recomputeMetrics } from './metrics'
 import { detectIgnoredQuestions } from './questions'
 import { purgeExpired } from '../privacy'
 import { maskSensitive } from '../mask-sensitive'
+import { enqueueAlertEvent } from '../webhooks'
 import { businessMinutesBetween, outsideRuleFrom, scheduleFrom, type HoursSettings } from './business-hours'
 
 // Só conversas que vieram do WhatsApp de verdade (têm mensagem com externalId) entram no motor.
@@ -371,6 +372,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
           },
         })
         summary.alertsOpened += 1
+        await enqueueAlertEvent('alert.created', alert) // webhook do cliente (fila; nunca lança erro)
         const channels = parseJson<string[]>(rule.notificationChannels, ['in_app'])
         if (channels.includes('in_app')) {
           await db.notification.create({
@@ -387,7 +389,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
           recoveries.push(item)
         }
       } else if (!triggered && existing) {
-        await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved' } })
+        await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved' } }))
         if (existing.findingId) {
           await db.auditFinding.updateMany({ where: { id: existing.findingId, status: { not: 'resolved' } }, data: { status: 'resolved', resolvedAt: now, resolutionReason: 'Resolvido automaticamente' } })
         }
@@ -407,11 +409,12 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
           data: { organizationId: orgId, ruleName: connRule.name, severity: connRule.severity, title: `${connRule.name}: ${c.name}`, description: `A conexão "${c.name}" (final ${c.phoneLast4}) está fora do ar${c.statusReason ? ` (${c.statusReason})` : ''}.`, agentName: null, status: 'new' },
         })
         summary.alertsOpened += 1
+        await enqueueAlertEvent('alert.created', alert)
         if (parseJson<string[]>(connRule.notificationChannels, ['in_app']).includes('in_app')) {
           await db.notification.create({ data: { organizationId: orgId, type: 'alert', title: alert.title, message: alert.description, data: JSON.stringify({ alertId: alert.id, severity: connRule.severity }) } })
         }
       } else if (!down && existing) {
-        await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved' } })
+        await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved' } }))
         summary.alertsResolved += 1
       }
     }

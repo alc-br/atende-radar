@@ -5,9 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Building2, Clock, Headphones, DollarSign, Brain, Bell, Shield, ShieldCheck, History,
   Save, Plus, Trash2, X, Sparkles, WandSparkles, CircleAlert, Globe, Layers,
-  AudioLines, Calendar, Users, Moon, EyeOff, Download, ArrowRight, Package, Percent,
+  AudioLines, Calendar, Users, Moon, EyeOff, Download, ArrowRight, Package, Percent, Webhook,
 } from 'lucide-react'
 import { AuditLog } from './audit-log'
+import { WebhookSettings } from './webhook-settings'
 import { useAppStore } from '@/lib/store'
 import { toast } from 'sonner'
 import { mutate } from '@/lib/mutation'
@@ -338,6 +339,7 @@ export default function SettingsView() {
           <TabsTrigger value="notificacoes"><Bell className="ic" aria-hidden="true" />Notificações</TabsTrigger>
           <TabsTrigger value="privacidade"><Shield className="ic" aria-hidden="true" />Privacidade</TabsTrigger>
           <TabsTrigger value="regras"><ShieldCheck className="ic" aria-hidden="true" />Regras</TabsTrigger>
+          <TabsTrigger value="webhook"><Webhook className="ic" aria-hidden="true" />Webhook</TabsTrigger>
           <TabsTrigger value="auditoria"><History className="ic" aria-hidden="true" />Auditoria</TabsTrigger>
         </TabsList>
 
@@ -887,6 +889,11 @@ export default function SettingsView() {
               )}
             </div>
           </section>
+        </TabsContent>
+
+        {/* ====== WEBHOOK ====== */}
+        <TabsContent value="webhook">
+          <WebhookSettings />
         </TabsContent>
 
         {/* ====== AUDITORIA ====== */}

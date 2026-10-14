@@ -3,6 +3,7 @@ import { startWhatsApp } from './whatsapp/manager'
 import { billingSweep } from './billing/service'
 import { trialEndingNotices } from './billing/trial'
 import { runScheduledReports } from './reports/schedule'
+import { runWebhookOutbox } from './webhooks'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -41,6 +42,9 @@ export function startBackgroundJobs() {
   // relatórios agendados: confere a cada minuto quais chegaram no horário (fuso e dias de cada relatório)
   const reports = setInterval(() => safely('relatórios agendados', () => runScheduledReports()), 60_000)
   reports.unref?.()
+  // webhooks dos clientes: novas tentativas das entregas que falharam (a 1ª vai logo após o alerta)
+  const webhooks = setInterval(() => safely('webhooks', () => runWebhookOutbox()), 60_000)
+  webhooks.unref?.()
   console.log('[analysis] agendador ligado (a cada 60 s)')
 }
 

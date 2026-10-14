@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, alertScope } from '@/lib/api-auth'
 import { readJson } from '@/lib/json-body'
+import { enqueueAlertEvent } from '@/lib/webhooks'
 
 export async function PUT(
   request: Request,
@@ -26,6 +27,7 @@ export async function PUT(
     if (status !== undefined) data.status = status
 
     const updated = await db.alert.update({ where: { id }, data })
+    if (existing.status !== 'resolved' && updated.status === 'resolved') await enqueueAlertEvent('alert.resolved', updated)
 
     return NextResponse.json({ success: true, alert: updated })
   } catch (error) {

@@ -4,9 +4,10 @@ import { analyzeAll, analyzeOrganization } from '@/lib/analysis/engine'
 import { runScheduledReports } from '@/lib/reports/schedule'
 import { readJson } from '@/lib/json-body'
 import { trialEndingNotices } from '@/lib/billing/trial'
+import { processWebhookOutbox } from '@/lib/webhooks'
 
 // Roda o motor de análise agora (mesma função que o agendador interno chama a cada minuto).
-// Serve também para um agendador externo (cron) e para os testes. Exige o segredo do gateway.
+// Serve também para um agendador externo (cron) e para os testes. Também processa a fila de webhooks. Exige o segredo do gateway.
 // Com { reportsAt: ISO } roda os relatórios agendados como se fosse aquele instante (testes de horário/dia da semana).
 export async function POST(request: Request) {
   const denied = gatewayGuard(request)
@@ -27,5 +28,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, trialNotices: await trialEndingNotices(at, orgId ?? undefined) })
   }
   const summary = orgId ? await analyzeOrganization(orgId) : await analyzeAll()
-  return NextResponse.json({ ok: true, ...summary })
+  // fila de webhooks: entrega o que venceu (nos testes o agendador está desligado; isto deixa o envio determinístico)
+  const webhooks = await processWebhookOutbox(orgId ? { organizationId: orgId } : {})
+  return NextResponse.json({ ok: true, ...summary, webhooks })
 }

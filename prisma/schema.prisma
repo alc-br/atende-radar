@@ -620,6 +620,43 @@ model PaymentEvent {
   receivedAt             DateTime @default(now())
 }
 
+// Webhook de saída da organização (P4): avisa um sistema do cliente quando alertas abrem/resolvem.
+// O segredo assina o corpo (HMAC-SHA256); só é mostrado na criação/troca, nunca devolvido pela API depois.
+model WebhookEndpoint {
+  id             String    @id @default(cuid())
+  organizationId String    @unique
+  url            String
+  enabled        Boolean   @default(false)
+  secret         String
+  events         String    @default("[\"alert.created\",\"alert.resolved\"]")
+  lastStatus     String? // ok | error
+  lastStatusCode Int?
+  lastError      String?
+  lastEvent      String?
+  lastAttemptAt  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// Fila de saída dos webhooks: o agendador entrega com até 3 tentativas. O corpo só fica guardado enquanto
+// a entrega está pendente (é apagado ao entregar ou desistir); o id é o X-AtendeRadar-Delivery.
+model WebhookDelivery {
+  id             String    @id
+  organizationId String
+  event          String
+  payload        String?
+  status         String    @default("pending") // pending | sending | sent | failed | skipped
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  lastStatusCode Int?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  deliveredAt    DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([organizationId, createdAt])
+}
+
 // Registro de auditoria (B4/B9): quem fez o quê. Só metadados — nunca texto de mensagem, telefone ou nome de cliente final.
 model AuditLog {
   id             String       @id @default(cuid())

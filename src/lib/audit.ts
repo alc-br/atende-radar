@@ -14,6 +14,7 @@ export type AuditAction =
   | 'connection.created' | 'connection.updated' | 'connection.removed'
   | 'conversation.viewed' | 'privacy.exclude' | 'privacy.erase' | 'privacy.export'
   | 'subscription.changed' | 'subscription.canceled' | 'billing.card_updated' | 'report.generated' | 'report.exported'
+  | 'webhook.created' | 'webhook.updated' | 'webhook.secret_rotated' | 'webhook.removed'
 
 export interface AuditEntryInput {
   action: AuditAction
@@ -75,4 +76,8 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'billing.card_updated': 'Trocou o cartão da assinatura',
   'report.generated': 'Gerou relatório',
   'report.exported': 'Exportou dados',
+  'webhook.created': 'Configurou o webhook',
+  'webhook.updated': 'Alterou o webhook',
+  'webhook.secret_rotated': 'Gerou novo segredo do webhook',
+  'webhook.removed': 'Removeu o webhook',
 }
