@@ -2,7 +2,8 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import type { AuthContext } from '@/lib/api-auth'
 import {
-  type BillingCycle, deriveFromProvider, friendlyPaymentError, isValidDocument, mapInvoice, onlyDigits, priceCents, UFS,
+  type BillingCycle, deriveFromProvider, effectiveStatus, friendlyPaymentError, isValidDocument, mapInvoice, onlyDigits, priceCents,
+  reactivationStartAt, UFS,
 } from './core'
 import { pagarme, pagarmeConfig, PagarmeError, type Address, type PagarmeConfig } from './pagarme'
 import { overageMessage, planOverage } from '@/lib/quotas'
@@ -95,7 +96,11 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
     await db.billingInvoice.upsert({ where: { providerInvoiceId: inv.providerInvoiceId }, create: data, update: data })
   }
   const providerStatus = String(providerSub.status ?? '')
-  const derived = deriveFromProvider({ providerStatus, invoices: invoices.map((i) => ({ status: i.status, dueAt: i.dueAt, cycleStart: i.periodStart, cycleEnd: i.periodEnd, createdAt: i.createdAt })) })
+  const derived = deriveFromProvider({
+    providerStatus,
+    invoices: invoices.map((i) => ({ status: i.status, dueAt: i.dueAt, cycleStart: i.periodStart, cycleEnd: i.periodEnd, createdAt: i.createdAt })),
+    prepaid: !!meta.reactivatedFrom, // renovação reativada: o período atual foi pago pela assinatura anterior
+  })
   const latestFailure = [...invoices].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).find((i) => i.status === 'failed')?.failureMessage ?? null
   const now = new Date()
 
@@ -301,4 +306,87 @@ export async function replaceCard(auth: AuthContext, input: { cardToken?: string
   const updated = await db.subscription.findUnique({ where: { organizationId: auth.orgId } })
   await audit(auth, { action: 'billing.card_updated', targetType: 'subscription', targetId: row.providerSubscriptionId, details: { brand: updated?.cardBrand ?? null } })
   return { ok: true, cardBrand: updated?.cardBrand ?? null, cardLast4: updated?.cardLast4 ?? null }
+}
+
+/**
+ * Reativa a renovação cancelada enquanto o período pago ainda vale (V7).
+ *
+ * O cancelamento no Pagar.me (DELETE /subscriptions/{id}) é definitivo: a API v5 não tem como "descancelar". Então a
+ * reativação cria uma assinatura NOVA que continua a anterior, sem cobrar nada agora:
+ * - mesmo cliente e mesmo cartão (card_id da carteira do cliente; o cartão continua lá depois do cancelamento);
+ * - mesmo valor, descrição e ciclo da assinatura anterior, lidos do Pagar.me e não do catálogo (preço novo do
+ *   catálogo só vale para novas contratações);
+ * - start_at = dia seguinte ao fim do período pago. Até lá o Pagar.me não gera fatura (status "future").
+ * A assinatura nova passa a ser a vigente (providerSubscriptionId) e leva metadata.reactivatedFrom, que faz a
+ * sincronização tratar o período atual como já pago (deriveFromProvider prepaid).
+ */
+export async function reactivateRenewal(auth: AuthContext): Promise<Fail | { ok: true; nextChargeAt: string; amountCents: number; cardLast4: string | null }> {
+  const cfg = pagarmeConfig()
+  const row = await db.subscription.findUnique({ where: { organizationId: auth.orgId }, include: { plan: true } })
+  if (!row?.providerSubscriptionId || !cfg || row.billingMode !== cfg.mode) return fail(409, 'no_recurring', 'Não há cobrança automática para reativar. Escolha um plano para contratar.')
+  if (!row.cancelAtPeriodEnd) return fail(409, 'not_canceled', 'A renovação automática já está ativa.')
+  if (row.pendingProviderSubscriptionId) return fail(409, 'change_pending', 'Há uma troca de plano aguardando a confirmação do pagamento. Tente de novo em alguns minutos.')
+  const now = new Date()
+  // margem de 1 h: o Pagar.me precisa de uma data de início no futuro
+  if (effectiveStatus(row, now) !== 'active' || row.currentPeriodEnd.getTime() <= now.getTime() + 3600_000) {
+    return fail(409, 'period_over', 'O período pago já terminou. Para voltar, contrate um plano em Planos.')
+  }
+  const previousId = row.providerSubscriptionId
+  const startAt = reactivationStartAt(row.currentPeriodEnd)
+
+  // trava contra clique duplo: só um pedido passa daqui (o outro já encontra cancelAtPeriodEnd = false)
+  const claimed = await db.subscription.updateMany({ where: { organizationId: auth.orgId, cancelAtPeriodEnd: true, providerSubscriptionId: previousId }, data: { cancelAtPeriodEnd: false } })
+  if (claimed.count !== 1) return fail(409, 'not_canceled', 'A renovação automática já está ativa.')
+  const undo = () => db.subscription.update({ where: { organizationId: auth.orgId }, data: { cancelAtPeriodEnd: true } })
+
+  let created: Json
+  let amountCents = 0
+  try {
+    const previous = await pagarme.getSubscription(cfg, previousId)
+    const meta = (previous.metadata ?? {}) as Record<string, string>
+    const card = (previous.card ?? null) as Json | null
+    const customerId = String(((previous.customer ?? {}) as Json).id ?? row.providerCustomerId ?? '')
+    const item = (((previous.items ?? []) as Json[])[0] ?? {}) as Json
+    amountCents = Number(((item.pricing_scheme ?? {}) as Json).price) || 0
+    const cycle: BillingCycle = (meta.cycle ?? row.billingCycle) === 'annual' ? 'annual' : 'monthly'
+    if (meta.app !== APP_TAG || meta.organizationId !== auth.orgId) {
+      await undo()
+      return fail(409, 'no_recurring', 'Não há cobrança automática para reativar. Escolha um plano para contratar.')
+    }
+    if (!card?.id || card.status !== 'active' || !customerId || amountCents <= 0) {
+      await undo()
+      return fail(409, 'card_unavailable', 'O cartão da assinatura não está mais disponível. Para continuar depois do período pago, contrate de novo em Planos.')
+    }
+    created = await pagarme.createContinuation(cfg, {
+      customerId,
+      cardId: String(card.id),
+      startAt,
+      interval: cycle === 'annual' ? 'year' : 'month',
+      priceCents: amountCents,
+      description: String(item.description ?? `AtendeRadar ${row.plan.name} (${cycle === 'annual' ? 'anual' : 'mensal'})`),
+      metadata: { app: APP_TAG, organizationId: auth.orgId, planId: meta.planId ?? row.planId, planCode: meta.planCode ?? row.plan.code, cycle, reactivatedFrom: previousId },
+    })
+  } catch (e) {
+    await undo()
+    if (e instanceof PagarmeError) {
+      console.error('[billing] reativação recusada', e.status, JSON.stringify(e.body)?.slice(0, 300))
+      return fail(502, 'provider_error', friendlyPaymentError(e.status, e.body))
+    }
+    throw e
+  }
+
+  const newId = String(created.id)
+  const updated = await db.subscription.update({ where: { organizationId: auth.orgId }, data: { providerSubscriptionId: newId, ...cardOf(created), lastSyncedAt: now } })
+  const valor = (amountCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const data = startAt.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) // start_at é uma data (meia-noite UTC)
+  await audit(auth, { action: 'subscription.reactivated', targetType: 'subscription', targetId: newId, targetLabel: row.plan.name, details: { previous: previousId, nextChargeAt: startAt.toISOString(), amountCents, mode: cfg.mode } })
+  await db.notification.create({
+    data: {
+      organizationId: auth.orgId,
+      type: 'billing',
+      title: 'Renovação automática reativada',
+      message: `O plano ${row.plan.name} volta a renovar sozinho. A próxima cobrança, de ${valor}, será em ${data}${updated.cardLast4 ? ` no cartão final ${updated.cardLast4}` : ''}. Nada foi cobrado agora.`,
+    },
+  })
+  return { ok: true, nextChargeAt: startAt.toISOString(), amountCents, cardLast4: updated.cardLast4 }
 }

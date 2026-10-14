@@ -19,6 +19,13 @@ export async function GET() {
     db.billingInvoice.findMany({ where: { organizationId: g.auth.orgId }, orderBy: { createdAt: 'desc' }, take: 24 }),
   ])
 
+  // Valor que a assinatura vigente cobra de fato: o da fatura dela (o preço do catálogo pode ter mudado depois da
+  // contratação e só vale para contratações novas). Renovação reativada ainda sem fatura: o da última fatura paga.
+  const chargeOf = sub?.providerSubscriptionId
+    ? invoices.find((i) => i.providerSubscriptionId === sub.providerSubscriptionId && i.status !== 'canceled') ??
+      invoices.find((i) => i.status === 'paid' && i.billingCycle === sub.billingCycle)
+    : undefined
+
   return NextResponse.json({
     enabled: !!cfg,
     mode: cfg?.mode ?? null,
@@ -36,6 +43,7 @@ export async function GET() {
           cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
           pending: !!sub.pendingProviderSubscriptionId,
           lastPaymentError: sub.lastPaymentError,
+          renewalAmount: chargeOf ? chargeOf.amountCents / 100 : null,
         }
       : null,
     invoices: invoices.map((i) => ({

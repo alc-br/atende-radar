@@ -53,7 +53,7 @@ async function fillHolder(page: Page) {
 }
 
 test.describe('B8 · checkout na tela (sandbox Pagar.me)', () => {
-  test('contrata com cartão, vê fatura paga, troca o cartão e cancela a renovação', async ({ page, context }) => {
+  test('contrata com cartão, vê fatura paga, troca o cartão, cancela e reativa a renovação', async ({ page, context }) => {
     test.setTimeout(180_000)
     test.skip(!(await enter(context)), 'sem chaves do Pagar.me neste ambiente')
     await openCheckout(page, 'essencial')
@@ -99,6 +99,16 @@ test.describe('B8 · checkout na tela (sandbox Pagar.me)', () => {
     await expect(page.getByTestId('subscription-status')).toHaveText('Não renova', { timeout: 30_000 })
     await expect(page.getByTestId('current-plan')).toContainText('Vale até')
     await expect(page.getByRole('button', { name: 'Trocar cartão' })).toHaveCount(0)
+
+    // V7 · reativação antes do fim do período: confirma, volta a renovar no mesmo cartão e nada é cobrado agora
+    await page.getByTestId('renewal-canceled').getByRole('button', { name: 'Reativar renovação' }).click()
+    const confirm = page.getByRole('alertdialog')
+    await expect(confirm).toContainText('final 4444')
+    await confirm.getByRole('button', { name: 'Reativar renovação' }).click()
+    await expect(page.getByTestId('subscription-status')).toHaveText('Ativa', { timeout: 30_000 })
+    await expect(page.getByTestId('renewal-canceled')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Cancelar renovação' })).toBeVisible()
+    await expect(page.getByTestId('invoices').getByText('Paga', { exact: true })).toHaveCount(1)
   })
 
   test('cartão recusado mostra o motivo e continua no checkout, sem ativar o plano', async ({ page, context }) => {

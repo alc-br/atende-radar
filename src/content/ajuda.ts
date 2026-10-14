@@ -204,6 +204,7 @@ export const ARTIGOS_AJUDA: ArtigoAjuda[] = [
       { t: 'p', x: 'Para ir a um plano menor, o uso atual precisa caber nele. Se você tem mais conexões ou atendentes do que o novo plano permite, o sistema avisa o que precisa ser removido antes.' },
       { t: 'h2', x: 'Cancelar' },
       { t: 'p', x: 'Ao cancelar, o plano **continua valendo até o fim do período já pago**. Depois disso, novos cadastros (conexões, atendentes, regras) ficam bloqueados até você contratar um plano de novo.' },
+      { t: 'p', x: 'Mudou de ideia? Até o fim do período pago, **Planos → Reativar renovação** volta a cobrança automática no mesmo cartão e pelo mesmo valor. Nada é cobrado na hora: a próxima cobrança fica para o fim do período.' },
     ],
   },
   {

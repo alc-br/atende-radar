@@ -23,6 +23,14 @@ async function plan(code: string) {
   return testDb.plan.findUniqueOrThrow({ where: { code } })
 }
 
+// leitura direta no sandbox (confere o que ficou no provedor); a chave secreta só vai no cabeçalho, nunca para a saída
+async function providerSubscription(id: string): Promise<Record<string, any>> {
+  const key = process.env.PAGARME_SECRET_KEY_TEST?.trim() ?? ''
+  const res = await fetch(`https://api.pagar.me/core/v5/subscriptions/${id}`, { headers: { Authorization: 'Basic ' + Buffer.from(`${key}:`).toString('base64') } })
+  expect(res.status, `GET subscriptions/${id}`).toBe(200)
+  return res.json()
+}
+
 test.describe('B8 · checkout Pagar.me (sandbox)', () => {
   test.describe.configure({ mode: 'serial' })
   let enabled = false
@@ -147,6 +155,108 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     const blocked = await c.post('/api/connections', { data: { name: 'X', phoneNumber: '+5511900000199' } })
     expect(blocked.status()).toBe(402)
     expect((await blocked.json()).code).toBe('subscription_inactive')
+    await c.dispose()
+  })
+
+  test('V7 · reativar a renovação depois de cancelar: assinatura de continuação no Pagar.me, sem cobrar o período já pago', async () => {
+    test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
+    const { c, orgId } = await newAdmin()
+    const gestao = await plan('gestao')
+    expect((await c.post('/api/billing/checkout', { data: { planId: gestao.id, cycle: 'monthly', cardToken: await cardToken(publicKey, APPROVED), ...billingData() } })).status()).toBe(200)
+    // sem cancelamento não há o que reativar
+    expect(await (await c.post('/api/billing/reactivate')).json()).toMatchObject({ code: 'not_canceled' })
+    expect((await c.post('/api/billing/cancel')).status()).toBe(200)
+    const canceled = await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })
+    expect(canceled.cancelAtPeriodEnd).toBe(true)
+    const previousId = canceled.providerSubscriptionId!
+    expect((await providerSubscription(previousId)).status).toBe('canceled') // cancelamento no Pagar.me é definitivo
+    const invoicesBefore = await testDb.billingInvoice.count({ where: { organizationId: orgId } })
+
+    const res = await c.post('/api/billing/reactivate')
+    expect(res.status(), await res.text()).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({ ok: true, amountCents: Math.round(gestao.monthlyPrice * 100), cardLast4: '0010' })
+    const next = new Date(body.nextChargeAt)
+    // 1ª cobrança: dia seguinte ao fim do período pago, à meia-noite UTC (nunca dentro do período já pago)
+    expect(next.getTime()).toBeGreaterThan(canceled.currentPeriodEnd.getTime())
+    expect(next.getTime() - canceled.currentPeriodEnd.getTime()).toBeLessThanOrEqual(86400_000)
+    expect(next.toISOString().endsWith('T00:00:00.000Z')).toBe(true)
+
+    const sub = await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })
+    expect(sub).toMatchObject({ status: 'active', cancelAtPeriodEnd: false, planId: gestao.id, billingCycle: 'monthly', cardLast4: '0010' })
+    expect(sub.providerSubscriptionId).toMatch(/^sub_/)
+    expect(sub.providerSubscriptionId).not.toBe(previousId)
+    expect(sub.currentPeriodEnd.getTime()).toBe(canceled.currentPeriodEnd.getTime()) // período pago não muda
+
+    // no provedor: continuação futura, mesmo cartão e valor, nenhuma fatura agora
+    const cont = await providerSubscription(sub.providerSubscriptionId!)
+    expect(cont.status).toBe('future')
+    expect(cont.metadata).toMatchObject({ organizationId: orgId, reactivatedFrom: previousId, planCode: 'gestao', cycle: 'monthly' })
+    expect(cont.items[0].pricing_scheme.price).toBe(Math.round(gestao.monthlyPrice * 100))
+    expect(new Date(cont.start_at).getTime()).toBe(next.getTime())
+
+    // a tela segue ativa e com o valor da assinatura; a sincronização com o provedor não derruba a situação
+    await testDb.subscription.update({ where: { organizationId: orgId }, data: { lastSyncedAt: null } })
+    const summary = await config(c)
+    expect(summary.subscription).toMatchObject({ status: 'active', cancelAtPeriodEnd: false, recurring: true, renewalAmount: gestao.monthlyPrice })
+    expect(await testDb.billingInvoice.count({ where: { organizationId: orgId } })).toBe(invoicesBefore) // nada cobrado agora
+    expect((await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })).status).toBe('active')
+
+    const audit = await testDb.auditLog.findFirst({ where: { organizationId: orgId, action: 'subscription.reactivated' } })
+    expect(audit?.targetId).toBe(sub.providerSubscriptionId)
+    expect(JSON.parse(audit?.details ?? '{}')).toMatchObject({ previous: previousId, amountCents: Math.round(gestao.monthlyPrice * 100) })
+    const note = await testDb.notification.findFirst({ where: { organizationId: orgId, title: 'Renovação automática reativada' } })
+    expect(note?.message).toContain('Nada foi cobrado agora')
+    expect(note?.message).toContain('0010')
+
+    // de novo: já está ativa; e dá para cancelar outra vez (cancela a continuação no provedor)
+    expect(await (await c.post('/api/billing/reactivate')).json()).toMatchObject({ code: 'not_canceled' })
+    expect((await c.post('/api/billing/cancel')).status()).toBe(200)
+    expect((await providerSubscription(sub.providerSubscriptionId!)).status).toBe('canceled')
+    expect((await config(c)).subscription).toMatchObject({ status: 'active', cancelAtPeriodEnd: true })
+
+    // reativar uma segunda vez também funciona (continuação da continuação, mesmo valor)
+    const again = await c.post('/api/billing/reactivate')
+    expect(again.status(), await again.text()).toBe(200)
+    const third = (await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })).providerSubscriptionId!
+    expect((await providerSubscription(third)).items[0].pricing_scheme.price).toBe(Math.round(gestao.monthlyPrice * 100))
+
+    // período pago acabou: não reativa (contrata de novo)
+    expect((await c.post('/api/billing/cancel')).status()).toBe(200)
+    await testDb.subscription.update({ where: { organizationId: orgId }, data: { currentPeriodEnd: new Date(Date.now() - 60_000) } })
+    const over = await c.post('/api/billing/reactivate')
+    expect(over.status()).toBe(409)
+    expect((await over.json()).code).toBe('period_over')
+    await c.dispose()
+  })
+
+  test('V7 · reativar: preço novo do catálogo não muda o valor de quem já assina', async () => {
+    test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
+    const { c, orgId } = await newAdmin()
+    const essencial = await plan('essencial')
+    expect((await c.post('/api/billing/checkout', { data: { planId: essencial.id, cycle: 'monthly', cardToken: await cardToken(publicKey, APPROVED), ...billingData() } })).status()).toBe(200)
+    expect((await c.post('/api/billing/cancel')).status()).toBe(200)
+    try {
+      // o operador aumenta o preço do plano para novas contratações
+      await testDb.plan.update({ where: { id: essencial.id }, data: { monthlyPrice: essencial.monthlyPrice + 100 } })
+      const res = await c.post('/api/billing/reactivate')
+      expect(res.status(), await res.text()).toBe(200)
+      expect((await res.json()).amountCents).toBe(Math.round(essencial.monthlyPrice * 100))
+      expect((await config(c)).subscription.renewalAmount).toBe(essencial.monthlyPrice)
+    } finally {
+      await testDb.plan.update({ where: { id: essencial.id }, data: { monthlyPrice: essencial.monthlyPrice } })
+    }
+    const sub = await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })
+    expect((await providerSubscription(sub.providerSubscriptionId!)).items[0].pricing_scheme.price).toBe(Math.round(essencial.monthlyPrice * 100))
+    await c.dispose()
+  })
+
+  test('V7 · reativar sem cobrança automática (teste grátis): 409', async () => {
+    test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
+    const { c } = await newAdmin()
+    const res = await c.post('/api/billing/reactivate')
+    expect(res.status()).toBe(409)
+    expect((await res.json()).code).toBe('no_recurring')
     await c.dispose()
   })
 
