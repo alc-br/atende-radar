@@ -10,6 +10,8 @@ import { EMPTY_PROGRESS, applyUpdate, parseProgress, type ProgressUpdate, type S
 interface ProgressState {
   progress: SystemTourProgress
   loaded: boolean
+  /** O servidor gera o áudio da narração (senão a voz é a do navegador). */
+  serverAudio: boolean
   load: () => Promise<void>
   save: (update: ProgressUpdate) => Promise<boolean>
 }
@@ -17,11 +19,12 @@ interface ProgressState {
 export const useSystemTourProgress = create<ProgressState>((set) => ({
   progress: EMPTY_PROGRESS,
   loaded: false,
+  serverAudio: false,
   load: async () => {
     try {
       const r = await fetch('/api/tours/system', { cache: 'no-store' })
-      const d = r.ok ? ((await r.json()) as { progress?: unknown }) : null
-      set({ progress: parseProgress(d?.progress ? JSON.stringify(d.progress) : null), loaded: true })
+      const d = r.ok ? ((await r.json()) as { progress?: unknown; audio?: unknown }) : null
+      set({ progress: parseProgress(d?.progress ? JSON.stringify(d.progress) : null), serverAudio: d?.audio === true, loaded: true })
     } catch {
       set({ loaded: true })
     }

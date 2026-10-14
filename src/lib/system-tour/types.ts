@@ -29,6 +29,12 @@ export interface SystemTourStep {
   action?: string
   /** Passo só aparece para quem tem esta permissão. */
   requires?: Permission
+  /**
+   * O que a voz fala neste passo: explica o item (o que é, para que serve, por que importa), sem repetir a tela.
+   * Texto corrido para TTS: sem markdown, emojis ou siglas difíceis; até NARRATION_MAX caracteres.
+   * Sem narração, a voz lê o texto da tela (stepSpeechText).
+   */
+  narration?: string
 }
 
 export interface SystemTourChapter {

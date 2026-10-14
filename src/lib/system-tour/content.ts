@@ -9,9 +9,11 @@
 // - view         → o próprio tour abre essa tela antes de mostrar o passo.
 // - requires     → o passo só aparece para quem tem a permissão (ex.: criar equipe).
 // Se o item destacado não existir na tela, o passo vira explicação sem destaque (nunca trava).
+// - narration    → o que a voz fala (explica o item, não repete a tela): fica em narration.ts, chave "capítulo/passo".
 import type { SystemTourChapter } from './types'
+import { NARRATIONS } from './narration'
 
-export const SYSTEM_TOUR_CHAPTERS: SystemTourChapter[] = [
+const CHAPTERS: SystemTourChapter[] = [
   // ───────────────────────────── 1. Navegação ─────────────────────────────
   {
     id: 'primeiros-passos',
@@ -29,7 +31,7 @@ export const SYSTEM_TOUR_CHAPTERS: SystemTourChapter[] = [
           { list: [
             'Setas ← e → do teclado: voltar e avançar.',
             'Esc: fecha o manual. O seu progresso fica salvo e você continua de onde parou.',
-            'Ouvir: lê o passo em voz alta, com a voz do seu navegador.',
+            'Ouvir: explica o passo em voz alta.',
           ] },
         ],
       },
@@ -182,7 +184,7 @@ export const SYSTEM_TOUR_CHAPTERS: SystemTourChapter[] = [
             'Reconectar e Gerar QR: quando a conexão cai.',
             'Pausar e Retomar: interrompe a coleta sem desconectar.',
             'Renomear e Diagnóstico: o diagnóstico mostra os detalhes técnicos da conexão.',
-            'Desconectar e Excluir: atenção, **Excluir não pede confirmação**.',
+            'Desconectar e Excluir: **Excluir pede confirmação**; a conexão para de receber mensagens e o histórico fica.',
           ] },
           'As conversas começam a aparecer nas telas assim que as mensagens chegam.',
         ],
@@ -369,7 +371,7 @@ export const SYSTEM_TOUR_CHAPTERS: SystemTourChapter[] = [
         requires: 'alert_rules.view',
         body: [
           'Cada linha mostra o nome, o tipo, a **severidade**, o **cooldown** (o intervalo mínimo entre dois alertas iguais da mesma conversa) e os canais.',
-          'O interruptor **Ativa** liga e desliga a regra. Hoje os alertas chegam dentro do sistema; o envio automático por e-mail ainda não está ativo.',
+          'O interruptor **Ativa** liga e desliga a regra. Os alertas aparecem no sino e nesta tela; regras com o canal **e-mail** também avisam por e-mail quem vê o alerta (cada pessoa pode desligar em Meu perfil).',
         ],
       },
       {
@@ -807,11 +809,11 @@ export const SYSTEM_TOUR_CHAPTERS: SystemTourChapter[] = [
       {
         id: 'limites',
         kind: 'info',
-        title: 'O que ainda não está ativo',
+        title: 'Análise e notificações',
         view: 'settings',
         body: [
           'A aba **Análise** guarda preferências para quando a análise por inteligência artificial for ligada; hoje ela não muda o resultado.',
-          'Em **Notificações**, o envio automático de alertas por e-mail ainda não está ativo: os alertas aparecem dentro do sistema.',
+          'Em **Notificações** ficam o resumo e o horário de silêncio dos alertas por e-mail. A lista de **Destinatários** fica guardada para uso futuro: hoje o e-mail de alerta vai para os membros que veem o alerta.',
         ],
       },
       {
@@ -1033,3 +1035,12 @@ export const SYSTEM_TOUR_CHAPTERS: SystemTourChapter[] = [
     ],
   },
 ]
+
+/** Capítulos com a narração falada de cada passo (narration.ts). */
+export const SYSTEM_TOUR_CHAPTERS: SystemTourChapter[] = CHAPTERS.map((c) => ({
+  ...c,
+  steps: c.steps.map((s) => {
+    const narration = NARRATIONS[`${c.id}/${s.id}`]
+    return narration ? { ...s, narration } : s
+  }),
+}))

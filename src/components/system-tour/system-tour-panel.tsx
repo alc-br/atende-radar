@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Check, ChevronLeft, ChevronRight, ClipboardCheck, MousePointerClick, Pause, Play, SkipForward, Square, Volume2, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, ClipboardCheck, Loader2, MousePointerClick, Pause, Play, SkipForward, Square, Volume2, X } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
-import { allDone, chaptersFor, stepSpeechText } from '@/lib/system-tour/engine'
+import { allDone, chaptersFor, stepSpokenText } from '@/lib/system-tour/engine'
 import { onTourSignal } from '@/lib/system-tour/signals'
 import type { SystemTourChapter } from '@/lib/system-tour/types'
 import { useSystemTourProgress } from './progress-store'
@@ -83,7 +83,8 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   const setMobileNavOpen = useAppStore((s) => s.setMobileNavOpen)
   const markTourSeen = useAppStore((s) => s.markTourSeen)
   const save = useSystemTourProgress((s) => s.save)
-  const speech = useSpeech()
+  const serverAudio = useSystemTourProgress((s) => s.serverAudio)
+  const speech = useSpeech({ serverAudio })
 
   const total = chapter.steps.length
   const idx = Math.min(Math.max(stepIndex, 0), total - 1)
@@ -159,10 +160,14 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     return () => window.clearTimeout(id)
   }, [mobileNavOpen, step.target, setMobileNavOpen])
 
-  const speechText = stepSpeechText(step)
+  // A voz explica o passo (narração); o áudio vem do servidor (gravado uma vez) ou, sem ele, da voz do navegador.
+  const speechItem = useMemo(
+    () => ({ text: stepSpokenText(step), audioUrl: `/api/tours/system/audio?chapter=${encodeURIComponent(chapter.id)}&step=${idx}` }),
+    [chapter.id, idx, step],
+  )
   useEffect(() => {
     speech.stop()
-    if (speech.supported && speech.prefs.auto) speech.speak(speechText)
+    if (speech.supported && speech.prefs.auto) speech.speak(speechItem)
   }, [chapter.id, idx, speech.supported, speech.prefs.auto]) // lê de novo só quando o passo muda (ou ao ligar a leitura automática)
 
   // ── acompanha o item destacado (aparece depois de carregar, muda com rolagem, some ao trocar de tela) ──
@@ -341,8 +346,8 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
         </div>
 
         {speech.supported ? (
-          <div className="tour-sistema__voz" role="group" aria-label="Leitura em voz alta">
-            {speech.state === 'speaking' ? (
+          <div className="tour-sistema__voz" role="group" aria-label="Leitura em voz alta" data-voice-source={speech.source ?? undefined}>
+            {speech.state === 'speaking' || speech.state === 'loading' ? (
               <button type="button" className="btn btn--sm" onClick={speech.pause}>
                 <Pause className="ic" aria-hidden="true" />Pausar
               </button>
@@ -351,13 +356,18 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
                 <Play className="ic" aria-hidden="true" />Continuar
               </button>
             ) : (
-              <button type="button" className="btn btn--sm" onClick={() => speech.speak(speechText)}>
+              <button type="button" className="btn btn--sm" onClick={() => speech.speak(speechItem)}>
                 <Volume2 className="ic" aria-hidden="true" />Ouvir
               </button>
             )}
             <button type="button" className="btn btn--sm" onClick={speech.stop} disabled={speech.state === 'idle'}>
               <Square className="ic" aria-hidden="true" />Parar
             </button>
+            {speech.state === 'loading' && (
+              <span className="tour-sistema__opcao" role="status">
+                <Loader2 className="ic animate-spin" aria-hidden="true" />Carregando o áudio...
+              </span>
+            )}
             <label className="tour-sistema__opcao">
               <input type="checkbox" checked={speech.prefs.auto} onChange={(e) => speech.setPrefs({ auto: e.target.checked })} />
               Ler automaticamente cada passo
@@ -366,11 +376,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
               Velocidade
               <select
                 value={String(speech.prefs.rate)}
-                onChange={(e) => {
-                  const rate = Number(e.target.value)
-                  speech.setPrefs({ rate })
-                  if (speech.state !== 'idle') speech.speak(speechText, rate)
-                }}
+                onChange={(e) => speech.changeRate(Number(e.target.value), speechItem)}
               >
                 {RATES.map((r) => (
                   <option key={r} value={String(r)}>

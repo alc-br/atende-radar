@@ -65,3 +65,12 @@ export function stepSpeechText(step: SystemTourStep): string {
     .map((p) => (/[.!?:]$/.test(p) ? p : `${p}.`))
     .join(' ')
 }
+
+/** Tamanho máximo da narração de um passo (fala de ~30 a 40 segundos). */
+export const NARRATION_MAX = 600
+
+/** O que a voz fala no passo: a narração explicativa; sem ela, o texto da tela. */
+export function stepSpokenText(step: SystemTourStep): string {
+  const n = step.narration?.trim()
+  return n ? n : stepSpeechText(step)
+}

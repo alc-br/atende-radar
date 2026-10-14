@@ -70,3 +70,6 @@ yarn.lock
 prisma/test.db*
 test-results/
 playwright-report/
+.tmp/
+# cache do áudio da narração do tour (TOUR_AUDIO_DIR em dev)
+.tour-audio/

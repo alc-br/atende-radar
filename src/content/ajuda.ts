@@ -47,7 +47,7 @@ export const ARTIGOS_AJUDA: ArtigoAjuda[] = [
       { t: 'h2', x: 'Progresso salvo' },
       { t: 'p', x: 'O progresso de cada capítulo fica guardado na sua conta. Na lista você vê o que já concluiu e pode **Continuar de onde parei** ou **Recomeçar** qualquer capítulo, inclusive em outro computador.' },
       { t: 'h2', x: 'Leitura em voz alta' },
-      { t: 'p', x: 'O botão **Ouvir** lê o passo com a voz do seu navegador, em português, sem custo e sem enviar nada para fora. Dá para pausar, parar, ligar a leitura automática de cada passo e escolher a velocidade (de 0,8× a 1,5×). Se o seu navegador não tiver leitura em voz alta, os botões não aparecem.' },
+      { t: 'p', x: 'O botão **Ouvir** explica o passo em voz alta, em português e sem custo: a narração vai além do texto da tela e conta para que serve cada item. A voz é gerada pelo próprio AtendeRadar (nada é enviado a serviços de fora); se ela não estiver disponível, o sistema usa a voz do seu navegador. Dá para pausar, parar, ligar a leitura automática de cada passo e escolher a velocidade (de 0,8× a 1,5×). Sem nenhuma das duas vozes, os botões não aparecem.' },
     ],
   },
   {

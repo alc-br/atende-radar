@@ -70,6 +70,7 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['PATCH', '/api/tours'],
   ['GET', '/api/tours/system'],
   ['PATCH', '/api/tours/system'],
+  ['GET', '/api/tours/system/audio'],
   ['GET', '/api/admin'],
   ['GET', '/api/admin/analytics'],
   ['POST', '/api/events'],

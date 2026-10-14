@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { SYSTEM_TOUR_CHAPTERS } from '../../src/lib/system-tour/content'
-import { allDone, chapterStatus, chaptersFor, resumeChapter, stepSpeechText, stepsFor } from '../../src/lib/system-tour/engine'
+import { allDone, chapterStatus, chaptersFor, NARRATION_MAX, resumeChapter, stepSpeechText, stepSpokenText, stepsFor } from '../../src/lib/system-tour/engine'
+import { NARRATIONS } from '../../src/lib/system-tour/narration'
+import { normalizeTtsText, tourAudioKey, ttsConfig } from '../../src/lib/system-tour/tts'
 import { applyUpdate, EMPTY_PROGRESS, isChapterId, parseProgress, parseUpdate } from '../../src/lib/system-tour/progress'
 import { TOUR_SIGNALS } from '../../src/lib/system-tour/signals'
 import { can, canOpenView, ROLES } from '../../src/lib/permissions'
@@ -196,4 +198,64 @@ test('texto para leitura em voz alta: sem marcas de negrito, com listas e a inst
   })
   expect(text).toBe('Título. Um destaque aqui. item um. item dois. Clique em Criar.')
   expect(text).not.toContain('*')
+})
+
+test.describe('narração falada', () => {
+  test('todo passo tem narração explicativa, sem marcas de tela e dentro do limite', () => {
+    for (const c of SYSTEM_TOUR_CHAPTERS) {
+      for (const s of c.steps) {
+        const n = s.narration ?? ''
+        const where = `${c.id}/${s.id}`
+        expect(n.trim().length, `${where}: sem narração`).toBeGreaterThan(60)
+        expect(n.length, `${where}: narração com ${n.length} caracteres`).toBeLessThanOrEqual(NARRATION_MAX)
+        expect(n, `${where}: markdown`).not.toMatch(/\*\*|__|`|#|\[|\]|→|←/)
+        expect(n, `${where}: emoji`).not.toMatch(/\p{Extended_Pictographic}/u)
+        expect(n, `${where}: sigla que a voz leria mal`).not.toMatch(/\b(SLA|CSV|XLSX|JSON|DPO|LGPD|KPI|QR Code)\b/)
+        expect(n.split(/[.!?](\s|$)/).filter((x) => x && x.trim()).length, `${where}: 2 a 5 frases ou mais curtas`).toBeGreaterThanOrEqual(2)
+        // explica, não lê a tela: não pode ser só o texto da tela
+        expect(normalizeTtsText(n)).not.toBe(normalizeTtsText(stepSpeechText(s)))
+        expect(stepSpokenText(s)).toBe(n.trim())
+      }
+    }
+  })
+
+  test('toda narração pertence a um passo que existe', () => {
+    const keys = new Set(SYSTEM_TOUR_CHAPTERS.flatMap((c) => c.steps.map((s) => `${c.id}/${s.id}`)))
+    for (const k of Object.keys(NARRATIONS)) expect(keys.has(k), `narração órfã: ${k}`).toBe(true)
+  })
+
+  test('sem narração, a voz lê o texto da tela', () => {
+    const step = { id: 'x', kind: 'info' as const, title: 'Título', body: ['Texto **forte**'] }
+    expect(stepSpokenText(step)).toBe('Título. Texto forte.')
+    expect(stepSpokenText({ ...step, narration: '   ' })).toBe('Título. Texto forte.')
+    expect(stepSpokenText({ ...step, narration: ' Fala própria. ' })).toBe('Fala própria.')
+  })
+})
+
+test.describe('cache do áudio da narração', () => {
+  test('chave: sha256 em hexadecimal, estável, muda com voz, formato e texto', () => {
+    const k = tourAudioKey('pt_BR-faber-medium.onnx', 'Olá, mundo.', 'mp3')
+    expect(k).toMatch(/^[0-9a-f]{64}$/)
+    expect(tourAudioKey('pt_BR-faber-medium.onnx', 'Olá, mundo.', 'mp3')).toBe(k)
+    expect(tourAudioKey('pt_BR-faber-medium.onnx', '  Olá,\n  mundo. ', 'mp3'), 'espaços não mudam a fala').toBe(k)
+    expect(tourAudioKey('pt_BR-edresson-low.onnx', 'Olá, mundo.', 'mp3')).not.toBe(k)
+    expect(tourAudioKey('pt_BR-faber-medium.onnx', 'Olá, mundo!', 'mp3')).not.toBe(k)
+    expect(tourAudioKey('pt_BR-faber-medium.onnx', 'Olá, mundo.', 'wav')).not.toBe(k)
+  })
+
+  test('texto para o Piper: uma linha só', () => {
+    expect(normalizeTtsText(' a\n\nb\t c ')).toBe('a b c')
+  })
+
+  test('sem Piper configurado (ou com a voz ausente), o áudio fica indisponível', () => {
+    expect(ttsConfig({})).toBeNull()
+    expect(ttsConfig({ PIPER_BIN: 'piper' })).toBeNull()
+    expect(ttsConfig({ PIPER_BIN: 'piper', PIPER_VOICE: join(__dirname, 'nao-existe.onnx') })).toBeNull()
+    const voice = join(__dirname, 'system-tour.unit.spec.ts') // qualquer arquivo que exista
+    const cfg = ttsConfig({ PIPER_BIN: 'node', PIPER_ARGS: '["a b.mjs", "--x"]', PIPER_VOICE: voice, TOUR_AUDIO_DIR: 'cache-x' })!
+    expect(cfg.args).toEqual(['a b.mjs', '--x'])
+    expect(cfg.voiceName).toBe('system-tour.unit.spec.ts')
+    expect(cfg.dir).toBe(join(process.cwd(), 'cache-x'))
+    expect(ttsConfig({ PIPER_BIN: 'node', PIPER_ARGS: '--a --b', PIPER_VOICE: voice })!.args).toEqual(['--a', '--b'])
+  })
 })

@@ -4,6 +4,7 @@ import { guard } from '@/lib/api-auth'
 import { readJson } from '@/lib/json-body'
 import { track } from '@/lib/product-events'
 import { applyUpdate, parseProgress, parseUpdate } from '@/lib/system-tour/progress'
+import { ttsAvailable } from '@/lib/system-tour/tts'
 
 // Tour pelo sistema (manual interativo): progresso por capítulo de cada membro, para continuar depois ou em outro aparelho.
 
@@ -13,7 +14,8 @@ export async function GET() {
 
   const member = await db.organizationMember.findUnique({ where: { id: g.auth.memberId }, select: { systemTourJson: true } })
   if (!member) return NextResponse.json({ error: 'Membro não encontrado' }, { status: 404 })
-  return NextResponse.json({ progress: parseProgress(member.systemTourJson) })
+  // audio: o servidor gera a narração (Piper); sem isso, o painel usa direto a voz do navegador
+  return NextResponse.json({ progress: parseProgress(member.systemTourJson), audio: ttsAvailable() })
 }
 
 export async function PATCH(request: Request) {

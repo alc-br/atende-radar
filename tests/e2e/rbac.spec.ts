@@ -124,6 +124,7 @@ const MATRIX: Row[] = [
   ['PATCH', '/api/profile/notifications', ALL],
   ['GET', '/api/tours/system', ALL],
   ['PATCH', '/api/tours/system', ALL],
+  ['GET', '/api/tours/system/audio', ALL], // sem capítulo/passo: 404 (nunca 401/403)
   // por último: "sair de todos os aparelhos" troca a versão da sessão (a de quem pediu é regravada e continua valendo)
   ['DELETE', '/api/profile/sessions', ALL],
 ]
