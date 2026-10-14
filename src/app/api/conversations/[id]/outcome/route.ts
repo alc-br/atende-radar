@@ -40,10 +40,22 @@ export async function POST(
 
     const now = new Date()
 
+    // B6: o resultado dado por uma pessoa fica registrado como correção: a reanálise nunca o desfaz (nem venda/perda
+    // automática, nem abandono) e mensagem nova depois dele abre outra conversa em vez de reabrir esta.
+    await db.classificationFeedback.create({
+      data: {
+        organizationId: conversation.organizationId, targetId: id, targetType: 'outcome',
+        previousValue: conversation.operationalStatus, correctedValue: outcome, justification: typeof reason === 'string' ? reason.slice(0, 500) : '',
+      },
+    })
+    const tags = (() => { try { return JSON.parse(conversation.tags || '[]') as string[] } catch { return [] } })()
+
     // Update conversation status
     const updated = await db.conversation.update({
       where: { id },
       data: {
+        tags: JSON.stringify(tags.filter((t) => t !== 'abandono')), // decisão humana, não mais "perda por abandono"
+        waitingSince: null,
         operationalStatus: outcome,
         closedAt: now,
         updatedAt: now,
@@ -70,6 +82,12 @@ export async function POST(
         data: updateData,
       })
     }
+
+    // Fila de Recuperação acompanha a decisão: venda → recuperado; perda → perdido
+    await db.recoveryItem.updateMany({
+      where: { conversationId: id, organizationId: conversation.organizationId, status: { notIn: ['recovered', 'lost'] } },
+      data: { status: outcome === 'won' ? 'recovered' : 'lost', outcome: typeof reason === 'string' && reason ? reason.slice(0, 500) : 'Resultado marcado na conversa', completedAt: now },
+    })
 
     return NextResponse.json({
       success: true,

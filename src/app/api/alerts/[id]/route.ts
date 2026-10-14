@@ -25,6 +25,7 @@ export async function PUT(
     const data: Record<string, unknown> = {}
     if (assignedTo !== undefined) data.assignedTo = assignedTo
     if (status !== undefined) data.status = status
+    if (status !== undefined) data.resolvedBy = status === 'resolved' ? 'user' : null // B6: quem resolveu
 
     const updated = await db.alert.update({ where: { id }, data })
     if (existing.status !== 'resolved' && updated.status === 'resolved') await enqueueAlertEvent('alert.resolved', updated)

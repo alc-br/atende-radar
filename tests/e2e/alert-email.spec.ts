@@ -88,16 +88,18 @@ test.describe('Alertas por e-mail', () => {
   test('horário de silêncio segura alerta não crítico; crítico passa; o retido sai quando o silêncio acaba', async () => {
     const c = await company()
     await testDb.alertRule.updateMany({ where: { organizationId: c.orgId, name: RULE }, data: { severity: 'high' } })
-    await testDb.alertRule.create({
-      data: { organizationId: c.orgId, name: 'Sem resposta (crítico)', type: 'no_response', severity: 'critical', limitMinutes: 10, notificationChannels: '["in_app","email"]' },
-    })
+    // B6: regras da mesma causa viram UM alerta na conversa; o crítico vem de outra causa (promessa vencida, outra conversa)
+    await testDb.alertRule.updateMany({ where: { organizationId: c.orgId, type: 'promise_overdue' }, data: { severity: 'critical', notificationChannels: '["in_app","email"]' } })
     await c.settings({ silenceStart: spTime(-60), silenceEnd: spTime(60) }) // agora está no meio do silêncio
 
     await c.send(newChat(), NEUTRO, { minutes: 40 })
+    const promise = newChat()
+    await c.send(promise, 'Vocês fazem clareamento?', { minutes: 240 })
+    await c.send(promise, 'Fazemos sim! Já te retorno em 1 hora com os valores.', { fromMe: true, minutes: 200 })
     const r = await c.tick({ onlyThisCompany: true })
     expect(r.alertEmails).toMatchObject({ sent: 1, held: 1 })
     let mails = await alertMails(c.email)
-    expect(mails.map((m) => m.subject)).toEqual([expect.stringMatching(/^Alerta: Sem resposta \(crítico\) \(gravidade crítica\) · /)])
+    expect(mails.map((m) => m.subject)).toEqual([expect.stringMatching(/^Alerta: Promessa vencida \(gravidade crítica\) · /)])
 
     await c.settings({ silenceStart: '00:00', silenceEnd: '00:00' })
     await c.tick({ onlyThisCompany: true })

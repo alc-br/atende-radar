@@ -14,6 +14,8 @@ import { maskSensitive } from '../mask-sensitive'
 import { enqueueAlertEvent } from '../webhooks'
 import { queueAlertEmails } from '../alert-email'
 import { milestone } from '../product-events'
+import { detectOutcome } from './outcome'
+import { alertGroupKey, groupHeadline, severityRank } from './alert-groups'
 import { businessMinutesBetween, outsideRuleFrom, scheduleFrom, type HoursSettings } from './business-hours'
 
 // Só conversas que vieram do WhatsApp de verdade (têm mensagem com externalId) entram no motor.
@@ -40,6 +42,9 @@ export interface AnalysisSummary {
   alertsResolved: number
   paused?: PauseReason // T11: teste vencido/assinatura encerrada, nada analisado
   overQuota?: number // T11: conversas do mês acima do limite do plano, não analisadas
+  outcomesDetected?: number // B6: venda/perda decidida pelas mensagens
+  alertsRepeated?: number // B6: alerta reaberto (mesma conversa e causa), contador +1
+  alertsEscalated?: number // B6: alerta aberto que ficou mais grave
 }
 
 const parseJson = <T,>(s: string | null | undefined, fallback: T): T => {
@@ -141,7 +146,14 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     db.conversationClassification.findMany({ where: { conversationId: { in: convIds } } }),
     db.openQuestion.findMany({ where: { conversationId: { in: convIds } } }),
   ])
-  const openAlertByKey = new Map(openAlerts.map((a) => [`${a.ruleName}|${a.conversationId ?? ''}`, a]))
+  // B6: alertas abertos por grupo (causa + conversa). Alerta antigo (sem groupKey) entra pelo grupo da sua regra.
+  const openAlertsByGroup = new Map<string, typeof openAlerts>()
+  for (const a of openAlerts) {
+    if (!a.conversationId) continue
+    const r = rules.find((x) => x.name === a.ruleName)
+    const key = a.groupKey ?? (r ? alertGroupKey(r, a.conversationId) : null)
+    if (key) openAlertsByGroup.set(key, [...(openAlertsByGroup.get(key) ?? []), a])
+  }
   const activeAgentIds = new Set(agents.map((a) => a.id))
   const touchedIdentities = new Set<string>()
 
@@ -164,10 +176,16 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     // Se o texto já foi apagado pela retenção, mantém a classificação que existia (não reclassifica em branco).
     const hasText = analysisMsgs.some((m) => m.direction === 'inbound' && m.text)
     const cls = hasText ? classifyMessages(analysisMsgs) : { ...classifyMessages([]), intent: conv.primaryIntent, stage: conv.inferredStage, urgency: conv.urgency as 'low' | 'normal' | 'high' | 'critical', sentiment: conv.sentiment as 'neutral' | 'positive' | 'frustrated' | 'anxious' | 'confused', confidence: conv.confidence }
-    const intent = fb.has('intent') || !hasText ? conv.primaryIntent : cls.intent
-    const sentiment = fb.has('sentiment') || !hasText ? conv.sentiment : cls.sentiment
-    const urgency = fb.has('urgency') || !hasText ? conv.urgency : cls.urgency
-    const stage = fb.has('stage') || !hasText ? conv.inferredStage : cls.stage
+    // Correção humana vence sempre: pela correção registrada (valor já gravado na conversa) ou pela classificação
+    // marcada como corrigida (caminho antigo "classification:<id>", que não mexia na conversa).
+    const correctedLabel = new Map(classifications.filter((c) => c.conversationId === conv.id && c.reviewedStatus === 'corrected').map((c) => [c.classificationType, c.label]))
+    const pick = <T extends string | null>(type: string, current: T, auto: T): T =>
+      fb.has(type) ? current : correctedLabel.has(type) ? (correctedLabel.get(type) as T) : !hasText ? current : auto
+    const intent = pick('intent', conv.primaryIntent, cls.intent)
+    const sentiment = pick('sentiment', conv.sentiment, cls.sentiment)
+    const urgency = pick('urgency', conv.urgency, cls.urgency)
+    const stage = pick('stage', conv.inferredStage, cls.stage)
+    const humanIntent = fb.has('intent') || correctedLabel.has('intent')
 
     for (const [type, label] of [['intent', intent], ['sentiment', sentiment], ['urgency', urgency], ['stage', stage]] as const) {
       if (!label) continue
@@ -244,6 +262,54 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     let opp = opportunities.find((o) => o.conversationId === conv.id)
     let oppId = opp?.id
 
+    // --- correção humana da intenção (B6): "não é venda" tira a oportunidade ainda em aberto dos indicadores ---
+    // (valor em risco, oportunidades, fila). Venda/perda já decidida fica. Se a pessoa corrigir de volta para uma
+    // intenção de venda, a oportunidade é criada de novo mais abaixo.
+    if (humanIntent && !est && opp && opp.status === 'active') {
+      await db.recoveryItem.updateMany({ where: { opportunityId: opp.id }, data: { opportunityId: null } })
+      await db.revenueOpportunity.delete({ where: { id: opp.id } })
+      opportunities.splice(opportunities.indexOf(opp), 1)
+      opp = opportunities.find((o) => o.conversationId === conv.id)
+      oppId = opp?.id
+    }
+
+    // --- resultado automático (B6): venda fechada ou perda declarada pelo cliente, com regras conservadoras ---
+    // Só em conversa aberta, com oportunidade de venda ainda em aberto e sem resultado dado por uma pessoa
+    // (a correção humana prevalece sempre; o resultado manual fecha a conversa e o motor não mexe mais).
+    const humanOutcome = fb.has('outcome')
+    const oppUndecided = !opp || opp.status === 'active'
+    if (!closed && !humanOutcome && oppUndecided && (est || opp) && hasText) {
+      const detected = detectOutcome(analysisMsgs)
+      if (detected) {
+        const status = detected.outcome
+        if (!opp && est) {
+          opp = await db.revenueOpportunity.create({
+            data: {
+              conversationId: conv.id, status, baseTicket: est.baseTicket, ticketSource, probability: est.probability,
+              probabilitySource: 'org_setting', intentFactor: est.intentFactor, expectedValue: est.expectedValue, rangeLow: est.rangeLow, rangeHigh: est.rangeHigh, confidence: cls.confidence,
+            },
+          })
+          oppId = opp.id
+          opportunities.push(opp)
+        }
+        await db.revenueOpportunity.updateMany({ where: { conversationId: conv.id, status: 'active' }, data: { status } })
+        for (const o of opportunities) if (o.conversationId === conv.id && o.status === 'active') o.status = status
+        await db.conversation.update({ where: { id: conv.id }, data: { closedAt: now, operationalStatus: status, waitingSince: null, tags: withTag(conv.tags, status === 'won' ? 'venda-detectada' : 'perda-declarada') } })
+        // fila de Recuperação: venda fecha como recuperada; perda declarada fecha como perdida (não cria item novo)
+        const openItems = recoveries.filter((r) => r.conversationId === conv.id && !['recovered', 'lost'].includes(r.status))
+        if (openItems.length) {
+          await db.recoveryItem.updateMany({
+            where: { id: { in: openItems.map((r) => r.id) } },
+            data: { status: status === 'won' ? 'recovered' : 'lost', outcome: `${detected.reason} (automático)`, completedAt: now },
+          })
+          for (const r of openItems) r.status = status === 'won' ? 'recovered' : 'lost'
+        }
+        summary.outcomesDetected = (summary.outcomesDetected ?? 0) + 1
+        conv.closedAt = now
+        closed = true
+      }
+    }
+
     // --- encerramento automático (P2) ---
     if (!closed) {
       const lastMsgAt = msgs.length ? msgs[msgs.length - 1].occurredAt : conv.openedAt
@@ -253,7 +319,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
         await db.conversation.update({ where: { id: conv.id }, data: { closedAt: now, operationalStatus: 'closed', waitingSince: null } })
         conv.closedAt = now
         closed = true
-      } else if ((est || opp) && customerSilentMinutes >= abandonHours * 60) {
+      } else if ((est || opp) && oppUndecided && !humanOutcome && customerSilentMinutes >= abandonHours * 60) {
         // a empresa respondeu, o cliente com oportunidade sumiu por mais que "Tempo de abandono": perdido por abandono
         if (est && !opp) {
           // registra a oportunidade perdida (valor que escapou), mesmo que o motor nunca a tenha visto ativa
@@ -338,13 +404,15 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     const lastCustomerMsg = [...msgs].reverse().find((m) => m.direction === 'inbound')
     const evidence = lastCustomerMsg?.text ? `Última mensagem do cliente: "${lastCustomerMsg.text.slice(0, 140)}"` : 'Sem texto (mídia).'
 
+    // Regras da mesma causa (alert-groups.ts) formam UM alerta por conversa; repetição reabre o mesmo alerta (contador).
+    const conf = cls.confidence
+    const byGroup = new Map<string, Array<{ rule: (typeof rules)[number]; triggered: boolean }>>()
     for (const rule of rules) {
-      const key = `${rule.name}|${conv.id}`
+      if (rule.type === 'connection_down') continue
       const limit = rule.limitMinutes ?? 0
       const scopeConns = parseJson<string[]>(rule.scopeConnections, [])
       const scopeTeams = parseJson<string[]>(rule.scopeTeams, [])
       const inScope = (scopeConns.length === 0 || (conv.connectionId != null && scopeConns.includes(conv.connectionId))) && (scopeTeams.length === 0 || (agent?.team != null && scopeTeams.includes(agent.team)))
-      const conf = cls.confidence
 
       let triggered = false
       switch (rule.type) {
@@ -357,53 +425,118 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
         case 'promise_approaching': triggered = approachingOpen > 0 && convPromises.some((p) => p.status === 'open' && p.dueAt && p.dueAt >= now && minutesBetween(now, p.dueAt) <= limit); break
         default: triggered = false
       }
-      triggered = triggered && inScope && !closed
+      const key = alertGroupKey(rule, conv.id)
+      byGroup.set(key, [...(byGroup.get(key) ?? []), { rule, triggered: triggered && inScope && !closed }])
+    }
 
-      const existing = openAlertByKey.get(key)
-      if (triggered && !existing) {
-        // Decisão humana respeitada: alerta dispensado/falso positivo não reabre dentro do intervalo da regra.
-        const dismissed = await db.alert.findFirst({
-          where: { organizationId: orgId, ruleName: rule.name, conversationId: conv.id, status: { in: ['dismissed', 'false_positive'] }, updatedAt: { gte: new Date(now.getTime() - rule.cooldownMinutes * 60000) } },
+    for (const [key, members] of byGroup) {
+      // alertas abertos deste grupo nesta conversa (o mais grave primeiro); mais de um só em dado antigo, de antes do agrupamento
+      const open = (openAlertsByGroup.get(key) ?? []).sort((a, b) => severityRank(b.severity) - severityRank(a.severity) || a.createdAt.getTime() - b.createdAt.getTime())
+      const top = groupHeadline(members.filter((m) => m.triggered).map((m) => m.rule))
+
+      if (!top) {
+        // deixou de valer: o motor resolve (e marca que foi ele, para poder reabrir o mesmo alerta se voltar)
+        for (const a of open) {
+          await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: a.id }, data: { status: 'resolved', resolvedBy: 'auto' } }))
+          if (a.findingId) {
+            await db.auditFinding.updateMany({ where: { id: a.findingId, status: { not: 'resolved' } }, data: { status: 'resolved', resolvedAt: now, resolutionReason: 'Resolvido automaticamente' } })
+          }
+          summary.alertsResolved += 1
+        }
+        openAlertsByGroup.delete(key)
+        continue
+      }
+      const { headline, severity, channels } = top
+      const rule = { ...headline, severity, notificationChannels: JSON.stringify(channels) } // e-mail: gravidade e canais do grupo
+      const title = `${headline.name}: ${customerName}`
+
+      if (open.length) {
+        const [primary, ...extra] = open
+        // dado antigo: junta os alertas do mesmo grupo no mais grave (os outros saem da lista como "agrupados")
+        for (const a of extra) {
+          await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: a.id }, data: { status: 'resolved', resolvedBy: 'grouped', dismissedReason: `Agrupado no alerta ${primary.id}` } }))
+        }
+        const escalated = severityRank(severity) > severityRank(primary.severity)
+        const changed = escalated || primary.ruleName !== headline.name || extra.length > 0 || primary.groupKey !== key
+        if (changed) {
+          const updated = await db.alert.update({
+            where: { id: primary.id },
+            data: {
+              groupKey: key, ruleName: headline.name, title, severity: escalated ? severity : primary.severity,
+              occurrences: primary.occurrences + extra.reduce((s, a) => s + a.occurrences, 0),
+              ...(escalated ? { description: evidence, lastOccurredAt: now } : {}),
+            },
+          })
+          openAlertsByGroup.set(key, [updated])
+          // ficou mais grave (ex.: promessa perto de vencer → vencida): avisa de novo, como um alerta novo avisaria
+          if (escalated) {
+            summary.alertsEscalated = (summary.alertsEscalated ?? 0) + 1
+            await enqueueAlertEvent('alert.updated', updated)
+            if (channels.includes('in_app')) {
+              await db.notification.create({ data: { organizationId: orgId, type: 'alert', title: `Mais grave: ${title}`, message: evidence, data: JSON.stringify({ alertId: updated.id, conversationId: conv.id, severity }) } })
+            }
+            await queueAlertEmails(rule, updated)
+          }
+        }
+        continue
+      }
+
+      // Decisão humana respeitada: alerta dispensado/falso positivo não reabre dentro do intervalo da regra.
+      const dismissed = await db.alert.findFirst({
+        where: {
+          organizationId: orgId, conversationId: conv.id, status: { in: ['dismissed', 'false_positive'] }, updatedAt: { gte: new Date(now.getTime() - headline.cooldownMinutes * 60000) },
+          OR: [{ groupKey: key }, { groupKey: null, ruleName: { in: members.map((m) => m.rule.name) } }],
+        },
+      })
+      if (dismissed) continue
+
+      const finding = FINDING_TYPE[headline.type]
+        ? await db.auditFinding.create({
+            data: { conversationId: conv.id, type: FINDING_TYPE[headline.type], severity, status: 'new', detectedAt: now, evidence, confidence: conf, assignedTo: agent?.name ?? null },
+          })
+        : null
+      // Repetição na mesma conversa: o último alerta do grupo foi resolvido pelo próprio motor (a empresa respondeu e o
+      // cliente voltou a esperar) → reabre o MESMO alerta com o contador +1, sem e-mail, notificação nem "alert.created".
+      // Resolvido por uma pessoa ou dispensado → alerta novo (a pessoa encerrou aquele caso).
+      const last = await db.alert.findFirst({ where: { organizationId: orgId, conversationId: conv.id, groupKey: key }, orderBy: { createdAt: 'desc' } })
+      if (last && last.status === 'resolved' && last.resolvedBy === 'auto') {
+        const reopened = await db.alert.update({
+          where: { id: last.id },
+          data: {
+            status: 'new', resolvedBy: null, occurrences: last.occurrences + 1, lastOccurredAt: now, findingId: finding?.id ?? last.findingId,
+            ruleName: headline.name, title, severity, description: evidence, customerName, agentName: agent?.name ?? null, potentialValue: potentialValue || null, confidence: conf,
+          },
         })
-        if (dismissed) continue
-
-        const finding = FINDING_TYPE[rule.type]
-          ? await db.auditFinding.create({
-              data: { conversationId: conv.id, type: FINDING_TYPE[rule.type], severity: rule.severity, status: 'new', detectedAt: now, evidence, confidence: conf, assignedTo: agent?.name ?? null },
-            })
-          : null
+        openAlertsByGroup.set(key, [reopened])
+        summary.alertsRepeated = (summary.alertsRepeated ?? 0) + 1
+        await enqueueAlertEvent('alert.updated', reopened) // só para quem assinou "alerta atualizado"; nunca "alert.created" de novo
+      } else {
         const alert = await db.alert.create({
           data: {
-            organizationId: orgId, conversationId: conv.id, findingId: finding?.id, ruleName: rule.name, severity: rule.severity,
-            title: `${rule.name}: ${customerName}`, description: evidence, customerName, agentName: agent?.name ?? null,
+            organizationId: orgId, conversationId: conv.id, findingId: finding?.id, ruleName: headline.name, severity, groupKey: key, lastOccurredAt: now,
+            title, description: evidence, customerName, agentName: agent?.name ?? null,
             status: 'new', potentialValue: potentialValue || null, confidence: conf,
           },
         })
+        openAlertsByGroup.set(key, [alert])
         summary.alertsOpened += 1
         await milestone(orgId, 'first_alert') // funil (I7): 1º alerta de conversa = 1º valor entregue; nunca lança erro
         await enqueueAlertEvent('alert.created', alert) // webhook do cliente (fila; nunca lança erro)
-        const channels = parseJson<string[]>(rule.notificationChannels, ['in_app'])
         if (channels.includes('in_app')) {
           await db.notification.create({
-            data: { organizationId: orgId, type: 'alert', title: alert.title, message: evidence, data: JSON.stringify({ alertId: alert.id, conversationId: conv.id, severity: rule.severity }) },
+            data: { organizationId: orgId, type: 'alert', title: alert.title, message: evidence, data: JSON.stringify({ alertId: alert.id, conversationId: conv.id, severity }) },
           })
         }
         await queueAlertEmails(rule, alert) // canal "email" (fila; nunca lança erro)
-        if (RECOVERY_RULES.includes(rule.type) && hasOpportunity && !recoveries.some((r) => r.conversationId === conv.id && ['new', 'in_progress', 'assigned'].includes(r.status))) {
-          const item = await db.recoveryItem.create({
-            data: {
-              organizationId: orgId, conversationId: conv.id, opportunityId: oppId, agentId: agentId ?? null, reason: rule.name, priorityScore: riskScore,
-              dueAt: new Date(now.getTime() + 2 * 3600000), status: 'new', customerName, originalAgentName: agent?.name ?? null,
-            },
-          })
-          recoveries.push(item)
-        }
-      } else if (!triggered && existing) {
-        await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved' } }))
-        if (existing.findingId) {
-          await db.auditFinding.updateMany({ where: { id: existing.findingId, status: { not: 'resolved' } }, data: { status: 'resolved', resolvedAt: now, resolutionReason: 'Resolvido automaticamente' } })
-        }
-        summary.alertsResolved += 1
+      }
+      if (members.some((m) => m.triggered && RECOVERY_RULES.includes(m.rule.type)) && hasOpportunity && !recoveries.some((r) => r.conversationId === conv.id && ['new', 'in_progress', 'assigned'].includes(r.status))) {
+        const item = await db.recoveryItem.create({
+          data: {
+            organizationId: orgId, conversationId: conv.id, opportunityId: oppId, agentId: agentId ?? null, reason: headline.name, priorityScore: riskScore,
+            dueAt: new Date(now.getTime() + 2 * 3600000), status: 'new', customerName, originalAgentName: agent?.name ?? null,
+          },
+        })
+        recoveries.push(item)
       }
     }
   }
@@ -416,7 +549,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
       const existing = openAlerts.find((a) => a.ruleName === connRule.name && a.conversationId == null && a.title.endsWith(`: ${c.name}`))
       if (down && !existing) {
         const alert = await db.alert.create({
-          data: { organizationId: orgId, ruleName: connRule.name, severity: connRule.severity, title: `${connRule.name}: ${c.name}`, description: `A conexão "${c.name}" (final ${c.phoneLast4}) está fora do ar${c.statusReason ? ` (${c.statusReason})` : ''}.`, agentName: null, status: 'new' },
+          data: { organizationId: orgId, ruleName: connRule.name, severity: connRule.severity, title: `${connRule.name}: ${c.name}`, description: `A conexão "${c.name}" (final ${c.phoneLast4}) está fora do ar${c.statusReason ? ` (${c.statusReason})` : ''}.`, agentName: null, status: 'new', lastOccurredAt: now },
         })
         summary.alertsOpened += 1
         await enqueueAlertEvent('alert.created', alert)
@@ -425,7 +558,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
         }
         await queueAlertEmails(connRule, alert) // canal "email" (fila; nunca lança erro)
       } else if (!down && existing) {
-        await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved' } }))
+        await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved', resolvedBy: 'auto' } }))
         summary.alertsResolved += 1
       }
     }

@@ -12,11 +12,12 @@ import { isBlockedAddress, signBody, validateWebhookUrl } from './webhook-url'
 // Segurança (SSRF): só https, nada de localhost/IP interno; o DNS é resolvido NA HORA do envio e cada endereço
 // é conferido antes de conectar (a conexão usa o endereço conferido: troca de DNS no meio não escapa). Sem redirecionamento.
 
-export const WEBHOOK_EVENTS = ['alert.created', 'alert.resolved'] as const
+export const WEBHOOK_EVENTS = ['alert.created', 'alert.resolved', 'alert.updated'] as const
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number]
 export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
   'alert.created': 'Alerta criado',
   'alert.resolved': 'Alerta resolvido',
+  'alert.updated': 'Alerta atualizado (repetição ou agravamento)',
 }
 export const TEST_EVENT = 'webhook.test'
 
@@ -152,6 +153,8 @@ export interface AlertForWebhook {
   confidence: number | null
   createdAt: Date
   updatedAt: Date
+  occurrences?: number // B6: quantas vezes o problema aconteceu nesta conversa (alerta agrupado)
+  lastOccurredAt?: Date | null
 }
 
 /** Só metadados do alerta: nada de texto de mensagem, telefone ou nome do cliente (o título e a descrição ficam de fora). */
@@ -165,6 +168,8 @@ function alertData(a: AlertForWebhook) {
     potentialValue: a.potentialValue,
     confidence: a.confidence,
     createdAt: a.createdAt.toISOString(),
+    occurrences: a.occurrences ?? 1,
+    lastOccurredAt: (a.lastOccurredAt ?? a.createdAt).toISOString(),
     resolvedAt: a.status === 'resolved' ? a.updatedAt.toISOString() : null,
   }
 }

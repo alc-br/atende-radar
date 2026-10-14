@@ -194,7 +194,11 @@ interface AlertItem {
   title: string; description: string; customerName: string; agentName: string
   status: string; potentialValue?: number; confidence?: number; createdAt: string
   evidence: string | undefined
+  /** B6: quantas vezes o problema aconteceu nesta conversa (alerta agrupado) e quando foi a última */
+  occurrences?: number; lastOccurredAt?: string
 }
+
+const lastSeen = (a: AlertItem) => a.lastOccurredAt || a.createdAt
 
 interface AlertRuleItem {
   id: string; name: string; type: string; active: boolean; severity: string
@@ -383,12 +387,12 @@ export default function AlertsView() {
       )
     }
 
-    // Sort: critical first, then by createdAt desc
+    // Sort: critical first, then by last occurrence desc
     const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
     result.sort((a, b) => {
       const so = (severityOrder[a.severity] ?? 5) - (severityOrder[b.severity] ?? 5)
       if (so !== 0) return so
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      return new Date(lastSeen(b)).getTime() - new Date(lastSeen(a)).getTime()
     })
 
     return result
@@ -509,6 +513,18 @@ export default function AlertsView() {
     return parts[0] + ' ' + parts[parts.length - 1].charAt(0) + '***'
   }
 
+  // B6 · alerta agrupado: o mesmo problema voltou nesta conversa (um alerta só, com contador, em vez de vários)
+  function repeatInfo(alert: AlertItem) {
+    const n = alert.occurrences ?? 1
+    if (n <= 1) return null
+    return (
+      <p className="alerta__desc" data-testid="alerta-repeticao">
+        <span className="tag tag--cinza">Repetiu {n} vezes</span>
+        {' '}Última: {timeAgo(lastSeen(alert))} · 1ª vez: {timeAgo(alert.createdAt)}
+      </p>
+    )
+  }
+
   // ── Render: cartão de alerta ──
   function renderAlert(alert: AlertItem) {
     const status = alert.status
@@ -533,9 +549,10 @@ export default function AlertsView() {
               <h2>{alert.title}</h2>
               <span className="alerta__quando">
                 <Clock className="ic" aria-hidden="true" />
-                {timeAgo(alert.createdAt)}
+                {timeAgo(lastSeen(alert))}
               </span>
             </header>
+            {repeatInfo(alert)}
             <p className="alerta__desc">
               {maskCustomerName(alert.customerName)} · {alert.agentName}
               {hasValue && <> · {formatCurrency(alert.potentialValue!)}</>}
@@ -564,9 +581,10 @@ export default function AlertsView() {
             )}
             <span className="alerta__quando">
               <Clock className="ic" aria-hidden="true" />
-              {timeAgo(alert.createdAt)}
+              {timeAgo(lastSeen(alert))}
             </span>
           </header>
+          {repeatInfo(alert)}
           {(alert.description || typeLabel) && (
             <p className="alerta__desc">{alert.description || typeLabel}</p>
           )}
