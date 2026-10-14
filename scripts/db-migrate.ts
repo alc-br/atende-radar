@@ -26,6 +26,16 @@ function prisma(args: string[], opts: { env?: Record<string, string>; quiet?: bo
   return { code: r.status ?? 1, out, stdout: r.stdout ?? '' }
 }
 
+/** Em produção o app continua escrevendo no SQLite durante o deploy: "database is locked" é passageiro, tenta de novo. */
+function prismaWrite(args: string[], opts: { env?: Record<string, string> } = {}) {
+  for (let attempt = 1; ; attempt++) {
+    const r = prisma(args, opts)
+    if (r.code === 0 || !/database is locked/i.test(r.out) || attempt >= 10) return r
+    console.log(`db-migrate: banco ocupado pelo app, tentando de novo (${attempt}/9)`)
+    Bun.sleepSync(3000)
+  }
+}
+
 function shadowUrl(dir: string) {
   return `file:${join(dir, 'shadow.db').replace(/\\/g, '/')}`
 }
@@ -69,11 +79,16 @@ if (existsSync(dbPath)) {
   const tables = db
     .query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
     .all() as Array<{ name: string }>
+  // Histórico = a tabela existe E tem linhas. Vazia acontece se um baseline anterior falhou no meio
+  // (o Prisma cria a tabela antes de gravar a 0_init); aí o banco ainda precisa do baseline, não da 0_init inteira.
+  const hasHistory =
+    tables.some((t) => t.name === '_prisma_migrations') &&
+    (db.query('SELECT count(*) AS n FROM _prisma_migrations').get() as { n: number }).n > 0
   db.close()
-  const hasHistory = tables.some((t) => t.name === '_prisma_migrations')
 
-  if (!hasHistory && tables.length > 0) {
-    console.log(`db-migrate: banco sem histórico de migrações (${tables.length} tabelas) — conferindo se é igual à ${BASELINE}`)
+  const appTables = tables.filter((t) => t.name !== '_prisma_migrations')
+  if (!hasHistory && appTables.length > 0) {
+    console.log(`db-migrate: banco sem histórico de migrações (${appTables.length} tabelas) — conferindo se é igual à ${BASELINE}`)
     // Compara com a 0_init SOZINHA (se já existirem migrações depois dela, elas são aplicadas em seguida pelo deploy).
     const tmp = mkdtempSync(join(tmpdir(), 'ar-migr-'))
     try {
@@ -98,11 +113,11 @@ if (existsSync(dbPath)) {
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
-    const resolved = prisma(['migrate', 'resolve', '--applied', BASELINE], { env: { DATABASE_URL: absUrl } })
+    const resolved = prismaWrite(['migrate', 'resolve', '--applied', BASELINE], { env: { DATABASE_URL: absUrl } })
     if (resolved.code !== 0) process.exit(resolved.code)
     console.log(`db-migrate: ${BASELINE} marcada como aplicada (baseline do banco existente)`)
   }
 }
 
-const deploy = prisma(['migrate', 'deploy'], { env: { DATABASE_URL: absUrl } })
+const deploy = prismaWrite(['migrate', 'deploy'], { env: { DATABASE_URL: absUrl } })
 process.exit(deploy.code)
