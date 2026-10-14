@@ -17,8 +17,11 @@ export interface Score {
   eligible: boolean
 }
 
-// Pesos das 5 dimensões (somam 1).
+// Pesos das 5 dimensões (somam 1). As telas mostram estes mesmos pesos (SCORE_WEIGHTS_PERCENT): fonte única.
 const W = { velocidade: 0.3, oportunidades: 0.2, pendencias: 0.2, qualidade: 0.2, recuperacao: 0.1 }
+export const SCORE_WEIGHTS_PERCENT = Object.fromEntries(
+  Object.entries(W).map(([k, v]) => [k, Math.round(v * 100)])
+) as Record<keyof typeof W, number>
 
 const bands = (v: number, table: Array<[number, number]>, last: number) => {
   for (const [limit, score] of table) if (v <= limit) return score

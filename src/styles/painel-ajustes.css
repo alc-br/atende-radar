@@ -26,7 +26,8 @@
   .ar .av--verde { color: #0f6e46; }
   .ar .av--vermelho { color: #b81c25; }
   .ar .av--laranja { color: #a14f05; }
-  .ar .contador-pill { background: #c92029; }
+  .ar .contador-pill,
+  .ar .nav-lateral .contador { background: #c92029; }
   .dark .ar .av--verde { color: #6fe2aa; }
   .dark .ar .av--vermelho { color: #ff8d93; }
   .dark .ar .av--laranja { color: #ffae6b; }

@@ -72,6 +72,7 @@ export async function PATCH(request: Request) {
     if (!j.ok) return j.res
     const body = j.body
     const {
+      name,
       displayName,
       cnpj,
       segment,
@@ -83,6 +84,7 @@ export async function PATCH(request: Request) {
       adminEmail,
       settings,
     } = body as {
+      name?: unknown
       displayName?: string
       cnpj?: string
       segment?: string
@@ -96,6 +98,14 @@ export async function PATCH(request: Request) {
     }
 
     const data: Record<string, unknown> = { updatedAt: new Date() }
+    // "Nome empresarial" (Configurações › Empresa): obrigatório, não pode ficar vazio
+    if (name !== undefined) {
+      const n = typeof name === 'string' ? name.trim() : ''
+      if (n.length < 2 || n.length > 120) {
+        return NextResponse.json({ error: 'Informe o nome empresarial (2 a 120 caracteres).' }, { status: 400 })
+      }
+      data.name = n
+    }
     if (displayName !== undefined) data.displayName = displayName
     if (cnpj !== undefined) data.cnpj = cnpj
     if (segment !== undefined) data.segment = segment

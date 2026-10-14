@@ -178,15 +178,18 @@ export default function SettingsView() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          displayName: empDisplay, cnpj: empCnpj, segment: empSegment,
+          name: empName, displayName: empDisplay, cnpj: empCnpj, segment: empSegment,
           website: empSite, phone: empPhone, adminEmail: empEmail, timezone: empTimezone,
         }),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        throw new Error(typeof err?.error === 'string' ? err.error : '')
+      }
       toast.success('Dados da empresa salvos.')
       tourSignal('settings.saved')
-    } catch {
-      toast.error('Não foi possível salvar os dados da empresa.')
+    } catch (e) {
+      toast.error((e instanceof Error && e.message) || 'Não foi possível salvar os dados da empresa.')
     } finally {
       setSavingTab(null)
     }

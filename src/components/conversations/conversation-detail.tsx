@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { mutate } from '@/lib/mutation'
 import { PrivacyMenu } from './privacy-menu'
+import { SCORE_WEIGHTS_PERCENT } from '@/lib/analysis/score'
 import {
   ArrowLeft,
   Phone,
@@ -129,11 +130,11 @@ const URGENCY_OPTIONS = Object.keys(URGENCY_TAG)
 const SEVERITY_LABEL: Record<string, string> = { critical: 'Crítica', high: 'Alta', medium: 'Média', low: 'Baixa' }
 
 const SCORE_COMPONENTS: Array<{ key: string; label: string; weight: number }> = [
-  { key: 'velocidade', label: 'Velocidade', weight: 30 },
-  { key: 'oportunidades', label: 'Oportunidades', weight: 25 },
-  { key: 'pendencias', label: 'Pendências', weight: 20 },
-  { key: 'qualidade', label: 'Qualidade', weight: 15 },
-  { key: 'recuperacao', label: 'Recuperação', weight: 10 },
+  { key: 'velocidade', label: 'Velocidade', weight: SCORE_WEIGHTS_PERCENT.velocidade },
+  { key: 'oportunidades', label: 'Oportunidades', weight: SCORE_WEIGHTS_PERCENT.oportunidades },
+  { key: 'pendencias', label: 'Pendências', weight: SCORE_WEIGHTS_PERCENT.pendencias },
+  { key: 'qualidade', label: 'Qualidade', weight: SCORE_WEIGHTS_PERCENT.qualidade },
+  { key: 'recuperacao', label: 'Recuperação', weight: SCORE_WEIGHTS_PERCENT.recuperacao },
 ]
 
 function scoreBarClass(score: number) {

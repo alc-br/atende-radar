@@ -154,8 +154,14 @@ export default function ConnectionsView() {
     void patchConnection(connId, { action: 'disconnect' })
   }
 
-  const handleDeleteConnection = (connId: string) => {
-    void mutate(`/api/connections/${connId}`, { method: 'DELETE' }, { onSettled: fetchData })
+  // Excluir pede confirmação: a conexão é desligada e para de receber mensagens (o histórico fica)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const handleDeleteConnection = (connId: string, name: string) => setDeleteTarget({ id: connId, name })
+  const confirmDelete = () => {
+    if (!deleteTarget) return
+    const id = deleteTarget.id
+    setDeleteTarget(null)
+    void mutate(`/api/connections/${id}`, { method: 'DELETE' }, { onSettled: fetchData })
   }
 
   const openRenameDialog = (connId: string, currentName: string) => {
@@ -395,7 +401,7 @@ export default function ConnectionsView() {
                 <button type="button" className="laranja-txt" title="Desconectar sem excluir" onClick={() => handleDisconnect(conn.id)}>
                   <Unplug className="ic" aria-hidden="true" />Desconectar
                 </button>
-                <button type="button" className="vermelho" title="Excluir credenciais" onClick={() => handleDeleteConnection(conn.id)}>
+                <button type="button" className="vermelho" title="Excluir credenciais" onClick={() => handleDeleteConnection(conn.id, conn.name)}>
                   <Trash2 className="ic" aria-hidden="true" />Excluir
                 </button>
                 </>)}
@@ -428,7 +434,7 @@ export default function ConnectionsView() {
                           <dd className={diag.pendingQueues > 0 ? 'laranja-txt' : 'verde-txt'}>{diag.pendingQueues}</dd>
                         </div>
                         <div><dt>Eventos</dt><dd>{diag.eventRate}</dd></div>
-                        <div><dt>Protocolo</dt><dd className="mono">{diag.protocolVersion}</dd></div>
+                        <div><dt>Integração</dt><dd className="mono">{diag.protocolVersion}</dd></div>
                         <div><dt>Mensagens</dt><dd>{diag.messageCount}</dd></div>
                       </dl>
 
@@ -502,6 +508,24 @@ export default function ConnectionsView() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>Cancelar</Button>
             <Button onClick={confirmRename} disabled={!renameValue.trim()}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de excluir */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir a conexão {deleteTarget?.name}?</DialogTitle>
+            <DialogDescription>
+              O número para de ser monitorado: mensagens novas deixam de chegar ao AtendeRadar e as credenciais do
+              aparelho deixam de ser usadas. As conversas já analisadas continuam no sistema. Para voltar a monitorar,
+              crie uma nova conexão e leia o QR Code de novo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmDelete}>Excluir conexão</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

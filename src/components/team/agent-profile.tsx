@@ -35,6 +35,7 @@ import {
 import { cn, getIntentLabel, getStageLabel } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SCORE_WEIGHTS_PERCENT } from '@/lib/analysis/score'
 
 // --- Types ---
 
@@ -220,11 +221,11 @@ export default function AgentProfile() {
     const pendencias = agent.promisesTotal > 0 ? Math.round((agent.promisesKept / agent.promisesTotal) * 100) : base
     const qualidade = agent.questionsTotal > 0 ? Math.round((agent.questionsAnswered / agent.questionsTotal) * 100) : base
     return [
-      { key: 'velocidade', label: 'Velocidade', weight: 30, score: velocidade },
-      { key: 'oportunidades', label: 'Oportunidades', weight: 25, score: oportunidades },
-      { key: 'pendencias', label: 'Pendências', weight: 20, score: pendencias },
-      { key: 'qualidade', label: 'Qualidade', weight: 15, score: qualidade },
-      { key: 'recuperacao', label: 'Recuperação', weight: 10, score: base },
+      { key: 'velocidade', label: 'Velocidade', weight: SCORE_WEIGHTS_PERCENT.velocidade, score: velocidade },
+      { key: 'oportunidades', label: 'Oportunidades', weight: SCORE_WEIGHTS_PERCENT.oportunidades, score: oportunidades },
+      { key: 'pendencias', label: 'Pendências', weight: SCORE_WEIGHTS_PERCENT.pendencias, score: pendencias },
+      { key: 'qualidade', label: 'Qualidade', weight: SCORE_WEIGHTS_PERCENT.qualidade, score: qualidade },
+      { key: 'recuperacao', label: 'Recuperação', weight: SCORE_WEIGHTS_PERCENT.recuperacao, score: base },
     ]
   }, [agent.score, agent.avgResponseTime, agent.opportunities, agent.opportunitiesLost, agent.promisesKept, agent.promisesTotal, agent.questionsAnswered, agent.questionsTotal])
 

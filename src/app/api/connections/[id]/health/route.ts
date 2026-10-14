@@ -26,9 +26,11 @@ export async function GET(
     }
 
     const tenMinAgo = new Date(Date.now() - 10 * 60000)
-    const [recentEventCount, messageCount] = await Promise.all([
+    const [recentEventCount, messageCount, pendingQueues] = await Promise.all([
       db.rawChannelEvent.count({ where: { connectionId: id, receivedAt: { gte: tenMinAgo } } }),
       db.message.count({ where: { conversation: { connectionId: id } } }),
+      // eventos recebidos do WhatsApp que ainda não viraram mensagem (fila real de processamento)
+      db.rawChannelEvent.count({ where: { connectionId: id, processingStatus: 'received' } }),
     ])
 
     // Build diagnostics based on connection state
@@ -99,10 +101,11 @@ export async function GET(
       diagnostics: {
         socketStatus,
         lastHeartbeat: connection.lastEventAt?.toISOString() || '—',
-        pendingQueues: 0,
+        pendingQueues,
         eventRate,
         recentErrors,
-        protocolVersion: connection.status === 'qr_required' ? '—' : 'WAWeb v2.2426.66',
+        // integração usada pela conexão (antes: uma versão do WhatsApp Web fixa no código, que não era medida)
+        protocolVersion: connection.provider === 'baileys' ? 'WhatsApp Web (Baileys)' : connection.provider,
         messageCount,
         recommendedActions,
       },

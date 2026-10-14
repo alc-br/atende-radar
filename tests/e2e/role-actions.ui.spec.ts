@@ -109,3 +109,20 @@ test('administrador continua vendo as ações: alertas, regras, correção da co
   await openView(page, 'connections', false)
   await expect(btn(page, 'Nova conexão')).toBeVisible({ timeout: 15000 })
 })
+
+test('administrador: "Excluir" conexão pede confirmação e Cancelar não exclui nada', async ({ page, context, isMobile }) => {
+  await enter(context, 'admin.a@test.local')
+  await home(page)
+  await openView(page, 'connections', !!isMobile)
+  const excluir = btn(page, 'Excluir').first()
+  await expect(excluir).toBeVisible({ timeout: 15000 })
+  const deletes: string[] = []
+  page.on('request', (r) => { if (r.method() === 'DELETE' && r.url().includes('/api/connections/')) deletes.push(r.url()) })
+  await excluir.click()
+  const dialog = page.getByRole('dialog', { name: /Excluir a conexão/ })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Excluir conexão' })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(dialog).toHaveCount(0)
+  expect(deletes, 'cancelar não pode chamar a exclusão').toEqual([])
+})
