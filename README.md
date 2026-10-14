@@ -1,347 +1,99 @@
 # AtendeRadar
 
-> **Auditoria Inteligente de Receita e Qualidade no WhatsApp**
+Auditoria de vendas e atendimento no WhatsApp. A empresa conecta o próprio número (lendo um QR Code) e o
+AtendeRadar analisa as conversas: aponta clientes sem retorno, propostas esquecidas, promessas não cumpridas e
+vendas em risco, com alertas, fila de recuperação, desempenho da equipe e relatórios. O sistema **não envia
+mensagens** pelo número da empresa.
 
-SaaS que monitora, analisa e pontua conversas de WhatsApp em tempo real, detectando falhas de atendimento, oportunidades de receita perdidas e promessas não cumpridas.
+- Site (vendas, blog, privacidade, termos): https://atenderadar.com.br
+- App (entrar, cadastro, painel): https://app.atenderadar.com.br
+- Teste grátis de 14 dias; assinatura recorrente pelo Pagar.me.
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss)
-![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma)
-![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-New%20York-18181B)
-![License](https://img.shields.io/badge/License-Private-red)
-
----
-
-## Funcionalidades
-
-### Dashboard (Visao Geral)
-- 8 KPIs em tempo real com variacao percentual
-- Tabela de prioridades (top 10 conversas em risco)
-- Funil auditado (conversas > oportunidades > propostas > vendas)
-- Grafico de falhas por tipo com severidade
-- Desempenho da equipe comparativo
-- Evolucao dos ultimos 14 dias (nota, tempo de resposta, abandonos, valor em risco)
-
-### Alertas Inteligentes
-- 5 abas: Ativos, Em acompanhamento, Resolvidos, Ignorados, Regras
-- 8 filtros (busca, criticidade, tipo, atendente, equipe, valor, confianca)
-- 7 acoes por alerta (abrir conversa, atribuir, resolver, ignorar, falso positivo, etc.)
-- Regras configuraveis com severidade, cooldown e canais de notificacao
-
-### Conversas
-- Lista com 13 colunas ordenaveis e 9 filtros
-- Selecao em lote com acoes em massa (atribuir, tag, exportar)
-- Detalhe com timeline de mensagens + painel de auditoria (8 secoes)
-- 10 acoes de correcao (alterar intencao, urgencia, confirmar venda, etc.)
-- Score composto por 5 dimensoes com progress bars
-
-### Recuperacao de Receita
-- Fila priorizada de oportunidades perdidas
-- 7 acoes (contatar, atribuir, escalar, resolver, etc.)
-- Metricas de recoverability
-
-### Equipe
-- Ranking com 11 colunas (nota, tempo, oportunidades, falhas, promessas, etc.)
-- Perfil do agente com radar chart (5 dimensoes)
-- Historico de metricas diarias
-
-### Relatorios
-- 8 tipos (qualidade, receita, equipe, alertas, conversas, tendencias, compliance, personalizado)
-- 4 formatos de exportacao (PDF, Excel, CSV, PNG)
-- Agendamento e envio automatico
-
-### Conexoes WhatsApp
-- Cards com 11 estados de conexao
-- Acoes por conexao (conectar, desconectar, sincronizar, etc.)
-- Historico de eventos de sessao
-
-### Administracao
-- **Visao Geral da Plataforma**: KPIs globais, tabela de organizacoes recentes
-- **Organizacoes**: CRUD completo com filtros e dialog de detalhes
-- **Usuarios Globais**: Gestao com filtros por papel e status
-- **Sistema**: Health checks (BD, auth, armazenamento), log de atividade, configuracoes
-
-### Autenticacao
-- NextAuth.js com JWT e Credentials provider
-- 7 papeis RBAC (admin, gestor, supervisor, analista, membro, atendente, viewer)
-- Login com demonstracao automatica
-
-### Membros, Equipes e Planos
-- Gestao de membros da organizacao
-- Equipes com configuracao de SLA
-- Planos com comparacao de recursos e limites
-
-### Notificacoes
-- Centro de notificacoes com marcacao de lido
-
----
-
-## Stack Tecnica
+## Stack
 
 | Camada | Tecnologia |
-|--------|-----------|
-| Framework | Next.js 16 (App Router) |
-| Linguagem | TypeScript 5 |
-| Estilizacao | Tailwind CSS 4 + shadcn/ui (New York) |
-| Componentes | 43+ componentes shadcn/ui, Lucide React |
-| Estado Cliente | Zustand |
-| Estado Servidor | TanStack Query + React Query |
-| Banco de Dados | SQLite via Prisma ORM |
-| Autenticacao | NextAuth.js v4 (Credentials + JWT) |
-| Graficos | Recharts |
-| Tema | next-themes (light/dark) |
-| Icons | Lucide React v0.525.0 |
-| Animacoes | Framer Motion |
-| Validacao | Zod + React Hook Form |
+|---|---|
+| App | Next.js 16 (App Router), React 19, TypeScript 5 |
+| Estilo | Tailwind CSS 4 + CSS do pacote de design (`src/styles/`: `.ar` = painel e contas, `.lp` = site) |
+| Banco | SQLite via Prisma 6 (`prisma/schema.prisma`, 33 modelos) |
+| Login | NextAuth v4 (credenciais + JWT), papéis por organização |
+| WhatsApp | Baileys (`src/lib/whatsapp/`), sessões fora da pasta de deploy |
+| Cobrança | Pagar.me API v5, checkout transparente (`src/lib/billing/`) |
+| E-mail | Resend (opcional; sem ele os e-mails ficam na fila `EmailOutbox`) |
+| Runtime e testes | Bun, Playwright |
 
----
+Domínios: em produção o site e o app ficam em domínios separados (`NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_APP_URL`,
+ver `src/lib/hosts.ts` e `src/proxy.ts`). Sem essas variáveis tudo roda num domínio só (desenvolvimento e testes).
 
-## Estrutura do Projeto
+## Rodar localmente
 
-```
-atende-radar/
-+-- prisma/
-|   +-- schema.prisma      # 22 modelos de dados
-|   +-- seed.ts            # Dados de demonstracao (721 linhas)
-+-- src/
-|   +-- app/
-|   |   +-- api/            # 31 API routes (REST)
-|   |   |   +-- admin/
-|   |   |   +-- alert-rules/
-|   |   |   +-- alerts/
-|   |   |   +-- auth/
-|   |   |   +-- connections/
-|   |   |   +-- conversations/
-|   |   |   +-- dashboard/
-|   |   |   +-- members/
-|   |   |   +-- notifications/
-|   |   |   +-- plans/
-|   |   |   +-- recovery/
-|   |   |   +-- reports/
-|   |   |   +-- settings/
-|   |   |   +-- subscription/
-|   |   |   +-- team/
-|   |   +-- layout.tsx       # Providers (Theme, Tooltip, Toaster, Auth)
-|   |   +-- page.tsx         # SPA router com Zustand
-|   +-- components/
-|   |   +-- admin/           # Painel administrativo
-|   |   +-- alerts/          # View de alertas
-|   |   +-- auth/            # AuthProvider (SessionProvider)
-|   |   +-- connections/     # View de conexoes WhatsApp
-|   |   +-- conversations/   # Lista + detalhe de conversas
-|   |   +-- dashboard/       # Dashboard com KPIs e graficos
-|   |   +-- landing/         # Landing page publica
-|   |   +-- login/           # Pagina de login
-|   |   +-- members/         # Gestao de membros
-|   |   +-- notifications/   # Centro de notificacoes
-|   |   +-- onboarding/      # Onboarding wizard (7 etapas)
-|   |   +-- plans/           # Planos e cobranca
-|   |   +-- recovery/        # Fila de recuperacao
-|   |   +-- reports/         # Relatorios
-|   |   +-- settings/        # Configuracoes (7 abas)
-|   |   +-- team/            # Equipe + perfil do agente
-|   |   +-- ui/              # 43+ componentes shadcn/ui
-|   +-- lib/
-|       +-- auth.ts          # Configuracao NextAuth
-|       +-- db.ts            # Cliente Prisma singleton
-|       +-- mock-data.ts     # Dados mock (legado)
-|       +-- seed-data.ts     # Funcoes de seed
-|       +-- store.ts         # Zustand store (estado global)
-|       +-- utils.ts         # Funcoes utilitarias
-+-- public/
-+-- .env                   # DATABASE_URL, NEXTAUTH_SECRET
-```
-
----
-
-## Modelos de Dados (Prisma)
-
-22 modelos cobrindo:
-
-| Modelo | Descricao |
-|--------|----------|
-| `Organization` | Empresa cliente |
-| `Plan` / `Subscription` | Planos e assinaturas |
-| `WhatsAppConnection` | Conexao Baileys |
-| `AgentIdentity` | Identidade do agente no WhatsApp |
-| `Agent` / `AgentMetric` | Atendentes e metricas |
-| `Contact` | Contatos (hash/criptografia LGPD) |
-| `Conversation` / `Message` | Conversas e mensagens |
-| `ConversationClassification` | Classificacoes de IA |
-| `ConversationScore` | Notas compostas (5 dimensoes) |
-| `AuditFinding` | Falhas detectadas |
-| `RevenueOpportunity` | Oportunidades de receita |
-| `OpenQuestion` / `Promise` | Perguntas e promessas rastreadas |
-| `Alert` / `AlertRule` | Alertas e regras configuraveis |
-| `RecoveryItem` | Itens de recuperacao |
-| `DailyMetric` / `AgentMetric` | Metricas agregadas |
-| `ConnectionSessionEvent` / `RawChannelEvent` | Eventos de conexao |
-| `OrganizationMember` / `Team` | Membros e equipes |
-| `ReportDefinition` / `ReportRun` | Definicoes e execucoes de relatorios |
-| `ClassificationFeedback` | Feedback de correcoes |
-| `Notification` | Notificacoes in-app |
-
----
-
-## API Routes
-
-31 endpoints REST organizados por dominio:
-
-| Dominio | Endpoints |
-|---------|----------|
-| `/api/dashboard` | GET (KPIs, funil, falhas, evolucao, prioridades, equipe) |
-| `/api/alerts` | GET (lista/filtros), PUT `[id]`, POST `[id]/acknowledge`, POST `[id]/resolve`, POST `[id]/dismiss`, POST `[id]/false-positive` |
-| `/api/alert-rules` | GET, POST, PUT `[id]`, DELETE `[id]` |
-| `/api/conversations` | GET (lista/filtros/paginacao), GET `[id]`, POST `[id]/outcome`, POST `[id]/feedback` |
-| `/api/recovery` | GET, POST, PUT `[id]` |
-| `/api/team` | GET, GET `[id]` |
-| `/api/reports` | GET, POST `generate` |
-| `/api/connections` | GET, GET/PUT `[id]`, GET `[id]/health` |
-| `/api/settings` | GET, PUT |
-| `/api/members` | GET, POST, PUT/DELETE `[id]` |
-| `/api/teams` | GET, POST, PUT, DELETE |
-| `/api/plans` | GET |
-| `/api/subscription` | GET |
-| `/api/notifications` | GET, POST `read-all` |
-| `/api/auth` | NextAuth `[...nextauth]` |
-
----
-
-## Como Executar
-
-### Prerequisitos
-
-- [Bun](https://bun.sh/) (recomendado) ou Node.js 18+
-
-### Instalacao
+Pré-requisito: [Bun](https://bun.sh/).
 
 ```bash
-git clone https://github.com/alc-br/atende-radar.git
-cd atende-radar
 bun install
+# variáveis: veja .env.example (lista completa, com comentários).
+# Atenção: o .env é rastreado pelo git e o repositório é público. Nunca commite segredo nele.
+bunx prisma generate
+bun run db:push:safe        # cria/atualiza as tabelas no SQLite (sem aceitar perda de dados)
+bun prisma/seed.ts          # dados de demonstração
+bun run dev                 # http://localhost:3000
 ```
 
-### Configuracao
+Conta de demonstração (somente leitura, dados fictícios): botão de demonstração na tela de entrar.
 
-```bash
-cp .env.example .env
-# Editar .env com:
-# DATABASE_URL="file:./dev.db"
-# NEXTAUTH_SECRET="sua-chave-secreta"
-```
+## Scripts (`package.json`)
 
-### Banco de Dados
+| Comando | O que faz |
+|---|---|
+| `bun run dev` | Servidor de desenvolvimento na porta 3000 (log em `dev.log`) |
+| `bun run build` | Build de produção (`standalone`) |
+| `bun run start` | Sobe o build de produção |
+| `bun run lint` / `bun run typecheck` | ESLint / `tsc --noEmit` |
+| `bun run db:generate` | Gera o cliente Prisma |
+| `bun run db:push:safe` | Aplica o schema **sem** `--accept-data-loss` (o deploy usa este) |
+| `bun run db:push` | Aplica o schema **com** `--accept-data-loss` (cuidado) |
+| `bun run db:migrate` / `bun run db:reset` | Prisma Migrate (dev) / zera o banco |
+| `bun run db:seed` | Seed via `npx tsx prisma/seed.ts` |
+| `bun run db:backup` | Backup consistente do banco (`scripts/backup-db.ts`) |
+| `bun run test:e2e` | Suíte completa do Playwright |
+| `bun run test:e2e:browsers` | Fluxos principais no Firefox, Safari e iPhone |
 
-```bash
-# Gerar cliente Prisma
-bun run db:generate
+Outros scripts em `scripts/`: `restore-drill.ts` (ensaio de restauração do backup), `sync-plan-catalog.ts`
+(catálogo de planos), `smoke.sh` (fumaça contra o site no ar), `load-test.mjs` (carga).
 
-# Criar tabelas no SQLite
-bun run db:push
+## Testes
 
-# Popular com dados de demonstracao
-bun run db:seed
-```
+Playwright em `tests/`: `*.spec.ts` = API, `*.ui.spec.ts` = telas (desktop, celular e tablet), `*.unit.spec.ts` = unidade.
+O servidor de teste sobe sozinho na porta 3100 com um banco descartável (`prisma/test.db`).
 
-### Desenvolvimento
+- Tudo: `bun run test:e2e` (~900 testes, ~45 min).
+- Navegadores extras: `bun run test:e2e:browsers`.
+- Só unidade: `bunx playwright test --project=unit`.
+- Não rode duas execuções do Playwright ao mesmo tempo (porta 3100 e `prisma/test.db` são compartilhados).
+- Antes de push: `bunx tsc --noEmit` e `bunx eslint`.
 
-```bash
-bun run dev
-# Acesse http://localhost:3000
-```
+## Deploy
 
-### Credenciais de Demo
+Push na `main` → GitHub Actions (`.github/workflows/deploy.yml`):
 
-| Campo | Valor |
-|-------|-------|
-| Email | Qualquer email |
-| Senha | `demo123` |
+1. `test` e `browsers` rodam em runners do GitHub (type-check, lint, Playwright). Se falhar, nada vai ao ar.
+2. `deploy` roda no runner próprio do servidor: copia o código para `/opt/atende-radar/current`, faz backup do banco
+   e o ensaio de restauração, aplica o schema (`db:push:safe`), sincroniza o catálogo de planos, faz o build e
+   reinicia o serviço `atende-radar` (systemd), com health check.
 
-Ou clique em **"Entrar como demonstracao"** na tela de login.
+Outros workflows: `smoke.yml` (fumaça nos dois domínios a cada 6 h), `backup.yml` (backup diário às 03:00 de
+Brasília), `zap.yml` (varredura de segurança semanal). Falhas de fumaça e backup abrem issue com o rótulo `operacao`.
 
-### Scripts
+Desfazer um deploy ruim: `docs/operacao/rollback.md`.
 
-| Comando | Descricao |
-|---------|----------|
-| `bun run dev` | Servidor de desenvolvimento (porta 3000) |
-| `bun run lint` | Lint com ESLint |
-| `bun run db:push` | Sincroniza schema Prisma com o banco |
-| `bun run db:generate` | Gera cliente Prisma |
-| `bun run db:seed` | Popula banco com dados demo |
-| `bun run db:migrate` | Migracoes com Prisma Migrate |
-| `bun run db:reset` | Reseta o banco de dados |
+## Documentação
 
----
+- `handoff.md`: estado atual, pendências e cuidados (comece por aqui).
+- `CHANGELOG.md`: o que mudou, por data.
+- `docs/operacao/`: backup e restauração, rollback, capacidade, cobrança (Pagar.me).
+- `docs/testes/`: roteiro de teste de usabilidade.
+- `docs/superpowers/`: especificação e plano do tour guiado.
 
-## Telas (18 views)
-
-| # | Tela | Descricao |
-|---|------|----------|
-| 1 | Landing Page | Pagina publica com hero, features, pricing |
-| 2 | Login | Autenticacao com NextAuth |
-| 3 | Dashboard | KPIs, funil, graficos, equipe, evolucao |
-| 4 | Alertas | Alertas com filtros, acoes, regras |
-| 5 | Conversas | Lista com 13 colunas, filtros, batch actions |
-| 6 | Detalhe da Conversa | Timeline + painel auditoria (8 secoes) |
-| 7 | Recuperacao | Fila priorizada de oportunidades |
-| 8 | Equipe | Ranking comparativo de agentes |
-| 9 | Perfil do Agente | Radar chart, metricas, historico |
-| 10 | Relatorios | 8 tipos, agendamento, exportacao |
-| 11 | Conexoes | Status de conexoes WhatsApp |
-| 12 | Configuracoes | 7 abas (geral, alertas, notificacoes, equipes, dados, cobranca, api) |
-| 13 | Onboarding | Wizard de 7 etapas |
-| 14 | Membros | Gestao de membros da organizacao |
-| 15 | Equipes | Gestao de equipes com SLA |
-| 16 | Planos | Comparacao de planos e cobranca |
-| 17 | Notificacoes | Centro de notificacoes |
-| 18 | Admin | Painel administrativo (4 abas) |
-
----
-
-## Arquitetura
-
-```
-                  +-------------------+
-                  |   Landing Page    |
-                  |   Login (Auth)    |
-                  +--------+----------+
-                           |
-                  +--------v----------+
-                  |   App Router (/)  |
-                  |   SPA via Zustand |
-                  +--------+----------+
-                           |
-          +----------------+----------------+
-          |                |                |
-   +------v-----+  +------v-----+  +------v-----+
-   | Dashboard  |  |  Alerts    |  | Conversas  |
-   | Recovery   |  |  Team      |  | Reports    |
-   | Connections|  |  Settings  |  | Admin      |
-   +------+------+  +------+------+  +------+------+
-          |                |                |
-          +----------------+----------------+
-                           |
-                  +--------v----------+
-                  |   API Routes      |
-                  |   (31 endpoints)  |
-                  +--------+----------+
-                           |
-                  +--------v----------+
-                  |   Prisma ORM     |
-                  |   SQLite          |
-                  +-------------------+
-```
-
----
-
-## Licenca
+## Licença
 
 Projeto privado. Todos os direitos reservados.
-
----
-
-<p align="center">
-  <strong>AtendeRadar</strong> — Auditoria Inteligente de Receita e Qualidade no WhatsApp<br/>
-  <sub>Construido com Next.js, TypeScript, Tailwind CSS, shadcn/ui e Prisma</sub>
-</p>
