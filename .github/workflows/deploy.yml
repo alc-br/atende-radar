@@ -179,6 +179,8 @@ jobs:
           # Cache do áudio do tour: fora de current/ (o rsync --delete não apaga) e compartilhado por todos os usuários
           add_if_missing TOUR_AUDIO_DIR /opt/atende-radar/shared/tour-audio
           mkdir -p /opt/atende-radar/shared/tour-audio
+          # o warm (usuário do runner) e o serviço gravam aqui; só áudio da narração, nada secreto
+          chmod a+rwx /opt/atende-radar/shared/tour-audio 2>/dev/null || echo "::warning::não deu para liberar a pasta do áudio do tour"
           # restos da voz antiga (Piper), que não é mais usada
           sed -i '/^PIPER_BIN=/d; /^PIPER_VOICE=/d' "$ENVF"
           echo "variáveis presentes: $(sed -E 's/=.*//' "$ENVF" | grep -vE '^#|^$' | tr '\n' ' ')"
@@ -196,5 +198,5 @@ jobs:
         continue-on-error: true
         run: |
           # Mesmas variáveis do serviço (chave, região, TOUR_AUDIO_DIR); a chave nunca é impressa
-          ( set -a; . /opt/atende-radar/shared/app.env; set +a; /usr/local/bin/bun scripts/tour-audio-warm.ts ) \
+          ( set -a; . /opt/atende-radar/shared/app.env; set +a; umask 022; /usr/local/bin/bun scripts/tour-audio-warm.ts ) \
             || echo "::warning::Áudio do tour não pré-gerado; ele é gerado no primeiro play (ou o navegador lê)"
