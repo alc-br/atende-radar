@@ -3,7 +3,8 @@ import { loginAs, signupOrg } from './helpers'
 import { mkdirSync } from 'node:fs'
 
 // D1–D4 · Varredura de design: cada tela, em desktop e celular, com dados e com conta nova vazia.
-// Detecta: página mais larga que a tela, elementos vazando para fora, erros de console, chamadas de API com erro.
+// Detecta: página mais larga que a tela, elementos vazando para fora, cartões sobrepostos (desktop), erros de console,
+// chamadas de API com erro. No desktop também a 1440 e 1920 px (ver "telas largas").
 // Também salva uma captura de cada tela em test-results/screens para revisão visual.
 
 const VIEWS: Array<{ view: string; heading: RegExp }> = [
@@ -36,8 +37,32 @@ async function openView(page: Page, view: string, isMobile: boolean) {
   await page.locator(`[data-tour="nav-${view}"]`).click()
 }
 
-async function sweep(page: Page, label: string, isMobile: boolean, projectName: string) {
-  mkdirSync('test-results/screens', { recursive: true })
+/** Cartões lado a lado (KPIs e grades) que se sobrepõem: nenhum filho visível de .kpis/.grade* pode invadir o vizinho. */
+async function overlappingCards(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = []
+    const name = (el: Element) => `${el.tagName.toLowerCase()}.${String((el as HTMLElement).className).split(' ')[0]}`
+    document.querySelectorAll('main .kpis, main .grade, main .grade-2, main .grade-3, main .grade-4').forEach((box) => {
+      const kids = Array.from(box.children)
+        .map((el) => ({ el, r: el.getBoundingClientRect() }))
+        .filter(({ r }) => r.width > 0 && r.height > 0)
+      for (let i = 0; i < kids.length; i++) {
+        for (let j = i + 1; j < kids.length; j++) {
+          const a = kids[i].r
+          const b = kids[j].r
+          const w = Math.min(a.right, b.right) - Math.max(a.left, b.left)
+          const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+          if (w > 2 && h > 2) out.push(`${name(box)}: ${name(kids[i].el)} × ${name(kids[j].el)}`)
+        }
+      }
+    })
+    return out.slice(0, 3)
+  })
+}
+
+async function sweep(page: Page, label: string, isMobile: boolean, projectName: string, opts: { screenshots?: string | null } = {}) {
+  const shotsDir = opts.screenshots === undefined ? 'test-results/screens' : opts.screenshots
+  if (shotsDir) mkdirSync(shotsDir, { recursive: true })
   const problems: string[] = []
   page.on('pageerror', (e) => problems.push(`erro de página: ${e.message}`))
   page.on('console', (m) => {
@@ -80,8 +105,11 @@ async function sweep(page: Page, label: string, isMobile: boolean, projectName: 
     }, deviceWidth)
     expect.soft(escaped, `${label}/${view}: elementos vazando para fora da tela`).toEqual([])
 
+    // no desktop os cartões ficam lado a lado: nenhum pode invadir o vizinho (no celular eles empilham)
+    if (deviceWidth >= 1024) expect.soft(await overlappingCards(page), `${label}/${view}: cartões sobrepostos`).toEqual([])
+
     expect.soft(problems, `${label}/${view}: erros no console/API`).toEqual([])
-    await page.screenshot({ path: `test-results/screens/${label}-${projectName}-${view}.png`, fullPage: true })
+    if (shotsDir) await page.screenshot({ path: `${shotsDir}/${label}-${projectName}-${view}.png`, fullPage: true })
   }
 }
 
@@ -100,6 +128,28 @@ test.describe('Design QA · conta nova, vazia (primeira experiência)', () => {
     await authenticate(context, email, password)
     await sweep(page, 'vazia', !!isMobile, info.project.name)
   })
+})
+
+// D1 · telas largas. O painel usa a largura toda (sem teto em 1440), então 1440 e 1920 px são conferidos com as mesmas
+// checagens de 1280: sem rolagem horizontal, nada vazando, cartões sem sobreposição, sem erro de console/API.
+// Para não dobrar a suíte: só no ui-desktop e só na conta com dados (a conta vazia tem menos conteúdo para quebrar).
+// Capturas para revisão humana: DESIGN_CAPTURAS=1 salva em test-results/screens-largas (pasta ignorada pelo git).
+const WIDE = [
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+]
+test.describe('Design QA · telas largas (1440 e 1920 px), conta com dados', () => {
+  for (const size of WIDE) {
+    test(`todas as telas a ${size.width} px`, async ({ page, context }, info) => {
+      test.skip(info.project.name !== 'ui-desktop', 'só precisa rodar uma vez; o desktop redimensiona a janela')
+      test.setTimeout(240000)
+      await authenticate(context, 'admin.a@test.local', 'demo123')
+      await page.setViewportSize(size)
+      await sweep(page, `largo${size.width}`, false, info.project.name, {
+        screenshots: process.env.DESIGN_CAPTURAS === '1' ? 'test-results/screens-largas' : null,
+      })
+    })
+  }
 })
 
 test.describe('Design QA · menu no celular', () => {
