@@ -1,9 +1,10 @@
-// Apoio aos testes de cobrança: cartão de teste do SANDBOX do Pagar.me (Simulador PSP: CVV 123 aprova, CVV começando
-// com 6 é recusado pelo emissor). O token é gerado direto no Pagar.me com a chave pública, como o navegador faz.
+// Apoio aos testes de cobrança: cartões de teste do SANDBOX do Pagar.me. Na integração nova da Stone (13/10/2026) a
+// recusa vem pelo número do cartão (final 0028 = "não autorizada"); o CVV 6xx da conta antiga passou a ser aprovado.
+// O token é gerado direto no Pagar.me com a chave pública, como o navegador faz.
 export const WEBHOOK_USER = 'webhook-e2e'
 export const WEBHOOK_PASS = 'webhook-e2e-senha'
 export const APPROVED = { number: '4000000000000010', cvv: '123' }
-export const DECLINED = { number: '4000000000000010', cvv: '612' }
+export const DECLINED = { number: '4000000000000028', cvv: '123' }
 export const MASTERCARD = { number: '5555555555554444', cvv: '123' }
 
 export async function cardToken(publicKey: string, card: { number: string; cvv: string }, holder = 'MARIA SILVA'): Promise<string> {
