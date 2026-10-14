@@ -18,6 +18,12 @@ import {
 import { timeAgo } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { fetchMutation, MutationError, MUTATION_ERROR_MESSAGE } from '@/lib/mutation'
+
+/** Nome legível do fuso da empresa (o agendamento vale nele). */
+function timezoneLabel(tz: string) {
+  return tz === 'America/Sao_Paulo' ? 'horário de Brasília' : `fuso ${tz.replace(/_/g, ' ')}`
+}
 
 // Ícone e tom de cada tipo de relatório (mesma linguagem visual do pacote de design).
 const reportIcons: Record<string, { icon: React.ReactNode; tom: string }> = {
@@ -91,6 +97,8 @@ export default function ReportsView() {
   const [error, setError] = useState<string | null>(null)
   const [reportTypesData, setReportTypesData] = useState<any[]>([])
   const [reportHistoryData, setReportHistoryData] = useState<any[]>([])
+  const [orgTimezone, setOrgTimezone] = useState('America/Sao_Paulo')
+  const [busyRunId, setBusyRunId] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true); setError(null)
@@ -103,6 +111,7 @@ export default function ReportsView() {
         schedule: d.schedule, recipients: d.recipients || [], lastRun: d.lastRun,
       })))
       setReportHistoryData(data.history || [])
+      if (typeof data.timezone === 'string' && data.timezone) setOrgTimezone(data.timezone)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido')
     } finally { setIsLoading(false) }
@@ -143,6 +152,25 @@ export default function ReportsView() {
     setConfigSchedule(report.schedule || '')
     setConfigRecipients(report.recipients.join('\n'))
     setConfigDialogOpen(report.id)
+  }
+
+  // Reenviar (e-mail com o PDF aos destinatários) e "Tentar novamente" (gera de novo o que falhou): ações do histórico.
+  const handleRunAction = async (runId: string, action: 'send' | 'retry') => {
+    setBusyRunId(runId)
+    try {
+      const res = await fetchMutation(`/api/reports/runs/${runId}/${action}`)
+      const data = await res.json().catch(() => null)
+      if (action === 'send') {
+        toast.success(data?.emailStatus === 'failed' ? 'O envio falhou. Veja as notificações.' : `Relatório reenviado para ${data?.emails ?? 0} destinatário(s).`)
+      } else {
+        toast.success('Relatório gerado de novo.')
+      }
+    } catch (e) {
+      toast.error(e instanceof MutationError ? e.message : MUTATION_ERROR_MESSAGE)
+    } finally {
+      setBusyRunId(null)
+      fetchData()
+    }
   }
 
   const handleSaveConfig = async (reportTypeId: string) => {
@@ -205,6 +233,9 @@ export default function ReportsView() {
           <a className="btn btn--lg" href="/api/reports/export?format=csv" download onClick={(e) => downloadExport(e, 'atenderadar-indicadores.csv')}>
             <FileSpreadsheet className="ic" aria-hidden="true" />Indicadores (CSV)
           </a>
+          <a className="btn btn--lg" href="/api/reports/export?format=xlsx" download="atenderadar-indicadores.xlsx" onClick={(e) => downloadExport(e, 'atenderadar-indicadores.xlsx')}>
+            <FileSpreadsheet className="ic" aria-hidden="true" />Indicadores (XLSX)
+          </a>
           <a className="btn btn--lg" href="/api/reports/export?format=json" download="atenderadar-indicadores.json" onClick={(e) => downloadExport(e, 'atenderadar-indicadores.json')}>
             <FileJson className="ic" aria-hidden="true" />Indicadores (JSON)
           </a>
@@ -266,8 +297,9 @@ export default function ReportsView() {
                       <DialogHeader>
                         <DialogTitle>Configurar: {report.name}</DialogTitle>
                         <DialogDescription>
-                          No horário agendado (horário de Brasília) o relatório é gerado e cada destinatário recebe o resumo por
-                          e-mail. Deixe o horário vazio para não enviar automaticamente.
+                          No horário agendado ({timezoneLabel(orgTimezone)}, o fuso da empresa) o relatório é gerado e cada
+                          destinatário recebe o resumo por e-mail, com o PDF executivo em anexo. Deixe o horário vazio para não
+                          enviar automaticamente.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
@@ -342,7 +374,10 @@ export default function ReportsView() {
                       <td><strong>{row.type}</strong></td>
                       <td title={row.createdAt ? timeAgo(row.createdAt) : undefined}>{formatDateTime(row.createdAt)}</td>
                       <td>{row.period}</td>
-                      <td>{getStatusTag(row.status)}</td>
+                      <td title={row.error || undefined}>
+                        {getStatusTag(row.status)}
+                        {row.emailStatus === 'failed' && <span className="tag tag--vermelho ml-1"><CircleAlert className="ic" aria-hidden="true" />E-mail falhou</span>}
+                      </td>
                       <td>{(row.recipients?.length ?? 0) === 1 ? row.recipients[0] : `${row.recipients?.length ?? 0} destinatário(s)`}</td>
                       <td className="direita">
                         <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
@@ -368,16 +403,41 @@ export default function ReportsView() {
                               >
                                 <FileDown className="ic" aria-hidden="true" />Abrir
                               </a>
+                              {(['xlsx', 'pdf', 'json'] as const).map((fmt) => (
+                                <a
+                                  key={fmt}
+                                  className="btn btn--sm"
+                                  href={`/api/reports/runs/${row.id}/download?format=${fmt}`}
+                                  download
+                                  onClick={(e) => downloadExport(e, `atenderadar-${row.id}.${fmt}`)}
+                                  aria-label={`Baixar ${fmt.toUpperCase()}`}
+                                  title={fmt === 'xlsx' ? 'Baixar planilha (Excel)' : fmt === 'pdf' ? 'Baixar PDF executivo' : 'Baixar dados em JSON'}
+                                >
+                                  <Download className="ic" aria-hidden="true" />{fmt.toUpperCase()}
+                                </a>
+                              ))}
+                              {(row.recipients?.length ?? 0) > 0 && row.emailStatus !== 'failed' && (
+                                <button
+                                  type="button"
+                                  className="btn btn--sm"
+                                  aria-label="Reenviar por e-mail"
+                                  title="Reenviar por e-mail aos destinatários, com o PDF em anexo"
+                                  disabled={busyRunId === row.id}
+                                  onClick={() => handleRunAction(row.id, 'send')}
+                                >
+                                  <RefreshCw className="ic" aria-hidden="true" />Reenviar
+                                </button>
+                              )}
                             </>
                           )}
-                          {row.status === 'failed' && row.reportTypeId && (
+                          {(row.status === 'failed' || row.emailStatus === 'failed') && (
                             <button
                               type="button"
                               className="btn btn--sm"
                               aria-label="Tentar novamente"
-                              title="Tentar novamente"
-                              disabled={generatingId === row.reportTypeId}
-                              onClick={() => handleGenerate(row.reportTypeId)}
+                              title={row.error ? `Tentar novamente. Erro: ${row.error}` : 'Tentar novamente'}
+                              disabled={busyRunId === row.id}
+                              onClick={() => handleRunAction(row.id, 'retry')}
                             >
                               <RefreshCw className="ic" aria-hidden="true" />Tentar
                             </button>

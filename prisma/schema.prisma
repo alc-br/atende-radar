@@ -305,6 +305,10 @@ model ReportRun {
   recipientEmails String       @default("[]")
   filePath        String?
   contentJson     String? // foto dos dados no momento da geração (o arquivo é montado a partir dela)
+  source          String       @default("manual") // manual | schedule (agendado: "tentar novamente" também reenvia o e-mail)
+  error           String? // motivo da falha (geração ou envio), mostrado no histórico
+  emailStatus     String? // null = sem envio | queued | sent | failed
+  emailedAt       DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 }
@@ -575,14 +579,15 @@ model AuthToken {
 
 // Registro de todo e-mail enviado pelo sistema. Sem provedor configurado ficam 'queued' (nada sai da máquina).
 model EmailOutbox {
-  id        String    @id @default(cuid())
-  toEmail   String
-  subject   String
-  body      String
-  status    String    @default("queued") // queued | sent | failed
-  error     String?
-  createdAt DateTime  @default(now())
-  sentAt    DateTime?
+  id          String    @id @default(cuid())
+  toEmail     String
+  subject     String
+  body        String
+  status      String    @default("queued") // queued | sent | failed
+  error       String?
+  attachments String? // anexos enviados: JSON [{ filename, size }] (o conteúdo não fica guardado)
+  createdAt   DateTime  @default(now())
+  sentAt      DateTime?
 }
 
 model Team {

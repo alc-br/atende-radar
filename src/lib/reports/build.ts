@@ -1,43 +1,16 @@
 import { db } from '../db'
 import { maskSensitive } from '../mask-sensitive'
+import { moneyBR as money, REPORT_TITLES, type CellFormat, type CellValue, type ReportContent, type ReportHighlights, type ReportSection, type ReportType } from './types'
 
-export const REPORT_TYPES = ['daily', 'weekly', 'agent', 'lost_opportunities', 'promises', 'recovery', 'data_quality', 'connections'] as const
-export type ReportType = (typeof REPORT_TYPES)[number]
-
-export const REPORT_TITLES: Record<ReportType, string> = {
-  daily: 'Relatório Diário',
-  weekly: 'Relatório Semanal',
-  agent: 'Relatório por Equipe',
-  lost_opportunities: 'Oportunidades Perdidas',
-  promises: 'Relatório de Promessas',
-  recovery: 'Relatório de Recuperação',
-  data_quality: 'Qualidade dos Dados',
-  connections: 'Relatório de Conexões',
-}
-
-export interface ReportSection {
-  heading: string
-  columns: string[]
-  rows: Array<Array<string | number>>
-}
-export interface ReportContent {
-  type: ReportType
-  title: string
-  orgName: string
-  periodStart: string
-  periodEnd: string
-  generatedAt: string
-  summary: string[]
-  sections: ReportSection[]
-}
+export { REPORT_TYPES, REPORT_TITLES } from './types'
+export type { CellFormat, CellValue, ReportContent, ReportHighlights, ReportSection, ReportType } from './types'
 
 // tipos que usam as conversas do período / as mensagens delas (os demais não leem)
 const CONV_TYPES: ReportType[] = ['daily', 'weekly', 'agent', 'lost_opportunities', 'data_quality', 'connections']
 const MESSAGE_TYPES: ReportType[] = ['daily', 'weekly', 'agent', 'connections']
 
 const round = (n: number, d = 1) => +n.toFixed(d)
-const fmtDate = (d: Date | null | undefined) => (d ? d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—')
-const money = (n: number) => `R$ ${Math.round(n).toLocaleString('pt-BR')}`
+const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null)
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
 const median = (xs: number[]) => {
   if (!xs.length) return 0
@@ -50,7 +23,7 @@ const pct = (part: number, total: number) => (total ? `${Math.round((part / tota
 
 /** Monta o relatório a partir dos dados REAIS da empresa no período. */
 export async function buildReport(orgId: string, type: ReportType, start: Date, end: Date): Promise<ReportContent> {
-  const org = await db.organization.findUnique({ where: { id: orgId }, select: { displayName: true } })
+  const org = await db.organization.findUnique({ where: { id: orgId }, select: { displayName: true, timezone: true } })
   // T15 · conversas só nos tipos que usam; mensagens só nos que contam mensagens ou 1ª resposta (lidas à parte, só 3 campos)
   const base = CONV_TYPES.includes(type)
     ? await db.conversation.findMany({
@@ -80,10 +53,12 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
     const out = c.messages.filter((m) => m.direction === 'outbound' && m.occurredAt > ins.occurredAt).sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())[0]
     return out ? minutes(ins.occurredAt, out.occurredAt) : null
   }
+  const phone = (c: (typeof convs)[number]) => (c.contact?.phoneLast4 ? `*****${c.contact.phoneLast4}` : '—')
   const waitingMin = (c: (typeof convs)[number]) => (c.operationalStatus === 'waiting_company' && c.waitingSince ? Math.round(minutes(c.waitingSince, new Date())) : 0)
 
   const summary: string[] = []
   const sections: ReportSection[] = []
+  let highlights: ReportHighlights | undefined
 
   if (type === 'daily' || type === 'weekly') {
     const waiting = convs.filter((c) => c.operationalStatus === 'waiting_company')
@@ -93,36 +68,55 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
     const scores = convs.filter((c) => c.messages.length >= 2).map((c) => c.score)
     const alerts = await db.alert.findMany({ where: { organizationId: orgId, createdAt: { gte: start, lte: end } }, orderBy: { createdAt: 'desc' }, take: 100 })
     const msgs = convs.flatMap((c) => c.messages)
+    const valueAtRisk = atRisk.reduce((s, o) => s + o.expectedValue, 0)
+    highlights = { conversations: convs.length, waiting: waiting.length, alerts: alerts.length, opportunities: opps.length, valueAtRisk }
 
-    const kpis: Array<[string, string | number]> = [
-      ['Conversas iniciadas', convs.length],
-      ['Clientes aguardando resposta', waiting.length],
-      ['Tempo mediano da 1ª resposta (min)', round(median(firsts))],
-      ['Oportunidades detectadas', opps.length],
-      ['Valor estimado em risco', money(atRisk.reduce((s, o) => s + o.expectedValue, 0))],
-      ['Nota média das conversas', Math.round(mean(scores))],
-      ['Mensagens recebidas', msgs.filter((m) => m.direction === 'inbound').length],
-      ['Mensagens enviadas', msgs.filter((m) => m.direction === 'outbound').length],
-      ['Alertas gerados', alerts.length],
+    const kpis: Array<[string, CellValue, CellFormat]> = [
+      ['Conversas iniciadas', convs.length, 'int'],
+      ['Clientes aguardando resposta', waiting.length, 'int'],
+      ['Tempo mediano da 1ª resposta (min)', round(median(firsts)), 'decimal'],
+      ['Oportunidades detectadas', opps.length, 'int'],
+      ['Valor estimado em risco (R$)', valueAtRisk, 'money'],
+      ['Nota média das conversas', Math.round(mean(scores)), 'int'],
+      ['Mensagens recebidas', msgs.filter((m) => m.direction === 'inbound').length, 'int'],
+      ['Mensagens enviadas', msgs.filter((m) => m.direction === 'outbound').length, 'int'],
+      ['Alertas gerados', alerts.length, 'int'],
     ]
     if (type === 'weekly') {
       const span = end.getTime() - start.getTime()
       const prevStart = new Date(start.getTime() - span)
       const prevCount = await db.conversation.count({ where: { organizationId: orgId, openedAt: { gte: prevStart, lt: start } } })
       const delta = prevCount ? `${Math.round(((convs.length - prevCount) / prevCount) * 100)}%` : convs.length ? 'novo' : '—'
-      kpis.push(['Conversas iniciadas no período anterior', prevCount], ['Variação de conversas', delta])
+      kpis.push(['Conversas iniciadas no período anterior', prevCount, 'int'], ['Variação de conversas', delta, 'text'])
     }
     summary.push(`${convs.length} conversas no período; ${waiting.length} cliente(s) aguardando resposta agora.`)
-    sections.push({ heading: 'Indicadores', columns: ['Indicador', 'Valor'], rows: kpis })
+    summary.push(`${money(valueAtRisk)} em valor estimado em risco; ${alerts.length} alerta(s) no período.`)
+    sections.push({ key: 'kpis', heading: 'Indicadores', columns: ['Indicador', 'Valor'], rows: kpis.map(([k, v]) => [k, v]), rowFormats: kpis.map(([, , f]) => f) })
+
+    // Top 5 a recuperar: quem espera resposta ou foi perdido; oportunidade ativa primeiro, depois maior risco e valor
+    const activeOpp = (c: (typeof convs)[number]) => Number(c.opportunities.some((o) => o.status === 'active'))
+    const toRecover = convs
+      .filter((c) => c.operationalStatus === 'waiting_company' || c.operationalStatus === 'lost')
+      .sort((a, b) => activeOpp(b) - activeOpp(a) || b.riskScore - a.riskScore || b.potentialValue - a.potentialValue)
+      .slice(0, 5)
+    sections.push({
+      key: 'top_recover',
+      heading: 'Top 5 conversas a recuperar',
+      columns: ['Cliente', 'Telefone', 'Situação', 'Espera (min)', 'Intenção', 'Valor estimado (R$)'],
+      formats: ['text', 'text', 'text', 'int', 'text', 'money'],
+      rows: toRecover.map((c) => [nameOf(c), phone(c), c.operationalStatus === 'lost' ? 'Perdida' : 'Aguardando resposta', waitingMin(c), c.primaryIntent ?? '—', c.potentialValue]),
+    })
     sections.push({
       heading: 'Clientes aguardando resposta',
-      columns: ['Cliente', 'Telefone', 'Atendente', 'Espera (min)', 'Intenção', 'Valor estimado'],
-      rows: [...waiting].sort((a, b) => b.riskScore - a.riskScore).slice(0, 30).map((c) => [nameOf(c), c.contact?.phoneLast4 ? `*****${c.contact.phoneLast4}` : '—', c.agent?.name ?? 'Sem atendente', waitingMin(c), c.primaryIntent ?? '—', money(c.potentialValue)]),
+      columns: ['Cliente', 'Telefone', 'Atendente', 'Espera (min)', 'Intenção', 'Valor estimado (R$)'],
+      formats: ['text', 'text', 'text', 'int', 'text', 'money'],
+      rows: [...waiting].sort((a, b) => b.riskScore - a.riskScore).slice(0, 30).map((c) => [nameOf(c), phone(c), c.agent?.name ?? 'Sem atendente', waitingMin(c), c.primaryIntent ?? '—', c.potentialValue]),
     })
     sections.push({
       heading: 'Alertas do período',
       columns: ['Regra', 'Severidade', 'Cliente', 'Situação', 'Criado em'],
-      rows: alerts.map((a) => [a.ruleName ?? '—', a.severity, a.customerName ?? '—', a.status, fmtDate(a.createdAt)]),
+      formats: ['text', 'text', 'text', 'text', 'date'],
+      rows: alerts.map((a) => [a.ruleName ?? '—', a.severity, a.customerName ?? '—', a.status, iso(a.createdAt)]),
     })
   }
 
@@ -132,6 +126,7 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
     sections.push({
       heading: 'Desempenho por atendente',
       columns: ['Atendente', 'Equipe', 'Conversas', '1ª resposta média (min)', 'Nota média', 'Promessas cumpridas', 'Oportunidades'],
+      formats: ['text', 'text', 'int', 'decimal', 'int', 'text', 'int'],
       rows: agents.map((a) => {
         const mine = convs.filter((c) => c.agentId === a.id)
         const pr = promises.filter((p) => p.conversation.agentId === a.id)
@@ -148,8 +143,9 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
     summary.push(`${list.length} oportunidade(s) perdida(s) ou em risco, ${money(total)} em valor estimado.`)
     sections.push({
       heading: 'Oportunidades perdidas ou em risco',
-      columns: ['Cliente', 'Situação', 'Intenção', 'Valor estimado', 'Espera (min)', 'Atendente'],
-      rows: list.map((c) => [nameOf(c), c.operationalStatus === 'lost' ? 'Perdida' : 'Em risco', c.primaryIntent ?? '—', money(c.potentialValue), waitingMin(c), c.agent?.name ?? 'Sem atendente']),
+      columns: ['Cliente', 'Situação', 'Intenção', 'Valor estimado (R$)', 'Espera (min)', 'Atendente'],
+      formats: ['text', 'text', 'text', 'money', 'int', 'text'],
+      rows: list.map((c) => [nameOf(c), c.operationalStatus === 'lost' ? 'Perdida' : 'Em risco', c.primaryIntent ?? '—', c.potentialValue, waitingMin(c), c.agent?.name ?? 'Sem atendente']),
     })
   }
 
@@ -160,7 +156,8 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
     sections.push({
       heading: 'Promessas da empresa aos clientes',
       columns: ['Cliente', 'Promessa', 'Responsável', 'Prazo', 'Situação'],
-      rows: promises.map((p) => [p.conversation.contact?.displayName ?? 'Desconhecido', maskSensitive(p.action), p.promisorAgent, fmtDate(p.dueAt), p.status === 'open' && p.dueAt && p.dueAt < new Date() ? 'Vencida' : label[p.status] ?? p.status]),
+      formats: ['text', 'text', 'text', 'date', 'text'],
+      rows: promises.map((p) => [p.conversation.contact?.displayName ?? 'Desconhecido', maskSensitive(p.action), p.promisorAgent, iso(p.dueAt), p.status === 'open' && p.dueAt && p.dueAt < new Date() ? 'Vencida' : label[p.status] ?? p.status]),
     })
   }
 
@@ -170,11 +167,12 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
     summary.push(`${items.length} item(ns) na fila; ${recovered.length} recuperado(s), ${money(recovered.reduce((s, i) => s + (i.recoveredValue ?? 0), 0))} recuperados.`)
     const byStatus = new Map<string, number>()
     for (const i of items) byStatus.set(i.status, (byStatus.get(i.status) ?? 0) + 1)
-    sections.push({ heading: 'Resumo por situação', columns: ['Situação', 'Itens'], rows: [...byStatus.entries()] })
+    sections.push({ heading: 'Resumo por situação', columns: ['Situação', 'Itens'], formats: ['text', 'int'], rows: [...byStatus.entries()] })
     sections.push({
       heading: 'Fila de recuperação',
-      columns: ['Cliente', 'Motivo', 'Situação', 'Prioridade', 'Atendente original', 'Valor recuperado'],
-      rows: items.map((i) => [i.customerName ?? 'Desconhecido', i.reason ?? '—', i.status, round(i.priorityScore, 2), i.originalAgentName ?? '—', money(i.recoveredValue ?? 0)]),
+      columns: ['Cliente', 'Motivo', 'Situação', 'Prioridade', 'Atendente original', 'Valor recuperado (R$)'],
+      formats: ['text', 'text', 'text', 'decimal', 'text', 'money'],
+      rows: items.map((i) => [i.customerName ?? 'Desconhecido', i.reason ?? '—', i.status, round(i.priorityScore, 2), i.originalAgentName ?? '—', i.recoveredValue ?? 0]),
     })
   }
 
@@ -203,9 +201,10 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
     sections.push({
       heading: 'Conexões de WhatsApp',
       columns: ['Nome', 'Final do número', 'Situação', 'Último evento', 'Conversas no período', 'Mensagens no período'],
+      formats: ['text', 'text', 'text', 'date', 'int', 'int'],
       rows: conns.map((c) => {
         const mine = convs.filter((v) => v.connectionId === c.id)
-        return [c.name, c.phoneLast4, c.status, fmtDate(c.lastEventAt), mine.length, mine.reduce((s, v) => s + v.messages.length, 0)]
+        return [c.name, c.phoneLast4, c.status, iso(c.lastEventAt), mine.length, mine.reduce((s, v) => s + v.messages.length, 0)]
       }),
     })
   }
@@ -217,6 +216,8 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
     periodStart: start.toISOString(),
     periodEnd: end.toISOString(),
     generatedAt: new Date().toISOString(),
+    timezone: org?.timezone || 'America/Sao_Paulo',
+    ...(highlights ? { highlights } : {}),
     summary,
     sections,
   }

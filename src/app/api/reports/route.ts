@@ -49,14 +49,20 @@ export async function GET() {
         period,
         recipients: JSON.parse(r.recipientEmails || '[]') as string[],
         status: r.status,
+        source: r.source,
+        error: r.error,
+        emailStatus: r.emailStatus,
+        emailedAt: r.emailedAt?.toISOString() ?? null,
         createdAt: r.createdAt.toISOString(),
         filePath: r.filePath,
       }
     })
 
+    const orgRow = await db.organization.findUnique({ where: { id: org.id }, select: { timezone: true } })
     return NextResponse.json({
       definitions: formattedDefinitions,
       history: formattedRuns,
+      timezone: orgRow?.timezone || 'America/Sao_Paulo', // os horários agendados valem neste fuso
     })
   } catch (error) {
     console.error('Reports GET error:', error)

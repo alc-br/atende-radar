@@ -80,6 +80,10 @@ test.describe('E-mails: relatórios agendados', () => {
       expect(rel[0].body).toContain('Relatório Diário')
       expect(rel[0].body).toContain('Relatório de Promessas')
       expect(linkIn(rel[0].body)).toBe(`${BASE}/#reports`)
+      // o PDF executivo de cada relatório vai em anexo (o outbox guarda nome e tamanho)
+      const anexos = JSON.parse(rel[0].attachments || '[]') as Array<{ filename: string; size: number }>
+      expect(anexos.map((a) => a.filename).sort()).toEqual([expect.stringMatching(/^atenderadar-daily-.*\.pdf$/), expect.stringMatching(/^atenderadar-promises-.*\.pdf$/)])
+      expect(anexos.every((a) => a.size > 500)).toBe(true)
     }
     const run = await testDb.reportRun.findFirstOrThrow({ where: { organizationId: orgId, reportType: 'daily' }, orderBy: { createdAt: 'desc' } })
     expect(JSON.parse(run.recipientEmails)).toEqual([c.email.toLowerCase(), gerente])

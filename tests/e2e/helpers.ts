@@ -76,6 +76,8 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['POST', '/api/conversations/x/privacy'],
   ['GET', '/api/reports/export'],
   ['GET', '/api/reports/runs/x/download'],
+  ['POST', '/api/reports/runs/x/send'],
+  ['POST', '/api/reports/runs/x/retry'],
   ['GET', '/api/billing'],
   ['POST', '/api/billing/checkout'],
   ['POST', '/api/billing/cancel'],
