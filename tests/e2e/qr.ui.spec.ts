@@ -4,6 +4,8 @@ import { gatewayClient } from './gw'
 
 // B5 · QR real: o QR que o serviço do WhatsApp emitiu aparece na tela e a tela percebe quando conecta.
 test('Gerar QR mostra o QR do WhatsApp e avisa quando conectar', async ({ page, context, isMobile }) => {
+  // a tela consulta o status de tempos em tempos; a espera de 40 s abaixo precisa caber no tempo do teste
+  test.setTimeout(90_000)
   const admin = await loginAs('admin.a@test.local')
   for (const tourId of ['welcome', 'connections']) await admin.patch('/api/tours', { data: { tourId } })
   const name = `Conexao QR ${uid()}`

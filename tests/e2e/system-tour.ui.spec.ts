@@ -244,6 +244,15 @@ test('painel do tour sem violações de acessibilidade (axe)', async ({ page, co
   await openSystemTour(page, !!isMobile)
   await startChapter(page, 'primeiros-passos')
   await expect(panel(page).getByRole('heading', { name: 'Bem-vindo ao manual do AtendeRadar' })).toBeFocused()
+  // O axe mede contraste errado no meio da animação de entrada (cor ainda em transição): espera terminar
+  await panel(page).evaluate((el) =>
+    Promise.all(
+      el
+        .getAnimations({ subtree: true })
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished),
+    ),
+  )
   const results = await new AxeBuilder({ page })
     .include('[data-testid="system-tour-panel"]')
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
