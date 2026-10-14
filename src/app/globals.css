@@ -5,6 +5,7 @@
 @import "../styles/site.css";
 @import "../styles/blog.css";
 @import "../styles/painel-ajustes.css";
+@import "../styles/system-tour.css";
 
 @custom-variant dark (&:is(.dark *));
 

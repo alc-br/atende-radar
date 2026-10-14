@@ -5,7 +5,7 @@ import { useAppStore } from '@/lib/store'
 import { useSession, signOut } from 'next-auth/react'
 import {
   Moon, Sun, Menu, Search, ChevronDown, LogOut, CircleHelp, Crown, Settings, PanelLeft, Palette,
-  Bell, CalendarDays, ArrowRight, TriangleAlert, Home, UserRound, LifeBuoy,
+  Bell, CalendarDays, ArrowRight, TriangleAlert, Home, UserRound, LifeBuoy, GraduationCap,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup,
@@ -45,7 +45,7 @@ function useSidebarStyle() {
 }
 
 export function AppHeader() {
-  const { setMobileNavOpen, mobileNavOpen, setView, setPendingSearch, currentView, startTour, openHelp, period, setPeriod, refreshTrigger, setShowLanding } = useAppStore()
+  const { setMobileNavOpen, mobileNavOpen, setView, setPendingSearch, currentView, startTour, openHelp, openSystemTour, period, setPeriod, refreshTrigger, setShowLanding } = useAppStore()
   const me = useAppStore((s) => s.me)
   const { data: session } = useSession()
   const orgName = me?.organizationName || 'AtendeRadar'
@@ -164,7 +164,7 @@ export function AppHeader() {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="icone-btn" type="button" aria-label="Notificações">
+          <button className="icone-btn" type="button" aria-label="Notificações" data-tour="header-notifications">
             <Bell className="ic" aria-hidden="true" />
             {unread > 0 && <span className="bolinha" />}
           </button>
@@ -206,6 +206,7 @@ export function AppHeader() {
             <DropdownMenuItem onClick={() => setView('settings')}><Settings aria-hidden="true" />Configurações</DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={openHelp}><LifeBuoy aria-hidden="true" />Central de ajuda e suporte</DropdownMenuItem>
+          <DropdownMenuItem onClick={openSystemTour}><GraduationCap aria-hidden="true" />Tour pelo sistema</DropdownMenuItem>
           <DropdownMenuItem onClick={() => startTour(currentView)}><CircleHelp aria-hidden="true" />Tour desta tela</DropdownMenuItem>
           <DropdownMenuItem onClick={() => startTour('welcome')}><CircleHelp aria-hidden="true" />Tour de boas-vindas</DropdownMenuItem>
           <DropdownMenuSeparator />

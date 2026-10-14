@@ -25,6 +25,7 @@ import { toast } from 'sonner'
 import { timeAgo } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { can } from '@/lib/permissions'
+import { tourSignal } from '@/lib/system-tour/signals'
 
 type Role = 'admin' | 'gestor' | 'supervisor' | 'analista' | 'member' | 'atendente' | 'viewer'
 
@@ -129,6 +130,7 @@ export default function MembersView() {
       }
       const created = await res.json().catch(() => ({}))
       await showInviteLink(inviteEmail, created.inviteLink, 'Convite criado.')
+      tourSignal('member.invited')
       setInviteName('')
       setInviteEmail('')
       setInviteRole('member')

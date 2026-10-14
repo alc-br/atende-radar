@@ -16,6 +16,7 @@ import { Users, UsersRound, Plus, UserCircle, Activity } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/lib/store'
 import { can } from '@/lib/permissions'
+import { tourSignal } from '@/lib/system-tour/signals'
 
 interface Team {
   id: string
@@ -93,6 +94,7 @@ export default function TeamsView() {
         throw new Error(data.error || 'Erro ao criar equipe')
       }
       toast.success(`Equipe "${newName}" criada com sucesso!`)
+      tourSignal('team.created')
       setNewName('')
       setNewSupervisorId('')
       setCreateOpen(false)

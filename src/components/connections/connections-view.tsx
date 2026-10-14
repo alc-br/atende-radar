@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { mutate } from '@/lib/mutation'
+import { tourSignal } from '@/lib/system-tour/signals'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -75,6 +76,7 @@ export default function ConnectionsView() {
       setNewConnPhone('')
       setNewConnAck(false)
       setNewConnDialogOpen(false)
+      tourSignal('connection.created')
       fetchData()
       if (created?.connection?.id) setQrConnId(created.connection.id) // já abre o QR para parear
     } catch {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { ArrowLeft, BookOpen, CircleHelp, LifeBuoy, Search, Send, Compass, Activity } from 'lucide-react'
+import { ArrowLeft, BookOpen, CircleHelp, LifeBuoy, Search, Send, Compass, Activity, GraduationCap } from 'lucide-react'
 import { useAppStore, type View } from '@/lib/store'
 import { TOURS } from '@/lib/tours'
 import { fetchMutation } from '@/lib/mutation'
@@ -148,7 +148,7 @@ function FalarComSuporte({ tela }: { tela: string | null }) {
   }
 
   return (
-    <section className="cartao secao-config" aria-labelledby="t-suporte">
+    <section className="cartao secao-config" aria-labelledby="t-suporte" data-tour="help-support">
       <header className="secao-config__cab">
         <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><LifeBuoy className="ic" /></span>
         <div>
@@ -210,6 +210,7 @@ export default function HelpView() {
   const helpFrom = useAppStore((s) => s.helpFrom)
   const setView = useAppStore((s) => s.setView)
   const startTour = useAppStore((s) => s.startTour)
+  const openSystemTour = useAppStore((s) => s.openSystemTour)
   const [busca, setBusca] = useState('')
   const [aberto, setAberto] = useState<string | null>(null)
 
@@ -238,9 +239,12 @@ export default function HelpView() {
       </div>
 
       <div className="grid gap-[18px]">
-        <section className="cartao cartao--pad grid gap-3" aria-labelledby="t-guias">
+        <section className="cartao cartao--pad grid gap-3" aria-labelledby="t-guias" data-tour="help-guides">
           <h2 id="t-guias" className="flex items-center gap-2 text-[15px] font-bold"><Compass className="ic" aria-hidden="true" />Guias passo a passo</h2>
           <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn btn--primario" onClick={openSystemTour}>
+              <GraduationCap className="ic" aria-hidden="true" />Tour pelo sistema
+            </button>
             {temGuia && (
               <button type="button" className="btn btn--contorno-verde" onClick={() => abrirGuia(tourDaTela)}>
                 Ver o guia da tela {VIEW_LABEL[origem]}
@@ -257,7 +261,7 @@ export default function HelpView() {
 
         <section className="grid gap-3" aria-labelledby="t-artigos">
           <h2 id="t-artigos" className="flex items-center gap-2 text-[15px] font-bold"><BookOpen className="ic" aria-hidden="true" />Artigos</h2>
-          <label className="busca" style={{ maxWidth: 'none', marginRight: 0 }}>
+          <label className="busca" style={{ maxWidth: 'none', marginRight: 0 }} data-tour="help-search">
             <span className="sr-only">Buscar na ajuda</span>
             <Search className="ic ic-lupa" aria-hidden="true" />
             <input

@@ -1,0 +1,155 @@
+/* Tour pelo sistema (manual interativo). Usa os tokens do painel.css (claro e escuro) — não edite o painel.css.
+   Camadas: menu lateral 40, véu 35, topo 30 < destaque 44 < painel 46 < diálogos do sistema (z-50).
+   Assim o formulário de um cadastro cobre o painel enquanto a pessoa preenche. */
+
+/* Botão do rodapé do menu, acima de "Precisa de ajuda?" (mesmo estilo .ajuda) */
+.ar .ajuda.ajuda--tour + .ajuda {
+  margin-top: 8px;
+}
+
+/* Contorno do item destacado: não bloqueia cliques (o clique vai para o próprio item) */
+.ar .tour-sistema__destaque {
+  position: fixed;
+  z-index: 44;
+  pointer-events: none;
+  border-radius: 10px;
+  border: 2px solid var(--verde-500);
+  box-shadow: 0 0 0 4px rgba(22, 160, 99, .25), 0 0 0 9999px rgba(4, 16, 10, .38);
+  transition: top .2s ease, left .2s ease, width .2s ease, height .2s ease;
+}
+
+/* Painel do passo */
+.ar .tour-sistema {
+  position: fixed;
+  z-index: 46;
+  width: min(400px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 96px));
+  display: flex;
+  flex-direction: column;
+  background: var(--superficie);
+  color: var(--texto);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-flutuante);
+  font-size: 14px;
+  animation: tour-sistema-entra .18s ease-out;
+}
+.ar .tour-sistema--baixo-dir { right: 20px; bottom: 20px; }
+.ar .tour-sistema--baixo-esq { left: 20px; bottom: 20px; }
+.ar .tour-sistema--topo-dir { right: 20px; top: 72px; }
+.ar .tour-sistema--topo-esq { left: 20px; top: 72px; }
+
+.ar .tour-sistema__cab {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 14px 16px 8px;
+}
+.ar .tour-sistema__capitulo {
+  font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--verde-700);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dark .ar .tour-sistema__capitulo { color: var(--verde-500); }
+.ar .tour-sistema__passo { font-size: 12.5px; color: var(--suave); }
+.ar .tour-sistema__fechar {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px;
+  color: var(--texto-2); background: transparent; border: 1px solid transparent; cursor: pointer;
+}
+.ar .tour-sistema__fechar:hover { background: var(--superficie-3); }
+.ar .tour-sistema__fechar:focus-visible { outline: 2px solid var(--verde-500); outline-offset: 2px; }
+
+.ar .tour-sistema__barra {
+  height: 4px; border-radius: 999px; background: var(--superficie-3); overflow: hidden;
+}
+.ar .tour-sistema > .tour-sistema__barra { margin: 0 16px; }
+.ar .tour-sistema__barra > span {
+  display: block; height: 100%; border-radius: inherit; background: var(--verde-500);
+  transition: width .25s ease;
+}
+
+/* Texto longo rola dentro do painel */
+.ar .tour-sistema__corpo {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 12px 16px 4px;
+}
+.ar .tour-sistema__titulo {
+  font-family: var(--fonte-titulo); font-size: 16.5px; font-weight: 700; line-height: 1.3; margin-bottom: 8px; outline: none;
+}
+.ar .tour-sistema__titulo:focus-visible { outline: 2px solid var(--verde-500); outline-offset: 3px; border-radius: 4px; }
+.ar .tour-sistema__texto { color: var(--texto-2); line-height: 1.55; display: grid; gap: 8px; }
+.ar .tour-sistema__texto strong { color: var(--texto); font-weight: 600; }
+.ar .tour-sistema__texto ul { list-style: disc; padding-left: 20px; display: grid; gap: 4px; }
+.ar .tour-sistema__acao {
+  display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; border-radius: var(--raio-sm);
+  background: var(--verde-50); color: var(--verde-800); border: 1px solid var(--verde-100); font-weight: 600;
+}
+.dark .ar .tour-sistema__acao { color: var(--verde-300); }
+.ar .tour-sistema__acao .ic { flex: none; }
+.ar .tour-sistema__aviso {
+  margin-top: 10px; padding: 8px 10px; border-radius: var(--raio-sm);
+  background: var(--ambar-fundo); color: var(--texto); font-size: 13px; line-height: 1.45;
+}
+
+/* Leitura em voz alta */
+.ar .tour-sistema__voz {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  padding: 10px 16px; border-top: 1px solid var(--borda); margin-top: 8px;
+}
+.ar .tour-sistema__opcao {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--texto-2); cursor: pointer;
+}
+.ar .tour-sistema__opcao input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--verde-600); }
+.ar .tour-sistema__opcao select {
+  font: inherit; color: var(--texto); background: var(--superficie); border: 1px solid var(--borda-forte);
+  border-radius: 6px; padding: 2px 4px;
+}
+.ar .tour-sistema__nota {
+  padding: 8px 16px; border-top: 1px solid var(--borda); margin-top: 8px; font-size: 12.5px; color: var(--suave);
+}
+
+.ar .tour-sistema__rodape {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 16px 14px; border-top: 1px solid var(--borda);
+}
+
+/* Celular: o painel vira folha no rodapé (ou no topo, se o item destacado estiver embaixo) */
+@media (max-width: 639.98px) {
+  .ar .tour-sistema {
+    left: 0; right: 0; width: 100%; max-height: 46vh;
+    border-radius: var(--raio) var(--raio) 0 0; border-left: 0; border-right: 0;
+  }
+  .ar .tour-sistema--baixo, .ar .tour-sistema--baixo-dir, .ar .tour-sistema--baixo-esq { bottom: 0; top: auto; }
+  .ar .tour-sistema--topo, .ar .tour-sistema--topo-dir, .ar .tour-sistema--topo-esq {
+    top: 0; bottom: auto; border-radius: 0 0 var(--raio) var(--raio);
+  }
+  .ar .tour-sistema__rodape .btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Lista de capítulos */
+.ar .tour-sistema-lista { display: grid; gap: 12px; list-style: none; padding: 0; margin: 0; }
+@media (min-width: 900px) {
+  .ar .tour-sistema-lista { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.ar .tour-sistema-cap { display: grid; gap: 12px; align-content: start; }
+.ar .tour-sistema-cap__cab { display: flex; gap: 12px; align-items: flex-start; }
+.ar .tour-sistema-cap__cab h3 { font-size: 15px; font-weight: 700; }
+.ar .tour-sistema-cap__cab p { font-size: 13px; margin-top: 2px; }
+.ar .tour-sistema-cap__num {
+  flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 999px;
+  background: var(--verde-50); color: var(--verde-800); font-weight: 700; font-size: 13px;
+}
+.dark .ar .tour-sistema-cap__num { color: var(--verde-300); }
+.ar .tour-sistema-cap__progresso { display: grid; gap: 6px; }
+.ar .tour-sistema-cap__acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.ar .tour-sistema-fim { display: flex; gap: 14px; align-items: center; border-color: var(--verde-300); background: var(--verde-50); }
+.ar .tour-sistema-fim > .ic { flex: none; width: 32px; height: 32px; color: var(--verde-600); }
+.ar .tour-sistema-fim h2 { font-size: 16px; font-weight: 700; }
+.ar .tour-sistema-fim p { font-size: 13.5px; color: var(--texto-2); }
+
+@keyframes tour-sistema-entra {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ar .tour-sistema { animation: none; }
+  .ar .tour-sistema__destaque, .ar .tour-sistema__barra > span { transition: none; }
+}

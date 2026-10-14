@@ -141,7 +141,7 @@ export default function WhatsappIdentities() {
   useEffect(() => { void load() }, [load])
 
   return (
-    <section className="cartao" aria-labelledby="ident-t" data-testid="whatsapp-identities">
+    <section className="cartao" aria-labelledby="ident-t" data-testid="whatsapp-identities" data-tour="team-identities">
       <div className="cartao__cab">
         <div className="linha-flex">
           <span className="cab-pagina__icone cab-pagina__icone--caixa mini-caixa"><Fingerprint className="ic" aria-hidden="true" /></span>

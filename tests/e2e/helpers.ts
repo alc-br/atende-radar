@@ -66,6 +66,8 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['DELETE', '/api/teams/x'],
   ['GET', '/api/tours'],
   ['PATCH', '/api/tours'],
+  ['GET', '/api/tours/system'],
+  ['PATCH', '/api/tours/system'],
   ['GET', '/api/admin'],
   ['GET', '/api/admin/analytics'],
   ['POST', '/api/events'],

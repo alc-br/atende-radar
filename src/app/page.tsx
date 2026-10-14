@@ -29,6 +29,8 @@ import LoginPage from '@/components/login/login-page'
 import AdminView from '@/components/admin/admin-view'
 import ProfileView from '@/components/profile/profile-view'
 import HelpView from '@/components/help/help-view'
+import SystemTourView from '@/components/system-tour/system-tour-view'
+import { SystemTourPanel } from '@/components/system-tour/system-tour-panel'
 import { APP_VERSION } from '@/lib/app-version'
 import { canOpenView } from '@/lib/permissions'
 import { TrialBanner } from '@/components/layout/trial-banner'
@@ -43,6 +45,7 @@ function MainContent() {
   const setSeenTours = useAppStore((s) => s.setSeenTours)
   const startTour = useAppStore((s) => s.startTour)
   const activeTour = useAppStore((s) => s.activeTour)
+  const systemTourOpen = useAppStore((s) => s.systemTour !== null || s.currentView === 'system-tour')
   const me = useAppStore((s) => s.me)
   const setMe = useAppStore((s) => s.setMe)
   const openAuth = useAppStore((s) => s.openAuth)
@@ -94,6 +97,7 @@ function MainContent() {
 
   useEffect(() => {
     if (!toursLoaded || activeTour || !me) return // espera saber o papel para mostrar o tour certo
+    if (systemTourOpen) return // com o Tour pelo sistema aberto, os guias rápidos não abrem por cima
     if (!seenTours.includes('welcome')) {
       const id = window.setTimeout(() => startTour('welcome'), 600)
       return () => window.clearTimeout(id)
@@ -102,7 +106,7 @@ function MainContent() {
       const id = window.setTimeout(() => startTour(currentView), 600)
       return () => window.clearTimeout(id)
     }
-  }, [toursLoaded, seenTours, currentView, activeTour, startTour, me])
+  }, [toursLoaded, seenTours, currentView, activeTour, startTour, me, systemTourOpen])
 
   // I7 · uso por tela: avisa o servidor da tela onde o usuário PAROU (1,5 s sem trocar). Só o nome da tela, sem dado
   // pessoal; falha é ignorada (medir nunca atrapalha o uso). A demonstração fica fora dos números do Admin.
@@ -162,6 +166,8 @@ function MainContent() {
         return <ProfileView />
       case 'help':
         return <HelpView />
+      case 'system-tour':
+        return <SystemTourView />
       case 'landing':
         return <LandingPage />
       case 'login':
@@ -185,6 +191,7 @@ function MainContent() {
   return (
     <div className={cn('ar app', mobileNavOpen && 'menu-aberto')}>
       <TourOverlay />
+      <SystemTourPanel />
       <AppSidebar />
       <div className="principal">
         <AppHeader />

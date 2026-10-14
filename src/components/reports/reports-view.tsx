@@ -19,6 +19,7 @@ import { timeAgo } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { fetchMutation, MutationError, MUTATION_ERROR_MESSAGE } from '@/lib/mutation'
+import { tourSignal } from '@/lib/system-tour/signals'
 
 /** Nome legível do fuso da empresa (o agendamento vale nele). */
 function timezoneLabel(tz: string) {
@@ -140,6 +141,7 @@ export default function ReportsView() {
       toast.success('Relatório gerado.', runId ? {
         action: { label: 'Abrir', onClick: () => window.open(`/api/reports/runs/${runId}/download?format=html`, '_blank', 'noopener') },
       } : undefined)
+      tourSignal('report.generated')
       fetchData()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao gerar relatório')
@@ -186,6 +188,7 @@ export default function ReportsView() {
       })
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'Erro ao salvar configuração')
       toast.success('Configuração salva.')
+      tourSignal('report.configured')
       setConfigDialogOpen(null)
       fetchData()
     } catch (e) {
@@ -229,7 +232,7 @@ export default function ReportsView() {
           <h1>Relatórios</h1>
           <p>Gere e gerencie relatórios automáticos de auditoria e qualidade para acompanhar o desempenho do seu atendimento no WhatsApp.</p>
         </div>
-        <div className="cab-pagina__acoes">
+        <div className="cab-pagina__acoes" data-tour="reports-export">
           <a className="btn btn--lg" href="/api/reports/export?format=csv" download onClick={(e) => downloadExport(e, 'atenderadar-indicadores.csv')}>
             <FileSpreadsheet className="ic" aria-hidden="true" />Indicadores (CSV)
           </a>

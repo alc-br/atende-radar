@@ -1,0 +1,46 @@
+import type { View } from '../store'
+import type { Permission } from '../permissions'
+import type { TourSignal } from './signals'
+
+/**
+ * Tipos de passo do "Tour pelo sistema":
+ * - info: explica um item (com destaque, se o alvo existir na tela).
+ * - click: só avança quando a pessoa clica no elemento destacado.
+ * - task: pede um cadastro e avança sozinho quando a tela avisa que deu certo (tourSignal).
+ */
+export type SystemStepKind = 'info' | 'click' | 'task'
+
+/** Texto do passo: parágrafos e listas curtas. **negrito** vira <strong>. */
+export type SystemTourBlock = string | { list: string[] }
+
+export interface SystemTourStep {
+  /** Identificador estável dentro do capítulo. */
+  id: string
+  kind: SystemStepKind
+  title: string
+  body: SystemTourBlock[]
+  /** Valor do atributo data-tour do elemento destacado. */
+  target?: string
+  /** Tela que o próprio tour abre antes de mostrar o passo. */
+  view?: View
+  /** Para "task": o aviso que conclui o passo. */
+  signal?: TourSignal
+  /** Instrução curta mostrada em destaque (ex.: "Clique em Criar equipe"). */
+  action?: string
+  /** Passo só aparece para quem tem esta permissão. */
+  requires?: Permission
+}
+
+export interface SystemTourChapter {
+  id: string
+  title: string
+  /** Uma linha: para que serve o capítulo. */
+  summary: string
+  /** Telas que o capítulo usa: o capítulo só aparece se o papel abre TODAS. */
+  views: View[]
+  /** Permissão extra exigida (ex.: só quem gerencia equipes). */
+  requires?: Permission
+  /** Só para o operador da plataforma (painel Admin). */
+  platformOnly?: boolean
+  steps: SystemTourStep[]
+}

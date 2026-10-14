@@ -27,6 +27,30 @@ export interface ArtigoAjuda {
 
 export const ARTIGOS_AJUDA: ArtigoAjuda[] = [
   {
+    slug: 'tour-pelo-sistema',
+    titulo: 'Tour pelo sistema: o manual passo a passo',
+    resumo: 'Um passeio guiado pelas telas que o seu papel usa, com leitura em voz alta e progresso salvo.',
+    categoria: 'comecar',
+    palavras: ['manual', 'tutorial', 'treinamento', 'guia', 'passo a passo', 'aprender', 'ouvir', 'voz alta', 'leitura'],
+    corpo: [
+      { t: 'p', x: 'O **Tour pelo sistema** fica no rodapé do menu lateral, logo acima de **Precisa de ajuda?**, e também no menu com o seu nome. Ele abre uma lista de capítulos com **só o que o seu papel usa**: o atendente vê menos capítulos que o administrador.' },
+      { t: 'h2', x: 'Como funciona' },
+      {
+        t: 'check',
+        itens: [
+          'Cada passo destaca um item da tela e explica para que ele serve. O próprio manual abre a tela certa.',
+          'Em alguns passos você **clica** no item destacado; em outros faz um **cadastro de verdade** (como criar uma equipe). O manual segue sozinho quando percebe que deu certo.',
+          'Sempre dá para **Voltar** ou **Pular este passo**. Passos que dependem de algo fora do sistema, como ler o QR Code no celular, só explicam o que fazer.',
+          'As setas ← e → do teclado voltam e avançam; **Esc** fecha o manual.',
+        ],
+      },
+      { t: 'h2', x: 'Progresso salvo' },
+      { t: 'p', x: 'O progresso de cada capítulo fica guardado na sua conta. Na lista você vê o que já concluiu e pode **Continuar de onde parei** ou **Recomeçar** qualquer capítulo, inclusive em outro computador.' },
+      { t: 'h2', x: 'Leitura em voz alta' },
+      { t: 'p', x: 'O botão **Ouvir** lê o passo com a voz do seu navegador, em português, sem custo e sem enviar nada para fora. Dá para pausar, parar, ligar a leitura automática de cada passo e escolher a velocidade (de 0,8× a 1,5×). Se o seu navegador não tiver leitura em voz alta, os botões não aparecem.' },
+    ],
+  },
+  {
     slug: 'conectar-whatsapp',
     titulo: 'Como conectar o seu WhatsApp',
     resumo: 'Leia o QR Code com o celular da empresa e o AtendeRadar começa a acompanhar as conversas.',

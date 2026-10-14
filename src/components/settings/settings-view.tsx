@@ -13,6 +13,7 @@ import { DangerZone } from './danger-zone'
 import { useAppStore } from '@/lib/store'
 import { toast } from 'sonner'
 import { mutate } from '@/lib/mutation'
+import { tourSignal } from '@/lib/system-tour/signals'
 
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 // Ordem de exibição: segunda a domingo (as chaves continuam 0 = domingo ... 6 = sábado)
@@ -188,6 +189,7 @@ export default function SettingsView() {
       })
       if (!res.ok) throw new Error()
       toast.success('Dados da empresa salvos.')
+      tourSignal('settings.saved')
     } catch {
       toast.error('Não foi possível salvar os dados da empresa.')
     } finally {
@@ -205,6 +207,7 @@ export default function SettingsView() {
       })
       if (!res.ok) throw new Error()
       toast.success(`${label} salvo${label.endsWith('a') ? 'a' : 'o'}.`)
+      tourSignal('settings.saved')
     } catch {
       toast.error(`Não foi possível salvar: ${label}.`)
     } finally {
@@ -338,7 +341,7 @@ export default function SettingsView() {
           <TabsTrigger value="financeiro"><DollarSign className="ic" aria-hidden="true" />Financeiro</TabsTrigger>
           <TabsTrigger value="ia"><Brain className="ic" aria-hidden="true" />Análise</TabsTrigger>
           <TabsTrigger value="notificacoes"><Bell className="ic" aria-hidden="true" />Notificações</TabsTrigger>
-          <TabsTrigger value="privacidade"><Shield className="ic" aria-hidden="true" />Privacidade</TabsTrigger>
+          <TabsTrigger value="privacidade" data-tour="settings-tab-privacy"><Shield className="ic" aria-hidden="true" />Privacidade</TabsTrigger>
           <TabsTrigger value="regras"><ShieldCheck className="ic" aria-hidden="true" />Regras</TabsTrigger>
           <TabsTrigger value="webhook"><Webhook className="ic" aria-hidden="true" />Webhook</TabsTrigger>
           <TabsTrigger value="auditoria"><History className="ic" aria-hidden="true" />Auditoria</TabsTrigger>
@@ -782,6 +785,7 @@ export default function SettingsView() {
         <TabsContent value="privacidade" className="painel-config">
           <form
             className="cartao secao-config"
+            data-tour="settings-privacy"
             onSubmit={(e) => {
               e.preventDefault()
               void saveSettingsSlice('privacidade', {

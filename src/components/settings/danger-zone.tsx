@@ -53,7 +53,7 @@ export function DangerZone() {
   }
 
   return (
-    <section className="cartao secao-config border border-[var(--vermelho-borda)]" aria-labelledby="t-zona-perigo" data-testid="danger-zone">
+    <section className="cartao secao-config border border-[var(--vermelho-borda)]" aria-labelledby="t-zona-perigo" data-testid="danger-zone" data-tour="settings-danger">
       <header className="secao-config__cab">
         <span className="cab-pagina__icone cab-pagina__icone--caixa text-[var(--vermelho)]" aria-hidden="true"><AlertTriangle className="ic" /></span>
         <div>

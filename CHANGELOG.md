@@ -2,6 +2,9 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-14
+- **Tour pelo sistema:** manual interativo por papel (botão no rodapé do menu, acima de "Precisa de ajuda?"). Capítulos com passos de explicação, de clique e de cadastro real, que avançam sozinhos; progresso salvo por pessoa; leitura em voz alta grátis do navegador (pt-BR, velocidade 0,8–1,5×); funciona no celular. Artigo novo na Central de ajuda.
+
 ## 2026-10-13
 - **Segurança:** Content-Security-Policy em todas as páginas; a varredura ZAP passa a barrar falta de CSP.
 - **Qualidade dos alertas:** conjuntos rotulados (treino, validação e cego) com barras de precisão e cobertura; ajuste do classificador (menos falsos "frustrado").

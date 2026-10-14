@@ -59,6 +59,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency, timeAgo, cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { mutate } from '@/lib/mutation'
+import { tourSignal } from '@/lib/system-tour/signals'
 
 // ── Severity helpers ──────────────────────────────────────────────
 
@@ -331,6 +332,7 @@ export default function AlertsView() {
       setNewRuleSeverity('medium')
       setNewRuleCooldown('30')
       setNewRuleOpen(false)
+      tourSignal('alert-rule.created')
       fetchAlerts()
     } catch {
       // keep dialog open with entered values so the user can retry
@@ -801,6 +803,7 @@ export default function AlertsView() {
               type="button"
               role="tab"
               id={`aba-alertas-${t.key}`}
+              data-tour={t.key === 'regras' ? 'alerts-tab-rules' : undefined}
               aria-controls={`painel-alertas-${t.key}`}
               aria-selected={selected}
               tabIndex={selected ? 0 : -1}

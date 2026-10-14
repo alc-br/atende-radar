@@ -1,7 +1,7 @@
 'use client'
 import { create } from 'zustand'
 
-export type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'checkout' | 'notifications' | 'admin' | 'profile' | 'help' | 'landing' | 'login'
+export type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'checkout' | 'notifications' | 'admin' | 'profile' | 'help' | 'system-tour' | 'landing' | 'login'
 
 interface CurrentOrganization {
   id: string
@@ -69,6 +69,13 @@ interface AppState {
   /** Tela em que a pessoa estava quando abriu a central de ajuda (o guia oferecido é o dela). */
   helpFrom: View | null
   openHelp: () => void
+  /** Tour pelo sistema: capítulo e passo em andamento (null = fechado; a lista de capítulos é a tela 'system-tour'). */
+  systemTour: { chapterId: string; step: number } | null
+  /** Abre a lista de capítulos do tour pelo sistema (fecha o guia de tela que estiver aberto). */
+  openSystemTour: () => void
+  runSystemTour: (chapterId: string, step: number) => void
+  setSystemTourStep: (step: number) => void
+  closeSystemTour: () => void
   /** Checkout do plano escolhido (tela própria, pagamento pelo Pagar.me). */
   checkout: { planId: string; cycle: 'monthly' | 'annual' } | null
   startCheckout: (planId: string, cycle: 'monthly' | 'annual') => void
@@ -111,6 +118,11 @@ export const useAppStore = create<AppState>((set) => ({
   setView: (view) => set({ currentView: view }),
   helpFrom: null,
   openHelp: () => set((s) => ({ helpFrom: s.currentView === 'help' ? s.helpFrom : s.currentView, currentView: 'help' })),
+  systemTour: null,
+  openSystemTour: () => set({ systemTour: null, activeTour: null, activeStep: 0, currentView: 'system-tour' }),
+  runSystemTour: (chapterId, step) => set({ systemTour: { chapterId, step }, activeTour: null, activeStep: 0 }),
+  setSystemTourStep: (step) => set((s) => (s.systemTour ? { systemTour: { ...s.systemTour, step } } : {})),
+  closeSystemTour: () => set({ systemTour: null }),
   checkout: null,
   startCheckout: (planId, cycle) => set({ checkout: { planId, cycle }, currentView: 'checkout' }),
   selectConversation: (id) => set({ selectedConversationId: id, currentView: id ? 'conversation-detail' : 'conversations' }),

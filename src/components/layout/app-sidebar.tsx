@@ -5,7 +5,7 @@ import { useAppStore } from '@/lib/store'
 import {
   LayoutGrid, TriangleAlert, MessageSquare, RotateCcw, Users,
   FileChartColumn, Wifi, Settings, UserRound, Building2, CreditCard, ShieldCheck,
-  ArrowRight, CircleHelp, Lightbulb,
+  ArrowRight, CircleHelp, Lightbulb, GraduationCap,
 } from 'lucide-react'
 import type { View } from '@/lib/store'
 import { canOpenView } from '@/lib/permissions'
@@ -32,7 +32,7 @@ const adminNavItems: NavItem[] = [
 ]
 
 export function AppSidebar() {
-  const { currentView, setView, refreshTrigger, setMobileNavOpen, openHelp } = useAppStore()
+  const { currentView, setView, refreshTrigger, setMobileNavOpen, openHelp, openSystemTour } = useAppStore()
   const me = useAppStore((st) => st.me)
   // Só mostra o que o papel pode abrir. Enquanto /api/me carrega, não mostra nada restrito.
   const visible = (item: { view: View }) =>
@@ -153,11 +153,31 @@ export function AppSidebar() {
           <p>Responda rápido: quanto antes o cliente recebe retorno, menor a chance de ele fechar com outro.</p>
         </div>
 
+        {/* Manual interativo: capítulos por papel, passo a passo, com leitura em voz alta */}
+        <button
+          className="ajuda ajuda--tour"
+          type="button"
+          data-testid="abrir-tour-sistema"
+          data-tour="sidebar-tour"
+          aria-current={currentView === 'system-tour' ? 'page' : undefined}
+          onClick={() => {
+            setMobileNavOpen(false)
+            openSystemTour()
+          }}
+        >
+          <GraduationCap className="ic" aria-hidden="true" />
+          <span>
+            <strong>Tour pelo sistema</strong>
+            <span>Manual passo a passo</span>
+          </span>
+        </button>
+
         {/* Abre a central de ajuda (artigos, busca, suporte); de lá dá para reabrir o guia da tela em que estava */}
         <button
           className="ajuda"
           type="button"
           data-testid="abrir-ajuda"
+          data-tour="sidebar-help"
           aria-current={currentView === 'help' ? 'page' : undefined}
           onClick={() => {
             setMobileNavOpen(false)

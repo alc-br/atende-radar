@@ -70,6 +70,7 @@ export const VIEW_PERMISSION: Record<string, Permission | null> = {
   notifications: 'notifications.view',
   profile: null, // o próprio perfil: qualquer pessoa logada
   help: null, // central de ajuda e "Falar com o suporte": qualquer pessoa logada
+  'system-tour': 'tours.use', // tour pelo sistema: os capítulos já vêm filtrados pelo papel
 }
 
 export function canOpenView(role: string | null | undefined, view: string): boolean {

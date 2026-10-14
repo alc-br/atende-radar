@@ -640,7 +640,7 @@ export default function ConversationsView() {
           </div>
         )}
 
-        <section className="cartao overflow-hidden" aria-label="Conversas encontradas">
+        <section className="cartao overflow-hidden" aria-label="Conversas encontradas" data-tour="conversations-table">
           {/* Celular: cada conversa é um cartão com o que importa (a tabela larga fica para telas maiores) */}
           <div className="md:hidden flex flex-col" data-testid="conversation-cards">
             {paged.length === 0 ? (
