@@ -2,6 +2,7 @@
 
 Medido em 25/09/2026 com `node scripts/load-test.mjs` contra a build de produção, na máquina de desenvolvimento
 (não é o servidor real: **repetir no servidor antes de prometer números a cliente**).
+Com uma empresa de 20 mil conversas / 200 mil mensagens: ver `desempenho.md`.
 
 | Cenário | Resultado |
 |---|---|

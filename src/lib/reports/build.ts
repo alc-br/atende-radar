@@ -31,6 +31,10 @@ export interface ReportContent {
   sections: ReportSection[]
 }
 
+// tipos que usam as conversas do período / as mensagens delas (os demais não leem)
+const CONV_TYPES: ReportType[] = ['daily', 'weekly', 'agent', 'lost_opportunities', 'data_quality', 'connections']
+const MESSAGE_TYPES: ReportType[] = ['daily', 'weekly', 'agent', 'connections']
+
 const round = (n: number, d = 1) => +n.toFixed(d)
 const fmtDate = (d: Date | null | undefined) => (d ? d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—')
 const money = (n: number) => `R$ ${Math.round(n).toLocaleString('pt-BR')}`
@@ -47,16 +51,28 @@ const pct = (part: number, total: number) => (total ? `${Math.round((part / tota
 /** Monta o relatório a partir dos dados REAIS da empresa no período. */
 export async function buildReport(orgId: string, type: ReportType, start: Date, end: Date): Promise<ReportContent> {
   const org = await db.organization.findUnique({ where: { id: orgId }, select: { displayName: true } })
-  const convs = await db.conversation.findMany({
-    where: { organizationId: orgId, openedAt: { gte: start, lte: end } },
-    include: {
-      contact: { select: { displayName: true, phoneLast4: true } },
-      agent: { select: { name: true } },
-      messages: { select: { direction: true, occurredAt: true } },
-      opportunities: true,
-    },
-    orderBy: { openedAt: 'desc' },
-  })
+  // T15 · conversas só nos tipos que usam; mensagens só nos que contam mensagens ou 1ª resposta (lidas à parte, só 3 campos)
+  const base = CONV_TYPES.includes(type)
+    ? await db.conversation.findMany({
+        where: { organizationId: orgId, openedAt: { gte: start, lte: end } },
+        include: {
+          contact: { select: { displayName: true, phoneLast4: true } },
+          agent: { select: { name: true } },
+          opportunities: { select: { status: true, expectedValue: true } },
+        },
+        orderBy: { openedAt: 'desc' },
+      })
+    : []
+  const byConv = new Map<string, Array<{ direction: string; occurredAt: Date }>>()
+  if (MESSAGE_TYPES.includes(type) && base.length) {
+    const msgs = await db.message.findMany({ where: { conversationId: { in: base.map((c) => c.id) } }, select: { conversationId: true, direction: true, occurredAt: true } })
+    for (const m of msgs) {
+      const list = byConv.get(m.conversationId)
+      if (list) list.push(m)
+      else byConv.set(m.conversationId, [m])
+    }
+  }
+  const convs = base.map((c) => ({ ...c, messages: byConv.get(c.id) ?? [] }))
   const nameOf = (c: (typeof convs)[number]) => c.contact?.displayName || 'Desconhecido'
   const firstResponse = (c: (typeof convs)[number]) => {
     const ins = c.messages.filter((m) => m.direction === 'inbound').sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())[0]

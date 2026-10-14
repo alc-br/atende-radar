@@ -5,6 +5,7 @@ import { trialEndingNotices } from './billing/trial'
 import { runScheduledReports } from './reports/schedule'
 import { runWebhookOutbox } from './webhooks'
 import { purgeDueDeletions } from './org-deletion'
+import { optimizeDb } from './db'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -49,6 +50,10 @@ export function startBackgroundJobs() {
   // encerramento de conta: apaga as empresas cujo prazo de desistência (7 dias) acabou
   const deletions = setInterval(() => safely('exclusão de empresas', () => purgeDueDeletions()), 15 * 60_000)
   deletions.unref?.()
+  // estatísticas do banco para o planejador de consultas (T15): logo depois de subir e a cada 6 h
+  const optimize = () => safely('estatísticas do banco', () => optimizeDb())
+  setTimeout(optimize, 30_000).unref?.()
+  setInterval(optimize, 6 * 3600_000).unref?.()
   console.log('[analysis] agendador ligado (a cada 60 s)')
 }
 

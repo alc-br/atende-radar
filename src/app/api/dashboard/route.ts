@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, conversationScope, supervisorTeam, agentScope } from '@/lib/api-auth'
 import { dayMetrics, type DayMetricData } from '@/lib/analysis/metrics'
+import { funnelCounts } from '@/lib/analysis/funnel'
 import { Prisma } from '@prisma/client'
 
 interface DashboardSummary {
@@ -108,7 +109,12 @@ async function scopedDailyRows(orgId: string, where: Prisma.ConversationWhereInp
     db.conversation.findMany({
       // conversa encerrada antes da janela não muda nenhum número dela
       where: { AND: [where, { OR: [{ closedAt: null }, { closedAt: { gte: since } }, { openedAt: { gte: since } }] }] },
-      include: { messages: { select: { direction: true, occurredAt: true } }, opportunities: true },
+      // só os campos que dayMetrics usa (T15)
+      select: {
+        openedAt: true, closedAt: true, operationalStatus: true, score: true,
+        messages: { select: { direction: true, occurredAt: true } },
+        opportunities: { select: { status: true, expectedValue: true, createdAt: true } },
+      },
     }),
     db.promise.findMany({ where: { conversation: where, status: 'open' }, select: { status: true, dueAt: true } }),
   ])
@@ -192,24 +198,18 @@ export async function GET(request: Request) {
     }
 
     // --- Audit Funnel ---
-    const allConversations = await db.conversation.count({
-      where: convWhere,
-    })
-    const opportunityCount = await db.revenueOpportunity.count({
-      where: { conversation: convWhere },
-    })
-    const priceStage = await db.conversation.count({
-      where: { ...convWhere, inferredStage: 'price' },
-    })
-    const proposalStage = await db.conversation.count({
-      where: { ...convWhere, inferredStage: 'proposal' },
-    })
-    const wonCount = await db.conversation.count({
-      where: { ...convWhere, operationalStatus: 'won' },
-    })
-    const lostCount = await db.conversation.count({
-      where: { ...convWhere, operationalStatus: 'lost' },
-    })
+    // T15 · uma consulta agrupada no lugar de cinco contagens; as independentes vão em paralelo
+    const [stageGroups, opportunityCount, findingsGrouped] = await Promise.all([
+      db.conversation.groupBy({ by: ['inferredStage', 'operationalStatus'], where: convWhere, _count: { _all: true } }),
+      db.revenueOpportunity.count({ where: { conversation: convWhere } }),
+      db.auditFinding.groupBy({
+        by: ['type', 'severity'],
+        where: { conversation: convWhere },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+      }),
+    ])
+    const { all: allConversations, price: priceStage, proposal: proposalStage, won: wonCount, lost: lostCount } = funnelCounts(stageGroups)
     const noOutcome = allConversations - wonCount - lostCount
 
     const funnel: FunnelItem[] = [
@@ -223,13 +223,6 @@ export async function GET(request: Request) {
     ]
 
     // --- Failures by Type ---
-    const findingsGrouped = await db.auditFinding.groupBy({
-      by: ['type', 'severity'],
-      where: { conversation: convWhere },
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-    })
-
     const typeLabels: Record<string, string> = {
       no_response: 'Sem resposta',
       slow_response: 'Resposta lenta',

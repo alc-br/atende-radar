@@ -104,6 +104,8 @@ model Contact {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   conversations  Conversation[]
+
+  @@index([organizationId, phoneHash]) // ingestão: reconhecer o contato pelo telefone
 }
 
 model Conversation {
@@ -143,6 +145,15 @@ model Conversation {
   openQuestions     OpenQuestion[]
   promises          Promise[]
   scores            ConversationScore[]
+
+  // T15 · desempenho: lista de conversas, painel, motor, ingestão e relatórios
+  @@index([organizationId, updatedAt])
+  @@index([organizationId, riskScore])
+  @@index([organizationId, openedAt])
+  @@index([organizationId, operationalStatus])
+  @@index([contactId])
+  @@index([agentId])
+  @@index([connectionId, contactId])
 }
 
 model Message {
@@ -161,6 +172,8 @@ model Message {
   externalId     String? // id da mensagem no WhatsApp: garante que a mesma mensagem não entra duas vezes
 
   @@unique([connectionId, externalId])
+  @@index([conversationId, occurredAt])
+  @@index([occurredAt]) // retenção: mensagens antigas
 }
 
 model ConversationClassification {
@@ -175,6 +188,8 @@ model ConversationClassification {
   source             String       @default("ai")
   reviewedStatus     String       @default("pending")
   createdAt          DateTime     @default(now())
+
+  @@index([conversationId])
 }
 
 model AuditFinding {
@@ -193,6 +208,8 @@ model AuditFinding {
   resolutionReason String?
   falsePositive    Boolean      @default(false)
   createdAt        DateTime     @default(now())
+
+  @@index([conversationId])
 }
 
 model RevenueOpportunity {
@@ -216,6 +233,8 @@ model RevenueOpportunity {
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   recoveryItems      RecoveryItem[]
+
+  @@index([conversationId])
 }
 
 model Alert {
@@ -238,6 +257,10 @@ model Alert {
   dismissedReason String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@index([conversationId])
 }
 
 model RecoveryItem {
@@ -262,6 +285,9 @@ model RecoveryItem {
   originalAgentName String?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
+
+  @@index([organizationId, priorityScore])
+  @@index([conversationId])
 }
 
 model ReportRun {
@@ -338,6 +364,8 @@ model OpenQuestion {
   answeredByMessage  String?
   status             String       @default("open")
   confidence         Float        @default(0)
+
+  @@index([conversationId])
 }
 
 model Promise {
@@ -352,6 +380,8 @@ model Promise {
   status            String       @default("open")
   completionMessage String?
   confidence        Float        @default(0)
+
+  @@index([conversationId])
 }
 
 model ConversationScore {
@@ -363,6 +393,8 @@ model ConversationScore {
   componentScores String       @default("{}")
   eligibility     Boolean      @default(true)
   calculatedAt    DateTime     @default(now())
+
+  @@index([conversationId])
 }
 
 model AlertRule {
@@ -402,6 +434,8 @@ model DailyMetric {
   overallScore          Float        @default(0)
   messagesReceived      Int          @default(0)
   messagesSent          Int          @default(0)
+
+  @@index([organizationId, date])
 }
 
 model AgentMetric {
@@ -420,6 +454,8 @@ model AgentMetric {
   promisesTotal        Int          @default(0)
   questionsAnswered    Int          @default(0)
   questionsTotal       Int          @default(0)
+
+  @@index([agentId, date])
 }
 
 model ReportDefinition {
@@ -463,6 +499,8 @@ model Notification {
   data           String       @default("{}")
   read           Boolean      @default(false)
   createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
 }
 
 model OrganizationMember {

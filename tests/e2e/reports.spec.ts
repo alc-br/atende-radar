@@ -68,6 +68,24 @@ test.describe('Relatórios reais', () => {
     await c.dispose()
   })
 
+  // T15 · as mensagens passaram a ser lidas à parte (e só nos tipos que usam): os números têm de continuar os mesmos
+  test('números de mensagens e conversas batem com os dados (diário e conexões)', async () => {
+    const c = await companyWithData() // 2 conversas, 2 mensagens recebidas e 1 enviada, todas na Recepção
+    const get = async (type: string) => {
+      const id = (await (await c.admin.post('/api/reports/generate', { data: { reportTypeId: type, ...period() } })).json()).reportRun.id
+      return (await c.admin.get(`/api/reports/runs/${id}/download?format=csv`)).text()
+    }
+    const daily = await get('daily')
+    expect(daily).toMatch(/\r\nConversas iniciadas;2\r\n/)
+    expect(daily).toMatch(/\r\nMensagens recebidas;2\r\n/)
+    expect(daily).toMatch(/\r\nMensagens enviadas;1\r\n/)
+    expect(daily).toMatch(/\r\nTempo mediano da 1ª resposta \(min\);10\r\n/)
+    // conexões: conversas e mensagens no período são as duas últimas colunas
+    expect(await get('connections')).toMatch(/\r\nRecepção;[^\r\n]*;2;3\r\n/)
+    expect(await get('data_quality')).toMatch(/\r\nConversas no período;2\r\n/)
+    await c.dispose()
+  })
+
   test('HTML escapa o conteúdo das mensagens (sem injeção)', async () => {
     const c = await setupCompany()
     await c.send(newChat(), '<script>alert(1)</script> quanto custa?', { minutes: 40, pushName: '<img src=x onerror=alert(2)>' })

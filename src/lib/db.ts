@@ -25,3 +25,16 @@ if (!globalForPrisma.prisma && (process.env.DATABASE_URL || '').startsWith('file
 }
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+
+/**
+ * T15 · Estatísticas do planejador do SQLite (sqlite_stat1). Sem elas, numa empresa grande ele escolhe índices ruins
+ * para as contagens do painel. `analysis_limit` amostra cada índice (rápido mesmo com o banco grande) e o 0x10002
+ * analisa as tabelas que mudaram de tamanho. Mesma conexão para os dois PRAGMAs, por isso a transação.
+ */
+export async function optimizeDb() {
+  if (!(process.env.DATABASE_URL || '').startsWith('file:')) return
+  await db.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe('PRAGMA analysis_limit=400')
+    await tx.$queryRawUnsafe('PRAGMA optimize=0x10002')
+  })
+}

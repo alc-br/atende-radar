@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, conversationScope } from '@/lib/api-auth'
 import { Prisma } from '@prisma/client'
+import { pageParams } from '@/lib/pagination'
 
 export async function GET(request: Request) {
   try {
@@ -18,8 +19,7 @@ export async function GET(request: Request) {
     const minValue = searchParams.get('minValue')
     const maxValue = searchParams.get('maxValue')
     const minScore = searchParams.get('minScore')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '15')
+    const { page, limit } = pageParams(searchParams, 15)
 
     const g = await guard('conversations.view')
     if (!g.ok) return g.res
@@ -84,7 +84,6 @@ export async function GET(request: Request) {
           agent: { select: { id: true, name: true, team: true } },
           connection: { select: { id: true, name: true } },
           alerts: { select: { id: true } },
-          _count: { select: { messages: true } },
         },
         orderBy: { updatedAt: 'desc' },
         skip: (page - 1) * limit,
@@ -92,6 +91,11 @@ export async function GET(request: Request) {
       }),
       db.conversation.count({ where }),
     ])
+    // T15 · total de mensagens só das conversas desta página: o `_count` do Prisma agregava a tabela Message inteira
+    const counts = conversations.length
+      ? await db.message.groupBy({ by: ['conversationId'], where: { conversationId: { in: conversations.map((c) => c.id) } }, _count: { _all: true } })
+      : []
+    const messagesCount = new Map(counts.map((m) => [m.conversationId, m._count._all]))
 
     const formatted = conversations.map((c) => {
       const waitingMs = c.waitingSince
@@ -115,7 +119,7 @@ export async function GET(request: Request) {
         score: Math.round(c.score),
         potentialValue: Math.round(c.potentialValue),
         confidence: +c.confidence.toFixed(2),
-        messagesCount: c._count.messages,
+        messagesCount: messagesCount.get(c.id) ?? 0,
         lastActivity: (c.lastInboundAt || c.lastOutboundAt || c.updatedAt).toISOString(),
         waitingMinutes: c.operationalStatus === 'waiting_company' ? Math.floor(waitingMs / 60000) : 0,
         alertCount: c.alerts.length,

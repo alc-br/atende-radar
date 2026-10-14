@@ -3,14 +3,14 @@ import { db } from '@/lib/db'
 import { guard, recoveryScope, badRequest } from '@/lib/api-auth'
 import { Prisma } from '@prisma/client'
 import { readJson } from '@/lib/json-body'
+import { pageParams } from '@/lib/pagination'
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const assignedTo = searchParams.get('assignedTo')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit } = pageParams(searchParams, 20)
 
     const g = await guard('recovery.manage')
     if (!g.ok) return g.res

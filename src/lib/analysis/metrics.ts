@@ -1,79 +1,8 @@
 import { db } from '../db'
+import { dayKey, dayMetrics, firstResponseMinutes, mean, metricsWindowStart } from './day-metrics'
 
-export const dayKey = (d: Date, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
-
-const median = (xs: number[]) => {
-  if (xs.length === 0) return 0
-  const s = [...xs].sort((a, b) => a - b)
-  const mid = Math.floor(s.length / 2)
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
-}
-const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
-const minutes = (a: Date, b: Date) => Math.max(0, (b.getTime() - a.getTime()) / 60000)
-
-/** O mínimo de uma conversa que os números do painel usam. */
-export interface MetricConversation {
-  openedAt: Date
-  closedAt: Date | null
-  operationalStatus: string
-  score: number
-  messages: Array<{ direction: string; occurredAt: Date }>
-  opportunities: Array<{ status: string; expectedValue: number; createdAt: Date }>
-}
-export interface MetricPromise {
-  status: string
-  dueAt: Date | null
-}
-export interface DayMetricData {
-  conversationsStarted: number
-  customersWaiting: number
-  medianFirstResponse: number
-  opportunitiesDetected: number
-  opportunitiesAtRisk: number
-  overduePromises: number
-  potentialValueAtRisk: number
-  overallScore: number
-  messagesReceived: number
-  messagesSent: number
-}
-
-export function firstResponseMinutes(c: MetricConversation): number | null {
-  const inbound = c.messages.filter((m) => m.direction === 'inbound').sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())[0]
-  if (!inbound) return null
-  const out = c.messages.filter((m) => m.direction === 'outbound' && m.occurredAt > inbound.occurredAt).sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())[0]
-  return out ? minutes(inbound.occurredAt, out.occurredAt) : null
-}
-
-/**
- * Números de UM dia do painel a partir de um conjunto de conversas (a organização inteira ou só uma equipe).
- * Retrato do momento (esperando, em risco, promessas vencidas) só vale para hoje; outros dias ficam 0.
- * null = dia sem movimento (não vira linha, igual ao que o motor grava).
- */
-export function dayMetrics(convs: MetricConversation[], promises: MetricPromise[], date: string, tz: string, now: Date): DayMetricData | null {
-  const isToday = date === dayKey(now, tz)
-  const opened = convs.filter((c) => dayKey(c.openedAt, tz) === date)
-  const msgsOfDay = convs.flatMap((c) => c.messages).filter((m) => dayKey(m.occurredAt, tz) === date)
-  if (!isToday && opened.length === 0 && msgsOfDay.length === 0) return null
-
-  const open = convs.filter((c) => c.closedAt == null && !['won', 'lost'].includes(c.operationalStatus))
-  const waiting = open.filter((c) => c.operationalStatus === 'waiting_company')
-  const atRiskOpps = waiting.flatMap((c) => c.opportunities.filter((o) => o.status === 'active'))
-  const scores = opened.filter((c) => c.messages.length >= 2).map((c) => c.score)
-  const firsts = opened.map(firstResponseMinutes).filter((x): x is number => x != null)
-
-  return {
-    conversationsStarted: opened.length,
-    customersWaiting: isToday ? waiting.length : 0,
-    medianFirstResponse: +median(firsts).toFixed(1),
-    opportunitiesDetected: convs.flatMap((c) => c.opportunities).filter((o) => dayKey(o.createdAt, tz) === date).length,
-    opportunitiesAtRisk: isToday ? atRiskOpps.length : 0,
-    overduePromises: isToday ? promises.filter((p) => p.status === 'open' && p.dueAt && p.dueAt < now).length : 0,
-    potentialValueAtRisk: isToday ? Math.round(atRiskOpps.reduce((s, o) => s + o.expectedValue, 0)) : 0,
-    overallScore: Math.round(mean(scores)),
-    messagesReceived: msgsOfDay.filter((m) => m.direction === 'inbound').length,
-    messagesSent: msgsOfDay.filter((m) => m.direction === 'outbound').length,
-  }
-}
+// o cálculo puro (dayKey, dayMetrics, janela) mora em day-metrics.ts; quem importava daqui continua importando
+export * from './day-metrics'
 
 /**
  * Recalcula os números do painel (DailyMetric) e do desempenho por atendente (AgentMetric) a partir das conversas REAIS.
@@ -83,12 +12,23 @@ export async function recomputeMetrics(orgId: string, timezone: string, now = ne
   const tz = timezone || 'America/Sao_Paulo'
   const today = dayKey(now, tz)
   const yesterday = dayKey(new Date(now.getTime() - 86400000), tz)
+  const since = metricsWindowStart(now)
 
+  // Só as conversas da janela (inMetricsWindow) e só os campos usados: antes lia a empresa inteira a cada rodada do motor.
   const convs = await db.conversation.findMany({
-    where: { organizationId: orgId, messages: { some: { externalId: { not: null } } }, NOT: { contact: { excluded: true } } },
-    include: { messages: { select: { direction: true, occurredAt: true } }, opportunities: true },
+    where: {
+      organizationId: orgId,
+      messages: { some: { externalId: { not: null } } },
+      NOT: { contact: { excluded: true } },
+      OR: [{ openedAt: { gte: since } }, { closedAt: null }, { messages: { some: { occurredAt: { gte: since } } } }, { opportunities: { some: { createdAt: { gte: since } } } }],
+    },
+    select: {
+      agentId: true, openedAt: true, closedAt: true, operationalStatus: true, score: true,
+      messages: { select: { direction: true, occurredAt: true } },
+      opportunities: { select: { status: true, expectedValue: true, createdAt: true } },
+    },
   })
-  const promises = await db.promise.findMany({ where: { conversation: { organizationId: orgId } }, include: { conversation: { select: { agentId: true } } } })
+  const promises = await db.promise.findMany({ where: { conversation: { organizationId: orgId } }, select: { status: true, dueAt: true, conversation: { select: { agentId: true } } } })
 
   for (const date of [today, yesterday]) {
     const data = dayMetrics(convs, promises, date, tz, now)

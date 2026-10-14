@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { guard, alertScope } from '@/lib/api-auth'
 import { maskSensitive } from '@/lib/mask-sensitive'
 import { Prisma } from '@prisma/client'
+import { pageParams } from '@/lib/pagination'
 
 export async function GET(request: Request) {
   try {
@@ -12,8 +13,7 @@ export async function GET(request: Request) {
     const type = searchParams.get('type')
     const agentId = searchParams.get('agentId')
     const team = searchParams.get('team')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit } = pageParams(searchParams, 20)
 
     const g = await guard('alerts.view')
     if (!g.ok) return g.res

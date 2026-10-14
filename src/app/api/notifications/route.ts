@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
 import { maskSensitive } from '@/lib/mask-sensitive'
+import { pageParams } from '@/lib/pagination'
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
     const unreadOnly = searchParams.get('unread') === 'true'
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '30')
+    const { page, limit } = pageParams(searchParams, 30)
 
     const g = await guard('notifications.view')
     if (!g.ok) return g.res
