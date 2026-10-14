@@ -120,6 +120,10 @@ const MATRIX: Row[] = [
   ['GET', '/api/profile', ALL],
   ['PATCH', '/api/profile', ALL],
   ['POST', '/api/profile/password', ALL],
+  ['GET', '/api/profile/notifications', ALL],
+  ['PATCH', '/api/profile/notifications', ALL],
+  ['GET', '/api/tours/system', ALL],
+  ['PATCH', '/api/tours/system', ALL],
   // por último: "sair de todos os aparelhos" troca a versão da sessão (a de quem pediu é regravada e continua valendo)
   ['DELETE', '/api/profile/sessions', ALL],
 ]
