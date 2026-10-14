@@ -50,6 +50,13 @@ O Pagar.me agora fica no painel da Stone: **conta.stone.com.br → Chaves de aut
 
 As assinaturas feitas no sandbox não valem no modo live: o sistema passa a tratá-las como sem cobrança automática, e a empresa contrata de novo.
 
+## Limites do plano, troca de plano e teste grátis
+
+- **Exportações por mês (`maxExports`):** contam as exportações de indicadores (CSV/JSON) e o CSV de um relatório do histórico. Abrir o relatório em HTML não conta. O mês é o calendário, e a contagem recomeça no dia 1º. Acima do limite, a resposta é 402 `quota_exceeded`. A contagem vem do registro de auditoria (`report.exported`), e a limpeza de retenção guarda as exportações do mês corrente.
+- **Rebaixar acima dos limites:** se a empresa tiver mais conexões, atendentes ativos ou regras de alerta próprias do que o plano novo permite, o checkout e o "Solicitar troca" respondem 409 `plan_limits_exceeded` com a lista do excedente. Essa checagem vem antes de qualquer cobrança.
+- **Operador da plataforma (Admin → Organizações → empresa → Assinatura):** escolhe o plano, a situação e o "válido até" (no teste grátis, essa data é o fim do teste), e grava depois de confirmar. Ele pode rebaixar mesmo com excedente, mas recebe um aviso, e a empresa fica sem novos cadastros até reduzir o uso. Mudar aqui não altera uma cobrança automática já ativa no Pagar.me.
+- **Avisos de fim do teste:** uma notificação quando faltam 3 dias ou menos e outra quando falta 1 dia ou menos. Cada uma sai uma vez por data de fim, e estender o teste gera avisos novos. O agendador interno roda a cada 15 min, e os testes usam `POST /api/gateway/tick` com `{ trialNoticesAt }`. A faixa do topo também muda de tom nos 3 últimos dias.
+
 ## Sandbox (testes)
 
 - **Aprovado:** cartão `4000 0000 0000 0010`, validade futura, CVV `123`.

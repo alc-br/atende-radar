@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, isPlatformOperator, badRequest, notFound } from '@/lib/api-auth'
 import { readJson } from '@/lib/json-body'
+import { overageMessage, planOverage } from '@/lib/quotas'
 
 const STATUSES = ['trialing', 'active', 'past_due', 'canceled', 'expired']
 
@@ -22,7 +23,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const org = await db.organization.findUnique({ where: { id }, select: { id: true } })
   if (!org) return notFound('Organization')
   if (body.status !== undefined && !STATUSES.includes(body.status)) return badRequest('Status inválido')
-  if (body.planId && !(await db.plan.findUnique({ where: { id: body.planId }, select: { id: true } }))) return notFound('Plano')
+  const newPlan = body.planId ? await db.plan.findUnique({ where: { id: body.planId } }) : null
+  if (body.planId && !newPlan) return notFound('Plano')
 
   const data: Record<string, unknown> = {}
   if (body.planId) data.planId = body.planId
@@ -34,11 +36,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const existing = await db.subscription.findUnique({ where: { organizationId: id } })
+  // teste grátis: o fim do teste é o trialEnd (é ele que decide quando a assinatura expira e os avisos de fim do teste)
+  if (data.currentPeriodEnd && (body.status ?? existing?.status) === 'trialing') data.trialEnd = data.currentPeriodEnd
+  // V7/T11 · o operador pode rebaixar mesmo com o uso acima do plano novo (negociação, transição), mas recebe o aviso
+  const over = newPlan && newPlan.id !== existing?.planId ? await planOverage(id, newPlan) : []
+
   if (!existing && !body.planId) return badRequest('Empresa sem assinatura: informe o plano')
   const sub = existing
     ? await db.subscription.update({ where: { organizationId: id }, data, include: { plan: true } })
     : await db.subscription.create({ data: { organizationId: id, planId: body.planId!, status: body.status ?? 'active', ...data }, include: { plan: true } })
 
-  await audit({ ...g.auth, orgId: id }, { action: 'subscription.changed', targetType: 'subscription', targetId: sub.id, targetLabel: sub.plan.name, details: { status: sub.status, planId: sub.planId, operator: true } })
-  return NextResponse.json({ success: true, subscription: { status: sub.status, plan: sub.plan.name, currentPeriodEnd: sub.currentPeriodEnd.toISOString() } })
+  await audit({ ...g.auth, orgId: id }, { action: 'subscription.changed', targetType: 'subscription', targetId: sub.id, targetLabel: sub.plan.name, details: { status: sub.status, planId: sub.planId, operator: true, overLimits: over.length > 0 } })
+  return NextResponse.json({
+    success: true,
+    subscription: { status: sub.status, plan: sub.plan.name, planId: sub.planId, currentPeriodEnd: sub.currentPeriodEnd.toISOString(), trialEnd: sub.trialEnd?.toISOString() ?? null },
+    warning: over.length ? overageMessage(sub.plan.name, over, { applied: true }) : null,
+    over,
+  })
 }

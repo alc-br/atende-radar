@@ -1,4 +1,5 @@
 import { db } from './db'
+import { EXPORT_ACTION, usagePeriodStart } from './quotas'
 
 export interface ErasedCounts {
   conversations: number
@@ -66,6 +67,9 @@ export async function purgeExpired(orgId: string, settingsJson: string | null, n
   const metaCutoff = new Date(now.getTime() - metaDays * 86400000)
   const old = await db.conversation.findMany({ where: { organizationId: orgId, updatedAt: { lt: metaCutoff }, messages: { some: { externalId: { not: null } } } }, select: { id: true }, take: 500 })
   if (old.length) await eraseConversations(orgId, old.map((c) => c.id))
-  // o registro de auditoria é metadado: segue o mesmo prazo
-  await db.auditLog.deleteMany({ where: { organizationId: orgId, createdAt: { lt: metaCutoff } } })
+  // o registro de auditoria é metadado: segue o mesmo prazo. Exceção: as exportações do mês corrente ficam até o mês
+  // virar, porque são a contagem da cota de exportações do plano (senão um prazo curto zeraria a cota).
+  await db.auditLog.deleteMany({
+    where: { organizationId: orgId, createdAt: { lt: metaCutoff }, NOT: { action: EXPORT_ACTION, createdAt: { gte: usagePeriodStart(now) } } },
+  })
 }

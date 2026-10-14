@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { guard, badRequest, notFound } from '@/lib/api-auth'
 import { sendMail } from '@/lib/mailer'
 import { readJson } from '@/lib/json-body'
+import { overageMessage, planOverage } from '@/lib/quotas'
 
 // Pedido de troca de plano. Enquanto não há cobrança automática, quem troca é a equipe (operador da plataforma).
 export async function POST(request: Request) {
@@ -15,6 +16,9 @@ export async function POST(request: Request) {
 
   const plan = await db.plan.findFirst({ where: { id: body.planId, active: true } })
   if (!plan) return notFound('Plano')
+  // V7/T11 · não pede rebaixamento que o uso atual não cabe
+  const over = await planOverage(g.auth.orgId, plan)
+  if (over.length) return NextResponse.json({ error: overageMessage(plan.name, over), code: 'plan_limits_exceeded', over }, { status: 409 })
   const org = await db.organization.findUnique({ where: { id: g.auth.orgId }, select: { displayName: true } })
   const sub = await db.subscription.findUnique({ where: { organizationId: g.auth.orgId }, include: { plan: true } })
 

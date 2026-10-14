@@ -46,6 +46,32 @@ function getStatusTag(status: string) {
   }
 }
 
+// Exportações contam na cota do plano: o download passa por fetch para, se a cota acabou (402), mostrar o motivo em
+// vez de baixar um arquivo com o JSON do erro. O href continua no link (abrir em nova aba, testes).
+async function downloadExport(e: React.MouseEvent<HTMLAnchorElement>, fallbackName: string) {
+  e.preventDefault()
+  const href = e.currentTarget.href
+  try {
+    const res = await fetch(href)
+    if (!res.ok) {
+      const data = await res.json().catch(() => null)
+      toast.error(data?.error || 'Não foi possível exportar. Tente de novo.')
+      return
+    }
+    const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || fallbackName
+    const url = URL.createObjectURL(await res.blob())
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  } catch {
+    toast.error('Não foi possível exportar. Verifique a conexão e tente de novo.')
+  }
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return '—'
   const d = new Date(value)
@@ -176,10 +202,10 @@ export default function ReportsView() {
           <p>Gere e gerencie relatórios automáticos de auditoria e qualidade para acompanhar o desempenho do seu atendimento no WhatsApp.</p>
         </div>
         <div className="cab-pagina__acoes">
-          <a className="btn btn--lg" href="/api/reports/export?format=csv" download>
+          <a className="btn btn--lg" href="/api/reports/export?format=csv" download onClick={(e) => downloadExport(e, 'atenderadar-indicadores.csv')}>
             <FileSpreadsheet className="ic" aria-hidden="true" />Indicadores (CSV)
           </a>
-          <a className="btn btn--lg" href="/api/reports/export?format=json" download="atenderadar-indicadores.json">
+          <a className="btn btn--lg" href="/api/reports/export?format=json" download="atenderadar-indicadores.json" onClick={(e) => downloadExport(e, 'atenderadar-indicadores.json')}>
             <FileJson className="ic" aria-hidden="true" />Indicadores (JSON)
           </a>
         </div>
@@ -326,6 +352,7 @@ export default function ReportsView() {
                                 className="btn btn--sm"
                                 href={`/api/reports/runs/${row.id}/download?format=csv`}
                                 download
+                                onClick={(e) => downloadExport(e, `atenderadar-${row.id}.csv`)}
                                 aria-label="Baixar CSV"
                                 title="Baixar CSV (Excel)"
                               >

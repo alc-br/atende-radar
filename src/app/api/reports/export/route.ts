@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
+import { enforceExportQuota } from '@/lib/quotas'
 
-// Exporta os indicadores diários da empresa (últimos 90 dias) em CSV (Excel) ou JSON.
+// Exporta os indicadores diários da empresa (últimos 90 dias) em CSV (Excel) ou JSON. Conta na cota de exportações do plano.
 export async function GET(request: Request) {
   const g = await guard('reports.view')
   if (!g.ok) return g.res
   const format = new URL(request.url).searchParams.get('format') || 'csv'
   if (format !== 'csv' && format !== 'json') return badRequest('format deve ser csv ou json')
+  const overQuota = await enforceExportQuota(g.auth.orgId)
+  if (overQuota) return overQuota
 
   const since = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10)
   const rows = await db.dailyMetric.findMany({

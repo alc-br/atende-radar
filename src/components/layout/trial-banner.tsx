@@ -48,12 +48,17 @@ export function TrialBanner() {
         ? `Você já usou ${conv!.current} de ${conv!.limit} conversas do plano ${sub.planName} neste mês (${pct}%).`
         : null
 
-  const danger = inactive || quotaLevel === 'exceeded'
+  // T11 · reta final do teste: 3 dias ou menos (âmbar reforçado) e o último dia (vermelho)
+  const daysLeft = sub.trialDaysLeft ?? 0
+  const ending = trialing && !inactive && daysLeft <= 3
+  const lastDay = ending && daysLeft <= 1
+  const danger = inactive || quotaLevel === 'exceeded' || lastDay
   // Mesmo componente "aviso" do pacote de design (painel/configuracoes.html); vermelho quando bloqueia
   return (
     <div className="px-4 pt-4 sm:px-7">
       <div
         data-testid="trial-banner"
+        data-state={inactive ? 'inactive' : lastDay ? 'last-day' : ending ? 'ending' : trialing ? 'trial' : 'quota'}
         className={
           danger
             ? 'aviso flex-col sm:flex-row sm:items-center border border-[var(--vermelho-borda)] bg-[var(--vermelho-fundo)] text-[var(--vermelho)]'
@@ -61,14 +66,16 @@ export function TrialBanner() {
         }
       >
         <span className={danger ? 'aviso__ic grid size-7 shrink-0 place-items-center rounded-full bg-[var(--vermelho)] text-white' : 'aviso__ic'}>
-          {inactive || quotaLevel !== 'none' ? <AlertTriangle className="ic" aria-hidden="true" /> : <Clock className="ic" aria-hidden="true" />}
+          {inactive || ending || quotaLevel !== 'none' ? <AlertTriangle className="ic" aria-hidden="true" /> : <Clock className="ic" aria-hidden="true" />}
         </span>
         <span className="flex flex-1 flex-col gap-1">
           {(trialing || inactive) && (
             <span>
               {inactive
                 ? 'Seu teste grátis terminou ou a assinatura não está ativa. Contrate um plano para continuar cadastrando.'
-                : <>Teste grátis: <b>{sub.trialDaysLeft} {sub.trialDaysLeft === 1 ? 'dia restante' : 'dias restantes'}</b>.</>}
+                : ending
+                  ? <>Seu teste grátis termina <b data-testid="trial-days-left">{lastDay ? 'em até 1 dia' : `em ${daysLeft} dias`}</b>. Contrate um plano para não perder o acesso.</>
+                  : <>Teste grátis: <b data-testid="trial-days-left">{sub.trialDaysLeft} {sub.trialDaysLeft === 1 ? 'dia restante' : 'dias restantes'}</b>.</>}
             </span>
           )}
           {quotaText && <span data-testid="quota-warning">{quotaText}</span>}

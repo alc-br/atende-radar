@@ -19,6 +19,9 @@ import {
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
@@ -42,16 +45,34 @@ import {
 } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 
+interface AdminSubscription {
+  planId: string
+  status: string
+  storedStatus: string
+  currentPeriodEnd: string
+  trialEnd: string | null
+  recurring: boolean
+}
+
 interface AdminOrganization {
   id: string
   name: string
   cnpj: string | null
   segment: string
   plan: string | null
+  subscription: AdminSubscription | null
   connections: number
   agents: number
   status: string
   createdAt: string
+}
+
+interface AdminPlan {
+  id: string
+  code: string
+  name: string
+  active: boolean
+  monthlyPrice: number
 }
 
 interface AdminUser {
@@ -82,6 +103,7 @@ interface AdminData {
     activeAlerts: number
   }
   organizations: AdminOrganization[]
+  plans: AdminPlan[]
   users: AdminUser[]
   activity: AdminActivity[]
   system: {
@@ -172,6 +194,24 @@ const getRoleTag = (role: string) => (
   <span className={`tag ${ROLE_TAGS[role] || 'tag--cinza'}`}>{ROLE_LABELS[role] || role}</span>
 )
 
+// Situação da assinatura (o que o operador pode gravar em PATCH /api/admin/organizations/[id]/subscription)
+const SUB_STATUS_LABELS: Record<string, string> = {
+  trialing: 'Em teste',
+  active: 'Ativa',
+  past_due: 'Pagamento pendente',
+  canceled: 'Cancelada',
+  expired: 'Teste encerrado',
+}
+
+const SELECT_CLASS =
+  'flex h-10 w-full rounded-[var(--raio-sm)] border border-[var(--borda-forte)] bg-[var(--superficie)] px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
+
+interface SubForm {
+  planId: string
+  status: string
+  validUntil: string // AAAA-MM-DD (opcional)
+}
+
 const initials = (name: string) =>
   name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase()
 
@@ -191,7 +231,13 @@ export default function AdminView() {
   const [userSearch, setUserSearch] = useState('')
   const [userRoleFilter, setUserRoleFilter] = useState('todos')
 
-  const fetchData = useCallback(async (silent = false) => {
+  // Assinatura da organização aberta no detalhe (B8: o operador ativa/troca o plano)
+  const [subForm, setSubForm] = useState<SubForm>({ planId: '', status: 'active', validUntil: '' })
+  const [confirmingSub, setConfirmingSub] = useState(false)
+  const [savingSub, setSavingSub] = useState(false)
+  const [subWarning, setSubWarning] = useState<string | null>(null)
+
+  const fetchData = useCallback(async (silent = false, quiet = false): Promise<AdminData | null> => {
     if (!silent) setLoading(true)
     setError(null)
     try {
@@ -199,15 +245,53 @@ export default function AdminView() {
       if (!res.ok) throw new Error('Erro ao carregar painel administrativo')
       const json = await res.json()
       setData(json)
-      if (silent) toast.success('Dados atualizados com sucesso')
+      if (silent && !quiet) toast.success('Dados atualizados com sucesso')
+      return json as AdminData
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido')
+      return null
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  const openOrg = (org: AdminOrganization) => {
+    setSelectedOrg(org)
+    setSubForm({ planId: org.subscription?.planId ?? '', status: org.subscription?.storedStatus ?? 'active', validUntil: '' })
+    setConfirmingSub(false)
+    setSubWarning(null)
+  }
+
+  const saveSubscription = async () => {
+    if (!selectedOrg || !subForm.planId) return
+    setSavingSub(true)
+    try {
+      const res = await fetch(`/api/admin/organizations/${selectedOrg.id}/subscription`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId: subForm.planId,
+          status: subForm.status,
+          // fim do dia no horário de Brasília
+          ...(subForm.validUntil ? { periodEnd: `${subForm.validUntil}T23:59:59-03:00` } : {}),
+        }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error || 'Não foi possível alterar a assinatura')
+      toast.success('Assinatura atualizada.')
+      setSubWarning(body?.warning ?? null)
+      setConfirmingSub(false)
+      const fresh = await fetchData(true, true)
+      const updated = fresh?.organizations.find((o) => o.id === selectedOrg.id)
+      if (updated) setSelectedOrg(updated)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Não foi possível alterar a assinatura')
+    } finally {
+      setSavingSub(false)
+    }
+  }
 
   const organizations = data?.organizations || []
   const users = data?.users || []
@@ -252,7 +336,7 @@ export default function AdminView() {
   const dbOk = data?.system.databaseHealthy !== false
 
   const orgNameCell = (org: AdminOrganization) => (
-    <button type="button" className="forte text-left hover:underline" onClick={(e) => { e.stopPropagation(); setSelectedOrg(org) }}>
+    <button type="button" className="forte text-left hover:underline" onClick={(e) => { e.stopPropagation(); openOrg(org) }}>
       {org.name}
     </button>
   )
@@ -328,7 +412,7 @@ export default function AdminView() {
                     {organizations.length === 0 ? (
                       <tr><td colSpan={5} className="centro suave py-8">{loading ? 'Carregando...' : 'Nenhuma organização cadastrada.'}</td></tr>
                     ) : organizations.slice(0, 5).map((org) => (
-                      <tr key={org.id} className="cursor-pointer" onClick={() => setSelectedOrg(org)}>
+                      <tr key={org.id} className="cursor-pointer" onClick={() => openOrg(org)}>
                         <td>{orgNameCell(org)}</td>
                         <td className="hidden sm:table-cell">{org.plan ? <span className="tag tag--contorno">{org.plan}</span> : '—'}</td>
                         <td className="hidden md:table-cell">{org.connections}</td>
@@ -397,7 +481,7 @@ export default function AdminView() {
                       </tr>
                     ) : (
                       filteredOrganizations.map((org) => (
-                        <tr key={org.id} className="cursor-pointer" onClick={() => setSelectedOrg(org)}>
+                        <tr key={org.id} className="cursor-pointer" onClick={() => openOrg(org)}>
                           <td>{orgNameCell(org)}</td>
                           <td className="hidden lg:table-cell suave mono text-xs">{org.cnpj || '—'}</td>
                           <td className="hidden md:table-cell suave">{org.segment}</td>
@@ -580,7 +664,7 @@ export default function AdminView() {
 
       {/* ── Detalhe da organização (portal: componentes shadcn) ─────── */}
       <Dialog open={!!selectedOrg} onOpenChange={(open) => !open && setSelectedOrg(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           {selectedOrg && (
             <>
               <DialogHeader>
@@ -622,6 +706,99 @@ export default function AdminView() {
                   <p className="text-muted-foreground">Criado em</p>
                   <p>{formatDate(selectedOrg.createdAt)}</p>
                 </div>
+                <Separator />
+                {/* B8 · o operador ativa/troca o plano da empresa (pagamento combinado fora do checkout) */}
+                <section aria-labelledby="t-assinatura" className="space-y-3 text-sm" data-testid="admin-assinatura">
+                  <div>
+                    <h3 id="t-assinatura" className="font-semibold">Assinatura</h3>
+                    <p className="text-muted-foreground">
+                      {selectedOrg.subscription
+                        ? `${SUB_STATUS_LABELS[selectedOrg.subscription.status] || selectedOrg.subscription.status} · ${selectedOrg.subscription.storedStatus === 'trialing' && selectedOrg.subscription.trialEnd ? `teste até ${formatDate(selectedOrg.subscription.trialEnd)}` : `válida até ${formatDate(selectedOrg.subscription.currentPeriodEnd)}`}`
+                        : 'Sem assinatura cadastrada.'}
+                    </p>
+                    {selectedOrg.subscription?.recurring && (
+                      <p className="mt-1 text-amber-700 dark:text-amber-400">
+                        Esta empresa tem cobrança automática no Pagar.me. Mudar aqui não altera a cobrança no cartão.
+                      </p>
+                    )}
+                  </div>
+
+                  {!confirmingSub ? (
+                    <form
+                      className="space-y-3"
+                      onSubmit={(e) => { e.preventDefault(); if (subForm.planId) { setSubWarning(null); setConfirmingSub(true) } }}
+                    >
+                      <div className="space-y-1">
+                        <Label htmlFor="adm-sub-plano">Plano</Label>
+                        <select
+                          id="adm-sub-plano"
+                          className={SELECT_CLASS}
+                          value={subForm.planId}
+                          required
+                          onChange={(e) => setSubForm((f) => ({ ...f, planId: e.target.value }))}
+                        >
+                          {!subForm.planId && <option value="">Escolha o plano</option>}
+                          {(data?.plans || [])
+                            .filter((p) => p.active || p.id === subForm.planId)
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({formatCurrency(p.monthlyPrice)}/mês){p.active ? '' : ' · inativo'}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="adm-sub-status">Situação</Label>
+                        <select
+                          id="adm-sub-status"
+                          className={SELECT_CLASS}
+                          value={subForm.status}
+                          onChange={(e) => setSubForm((f) => ({ ...f, status: e.target.value }))}
+                        >
+                          {Object.entries(SUB_STATUS_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="adm-sub-validade">Válido até (opcional)</Label>
+                        <Input
+                          id="adm-sub-validade"
+                          type="date"
+                          value={subForm.validUntil}
+                          onChange={(e) => setSubForm((f) => ({ ...f, validUntil: e.target.value }))}
+                        />
+                        <p className="text-xs text-muted-foreground">Em branco, a data atual é mantida. No teste grátis, é o fim do teste.</p>
+                      </div>
+                      <Button type="submit" className="w-full" disabled={!subForm.planId}>
+                        Salvar assinatura
+                      </Button>
+                    </form>
+                  ) : (
+                    <div role="alertdialog" aria-labelledby="t-confirma-assinatura" aria-describedby="d-confirma-assinatura" className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+                      <p id="t-confirma-assinatura" className="font-semibold">Confirmar alteração da assinatura?</p>
+                      <p id="d-confirma-assinatura">
+                        {selectedOrg.name}: plano <b>{data?.plans.find((p) => p.id === subForm.planId)?.name ?? '—'}</b>, situação{' '}
+                        <b>{SUB_STATUS_LABELS[subForm.status] || subForm.status}</b>
+                        {subForm.validUntil ? <>, válido até <b>{formatDate(`${subForm.validUntil}T12:00:00`)}</b></> : null}. A empresa passa a ter os limites deste plano na hora.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" className="flex-1" disabled={savingSub} onClick={() => setConfirmingSub(false)}>
+                          Voltar
+                        </Button>
+                        <Button type="button" className="flex-1" disabled={savingSub} onClick={() => void saveSubscription()}>
+                          {savingSub ? 'Salvando...' : 'Confirmar'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {subWarning && (
+                    <p role="status" data-testid="admin-assinatura-aviso" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-300">
+                      {subWarning}
+                    </p>
+                  )}
+                </section>
               </div>
             </>
           )}

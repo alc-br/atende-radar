@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   Check, Crown, Zap, Rocket, MessageSquare, Users, Wifi,
-  CreditCard, ArrowRight, Sparkles, AlertTriangle, Loader2, Receipt,
+  CreditCard, ArrowRight, Sparkles, AlertTriangle, Loader2, Receipt, Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
@@ -113,11 +113,12 @@ const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(
 // Os planos se diferenciam pelos LIMITES (aplicados de verdade nas cotas). A lista de "recursos" do catálogo não é
 // aplicada a ninguém hoje, então não é exibida (nada de comparativo decorativo).
 
-const USAGE_METRICS: { key: 'conversations' | 'messages' | 'agents' | 'connections'; label: string; icon: React.ElementType; tone: string }[] = [
+const USAGE_METRICS: { key: 'conversations' | 'messages' | 'agents' | 'connections' | 'exports'; label: string; icon: React.ElementType; tone: string }[] = [
   { key: 'conversations', label: 'Conversas', icon: MessageSquare, tone: 'tom-verde' },
   { key: 'messages', label: 'Mensagens', icon: MessageSquare, tone: 'tom-azul' },
   { key: 'agents', label: 'Agentes', icon: Users, tone: 'tom-laranja' },
   { key: 'connections', label: 'Conexões', icon: Wifi, tone: 'tom-roxo' },
+  { key: 'exports', label: 'Exportações', icon: Download, tone: 'tom-teal' },
 ]
 
 function PlanIcon({ code }: { code: string }) {
@@ -232,6 +233,7 @@ export default function PlansView() {
     { label: 'Conexões WhatsApp', value: (p) => p.limits.maxConnections },
     { label: 'Mensagens/mês', value: (p) => p.limits.maxMessagesMonthly.toLocaleString('pt-BR') },
     { label: 'Regras de alerta', value: (p) => p.limits.maxAlertRules },
+    { label: 'Exportações/mês', value: (p) => p.limits.maxExports },
     { label: 'Histórico (dias)', value: (p) => p.limits.retentionDays },
   ]
 

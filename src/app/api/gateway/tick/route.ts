@@ -3,6 +3,7 @@ import { gatewayGuard } from '@/lib/gateway-auth'
 import { analyzeAll, analyzeOrganization } from '@/lib/analysis/engine'
 import { runScheduledReports } from '@/lib/reports/schedule'
 import { readJson } from '@/lib/json-body'
+import { trialEndingNotices } from '@/lib/billing/trial'
 
 // Roda o motor de análise agora (mesma função que o agendador interno chama a cada minuto).
 // Serve também para um agendador externo (cron) e para os testes. Exige o segredo do gateway.
@@ -18,6 +19,12 @@ export async function POST(request: Request) {
     const at = new Date(String((body as { reportsAt?: unknown }).reportsAt))
     if (Number.isNaN(at.getTime())) return NextResponse.json({ error: 'reportsAt inválido' }, { status: 400 })
     return NextResponse.json({ ok: true, ...(await runScheduledReports(at, orgId ?? undefined)) })
+  }
+  // Com { trialNoticesAt: ISO } cria os avisos de fim do teste grátis como se fosse aquele instante.
+  if (body && 'trialNoticesAt' in body) {
+    const at = new Date(String((body as { trialNoticesAt?: unknown }).trialNoticesAt))
+    if (Number.isNaN(at.getTime())) return NextResponse.json({ error: 'trialNoticesAt inválido' }, { status: 400 })
+    return NextResponse.json({ ok: true, trialNotices: await trialEndingNotices(at, orgId ?? undefined) })
   }
   const summary = orgId ? await analyzeOrganization(orgId) : await analyzeAll()
   return NextResponse.json({ ok: true, ...summary })

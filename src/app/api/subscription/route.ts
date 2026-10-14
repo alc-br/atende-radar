@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
 import { effectiveStatus } from '@/lib/billing/core'
+import { countExports, currentUsage, usagePeriodStart } from '@/lib/quotas'
 
 // A troca de plano só acontece com pagamento confirmado: pelo checkout (POST /api/billing/checkout, Pagar.me) ou, sem
 // pagamento on-line configurado, pelo pedido (POST /api/subscription/request) que o operador da plataforma ativa.
@@ -34,25 +35,22 @@ export async function GET() {
       })
     }
 
-    // Get current usage metrics
-    const currentMonth = new Date()
-    currentMonth.setDate(1)
-    currentMonth.setHours(0, 0, 0, 0)
-
-    const [conversationCount, messageCount, connectionCount, agentCount, alertRuleCount] =
-      await Promise.all([
-        db.conversation.count({
-          where: { organizationId: org.id, createdAt: { gte: currentMonth } },
-        }),
-        db.message.count({
-          where: {
-            conversation: { organizationId: org.id, createdAt: { gte: currentMonth } },
-          },
-        }),
-        db.whatsAppConnection.count({ where: { organizationId: org.id } }),
-        db.agent.count({ where: { organizationId: org.id } }),
-        db.alertRule.count({ where: { organizationId: org.id } }),
-      ])
+    // Uso no mês (conversas, mensagens, exportações) e uso fixo contado como nas cotas (as 8 regras padrão não contam)
+    const currentMonth = usagePeriodStart()
+    const [conversationCount, messageCount, fixed, exportCount] = await Promise.all([
+      db.conversation.count({
+        where: { organizationId: org.id, createdAt: { gte: currentMonth } },
+      }),
+      db.message.count({
+        where: {
+          conversation: { organizationId: org.id, createdAt: { gte: currentMonth } },
+        },
+      }),
+      currentUsage(org.id),
+      countExports(org.id),
+    ])
+    const { connections: connectionCount, agents: agentCount, alertRules: alertRuleCount } = fixed
+    const pct = (current: number, limit: number | null) => (limit ? Math.round((current / limit) * 100) : 0)
 
     return NextResponse.json({
       subscription: {
@@ -72,37 +70,12 @@ export async function GET() {
         cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       },
       usage: {
-        conversations: {
-          current: conversationCount,
-          limit: subscription.plan.maxConversationsMonthly,
-          percentage: Math.round(
-            (conversationCount / subscription.plan.maxConversationsMonthly) * 100
-          ),
-        },
-        messages: {
-          current: messageCount,
-          limit: subscription.plan.maxMessagesMonthly,
-          percentage: Math.round(
-            (messageCount / subscription.plan.maxMessagesMonthly) * 100
-          ),
-        },
-        connections: {
-          current: connectionCount,
-          limit: subscription.plan.maxConnections,
-          percentage: Math.round(
-            (connectionCount / subscription.plan.maxConnections) * 100
-          ),
-        },
-        agents: {
-          current: agentCount,
-          limit: subscription.plan.maxAgents,
-          percentage: Math.round((agentCount / subscription.plan.maxAgents) * 100),
-        },
-        alertRules: {
-          current: alertRuleCount,
-          limit: subscription.plan.maxAlertRules,
-          percentage: Math.round((alertRuleCount / subscription.plan.maxAlertRules) * 100),
-        },
+        conversations: { current: conversationCount, limit: subscription.plan.maxConversationsMonthly, percentage: pct(conversationCount, subscription.plan.maxConversationsMonthly) },
+        messages: { current: messageCount, limit: subscription.plan.maxMessagesMonthly, percentage: pct(messageCount, subscription.plan.maxMessagesMonthly) },
+        connections: { current: connectionCount, limit: subscription.plan.maxConnections, percentage: pct(connectionCount, subscription.plan.maxConnections) },
+        agents: { current: agentCount, limit: subscription.plan.maxAgents, percentage: pct(agentCount, subscription.plan.maxAgents) },
+        alertRules: { current: alertRuleCount, limit: subscription.plan.maxAlertRules, percentage: pct(alertRuleCount, subscription.plan.maxAlertRules) },
+        exports: { current: exportCount, limit: subscription.plan.maxExports, percentage: pct(exportCount, subscription.plan.maxExports) },
       },
     })
   } catch (error) {

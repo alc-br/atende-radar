@@ -5,6 +5,7 @@ import {
   type BillingCycle, deriveFromProvider, friendlyPaymentError, isValidDocument, mapInvoice, onlyDigits, priceCents, UFS,
 } from './core'
 import { pagarme, pagarmeConfig, PagarmeError, type Address, type PagarmeConfig } from './pagarme'
+import { overageMessage, planOverage } from '@/lib/quotas'
 
 // Cobrança recorrente (B8) com Pagar.me. A fonte de verdade é o provedor: toda mudança de situação passa por
 // applyProviderState(), que lê a assinatura e as faturas DIRETO da API (o conteúdo do webhook nunca é confiado).
@@ -156,11 +157,14 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
 }
 
 export async function checkout(auth: AuthContext, input: CheckoutInput): Promise<Fail | { ok: true; status: 'active' | 'processing'; planName: string; mode: string }> {
+  const plan = input.planId ? await db.plan.findFirst({ where: { id: input.planId, active: true } }) : null
+  if (!plan) return fail(404, 'plan_not_found', 'Plano não encontrado')
+  // V7/T11 · rebaixar só quando o uso atual cabe no plano novo (antes de qualquer chamada ao provedor)
+  const over = await planOverage(auth.orgId, plan)
+  if (over.length) return fail(409, 'plan_limits_exceeded', overageMessage(plan.name, over))
   const cfg = pagarmeConfig()
   if (!cfg) return fail(503, 'billing_disabled', 'O pagamento on-line ainda não está disponível. Use "Solicitar troca".')
   const cycle: BillingCycle = input.cycle === 'annual' ? 'annual' : 'monthly'
-  const plan = input.planId ? await db.plan.findFirst({ where: { id: input.planId, active: true } }) : null
-  if (!plan) return fail(404, 'plan_not_found', 'Plano não encontrado')
   const amount = priceCents(plan, cycle)
   if (amount <= 0) return fail(400, 'invalid_price', 'Este plano não tem preço para o ciclo escolhido')
   if (!input.cardToken || !/^token_[A-Za-z0-9]+$/.test(input.cardToken)) return fail(400, 'invalid_card', 'Dados do cartão não recebidos. Preencha o cartão de novo.')

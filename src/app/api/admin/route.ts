@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, isPlatformOperator } from '@/lib/api-auth'
 import { maskSensitive } from '@/lib/mask-sensitive'
+import { effectiveStatus } from '@/lib/billing/core'
 import fs from 'fs'
 import path from 'path'
 
@@ -32,6 +33,7 @@ export async function GET() {
       activeAlerts,
       subscriptions,
       recentNotifications,
+      plans,
     ] = await Promise.all([
       db.organization.findMany({
         include: {
@@ -50,6 +52,7 @@ export async function GET() {
         take: 15,
         include: { organization: { select: { name: true } } },
       }),
+      db.plan.findMany({ orderBy: { sortOrder: 'asc' }, select: { id: true, code: true, name: true, active: true, monthlyPrice: true } }),
     ])
 
     const globalUsers = await db.organizationMember.findMany({
@@ -94,6 +97,9 @@ export async function GET() {
         cnpj: o.cnpj,
         segment: o.segment,
         plan: o.subscription?.plan.name || null,
+        subscription: o.subscription
+          ? { planId: o.subscription.planId, status: effectiveStatus(o.subscription), storedStatus: o.subscription.status, currentPeriodEnd: o.subscription.currentPeriodEnd.toISOString(), trialEnd: o.subscription.trialEnd?.toISOString() ?? null, recurring: !!o.subscription.providerSubscriptionId }
+          : null,
         connections: o._count.connections,
         agents: o._count.agents,
         status: o.status,
@@ -108,6 +114,7 @@ export async function GET() {
         status: m.status,
         lastAccessAt: m.lastAccessAt?.toISOString() || null,
       })),
+      plans,
       activity: recentNotifications.map((n) => ({
         id: n.id,
         timestamp: n.createdAt.toISOString(),
