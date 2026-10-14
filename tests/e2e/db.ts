@@ -1,7 +1,8 @@
 // Acesso direto ao banco DESCARTÁVEL de teste (nunca produção) para ler os e-mails "enviados".
 import { PrismaClient } from '@prisma/client'
+import { TEST_DB_URL } from './test-db-url'
 
-export const testDb = new PrismaClient({ datasources: { db: { url: 'file:./test.db' } } })
+export const testDb = new PrismaClient({ datasources: { db: { url: TEST_DB_URL } } })
 
 /** Último e-mail de conta enviado para o endereço; devolve o token do link (…?token=XYZ). Ignora alertas por e-mail. */
 export async function lastTokenFor(email: string): Promise<string> {

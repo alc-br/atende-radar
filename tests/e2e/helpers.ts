@@ -1,7 +1,8 @@
 import { request, type APIRequestContext } from '@playwright/test'
 import { lastTokenFor } from './db'
 
-export const BASE_URL = 'http://127.0.0.1:3100'
+// E2E_PORT: a mesma porta do playwright.config.ts
+export const BASE_URL = `http://127.0.0.1:${Number(process.env.E2E_PORT) || 3100}`
 
 /** Rotas de API que exigem sessão. Método + caminho de um recurso real ou plausível. */
 export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', path: string]> = [

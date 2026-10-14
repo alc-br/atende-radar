@@ -42,7 +42,7 @@ Sem segredos aqui: o repositório é público.
 - Tudo: `bun run test:e2e` (~1400 testes, ~1 h; não pôr `timeout` curto).
 - Navegadores extras: `bun run test:e2e:browsers`.
 - Só unidade: `bunx playwright test --project=unit`.
-- Não rodar duas execuções do Playwright ao mesmo tempo (o servidor de teste usa a porta 3100 e o `prisma/test.db`). Se o servidor de teste "não sobe em 180 s" logo após outra execução, rode de novo.
+- Uma execução do Playwright por checkout: o banco de teste é o `prisma/test.db` daquele checkout. Para rodar ao mesmo tempo em outro worktree, use outra porta (`E2E_PORT=3111`). Com `node_modules` como junção, defina também `TURBOPACK_ROOT` com a raiz do repositório principal. Se o servidor de teste "não sobe em 180 s" logo após outra execução, rode de novo.
 - Antes de push: `bunx tsc --noEmit` e `bunx eslint . --ignore-pattern ".tmp/**" --ignore-pattern ".bun-cache/**"` (`eslint .` sem isso varre o cache do Playwright).
 - Disco apertado: `bun install` com `BUN_INSTALL_CACHE_DIR`, `TEMP` e `TMP` apontando para uma pasta do D:. `bun run build` falha no Windows no `cp -r` (o `next build` funciona).
 - Mudança de schema: `bun run db:migrate --name <descricao>` e commitar `prisma/migrations` (B10). O deploy aplica só as migrações que faltam (`db:migrate:deploy`); o CI barra schema sem migração (`db:check`). Ver `docs/operacao/migracoes.md`.
@@ -52,12 +52,36 @@ Sem segredos aqui: o repositório é público.
 - `.env` é **rastreado** pelo git e o repo é público: nunca `git add .env` nem `git add -A`. Também não commitar `.env.repo.example`, `.env.servidor`, `prisma/dev.db*`, `.claude/`.
 - `git fetch` antes de push: outra sessão também commita na `main`.
 - Servidor de desenvolvimento: a 1ª chamada a uma rota ainda não compilada pode perder o corpo do POST (o navegador aborta durante o Fast Refresh). Só acontece em dev; nos testes, compile a rota antes (ex.: jornada).
+- Runner do deploy: o único `sudo` liberado é `systemctl restart atende-radar.service`. Tudo o que roda antes do restart roda com o app no ar.
+- Worktrees com `node_modules` como junção: o Turbopack do `next dev` recusa o link ("Symlink ... points out of the filesystem root") a menos que `TURBOPACK_ROOT` aponte uma pasta acima dos dois (`next.config.ts`).
 - WebKit do Playwright não aplica `connect-src` da CSP em nenhuma plataforma (o teste pula a prova de bloqueio nele); Bun não abre os navegadores do Playwright no Windows (usar `node --experimental-strip-types` com `.mts`).
 
 ## Diário
 
 ### 14/10/2026
 
+- **Noite (deploy 6513534, no ar):**
+  - **S2 Narração do tour:** voz da Azure Speech, plano F0, com a voz pt-BR-FranciscaNeural (`src/lib/system-tour/tts.ts`, rota `/api/tour-audio/...`).
+    - Cada texto é gerado uma vez e fica em cache por sha256 em `TOUR_AUDIO_DIR` (`/opt/atende-radar/shared/tour-audio`, fora do `current/`).
+    - O deploy roda `scripts/tour-audio-warm.ts` depois do restart e gera só o que falta. No 1º deploy foram 79 textos e 21.579 caracteres.
+    - Quando um texto muda, só aquele é gerado de novo. Para refazer todos (outra voz, outro SSML), suba a versão em `tts.ts`.
+    - Sem a Azure, o navegador lê com a própria voz.
+    - Os secrets `AZURE_SPEECH_KEY` e `AZURE_SPEECH_REGION` vêm do GitHub. Doc: `docs/operacao/tour-audio.md`.
+  - **Tour, "Ler automaticamente":** botão no meio do rodapé que lê e avança sozinho.
+    - A velocidade vai de 0,8× a 2× e vale para todos os passos.
+    - No modo automático, um cursor simula o clique ou a seleção de cada passo (`src/components/system-tour/auto-actions.ts`).
+    - Passos que criariam ou mudariam dados (`autoAction: 'demo'`) só mostram onde fica. Nunca executam.
+  - **Painel na largura toda:** `.ar .conteudo` não para mais em 1440px. Conferido em 1440, 1920 e 2560, sem rolagem horizontal.
+  - **CI:**
+    - O job `test` leva ~21 min e o limite passou de 25 para 35 min, porque novas tentativas de poucos testes já cancelavam o job inteiro.
+    - O TTS falso dos testes cria a pasta do log, que não existe num checkout limpo.
+- **B10 no ar (deploy 9054a3d):** o banco de produção virou baseline da `0_init` automaticamente.
+  - O schema engine do Prisma não grava no SQLite com o app aberto ("database is locked").
+  - O runner só tem `sudo systemctl restart`. `stop` pede senha, então não dá para parar o app para migrar.
+  - Por isso `scripts/db-migrate.ts` aplica cada `migration.sql` sozinho, em `BEGIN IMMEDIATE` com espera do lock, e grava `_prisma_migrations` no formato do Prisma (`prisma migrate status` lê igual).
+  - Migração com erro é desfeita inteira e o deploy para.
+  - Migrações precisam ser aditivas: o build antigo roda com o schema novo até o restart.
+  - O ensaio de restauração só lê colunas que existem antes da migração do deploy, porque o backup é feito antes.
 - **CSP no ar:** o WebKit do Playwright também não aplica `connect-src` no Linux do CI; prova de bloqueio só em Chromium e Firefox. Deploy verde, cabeçalho e console limpos nos 2 domínios.
 - **Backlog do Trello resolvido em ondas paralelas (worktrees, juntadas na branch `integracao`):** páginas de erro amigáveis; README/CHANGELOG/runbook de rollback; máscara de CPF/cartão/CVV no conteúdo; visão geral restrita à equipe do supervisor; "Como calculamos" o valor em risco; perguntas ignoradas (`OpenQuestion`); tela de perfil, reenvio/cancelamento de convite e aceite dos termos; API endurecida (JSON inválido → 400, corpo > 5 MB → 413, teste que descobre as rotas e exige login, auditoria de dependências no CI); cotas de plano (exportações, rebaixamento, aviso de fim do teste); webhook assinado de alertas; encerramento da conta com 7 dias de carência; next 16.3.8 e dependências corrigidas; sessões do WhatsApp cifradas (AES-256-GCM, `WA_SESSIONS_KEY`, migra as existentes); desempenho (T15: índices, `ANALYZE`, consultas mais leves); eventos de produto e custo de IA (I7, Admin › Produto); vínculo atendente ↔ identidade do WhatsApp com confirmação manual (P5); central de ajuda, chamados de suporte e página de status (P8); relatórios com exportação real CSV/XLSX/PDF/JSON e PDF no e-mail agendado (P3).
 - **Efeitos para o dono:** após o P5 o nome do atendente aparece como "sugerido" até alguém confirmar a identidade em Equipe; o CSV agora traz valores em dinheiro como número (para planilha); as metas do T15 mais pesadas (M1/M3) ainda ficam acima do alvo com 20 mil conversas.
@@ -69,7 +93,6 @@ Sem segredos aqui: o repositório é público.
 - **Disco (máquina de dev):** o D: lota durante a suíte; quem cresce é o disco virtual do WSL do dono (`D:\WSL\Ubuntu\ext4.vhdx`, não mexer). Para rodar a suíte: `.next` como junção para uma pasta no C: (precisa de uma junção `node_modules` ao lado, senão os chunks não acham `next/server`) e `TEMP`/`TMP` no C:.
 - **Suíte completa (1748):** passou, depois destas correções: Configurações travam os formulários até os dados chegarem (antes, o que se digitava cedo era sobrescrito e o Salvar gravava o valor antigo); o guia rápido só fecha a gaveta do celular que ele abriu; no tour pelo sistema, o passo que aponta para o menu reabre a gaveta se a pessoa tocar fora; corpo do painel do tour focável (axe). Testes: período sem contar o anunciador de rotas do Next, nome longo só no elemento visível.
 - **Novos no backlog (pedidos do dono):** S1 ambiente de simulação só do operador, que o agente também consegue rodar (plano em `docs/planos/ambiente-de-simulacao.md`); S2 áudio do tour gravado no 1º play (TTS no servidor, Azure Speech F0) e narração que explica, não só lê.
-- **B10 (migrações versionadas):** `prisma/migrations/0_init` + `scripts/db-migrate.ts`; no 1º deploy o banco de produção vira baseline só se for igual à `0_init` (senão para sem alterar nada). Subiu num deploy separado, depois do anterior.
 - **Falta:** V2 (preços/limites, depende do dono), item 8 (chips); provedor de IA (P6 resumo, P9 áudio, B6 cobertura); infra do dono (I2 staging/demo, I3 Sentry/Uptime, I4 rotação, I6 proteção da main, T16 backup externo).
 
 ### 13/10/2026

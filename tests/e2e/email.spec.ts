@@ -1,12 +1,12 @@
 import { test, expect, request } from '@playwright/test'
-import { loginAs, signupOrg, uid } from './helpers'
+import { BASE_URL, loginAs, signupOrg, uid } from './helpers'
 import { gatewayClient, setupCompany, newChat } from './gw'
 import { mailsTo, testDb } from './db'
 
 // E-mails do produto: todo e-mail passa pelo EmailOutbox (o provedor real, Resend, entra com MAIL_PROVIDER=resend).
 // Aqui se prova o que o sistema manda, para quem, quando e que os links levam a páginas que funcionam.
 
-const BASE = 'http://127.0.0.1:3100'
+const BASE = BASE_URL
 const linkIn = (body: string) => body.match(/https?:\/\/\S+/)?.[0] ?? ''
 
 test.describe('E-mails: links das mensagens de conta', () => {

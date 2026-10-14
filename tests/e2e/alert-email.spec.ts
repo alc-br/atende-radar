@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { anonymous, uid } from './helpers'
+import { anonymous, BASE_URL, uid } from './helpers'
 import { setupCompany, newChat } from './gw'
 import { testDb } from './db'
 
@@ -7,7 +7,7 @@ import { testDb } from './db'
 // com resumo, horário de silêncio (crítico passa), novas tentativas com limite e link "parar de receber".
 // Sem MAIL_PROVIDER nos testes: o e-mail fica no EmailOutbox ('queued') e toda nova tentativa falha de propósito.
 
-const BASE = 'http://127.0.0.1:3100'
+const BASE = BASE_URL
 const RULE = 'Cliente sem primeira resposta' // no_response, 10 min, padrão de toda empresa nova
 const NEUTRO = 'Olá, tudo bem? Meu telefone é 11 98765-4321'
 

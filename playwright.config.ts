@@ -1,8 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 import { TOUR_AUDIO_TEST_ENV } from './tests/e2e/tour-audio-env'
+import { TEST_DB_URL } from './tests/e2e/test-db-url'
 
-const PORT = 3100
-const TEST_DB = 'file:./test.db'
+// E2E_PORT: outra porta para rodar duas execuções ao mesmo tempo em checkouts diferentes (cada um tem seu prisma/test.db)
+const PORT = Number(process.env.E2E_PORT) || 3100
+const TEST_DB = TEST_DB_URL
 
 // Outros navegadores (Firefox, Safari no Mac e no iPhone): só os fluxos que vendem e cobram, em job próprio no CI.
 // Ligados por CROSS_BROWSER=1 (bun run test:e2e:browsers) para não pesar a suíte principal.

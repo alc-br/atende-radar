@@ -1,9 +1,9 @@
 import { test, expect, request } from '@playwright/test'
-import { signupOrg, uid } from './helpers'
+import { BASE_URL, signupOrg, uid } from './helpers'
 
 // Ataques de senha: além do bloqueio por conta (5 erros, ver auth.spec), o IP que erra muitas senhas em contas
 // diferentes ("uma senha em muitas contas") fica bloqueado por 15 min, e inventar X-Forwarded-For não escapa do limite.
-const BASE = 'http://127.0.0.1:3100'
+const BASE = BASE_URL
 const ipNovo = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`
 
 async function tenta(email: string, password: string, xff: string) {
