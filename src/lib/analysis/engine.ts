@@ -3,8 +3,9 @@ import { classifyMessages, type AnalysisMessage } from './classify'
 import { extractPromise } from './promises'
 import { attributeAgent } from './agents'
 import { scoreConversation } from './score'
-import { estimateOpportunity } from './opportunity'
+import { estimateOpportunity, revenueSettings } from './opportunity'
 import { recomputeMetrics } from './metrics'
+import { detectIgnoredQuestions } from './questions'
 import { purgeExpired } from '../privacy'
 import { maskSensitive } from '../mask-sensitive'
 import { businessMinutesBetween, outsideRuleFrom, scheduleFrom, type HoursSettings } from './business-hours'
@@ -81,9 +82,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   // A tela de Configurações grava tudo na raiz de `settings` (avgTicket, convRate em %, businessHours, slaFirst, …).
   type OrgSettings = HoursSettings & { avgTicket?: string | number; convRate?: string | number; slaFirst?: string | number; slaContinuity?: string | number; abandonTime?: string | number; inactivityClose?: string | number }
   const settings = parseJson<OrgSettings>(org.settingsJson, {})
-  const avgTicket = Number(settings.avgTicket) > 0 ? Number(settings.avgTicket) : 1500
-  const convRateRaw = Number(settings.convRate)
-  const conversionRate = convRateRaw > 0 ? (convRateRaw > 1 ? convRateRaw / 100 : convRateRaw) : 0.18
+  const { avgTicket, conversionRate } = revenueSettings(settings)
   // P2 · Horário comercial e regra fora do expediente:
   //   ignora → alertas e nota só contam minutos de expediente · atraso → tudo em tempo corrido · alerta → alerta em tempo corrido, nota em expediente
   const schedule = scheduleFrom(settings, org.timezone)
@@ -100,7 +99,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
 
   // I8 · Motor incremental: só entram conversas que PODEM mudar de estado nesta rodada —
   //  · marcadas pela ingestão ou por ação manual (needsAnalysisAt),
-  //  · esperando a empresa (alertas por tempo), com alerta/promessa em aberto, com oportunidade ativa (abandono),
+  //  · esperando a empresa (alertas por tempo), com alerta/promessa/pergunta em aberto, com oportunidade ativa (abandono),
   //  · abertas e paradas há mais que o prazo de inatividade (encerramento).
   // Conversa quieta e sem pendência não é reprocessada (custo cresce com o que muda, não com o histórico).
   const staleBefore = new Date(now.getTime() - inactivityHours * 3600000)
@@ -113,6 +112,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
         { closedAt: null, operationalStatus: 'waiting_company' },
         { closedAt: null, alerts: { some: { status: { in: OPEN_ALERT } } } },
         { closedAt: null, promises: { some: { status: 'open' } } },
+        { closedAt: null, openQuestions: { some: { status: 'open' } } },
         { closedAt: null, opportunities: { some: { status: 'active' } } },
         { closedAt: null, updatedAt: { lt: staleBefore } },
       ],
@@ -121,13 +121,14 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   })
   const convIds = conversations.map((c) => c.id)
 
-  const [promises, feedbacks, opportunities, openAlerts, recoveries, classifications] = await Promise.all([
+  const [promises, feedbacks, opportunities, openAlerts, recoveries, classifications, questions] = await Promise.all([
     db.promise.findMany({ where: { conversationId: { in: convIds } } }),
     db.classificationFeedback.findMany({ where: { organizationId: orgId, targetId: { in: convIds } } }),
     db.revenueOpportunity.findMany({ where: { conversationId: { in: convIds } } }),
     db.alert.findMany({ where: { organizationId: orgId, status: { in: OPEN_ALERT } } }),
     db.recoveryItem.findMany({ where: { organizationId: orgId, conversationId: { in: convIds } } }),
     db.conversationClassification.findMany({ where: { conversationId: { in: convIds } } }),
+    db.openQuestion.findMany({ where: { conversationId: { in: convIds } } }),
   ])
   const openAlertByKey = new Map(openAlerts.map((a) => [`${a.ruleName}|${a.conversationId ?? ''}`, a]))
 
@@ -199,6 +200,27 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
         p.status = 'kept'
       } else if (p.dueAt && p.dueAt < now) overdueOpen += 1
       else if (p.dueAt) approachingOpen += 1
+    }
+
+    // --- perguntas ignoradas (B6): pergunta do cliente sem resposta além do SLA (mesmo relógio dos alertas) ---
+    // Idempotente pela mensagem de origem; a pergunta em aberto vira "respondida" quando a empresa responde depois.
+    const convQuestions = questions.filter((q) => q.conversationId === conv.id)
+    for (const q of convQuestions) {
+      if (q.status !== 'open') continue // respondida/cancelada (inclusive à mão) fica como está
+      const src = msgs.find((m) => m.id === q.sourceMessage)
+      const reply = src ? msgs.find((m) => m.direction === 'outbound' && m.occurredAt > src.occurredAt) : undefined
+      if (reply) {
+        await db.openQuestion.update({ where: { id: q.id }, data: { status: 'answered', answeredByMessage: reply.id } })
+        q.status = 'answered'
+      }
+    }
+    const knownQuestions = new Set(convQuestions.map((q) => q.sourceMessage))
+    for (const q of detectIgnoredQuestions(msgs, { now, slaFirstMinutes: slaFirst, slaContinuityMinutes: slaContinuity, elapsed: forAlerts })) {
+      if (knownQuestions.has(q.messageId)) continue
+      const created = await db.openQuestion.create({
+        data: { conversationId: conv.id, sourceMessage: q.messageId, normalizedQuestion: q.text, askedAt: q.askedAt, answeredByMessage: q.answeredBy, status: q.answeredBy ? 'answered' : 'open', confidence: 0.6 },
+      })
+      questions.push(created)
     }
 
     // --- tempos ---
