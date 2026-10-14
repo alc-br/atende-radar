@@ -1,5 +1,9 @@
-// Deterministic seed data for AtendeRadar
-// All data is fixed — no Math.random() used
+// Dados fixos da empresa de demonstração (OdontoVida), usados só por prisma/seed.ts (desenvolvimento, testes e a
+// conta de demonstração). Não é importado pelo app. Regras, relatórios e planos vêm dos módulos que o app usa
+// (org-defaults-data, plan-catalog); aqui só se acrescentam ids e destinatários da demonstração.
+// Tudo é determinístico (sem Math.random()).
+import { DEFAULT_ALERT_RULES, DEFAULT_REPORT_DEFINITIONS } from '../src/lib/org-defaults-data'
+import { PLAN_CATALOG } from '../src/lib/plan-catalog'
 
 // ─── Helpers ────────────────────────────────────────────────────────
 const now = new Date()
@@ -352,16 +356,17 @@ export function getPromises() {
 }
 
 // ─── Report Definitions ─────────────────────────────────────────────
-export const reportDefinitions = [
-  { id: 'rdef_seed_1', organizationId: org.id, reportType: 'daily', name: 'Relatório Diário', description: 'Resumo executivo do dia com métricas e prioridades.', schedule: '18:00', timezone: 'America/Sao_Paulo', daysOfWeek: '[1,2,3,4,5]', recipients: JSON.stringify(['contato@odontovida.com.br']), channels: JSON.stringify(['email']), sendEmpty: false, lastRunAt: hoursAgo(2) },
-  { id: 'rdef_seed_2', organizationId: org.id, reportType: 'weekly', name: 'Relatório Semanal', description: 'Evolução versus semana anterior com recomendações.', schedule: '09:00', timezone: 'America/Sao_Paulo', daysOfWeek: '[1]', recipients: JSON.stringify(['contato@odontovida.com.br', 'ana@odontovida.com.br']), channels: JSON.stringify(['email']), sendEmpty: false, lastRunAt: daysAgo(2) },
-  { id: 'rdef_seed_3', organizationId: org.id, reportType: 'agent', name: 'Relatório por Equipe', description: 'Desempenho individual com pontos fortes e falhas.', schedule: '17:00', timezone: 'America/Sao_Paulo', daysOfWeek: '[5]', recipients: JSON.stringify(['ana@odontovida.com.br']), channels: JSON.stringify(['email']), sendEmpty: false, lastRunAt: daysAgo(5) },
-  { id: 'rdef_seed_4', organizationId: org.id, reportType: 'lost_opportunities', name: 'Oportunidades Perdidas', description: 'Leads perdidos com causa raiz e valor estimado.', schedule: '10:00', timezone: 'America/Sao_Paulo', daysOfWeek: '[1]', recipients: JSON.stringify(['contato@odontovida.com.br']), channels: JSON.stringify(['email']), sendEmpty: false, lastRunAt: daysAgo(2) },
-  { id: 'rdef_seed_5', organizationId: org.id, reportType: 'promises', name: 'Relatório de Promessas', description: 'Promessas feitas, cumpridas e vencidas por atendente.', schedule: '17:00', timezone: 'America/Sao_Paulo', daysOfWeek: '[1,2,3,4,5]', recipients: JSON.stringify(['ana@odontovida.com.br', 'contato@odontovida.com.br']), channels: JSON.stringify(['email', 'in_app']), sendEmpty: false, lastRunAt: hoursAgo(3) },
-  { id: 'rdef_seed_6', organizationId: org.id, reportType: 'recovery', name: 'Relatório de Recuperação', description: 'Itens criados, trabalhados e receita recuperada.', schedule: '09:00', timezone: 'America/Sao_Paulo', daysOfWeek: '[1]', recipients: JSON.stringify(['contato@odontovida.com.br']), channels: JSON.stringify(['email']), sendEmpty: false, lastRunAt: daysAgo(2) },
-  { id: 'rdef_seed_7', organizationId: org.id, reportType: 'data_quality', name: 'Qualidade dos Dados', description: 'Cobertura de campos, classificações e confiança da IA.', schedule: '08:00', timezone: 'America/Sao_Paulo', daysOfWeek: '[1]', recipients: JSON.stringify(['contato@odontovida.com.br']), channels: JSON.stringify(['email']), sendEmpty: true, lastRunAt: daysAgo(14) },
-  { id: 'rdef_seed_8', organizationId: org.id, reportType: 'connections', name: 'Relatório de Conexões', description: 'Status das conexões, uptime e volume de mensagens.', schedule: '06:00', timezone: 'America/Sao_Paulo', daysOfWeek: '[1,2,3,4,5]', recipients: JSON.stringify(['contato@odontovida.com.br']), channels: JSON.stringify(['email']), sendEmpty: false, lastRunAt: hoursAgo(10) },
-]
+export const reportDefinitions = (() => {
+  const recipients: Record<string, string[]> = { weekly: ['contato@odontovida.com.br', 'ana@odontovida.com.br'], agent: ['ana@odontovida.com.br'], promises: ['ana@odontovida.com.br', 'contato@odontovida.com.br'] }
+  const lastRunAt: Record<string, Date> = { daily: hoursAgo(2), weekly: daysAgo(2), agent: daysAgo(5), lost_opportunities: daysAgo(2), promises: hoursAgo(3), recovery: daysAgo(2), data_quality: daysAgo(14), connections: hoursAgo(10) }
+  return DEFAULT_REPORT_DEFINITIONS.map((d, i) => ({
+    id: `rdef_seed_${i + 1}`,
+    organizationId: org.id,
+    ...d,
+    recipients: JSON.stringify(recipients[d.reportType] ?? ['contato@odontovida.com.br']),
+    lastRunAt: lastRunAt[d.reportType],
+  }))
+})()
 
 // ─── Report Runs ────────────────────────────────────────────────────
 export const reportRuns = [
@@ -378,16 +383,15 @@ export const reportRuns = [
 ]
 
 // ─── Alert Rules ────────────────────────────────────────────────────
-export const alertRules = [
-  { id: 'arule_seed_1', organizationId: org.id, name: 'Cliente sem primeira resposta', type: 'no_response', active: true, severity: 'critical', scopeConnections: '[]', scopeTeams: '[]', daysAndHours: '{}', limitMinutes: 10, notificationChannels: JSON.stringify(['in_app', 'email']), recipients: JSON.stringify(['contato@odontovida.com.br']), cooldownMinutes: 30, autoCloseMinutes: null, exceptions: '[]', minConfidence: 0.5 },
-  { id: 'arule_seed_2', organizationId: org.id, name: 'Cliente sem resposta após interação', type: 'no_response_followup', active: true, severity: 'high', scopeConnections: '[]', scopeTeams: '[]', daysAndHours: '{}', limitMinutes: 30, notificationChannels: JSON.stringify(['in_app']), recipients: JSON.stringify([]), cooldownMinutes: 20, autoCloseMinutes: null, exceptions: '[]', minConfidence: 0.6 },
-  { id: 'arule_seed_3', organizationId: org.id, name: 'Pedido de preço sem retorno', type: 'pending_quote', active: true, severity: 'high', scopeConnections: '[]', scopeTeams: '[]', daysAndHours: '{}', limitMinutes: 15, notificationChannels: JSON.stringify(['in_app', 'email']), recipients: JSON.stringify(['contato@odontovida.com.br']), cooldownMinutes: 15, autoCloseMinutes: 120, exceptions: '[]', minConfidence: 0.5 },
-  { id: 'arule_seed_4', organizationId: org.id, name: 'Intenção alta sem resposta', type: 'high_intent_no_reply', active: true, severity: 'critical', scopeConnections: '[]', scopeTeams: '[]', daysAndHours: '{}', limitMinutes: 5, notificationChannels: JSON.stringify(['in_app', 'email']), recipients: JSON.stringify(['contato@odontovida.com.br', 'ana@odontovida.com.br']), cooldownMinutes: 10, autoCloseMinutes: null, exceptions: '[]', minConfidence: 0.7 },
-  { id: 'arule_seed_5', organizationId: org.id, name: 'Promessa próxima do vencimento', type: 'promise_approaching', active: true, severity: 'medium', scopeConnections: '[]', scopeTeams: '[]', daysAndHours: '{}', limitMinutes: 120, notificationChannels: JSON.stringify(['in_app']), recipients: JSON.stringify([]), cooldownMinutes: 60, autoCloseMinutes: null, exceptions: '[]', minConfidence: 0.5 },
-  { id: 'arule_seed_6', organizationId: org.id, name: 'Promessa vencida', type: 'promise_overdue', active: true, severity: 'critical', scopeConnections: '[]', scopeTeams: '[]', daysAndHours: '{}', limitMinutes: 0, notificationChannels: JSON.stringify(['in_app', 'email']), recipients: JSON.stringify(['contato@odontovida.com.br']), cooldownMinutes: 30, autoCloseMinutes: 1440, exceptions: '[]', minConfidence: 0.5 },
-  { id: 'arule_seed_7', organizationId: org.id, name: 'Cliente irritado', type: 'customer_frustrated', active: true, severity: 'high', scopeConnections: '[]', scopeTeams: '[]', daysAndHours: '{}', limitMinutes: 5, notificationChannels: JSON.stringify(['in_app', 'email']), recipients: JSON.stringify(['ana@odontovida.com.br']), cooldownMinutes: 20, autoCloseMinutes: null, exceptions: '[]', minConfidence: 0.6 },
-  { id: 'arule_seed_8', organizationId: org.id, name: 'Conexão desconectada', type: 'connection_down', active: true, severity: 'critical', scopeConnections: '[]', scopeTeams: '[]', daysAndHours: '{}', limitMinutes: 0, notificationChannels: JSON.stringify(['in_app', 'email']), recipients: JSON.stringify(['contato@odontovida.com.br']), cooldownMinutes: 5, autoCloseMinutes: 60, exceptions: '[]', minConfidence: 0.9 },
-]
+export const alertRules = (() => {
+  const recipients: Record<string, string[]> = { no_response_followup: [], high_intent_no_reply: ['contato@odontovida.com.br', 'ana@odontovida.com.br'], promise_approaching: [], customer_frustrated: ['ana@odontovida.com.br'] }
+  return DEFAULT_ALERT_RULES.map((r, i) => ({
+    id: `arule_seed_${i + 1}`,
+    organizationId: org.id,
+    ...r,
+    recipients: JSON.stringify(recipients[r.type] ?? ['contato@odontovida.com.br']),
+  }))
+})()
 
 // ─── Daily Metrics (14 days) ───────────────────────────────────────
 export function getDailyMetrics() {
@@ -479,11 +483,7 @@ export const teams = [
 ]
 
 // ─── Plans ──────────────────────────────────────────────────────────
-export const plans = [
-  { id: 'plan_seed_1', code: 'essencial', name: 'Essencial', description: 'Para começar a ter visibilidade da sua operação.', monthlyPrice: 149, annualPrice: 1490, stripePriceIds: JSON.stringify({ monthly: 'price_monthly_essencial', annual: 'price_annual_essencial' }), currency: 'BRL', trialDays: 7, maxConnections: 1, maxAgents: 3, maxConversationsMonthly: 300, maxMessagesMonthly: 2000, maxAudioMinutes: 0, retentionDays: 30, maxExports: 5, maxAlertRules: 5, features: JSON.stringify({ basic_dashboard: true, conversation_audit: true, daily_report: true, alert_rules: true, team_management: false, advanced_dashboard: false, custom_reports: false, api_access: false }), active: true, sortOrder: 1, highlight: false },
-  { id: 'plan_seed_2', code: 'gestao', name: 'Growth', description: 'Para empresas que querem mais resultados.', monthlyPrice: 299, annualPrice: 2990, stripePriceIds: JSON.stringify({ monthly: 'price_monthly_gestao', annual: 'price_annual_gestao' }), currency: 'BRL', trialDays: 14, maxConnections: 3, maxAgents: 10, maxConversationsMonthly: 1000, maxMessagesMonthly: 10000, maxAudioMinutes: 120, retentionDays: 90, maxExports: 20, maxAlertRules: 20, features: JSON.stringify({ basic_dashboard: true, conversation_audit: true, daily_report: true, alert_rules: true, team_management: true, advanced_dashboard: true, custom_reports: false, api_access: false }), active: true, sortOrder: 2, highlight: true },
-  { id: 'plan_seed_3', code: 'performance', name: 'Performance', description: 'Para operações maiores e mais complexas.', monthlyPrice: 599, annualPrice: 5990, stripePriceIds: JSON.stringify({ monthly: 'price_monthly_performance', annual: 'price_annual_performance' }), currency: 'BRL', trialDays: 14, maxConnections: 10, maxAgents: 50, maxConversationsMonthly: 5000, maxMessagesMonthly: 50000, maxAudioMinutes: 600, retentionDays: 365, maxExports: 100, maxAlertRules: 100, features: JSON.stringify({ basic_dashboard: true, conversation_audit: true, daily_report: true, alert_rules: true, team_management: true, advanced_dashboard: true, custom_reports: true, api_access: true }), active: true, sortOrder: 3, highlight: false },
-]
+export const plans = PLAN_CATALOG
 
 // ─── Subscription ───────────────────────────────────────────────────
 export const subscription = {

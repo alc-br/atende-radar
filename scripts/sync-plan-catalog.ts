@@ -1,8 +1,8 @@
-// Mantém nome e descrição dos planos iguais ao catálogo do site (seed-data), pelo código do plano.
+// Mantém nome e descrição dos planos iguais ao catálogo (src/lib/plan-catalog.ts), pelo código do plano.
 // Idempotente: só atualiza o que estiver diferente. Preços, limites e assinaturas NÃO são tocados.
 //   bun scripts/sync-plan-catalog.ts
 import { PrismaClient } from '@prisma/client'
-import { plans } from '../src/lib/seed-data'
+import { PLAN_CATALOG as plans } from '../src/lib/plan-catalog'
 
 const db = new PrismaClient()
 

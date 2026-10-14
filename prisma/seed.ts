@@ -28,7 +28,7 @@ import {
   agentIdentities,
   classificationFeedbacks,
   notifications,
-} from '../src/lib/seed-data'
+} from './seed-data'
 
 const prisma = new PrismaClient()
 
