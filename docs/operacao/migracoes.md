@@ -21,7 +21,15 @@ Nunca edite nem apague uma migração que já foi ao ar: crie outra.
 
 ## O que o deploy faz
 
-`bun run db:migrate:deploy` (`scripts/db-migrate.ts`), depois do backup do banco:
+`bun run db:migrate:deploy` (`scripts/db-migrate.ts`), depois do backup do banco.
+
+**O serviço para alguns segundos quando há migração.** O Prisma não grava no SQLite enquanto outro processo mantém o
+banco aberto ("database is locked"), e o app mantém. O deploy roda `bun scripts/db-migrate.ts --pending` (só lê): se há
+migração (ou o baseline) a aplicar, para o `atende-radar.service`, aplica e religa (com o build anterior; o build novo
+entra no restart do fim). Sem migração pendente, o serviço não para. Por isso migrações precisam ser aditivas: o
+código da versão anterior roda por alguns minutos com o schema novo.
+
+Casos:
 
 - Banco já com histórico: `prisma migrate deploy` (aplica só as que faltam; sem nada novo, não faz nada).
 - Banco vazio ou inexistente: aplica todas, a partir da `0_init`.

@@ -122,7 +122,14 @@ jobs:
           # Aplica só as migrações versionadas que faltam (prisma/migrations, revisadas no git). Na 1ª vez, o banco
           # criado pelo antigo `db push` vira baseline SÓ se for igual à 0_init; senão para sem alterar nada.
           # Ver docs/operacao/migracoes.md.
-          /usr/local/bin/bun run db:migrate:deploy
+          # O Prisma não grava no SQLite enquanto o app mantém o banco aberto ("database is locked"). Então, SÓ quando
+          # há migração a aplicar, o serviço para durante a migração (segundos) e volta com o build atual; as migrações
+          # são aditivas, o código atual continua funcionando. Sem migração pendente, o serviço nem para.
+          if /usr/local/bin/bun scripts/db-migrate.ts --pending; then
+            sudo -n systemctl stop atende-radar.service
+            trap 'sudo -n systemctl start atende-radar.service' EXIT
+            /usr/local/bin/bun run db:migrate:deploy
+          fi
 
       - name: "Catálogo de planos (nome e descrição iguais ao site; preços e assinaturas não mudam)"
         working-directory: /opt/atende-radar/current

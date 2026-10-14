@@ -1,6 +1,7 @@
 // B10 · Migrações versionadas do banco (prisma/migrations), com baseline do banco que já existia.
 //   bun scripts/db-migrate.ts           aplica as migrações que faltam (deploy, testes, dev)
 //   bun scripts/db-migrate.ts --check   só confere se o schema.prisma tem migração para tudo (CI); não toca em banco
+//   bun scripts/db-migrate.ts --pending só lê o banco: sai 0 se há migração (ou baseline) a aplicar, 1 se está em dia
 //
 // Banco criado antes das migrações (pelo antigo `prisma db push`) não tem o histórico _prisma_migrations.
 // Nele, a 0_init só é marcada como aplicada se o banco for IGUAL ao que a 0_init cria (prisma migrate diff);
@@ -8,7 +9,7 @@
 // Variável: DATABASE_URL (padrão file:./dev.db, relativo a prisma/ como o Prisma faz).
 import { Database } from 'bun:sqlite'
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 
@@ -73,6 +74,31 @@ if (!url.startsWith('file:')) {
 const raw = url.slice('file:'.length).split('?')[0]
 const dbPath = isAbsolute(raw) ? raw : resolve(process.cwd(), 'prisma', raw)
 const absUrl = `file:${dbPath.replace(/\\/g, '/')}`
+
+if (process.argv.includes('--pending')) {
+  // Só lê o banco (funciona com o app no ar). Sai 0 se há algo a fazer (baseline ou migração nova), 1 se está em dia.
+  // O deploy usa para parar o serviço só quando precisa: o schema engine do Prisma não grava no SQLite enquanto
+  // outro processo mantém o banco aberto (dá "database is locked" o tempo todo), e o app mantém.
+  const names = readdirSync(MIGRATIONS, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && existsSync(join(MIGRATIONS, d.name, 'migration.sql')))
+    .map((d) => d.name)
+  let applied: string[] = []
+  if (existsSync(dbPath)) {
+    const db = new Database(dbPath, { readonly: true })
+    const hasTable = db.query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_prisma_migrations'").get()
+    if (hasTable) {
+      applied = (
+        db.query('SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL').all() as Array<{
+          migration_name: string
+        }>
+      ).map((r) => r.migration_name)
+    }
+    db.close()
+  }
+  const pending = names.filter((n) => !applied.includes(n))
+  console.log(pending.length ? `db-migrate --pending: a aplicar: ${pending.join(', ')}` : 'db-migrate --pending: banco em dia')
+  process.exit(pending.length ? 0 : 1)
+}
 
 if (existsSync(dbPath)) {
   const db = new Database(dbPath, { readonly: true })
