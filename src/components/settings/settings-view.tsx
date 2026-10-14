@@ -267,8 +267,9 @@ export default function SettingsView() {
   const [notifDigestFreq, setNotifDigestFreq] = useState('15')
   const [notifRecipients, setNotifRecipients] = useState<string[]>([])
   const [newRecipient, setNewRecipient] = useState('')
-  const [silenceStart, setSilenceStart] = useState('22:00')
-  const [silenceEnd, setSilenceEnd] = useState('07:00')
+  // em branco = silêncio fora do horário de atendimento (src/lib/alert-email.ts)
+  const [silenceStart, setSilenceStart] = useState('')
+  const [silenceEnd, setSilenceEnd] = useState('')
 
   // --- Privacidade ---
   const [retContent, setRetContent] = useState('365')
@@ -723,15 +724,15 @@ export default function SettingsView() {
               <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Bell className="ic" /></span>
               <div>
                 <h2 id="t-alertas">Alertas</h2>
-                <p className="suave">Hoje os alertas aparecem dentro do sistema (sino e tela Alertas). Entrega por e-mail, resumo e horário de silêncio ainda não estão ativos (dependem do provedor de e-mail); os ajustes ficam guardados.</p>
+                <p className="suave">Os alertas aparecem no sino e na tela Alertas. Regras com o canal e-mail também avisam por e-mail os membros que veem aquele alerta (cada pessoa pode desligar em Meu perfil). O e-mail não traz texto de mensagem nem dados do cliente.</p>
                 <div className="notif-item notif-item--entre">
-                  <div className="notif-item__corpo"><b>Alertas imediatos</b><small>Receber alertas críticos e de alta severidade imediatamente.</small></div>
+                  <div className="notif-item__corpo"><b>Alertas imediatos</b><small>Alertas críticos chegam por e-mail mesmo no horário de silêncio.</small></div>
                   <Interruptor checked={notifImmediate} onChange={setNotifImmediate} label="Alertas imediatos" />
                 </div>
                 <div className="notif-item">
                   <Interruptor checked={notifDigestEnabled} onChange={setNotifDigestEnabled} label="Resumo de alertas" />
                   <div className="notif-item__corpo">
-                    <b>Resumo de alertas</b><small>Agrupar alertas em um resumo periódico.</small>
+                    <b>Resumo de alertas</b><small>No máximo um e-mail por regra a cada intervalo, por pessoa; o que chegar no meio-tempo vai junto no próximo. Desligado, cada alerta vira um e-mail.</small>
                     <div className="notif-item__campos">
                       <div className="campo"><label htmlFor="n-freq">Frequência (minutos)</label><input className="entrada campo-hora" id="n-freq" type="number" min={5} step={5} value={notifDigestFreq} onChange={e => setNotifDigestFreq(e.target.value)} disabled={!notifDigestEnabled} /></div>
                     </div>
@@ -742,7 +743,7 @@ export default function SettingsView() {
 
             <section className="cartao secao-notif secao-notif--linha" aria-labelledby="t-destinatarios">
               <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Users className="ic" /></span>
-              <div><h2 id="t-destinatarios">Destinatários</h2><p className="suave">E-mails que receberão notificações.</p></div>
+              <div><h2 id="t-destinatarios">Destinatários</h2><p className="suave">Lista guardada para uso futuro. Hoje os alertas por e-mail vão para os membros da equipe que veem o alerta, não para esta lista.</p></div>
               <div className="destinatarios">
                 <div className="linha-flex">
                   <label className="sr-only" htmlFor="n-email">Novo e-mail</label>
@@ -771,7 +772,7 @@ export default function SettingsView() {
 
             <section className="cartao secao-notif secao-notif--linha" aria-labelledby="t-silencio">
               <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Moon className="ic" /></span>
-              <div><h2 id="t-silencio">Horários de Silêncio</h2><p className="suave">Período sem notificações (somente alertas críticos).</p></div>
+              <div><h2 id="t-silencio">Horários de Silêncio</h2><p className="suave">Período sem alertas por e-mail (no fuso da empresa); o que ficar retido chega quando o período acabar. Em branco, vale o período fora do horário de atendimento. Início igual ao fim: sem silêncio.</p></div>
               <div className="linha-flex silencio">
                 <div className="campo"><label htmlFor="n-ini">Início</label><input className="entrada campo-hora" id="n-ini" type="time" value={silenceStart} onChange={e => setSilenceStart(e.target.value)} /></div>
                 <div className="campo"><label htmlFor="n-fim">Fim</label><input className="entrada campo-hora" id="n-fim" type="time" value={silenceEnd} onChange={e => setSilenceEnd(e.target.value)} /></div>

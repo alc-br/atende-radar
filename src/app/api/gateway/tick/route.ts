@@ -7,6 +7,8 @@ import { trialEndingNotices } from '@/lib/billing/trial'
 import { processWebhookOutbox } from '@/lib/webhooks'
 import { purgeDueDeletions } from '@/lib/org-deletion'
 import { purgeProductEvents } from '@/lib/privacy'
+import { flushAlertEmails } from '@/lib/alert-email'
+import { retryFailedEmails } from '@/lib/mailer'
 
 // Roda o motor de análise agora (mesma função que o agendador interno chama a cada minuto).
 // Serve também para um agendador externo (cron) e para os testes. Também processa a fila de webhooks. Exige o segredo do gateway.
@@ -45,5 +47,9 @@ export async function POST(request: Request) {
   const summary = orgId ? await analyzeOrganization(orgId) : await analyzeAll()
   // fila de webhooks: entrega o que venceu (nos testes o agendador está desligado; isto deixa o envio determinístico)
   const webhooks = await processWebhookOutbox(orgId ? { organizationId: orgId } : {})
-  return NextResponse.json({ ok: true, ...summary, webhooks, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
+  // alertas por e-mail: envia os pendentes que já podem sair e tenta de novo os e-mails que falharam
+  const now = new Date()
+  const alertEmails = await flushAlertEmails(now, orgId ?? undefined)
+  const emailRetries = await retryFailedEmails(now, { organizationId: orgId ?? undefined })
+  return NextResponse.json({ ok: true, ...summary, webhooks, alertEmails, emailRetries, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
 }

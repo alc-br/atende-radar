@@ -4,6 +4,8 @@ Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no
 
 ## 2026-10-14
 - **Tour pelo sistema:** manual interativo por papel (botão no rodapé do menu, acima de "Precisa de ajuda?"). Capítulos com passos de explicação, de clique e de cadastro real, que avançam sozinhos; progresso salvo por pessoa; leitura em voz alta grátis do navegador (pt-BR, velocidade 0,8–1,5×); funciona no celular. Artigo novo na Central de ajuda.
+- **Alertas por e-mail:** regras com o canal e-mail agora mandam e-mail para os membros que veem o alerta (respeita o escopo de supervisor e atendente). Sem texto de mensagem, nome ou telefone do cliente. No máximo 1 e-mail por regra a cada 15 min por pessoa (o resto vai num resumo), horário de silêncio (crítico passa) e link "parar de receber" (também no cabeçalho List-Unsubscribe). Liga e desliga em Meu perfil. Detalhes em `docs/operacao/alertas-por-email.md`.
+- **E-mails que falham** são tentados de novo sozinhos (até 4 envios: 5 min, 30 min e 2 h depois). Se for alerta e desistir, aparece um aviso no sino.
 
 ## 2026-10-13
 - **Segurança:** Content-Security-Policy em todas as páginas; a varredura ZAP passa a barrar falta de CSP.

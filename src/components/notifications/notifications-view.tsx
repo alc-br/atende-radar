@@ -23,6 +23,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   promise_overdue: Clock,
   report_ready: FileBarChart,
   report_failed: AlertCircle,
+  email_failed: AlertCircle,
   recovery: RotateCcw,
   system: Settings,
 }
@@ -33,6 +34,7 @@ const ICON_TONES: Record<string, string> = {
   promise_overdue: 'tom-ambar',
   report_ready: 'tom-verde',
   report_failed: 'tom-vermelho',
+  email_failed: 'tom-vermelho',
   recovery: 'tom-teal',
   system: 'tom-roxo',
 }

@@ -7,6 +7,8 @@ import { runWebhookOutbox } from './webhooks'
 import { purgeDueDeletions } from './org-deletion'
 import { optimizeDb } from './db'
 import { purgeProductEvents } from './privacy'
+import { flushAlertEmails } from './alert-email'
+import { retryFailedEmails } from './mailer'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -55,6 +57,12 @@ export function startBackgroundJobs() {
   // webhooks dos clientes: novas tentativas das entregas que falharam (a 1ª vai logo após o alerta)
   const webhooks = setInterval(() => safely('webhooks', () => runWebhookOutbox()), 60_000)
   webhooks.unref?.()
+  // alertas por e-mail: envia os pendentes (intervalo/silêncio) e tenta de novo os e-mails que falharam
+  const emails = setInterval(async () => {
+    await safely('alertas por e-mail', () => flushAlertEmails())
+    await safely('novas tentativas de e-mail', () => retryFailedEmails())
+  }, 60_000)
+  emails.unref?.()
   // encerramento de conta: apaga as empresas cujo prazo de desistência (7 dias) acabou
   // e, no mesmo passo, a retenção dos eventos analíticos (PRODUCT_EVENTS_RETENTION_DAYS)
   const deletions = setInterval(async () => {

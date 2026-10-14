@@ -36,6 +36,8 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['PATCH', '/api/profile'],
   ['POST', '/api/profile/password'],
   ['DELETE', '/api/profile/sessions'],
+  ['GET', '/api/profile/notifications'],
+  ['PATCH', '/api/profile/notifications'],
   ['GET', '/api/notifications'],
   ['PATCH', '/api/notifications/x'],
   ['POST', '/api/notifications/read-all'],

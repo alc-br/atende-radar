@@ -10,6 +10,7 @@ import { detectIgnoredQuestions } from './questions'
 import { purgeExpired } from '../privacy'
 import { maskSensitive } from '../mask-sensitive'
 import { enqueueAlertEvent } from '../webhooks'
+import { queueAlertEmails } from '../alert-email'
 import { milestone } from '../product-events'
 import { businessMinutesBetween, outsideRuleFrom, scheduleFrom, type HoursSettings } from './business-hours'
 
@@ -380,6 +381,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
             data: { organizationId: orgId, type: 'alert', title: alert.title, message: evidence, data: JSON.stringify({ alertId: alert.id, conversationId: conv.id, severity: rule.severity }) },
           })
         }
+        await queueAlertEmails(rule, alert) // canal "email" (fila; nunca lança erro)
         if (RECOVERY_RULES.includes(rule.type) && hasOpportunity && !recoveries.some((r) => r.conversationId === conv.id && ['new', 'in_progress', 'assigned'].includes(r.status))) {
           const item = await db.recoveryItem.create({
             data: {
@@ -414,6 +416,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
         if (parseJson<string[]>(connRule.notificationChannels, ['in_app']).includes('in_app')) {
           await db.notification.create({ data: { organizationId: orgId, type: 'alert', title: alert.title, message: alert.description, data: JSON.stringify({ alertId: alert.id, severity: connRule.severity }) } })
         }
+        await queueAlertEmails(connRule, alert) // canal "email" (fila; nunca lança erro)
       } else if (!down && existing) {
         await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved' } }))
         summary.alertsResolved += 1

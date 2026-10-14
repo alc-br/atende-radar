@@ -21,6 +21,7 @@ export async function GET() {
       emailVerified: !!m.emailVerifiedAt,
       termsVersion: m.termsVersion,
       termsAcceptedAt: m.termsAcceptedAt?.toISOString() || null,
+      alertEmails: m.alertEmails,
     },
   })
 }

@@ -566,6 +566,8 @@ model OrganizationMember {
   termsVersion    String?
   privacyVersion  String?
   termsAcceptedAt DateTime?
+  // Alertas por e-mail (regras com canal "email"): ligado por padrão; o link "parar de receber" do e-mail desliga
+  alertEmails     Boolean      @default(true)
 }
 
 // Tokens de uso único enviados por e-mail (recuperar senha, aceitar convite, confirmar e-mail). Só o hash é guardado.
@@ -590,6 +592,33 @@ model EmailOutbox {
   attachments String? // anexos enviados: JSON [{ filename, size }] (o conteúdo não fica guardado)
   createdAt   DateTime  @default(now())
   sentAt      DateTime?
+  // Novas tentativas automáticas (src/lib/mailer.ts): só e-mails sem anexo; nextAttemptAt null = não tenta mais
+  attempts       Int       @default(0) // envios tentados no provedor
+  nextAttemptAt  DateTime?
+  headers        String? // cabeçalhos extras em JSON (List-Unsubscribe), reenviados nas novas tentativas
+  kind           String? // alert | alert_digest | null (conta, relatórios, suporte)
+  organizationId String? // empresa dona do e-mail (alertas): aviso de falha e exclusão da conta
+
+  @@index([status, nextAttemptAt])
+}
+
+// Alertas por e-mail (P4/T13): um item por alerta e destinatário. O envio respeita o intervalo mínimo por regra e
+// pessoa (o que chega nesse intervalo vai junto num resumo) e o horário de silêncio. Sem texto de mensagem nem telefone.
+model AlertEmailItem {
+  id             String    @id @default(cuid())
+  organizationId String
+  memberId       String
+  ruleId         String
+  ruleName       String
+  alertId        String
+  severity       String
+  status         String    @default("pending") // pending | sending | sent | skipped
+  outboxId       String?
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+
+  @@index([status, organizationId])
+  @@index([memberId, ruleId, status, sentAt])
 }
 
 model Team {

@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { signOut } from 'next-auth/react'
 import { toast } from 'sonner'
-import { UserRound, KeyRound, MonitorSmartphone, Save, LogOut, FileCheck } from 'lucide-react'
+import { UserRound, KeyRound, MonitorSmartphone, Save, LogOut, FileCheck, Mail } from 'lucide-react'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -19,6 +19,7 @@ interface Profile {
   hasPassword: boolean
   termsVersion: string | null
   termsAcceptedAt: string | null
+  alertEmails: boolean
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -52,6 +53,7 @@ export default function ProfileView() {
   const [savingPassword, setSavingPassword] = useState(false)
   const [confirmLogoutAll, setConfirmLogoutAll] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [savingAlertEmails, setSavingAlertEmails] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -122,6 +124,19 @@ export default function ProfileView() {
       toast.error(erro(err))
     } finally {
       setLoggingOut(false)
+    }
+  }
+
+  const toggleAlertEmails = async (on: boolean) => {
+    setSavingAlertEmails(true)
+    try {
+      await fetchMutation('/api/profile/notifications', { method: 'PATCH', json: { alertEmails: on } })
+      setProfile((p) => (p ? { ...p, alertEmails: on } : p))
+      toast.success(on ? 'Alertas por e-mail ligados.' : 'Alertas por e-mail desligados.')
+    } catch (err) {
+      toast.error(erro(err))
+    } finally {
+      setSavingAlertEmails(false)
     }
   }
 
@@ -209,6 +224,18 @@ export default function ProfileView() {
               <p className="suave">Esta conta ainda não tem senha própria. Para criar uma, use “Esqueceu sua senha?” na tela de entrar.</p>
             )}
           </form>
+
+          <section className="cartao secao-config secao-config--linha" aria-labelledby="t-perfil-alertas-email">
+            <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Mail className="ic" /></span>
+            <div>
+              <h2 id="t-perfil-alertas-email">Alertas por e-mail</h2>
+              <p className="suave">Receber por e-mail os alertas que você pode ver, quando a regra tiver o canal e-mail. Desligado, eles continuam no sino e na tela Alertas.</p>
+            </div>
+            <label className="interruptor">
+              <input type="checkbox" role="switch" aria-label="Receber alertas por e-mail" checked={profile.alertEmails} disabled={savingAlertEmails} onChange={(e) => void toggleAlertEmails(e.target.checked)} />
+              <span />
+            </label>
+          </section>
 
           <section className="cartao secao-config secao-config--linha" aria-labelledby="t-perfil-sessoes">
             <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><MonitorSmartphone className="ic" /></span>
