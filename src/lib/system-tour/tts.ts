@@ -12,7 +12,7 @@
 // A chave da Azure nunca vai para log nem mensagem de erro.
 // Imports relativos e só módulos do Node: os testes de unidade e scripts/tour-audio-warm.ts carregam este arquivo direto.
 import { createHash, randomBytes } from 'node:crypto'
-import { appendFileSync, promises as fs } from 'node:fs'
+import { appendFileSync, mkdirSync, promises as fs } from 'node:fs'
 import path from 'node:path'
 
 /** Suba quando mudar algo que altera o som sem mudar o texto (ex.: SSML, prosódia). */
@@ -138,7 +138,11 @@ async function synthAzure(cfg: TtsConfig, text: string): Promise<Buffer> {
 
 async function synth(cfg: TtsConfig, text: string): Promise<Buffer> {
   if (cfg.provider === 'fake') {
-    if (cfg.fakeLog) appendFileSync(cfg.fakeLog, `${normalizeTtsText(text).length}\n`)
+    if (cfg.fakeLog) {
+      // num checkout limpo (CI) a pasta do log ainda não existe
+      mkdirSync(path.dirname(cfg.fakeLog), { recursive: true })
+      appendFileSync(cfg.fakeLog, `${normalizeTtsText(text).length}\n`)
+    }
     return silentMp3(FAKE_FRAMES)
   }
   return synthAzure(cfg, text)
