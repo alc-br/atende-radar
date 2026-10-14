@@ -146,3 +146,65 @@ No motor, o EXPLAIN ainda mostra varredura em `OpenQuestion`, `Promise` e `Alert
 - Cada índice custa um pouco em cada gravação (já incluído na medição de ingestão).
 - `PRAGMA optimize` grava estatísticas em `sqlite_stat1` (tabela interna do SQLite; não muda dados).
 - Teto de 100 itens por página: quem pedisse mais pela API passa a receber 100 (as telas pedem menos).
+
+## LCP do site em produção (V6)
+
+O LCP (Largest Contentful Paint) é o tempo até aparecer o maior bloco da tela: texto ou imagem. É a métrica de
+carregamento do Core Web Vitals. Os limites são **bom até 2,5 s**, **precisa melhorar entre 2,5 e 4 s** e **ruim
+acima de 4 s**. O Google usa o percentil 75 das visitas reais.
+
+### Como medir
+
+```powershell
+node --experimental-strip-types scripts/medir-lcp.mts https://atenderadar.com.br/ [--vezes=5] [--cpu=4] [--desktop]
+```
+
+- **Por que `node` e não `bun`:** o Bun não abre os navegadores do Playwright no Windows.
+- **Navegador:** Chromium do Playwright, com a limitação aplicada pelo DevTools Protocol:
+  - rede: `Network.emulateNetworkConditions` no perfil "Slow 4G" do Lighthouse (latência de 562,5 ms, 1,47 Mbit/s de
+    descida e 675 kbit/s de subida);
+  - CPU: `Emulation.setCPUThrottlingRate` 4×;
+  - tela de celular de 412×823.
+- **Cada rodada** abre um navegador novo, sem cache, e mede uma primeira visita. O LCP vem de um `PerformanceObserver`
+  de `largest-contentful-paint` instalado antes dos scripts da página.
+- **Saída:** cada rodada e a mediana.
+- **Impacto no site:** o script só faz GET na página e nos arquivos que ela pede. Não envia formulário nem faz login.
+
+### Resultado de 14/10/2026: https://atenderadar.com.br/, celular, Slow 4G, CPU 4×, 5 rodadas
+
+| Rodada | TTFB | FCP | LCP |
+|---|---|---|---|
+| 1 | 701 ms | 2856 ms | 3352 ms |
+| 2 | 583 ms | 2896 ms | 2896 ms |
+| 3 | 527 ms | 3140 ms | 3140 ms |
+| 4 | 519 ms | 2780 ms | 2780 ms |
+| 5 | 606 ms | 3312 ms | 3312 ms |
+| **Mediana** | **583 ms** | **2896 ms** | **3140 ms** |
+
+- **Faixa:** **precisa melhorar**, cerca de 0,6 s acima da meta de 2,5 s.
+- **Elemento do LCP:** um parágrafo de texto (`<p>`, cerca de 56 mil px²), não uma imagem. Nas 5 rodadas foi o mesmo elemento.
+- **O LCP coincide com o FCP** em 4 das 5 rodadas: o maior texto aparece na primeira pintura. Portanto o tempo é gasto
+  antes da primeira pintura, com a página em branco: HTML, CSS e fontes que bloqueiam a renderização, somados à latência
+  de 562 ms por ida e volta. Não é o texto chegando depois.
+- **Medido uma vez** (5 rodadas seguidas), a partir da máquina de desenvolvimento. O resultado varia com o horário e
+  com a rede de quem mede.
+- **Não é dado de campo:** não há medição de visitas reais (RUM nem CrUX).
+- **Não medido:** a mesma página em desktop (`--desktop`) e o app (`app.atenderadar.com.br`), que pede login.
+
+### Onde procurar os 0,6 s (hipóteses, não medidas)
+
+Nesta tarefa nada foi mudado no site. O próximo passo é abrir um trace do Lighthouse, no DevTools ou com
+`npx lighthouse`, e conferir as hipóteses abaixo.
+
+1. **CSS bloqueante.**
+   - O `globals.css` importa os estilos do painel, da conta, do site, do blog e do tour num arquivo só.
+   - O visitante do site baixa o CSS do painel inteiro antes de ver qualquer coisa.
+   - Proposta: separar o CSS do site (`.lp`) do CSS do painel (`.ar`).
+2. **Fontes.**
+   - O texto principal usa Plus Jakarta Sans e Inter via `next/font`.
+   - Proposta: conferir se as duas são pré-carregadas e se `display: swap` está ativo, para o texto não esperar a fonte.
+3. **JavaScript na primeira pintura.**
+   - O FCP perto de 2,9 s com TTFB de 0,6 s indica cerca de 2,3 s entre o primeiro byte e a pintura.
+   - Proposta: conferir quanto JS a página inicial carrega antes de pintar (`next build` mostra o "First Load JS" por rota).
+
+Depois de cada mudança, rode o script de novo e registre aqui o antes e o depois.
