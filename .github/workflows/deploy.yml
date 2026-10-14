@@ -127,7 +127,7 @@ jobs:
           # novo até o restart do fim.
           /usr/local/bin/bun run db:migrate:deploy
 
-      - name: "Catálogo de planos (nome e descrição iguais ao site; preços e assinaturas não mudam)"
+      - name: "Catálogo de planos (nome e descrição do código só onde o Admin não editou; preços e assinaturas não mudam)"
         working-directory: /opt/atende-radar/current
         run: /usr/local/bin/bun scripts/sync-plan-catalog.ts
 

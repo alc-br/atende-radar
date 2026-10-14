@@ -7,13 +7,37 @@
 - **Ativação:** o plano só muda quando a 1ª fatura é paga. Com cartão recusado, a assinatura no Pagar.me é cancelada na hora e a empresa fica como estava.
 - **Troca de plano:** abre uma assinatura nova, cobrada integralmente na hora. Quando ela é paga, a anterior é cancelada no Pagar.me. Não há desconto proporcional pelo período restante.
 - **Cancelamento:** **Planos → Cancelar renovação** para as cobranças na hora. O plano vale até o fim do período pago. Depois disso, o cadastro de novos itens é bloqueado até a pessoa contratar de novo.
+- **Reativar a renovação:** depois de cancelar e antes do fim do período pago, **Planos → Reativar renovação**. Nada é cobrado na hora. Detalhes em [Reativação da renovação](#reativação-da-renovação).
 - **Troca de cartão:** **Planos → Trocar cartão**. O novo token substitui o cartão na assinatura.
 - **Cobrança recusada na renovação:** o status vira `past_due` e aparece o aviso “Pagamento pendente” com o motivo. O admin recebe uma notificação. Depois da troca de cartão, as próximas tentativas de cobrança usam o cartão novo.
 - **Sincronização:**
   - Webhook (instantâneo).
   - Leitura ao abrir **Planos** (se a última tiver mais de 2 min).
   - Varredura a cada 15 min. O sistema funciona mesmo se o webhook falhar.
-- **Só quem é admin** contrata, troca o cartão ou cancela (`billing.manage`). Toda ação fica no registro de auditoria.
+- **Só quem é admin** contrata, troca o cartão, cancela ou reativa (`billing.manage`). Toda ação fica no registro de auditoria.
+
+## Reativação da renovação
+
+No Pagar.me (API v5), cancelar uma assinatura (`DELETE /subscriptions/{id}`) é definitivo: não existe rota para reativar. Por isso o sistema cria uma **assinatura de continuação**:
+
+- **Mesmo cliente e mesmo cartão:** usa o `card_id` da assinatura cancelada. O cartão continua salvo e ativo na carteira do cliente depois do cancelamento (conferido no sandbox). Se o cartão não estiver mais ativo, a resposta é 409 `card_unavailable` e a pessoa contrata de novo.
+- **Mesmo valor e ciclo:** o preço vem do item da assinatura anterior, não do catálogo. Preço novo em Admin › Planos não afeta quem reativa.
+- **Começa no fim do período pago:** `start_at` é o dia seguinte ao fim do período, à meia-noite UTC (o Pagar.me guarda só a data). A continuação nasce com status `future`, sem fatura. O período já pago nunca é cobrado de novo; a 1ª cobrança cai no mesmo dia em que a assinatura original renovaria.
+- **Metadados:** `reactivatedFrom` aponta a assinatura anterior. Com ele, a sincronização mantém a empresa `active` até a 1ª fatura da continuação (sem fatura paga, uma assinatura comum ficaria pendente). Se essa 1ª cobrança for recusada, vale o fluxo normal de pagamento pendente.
+- **Quando não dá:** sem cobrança automática (teste grátis, modo diferente) → 409 `no_recurring`; renovação não cancelada → 409 `not_canceled`; troca de plano aguardando pagamento → 409 `change_pending`; período pago já acabou (ou falta menos de 1 h) → 409 `period_over`, e a pessoa contrata de novo. Falha no Pagar.me → 502, e nada muda no nosso banco.
+- **Registro:** auditoria `subscription.reactivated` (assinatura anterior, data e valor da próxima cobrança) e notificação “Renovação automática reativada” com valor, data e final do cartão.
+- **Cancelar de novo** cancela a continuação no Pagar.me, como qualquer assinatura.
+- **Não testado de ponta a ponta:** a cobrança de fato na data de `start_at`. O sandbox não adianta o relógio; a sincronização trata essa 1ª fatura como uma renovação comum.
+
+## Catálogo de planos (Admin › Planos)
+
+- **Quem edita:** só o operador da plataforma (`PLATFORM_ADMIN_EMAILS`). Para os outros, a rota responde 403.
+- **O que edita:** nome, descrição, destaques exibidos (o campo `features`, que hoje é só vitrine), selo “Mais escolhido”, preço mensal e anual, e se o plano está à venda.
+- **O que não edita:** limites (cotas) e código. Os limites valem para quem já assina.
+- **Preço:** vale só para novas contratações e trocas de plano. Quem já assina continua pagando o valor gravado na própria assinatura do Pagar.me, inclusive ao reativar a renovação. A tela Planos do cliente mostra o valor da fatura, não o do catálogo. O KPI de receita do Admin ainda usa o preço do catálogo (estimativa).
+- **Fora de venda:** o plano some da página de vendas e de Planos, e o checkout recusa com 404 `plan_not_found`. Quem já tem o plano continua com ele. O sistema não deixa desativar o último plano à venda (409 `last_active_plan`), porque o cadastro novo entra no plano ativo mais barato.
+- **Auditoria:** `plan.updated`, com o de/para de cada campo, no registro da empresa do operador.
+- **Deploy:** o passo `scripts/sync-plan-catalog.ts` leva para o banco o nome e a descrição do código (`src/lib/seed-data.ts`), mas só troca um campo que ainda tem um valor antigo do código (`PREVIOUS_CATALOG` em `src/lib/plan-catalog.ts`). O que foi editado no Admin nunca é sobrescrito. Ao mudar nome ou descrição no código, acrescente o valor que sai em `PREVIOUS_CATALOG`.
 
 ## Variáveis (`/opt/atende-radar/shared/app.env`, gravadas pelo deploy a partir dos *secrets* do GitHub)
 
@@ -60,6 +84,6 @@ As assinaturas feitas no sandbox não valem no modo live: o sistema passa a trat
 ## Sandbox (testes)
 
 - **Aprovado:** cartão `4000 0000 0000 0010`, validade futura, CVV `123`.
-- **Recusado:** CVV começando com `6`.
+- **Recusado:** cartão `4000 0000 0000 0028` (na integração nova da Stone, o CVV `6xx` passou a ser aprovado).
 - **Testes automáticos:** `tests/e2e/billing-pagarme.spec.ts` (API) e `tests/e2e/billing-checkout.ui.spec.ts` (tela, desktop e celular) rodam contra o sandbox real. Sem as chaves de teste no ambiente, são pulados.
 - **Boleto:** não está habilitado na conta, então só cartão de crédito é oferecido.

@@ -1,8 +1,11 @@
-// Mantém nome e descrição dos planos iguais ao catálogo do site (seed-data), pelo código do plano.
-// Idempotente: só atualiza o que estiver diferente. Preços, limites e assinaturas NÃO são tocados.
+// Roda a cada deploy. Leva para o banco as mudanças de nome/descrição feitas no CÓDIGO (src/lib/seed-data.ts), mas só
+// em planos que ninguém editou em Admin › Planos: um campo só é trocado se ainda guarda um valor antigo do código
+// (PREVIOUS_CATALOG em src/lib/plan-catalog.ts). O que o operador editou no Admin nunca é sobrescrito.
+// Preços, destaques, limites, ativo/inativo e assinaturas NÃO são tocados. Idempotente.
 //   bun scripts/sync-plan-catalog.ts
 import { PrismaClient } from '@prisma/client'
 import { plans } from '../src/lib/seed-data'
+import { catalogSyncPatch } from '../src/lib/plan-catalog'
 
 const db = new PrismaClient()
 
@@ -13,9 +16,13 @@ async function main() {
       console.log(`sync-plan-catalog: plano ${p.code} não existe neste banco — ignorado`)
       continue
     }
-    if (current.name === p.name && current.description === p.description) continue
-    await db.plan.update({ where: { id: current.id }, data: { name: p.name, description: p.description } })
-    console.log(`sync-plan-catalog: ${p.code} → "${p.name}"`)
+    const patch = catalogSyncPatch(p.code, current, p)
+    if (!patch) {
+      if (current.name !== p.name || current.description !== p.description) console.log(`sync-plan-catalog: ${p.code} editado no Admin — mantido`)
+      continue
+    }
+    await db.plan.update({ where: { id: current.id }, data: patch })
+    console.log(`sync-plan-catalog: ${p.code} → ${JSON.stringify(patch)}`)
   }
 }
 
