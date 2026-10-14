@@ -163,15 +163,25 @@ test.describe('B6 · promessas', () => {
 })
 
 test.describe('B6 · atendente pela assinatura', () => {
-  test('mensagem assinada "*Carlos*:" atribui a conversa ao atendente cadastrado', async () => {
+  test('mensagem assinada "*Carlos*:" SUGERE o atendente; depois de confirmada, a conversa é dele (P5)', async () => {
     const c = await setupCompany()
     await c.admin.post('/api/team', { data: { name: 'Carlos Mendes', email: 'carlos@empresa.test', role: 'atendente' } })
     const chat = newChat()
     await c.send(chat, 'Oi, tudo bem?', { minutes: 5, pushName: 'Assinatura' })
     await c.send(chat, '*Carlos*: Olá! Como posso ajudar?', { fromMe: true, minutes: 3 })
     await c.tick()
-    const conv = (await c.conversations('Assinatura'))[0]
+    let conv = (await c.conversations('Assinatura'))[0]
+    // sugestão não conta nos indicadores: fica sem atendente, com o nome sugerido à parte
+    expect(conv.agentName).toBe('Sem agente')
+    expect(conv.suggestedAgentName).toBe('Carlos Mendes')
+
+    const ids = await (await c.admin.get('/api/agent-identities')).json()
+    const sig = ids.connections[0].identities.find((i: { kind: string }) => i.kind === 'signature')
+    expect(sig.status).toBe('suggested')
+    expect((await c.admin.patch(`/api/agent-identities/${sig.id}`, { data: { action: 'confirm' } })).status()).toBe(200)
+    conv = (await c.conversations('Assinatura'))[0]
     expect(conv.agentName).toBe('Carlos Mendes')
+    expect(conv.agentAttribution).toBe('identity')
     await c.dispose()
   })
 })

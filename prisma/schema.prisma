@@ -118,6 +118,9 @@ model Conversation {
   contact           Contact?                     @relation(fields: [contactId], references: [id])
   agentId           String?
   agent             Agent?                       @relation(fields: [agentId], references: [id])
+  agentAttribution  String? // P5 · de onde veio o agentId: identity (vínculo confirmado) | manual; null = legado/sem atendente
+  suggestedAgentId  String? // P5 · atendente só sugerido (identidade não confirmada): aparece como "sugerido", não conta nos indicadores
+  identitySightings ConversationIdentity[]
   operationalStatus String                       @default("new")
   inferredStage     String                       @default("discovery")
   primaryIntent     String?
@@ -337,20 +340,48 @@ model RawChannelEvent {
   attempts         Int                @default(0)
 }
 
+// Quem fala pela empresa num número (P5 · §18.2). agentId = vínculo CONFIRMADO por admin/gestor (só ele conta nos
+// indicadores); suggestedAgentId = palpite do sistema. associationStatus: unconfirmed | confirmed | ignored.
 model AgentIdentity {
-  id                String             @id @default(cuid())
+  id                String                 @id @default(cuid())
   agentId           String?
-  agent             Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  agent             Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
   displayName       String
-  externalRef       String?
+  externalRef       String? // chave da identidade na conexão: sig:<nome normalizado> | dev:<tipo> | num
   connectionId      String
-  connection        WhatsAppConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connection        WhatsAppConnection     @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   team              String?
-  associationStatus String             @default("unconfirmed")
-  confidence        Float              @default(0)
-  validFrom         DateTime           @default(now())
+  associationStatus String                 @default("unconfirmed")
+  confidence        Float                  @default(0)
+  validFrom         DateTime               @default(now())
   validTo           DateTime?
   confirmedBy       String?
+  kind              String                 @default("signature") // signature | device | number
+  suggestedAgentId  String?
+  suggestionReason  String?
+  confirmedAt       DateTime?
+  conversationCount Int                    @default(0)
+  messageCount      Int                    @default(0)
+  firstSeenAt       DateTime?
+  lastSeenAt        DateTime?
+  sightings         ConversationIdentity[]
+
+  @@index([connectionId, externalRef])
+}
+
+// Em quais conversas cada identidade apareceu (base da atribuição; permite recalcular só as conversas afetadas).
+model ConversationIdentity {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  identityId     String
+  identity       AgentIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  messageCount   Int           @default(0)
+  firstSeenAt    DateTime
+  lastSeenAt     DateTime
+
+  @@unique([conversationId, identityId])
+  @@index([identityId])
 }
 
 model OpenQuestion {

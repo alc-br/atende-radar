@@ -48,9 +48,18 @@ export async function setupCompany() {
     return (await (await admin.get(`/api/alerts${q}`)).json()) as { alerts: Array<{ id: string; ruleName: string; severity: string; status: string; conversationId: string | null; customerName: string; agentName: string }>; counts: Record<string, number>; total: number }
   }
   const conversations = async (search = '') => (await (await admin.get(`/api/conversations?limit=100${search ? `&search=${encodeURIComponent(search)}` : ''}`)).json()).conversations as Array<Record<string, any>>
+  // P5: assinatura só SUGERE o atendente; o gestor confirma em Equipe › Identidades do WhatsApp. Aqui confirma todas as sugeridas.
+  const confirmSignatures = async () => {
+    const data = (await (await admin.get('/api/agent-identities')).json()) as { connections: Array<{ identities: Array<{ id: string; kind: string; status: string }> }> }
+    for (const i of data.connections.flatMap((c) => c.identities)) {
+      if (i.kind !== 'signature' || i.status !== 'suggested') continue
+      const r = await admin.patch(`/api/agent-identities/${i.id}`, { data: { action: 'confirm' } })
+      if (r.status() !== 200) throw new Error(`confirmar identidade falhou ${r.status()} ${await r.text()}`)
+    }
+  }
   const dispose = async () => {
     await admin.dispose()
     await gw.dispose()
   }
-  return { email, password, admin, gw, connectionId, send, tick, alerts, conversations, settings, dispose }
+  return { email, password, admin, gw, connectionId, send, tick, alerts, conversations, settings, confirmSignatures, dispose }
 }

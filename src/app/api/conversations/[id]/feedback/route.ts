@@ -69,6 +69,8 @@ export async function POST(
         break
       case 'agent':
         updateData.agentId = correctedValue
+        updateData.agentAttribution = 'manual' // P5: correção manual não é desfeita pelas identidades
+        updateData.suggestedAgentId = null
         break
       default:
         // For classification types, mark the classification as reviewed

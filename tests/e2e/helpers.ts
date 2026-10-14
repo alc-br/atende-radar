@@ -58,6 +58,8 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['PATCH', '/api/subscription'],
   ['GET', '/api/team'],
   ['GET', '/api/team/x'],
+  ['GET', '/api/agent-identities'],
+  ['PATCH', '/api/agent-identities/x'],
   ['GET', '/api/teams'],
   ['POST', '/api/teams'],
   ['PATCH', '/api/teams/x'],

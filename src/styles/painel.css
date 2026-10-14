@@ -1920,6 +1920,23 @@ font-size: 12.5px;
 .ar .nota--lg {
 min-width: 56px; height: 32px; font-size: 14px;
 }
+/* P5 · Equipe › Identidades do WhatsApp (cartões; empilham no celular) */
+.ar .ident-resumo { margin: 0 0 14px; }
+.ar .ident-conexao + .ident-conexao { margin-top: 18px; }
+.ar .ident-conexao__titulo { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+.ar .ident-lista {
+list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+}
+.ar .ident-cartao { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ar .ident-cartao__cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.ar .ident-cartao__nome { overflow-wrap: anywhere; }
+.ar .ident-cartao p { margin: 0; }
+.ar .ident-cartao__motivo, .ar .ident-cartao__meta { font-size: 12.5px; }
+.ar .ident-cartao__acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+.ar .ident-cartao__acoes .selecao { flex: 1 1 160px; min-width: 0; }
+.ar .ident-ajuda { margin-top: 16px; font-size: 13px; }
+.ar .ident-ajuda summary { cursor: pointer; font-weight: 600; }
+.ar .ident-ajuda ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
 .ar .muito-suave-ic {
 color: var(--muito-suave); font-size: 16px;
 }

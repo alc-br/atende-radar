@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/skeleton'
+import WhatsappIdentities from './whatsapp-identities'
 
 // --- Types ---
 
@@ -347,6 +348,8 @@ export default function TeamView() {
           </div>
         </div>
       </section>
+
+      <WhatsappIdentities />
     </>
   )
 }

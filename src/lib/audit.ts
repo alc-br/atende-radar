@@ -15,6 +15,7 @@ export type AuditAction =
   | 'conversation.viewed' | 'privacy.exclude' | 'privacy.erase' | 'privacy.export'
   | 'subscription.changed' | 'subscription.canceled' | 'billing.card_updated' | 'report.generated' | 'report.exported'
   | 'webhook.created' | 'webhook.updated' | 'webhook.secret_rotated' | 'webhook.removed'
+  | 'agent_identity.confirmed' | 'agent_identity.changed' | 'agent_identity.ignored' | 'agent_identity.undone'
 
 export interface AuditEntryInput {
   action: AuditAction
@@ -82,4 +83,8 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'webhook.updated': 'Alterou o webhook',
   'webhook.secret_rotated': 'Gerou novo segredo do webhook',
   'webhook.removed': 'Removeu o webhook',
+  'agent_identity.confirmed': 'Confirmou o atendente de uma identidade do WhatsApp',
+  'agent_identity.changed': 'Trocou o atendente de uma identidade do WhatsApp',
+  'agent_identity.ignored': 'Marcou identidade do WhatsApp como "não é atendente"',
+  'agent_identity.undone': 'Desfez o vínculo de uma identidade do WhatsApp',
 }

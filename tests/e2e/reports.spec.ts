@@ -14,6 +14,7 @@ async function companyWithData() {
   await c.send(a, '*Carlos*: Custa R$ 400. Já te retorno em 1 hora com as condições.', { fromMe: true, minutes: 80 })
   await c.send(newChat(), 'Quero agendar uma consulta', { minutes: 40, pushName: 'Cliente Relatorio Dois' })
   await c.tick()
+  await c.confirmSignatures() // P5: atendente só conta depois de confirmado
   return c
 }
 

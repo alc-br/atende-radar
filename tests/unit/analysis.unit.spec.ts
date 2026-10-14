@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { classifyMessages } from '../../src/lib/analysis/classify'
 import { extractPromise } from '../../src/lib/analysis/promises'
-import { attributeAgent } from '../../src/lib/analysis/agents'
+import { attributeAgent, decideAgent, deviceFromMessageId, extractSignature, identityKeysOf, resolveAttribution, suggestAgent } from '../../src/lib/analysis/agents'
 import { scoreConversation } from '../../src/lib/analysis/score'
 import { estimateOpportunity, opportunityBreakdown, revenueSettings } from '../../src/lib/analysis/opportunity'
 import { normChat } from '../../src/lib/analysis/text'
@@ -152,6 +152,68 @@ test.describe('atribuição do atendente pela assinatura', () => {
   })
   test('sem assinatura → ninguém', () => {
     expect(attributeAgent('olá, tudo bem?', agents)).toBeNull()
+  })
+  test('"Rótulo: valor" não é assinatura de gente', () => {
+    expect(extractSignature('Pix: 123.456.789-00')).toBeNull()
+    expect(extractSignature('Obs: chegar 10 min antes')).toBeNull()
+    expect(extractSignature('Endereço - Rua das Flores, 100')).toBeNull()
+    expect(extractSignature('*Carlos*: olá')).toBe('Carlos')
+  })
+})
+
+test.describe('P5 · identidades do WhatsApp', () => {
+  const agents = [
+    { id: 'a1', name: 'Ana Silva' },
+    { id: 'a2', name: 'Carlos Mendes' },
+  ]
+  const ctx = { connectionName: 'Recepção', agents }
+
+  test('aparelho pelo formato do id da mensagem (regra do Baileys)', () => {
+    expect(deviceFromMessageId('3A' + 'B'.repeat(18))).toBe('ios')
+    expect(deviceFromMessageId('3E' + 'B'.repeat(20))).toBe('web')
+    expect(deviceFromMessageId('A'.repeat(32))).toBe('android')
+    expect(deviceFromMessageId('3F' + 'B'.repeat(20))).toBe('desktop')
+    expect(deviceFromMessageId('wa-x')).toBeNull()
+    expect(deviceFromMessageId(null)).toBeNull()
+  })
+
+  test('identidades de uma mensagem: só da empresa e só do WhatsApp (com id)', () => {
+    const keys = identityKeysOf({ direction: 'outbound', text: '*Carlos*: oi', externalId: '3A' + 'B'.repeat(18) })
+    expect(keys.map((k) => k.ref)).toEqual(['sig:carlos', 'dev:ios', 'num'])
+    expect(identityKeysOf({ direction: 'inbound', text: '*Carlos*: oi', externalId: 'x' })).toEqual([])
+    expect(identityKeysOf({ direction: 'outbound', text: 'oi', externalId: null })).toEqual([])
+  })
+
+  test('sugestão: nome completo > primeiro nome; poucas conversas baixam a confiança; ambíguo ou aparelho → sem sugestão', () => {
+    expect(suggestAgent({ kind: 'signature', displayName: 'Carlos Mendes', conversationCount: 5 }, ctx)).toMatchObject({ agentId: 'a2', confidence: 0.9 })
+    expect(suggestAgent({ kind: 'signature', displayName: 'Carlos', conversationCount: 5 }, ctx)).toMatchObject({ agentId: 'a2', confidence: 0.7 })
+    expect(suggestAgent({ kind: 'signature', displayName: 'Carlos', conversationCount: 1 }, ctx)).toMatchObject({ agentId: 'a2', confidence: 0.6 })
+    expect(suggestAgent({ kind: 'signature', displayName: 'Ana', conversationCount: 5 }, { ...ctx, agents: [...agents, { id: 'a3', name: 'Ana Costa' }] }).agentId).toBeNull()
+    expect(suggestAgent({ kind: 'device', displayName: 'iPhone', conversationCount: 9 }, ctx).agentId).toBeNull()
+    expect(suggestAgent({ kind: 'number', displayName: 'Número inteiro', conversationCount: 9 }, ctx).agentId).toBeNull()
+    expect(suggestAgent({ kind: 'number', displayName: 'Número inteiro', conversationCount: 9 }, { ...ctx, connectionName: 'WhatsApp da Ana' })).toMatchObject({ agentId: 'a1', confidence: 0.5 })
+    expect(suggestAgent({ kind: 'number', displayName: 'Número inteiro', conversationCount: 9 }, { ...ctx, connectionName: 'Carlos Mendes - celular' })).toMatchObject({ agentId: 'a2', confidence: 0.6 })
+    expect(suggestAgent({ kind: 'device', displayName: 'iPhone', conversationCount: 9 }, { ...ctx, agents: [agents[0]] })).toMatchObject({ agentId: 'a1', confidence: 0.4 })
+  })
+
+  test('atribuição: confirmado vale mais que sugestão; assinatura > aparelho > número; ignorada não entra', () => {
+    const t = (m: number) => new Date(2026, 8, 1, 10, m)
+    const row = (kind: string, status: string, agentId: string | null, suggestedAgentId: string | null, m = 0) => ({ kind, associationStatus: status, agentId, suggestedAgentId, firstSeenAt: t(m) })
+    expect(resolveAttribution([row('signature', 'unconfirmed', null, 'a2'), row('number', 'confirmed', 'a1', null)])).toMatchObject({ confirmed: 'a1', suggested: null })
+    expect(resolveAttribution([row('number', 'confirmed', 'a1', null), row('signature', 'confirmed', 'a2', null)]).confirmed).toBe('a2')
+    expect(resolveAttribution([row('number', 'unconfirmed', null, 'a1'), row('device', 'unconfirmed', null, 'a2')]).suggested).toBe('a2')
+    expect(resolveAttribution([row('signature', 'ignored', null, 'a2')])).toMatchObject({ confirmed: null, suggested: null })
+    expect(resolveAttribution([row('signature', 'confirmed', 'a2', null)], new Set(['a1'])).confirmed).toBeNull() // atendente inativo
+  })
+
+  test('decisão: manual nunca é desfeita; legado fora da assinatura vira manual; sem confirmado → só sugestão', () => {
+    const attr = { confirmed: null, suggested: 'a2', signatureAgents: ['a2'] }
+    expect(decideAgent({ agentId: 'a1', agentAttribution: 'manual' }, { ...attr, confirmed: 'a2' }, false)).toEqual({ agentId: 'a1', agentAttribution: 'manual', suggestedAgentId: null })
+    expect(decideAgent({ agentId: 'a1', agentAttribution: null }, attr, false)).toEqual({ agentId: 'a1', agentAttribution: 'manual', suggestedAgentId: null })
+    expect(decideAgent({ agentId: 'a2', agentAttribution: null }, attr, false)).toEqual({ agentId: null, agentAttribution: null, suggestedAgentId: 'a2' })
+    expect(decideAgent({ agentId: null, agentAttribution: null }, { ...attr, confirmed: 'a2' }, false)).toEqual({ agentId: 'a2', agentAttribution: 'identity', suggestedAgentId: null })
+    expect(decideAgent({ agentId: 'a2', agentAttribution: 'identity' }, attr, false)).toEqual({ agentId: null, agentAttribution: null, suggestedAgentId: 'a2' })
+    expect(decideAgent({ agentId: 'a1', agentAttribution: null }, attr, true).agentAttribution).toBe('manual')
   })
 })
 

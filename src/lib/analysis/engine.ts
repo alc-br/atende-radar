@@ -1,7 +1,8 @@
 import { db } from '../db'
 import { classifyMessages, type AnalysisMessage } from './classify'
 import { extractPromise } from './promises'
-import { attributeAgent } from './agents'
+import { decideAgent } from './agents'
+import { attributionFor, conversationsOfIdentities, reattributeConversations, recordSightings, refreshIdentityStats, refreshSuggestions } from '../agent-identities'
 import { scoreConversation } from './score'
 import { estimateOpportunity, revenueSettings } from './opportunity'
 import { recomputeMetrics } from './metrics'
@@ -133,6 +134,8 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     db.openQuestion.findMany({ where: { conversationId: { in: convIds } } }),
   ])
   const openAlertByKey = new Map(openAlerts.map((a) => [`${a.ruleName}|${a.conversationId ?? ''}`, a]))
+  const activeAgentIds = new Set(agents.map((a) => a.id))
+  const touchedIdentities = new Set<string>()
 
   for (const conv of conversations) {
     summary.conversations += 1
@@ -141,19 +144,13 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     const analysisMsgs: AnalysisMessage[] = msgs.map((m) => ({ direction: m.direction === 'inbound' ? 'inbound' : 'outbound', text: m.text, occurredAt: m.occurredAt }))
     const fb = new Set(feedbacks.filter((f) => f.targetId === conv.id).map((f) => f.targetType))
 
-    // --- atendente pela assinatura (não sobrescreve escolha manual) ---
-    let agentId = conv.agentId
-    if (!agentId && !fb.has('agent')) {
-      for (const m of msgs) {
-        if (m.direction !== 'outbound') continue
-        const id = attributeAgent(m.text, agents)
-        if (id) {
-          agentId = id
-          break
-        }
-      }
-    }
-    const agent = agents.find((a) => a.id === agentId) ?? conv.agent
+    // --- atendente (P5): identidades vistas na conversa (assinatura, aparelho, número) ---
+    // Só vínculo CONFIRMADO por admin/gestor vira atendente da conversa; palpite fica como "sugerido". Escolha manual não é desfeita.
+    const connName = connections.find((c) => c.id === conv.connectionId)?.name ?? ''
+    for (const id of await recordSightings(conv, msgs, { connectionName: connName, agents })) touchedIdentities.add(id)
+    const attribution = decideAgent(conv, (await attributionFor([conv.id], activeAgentIds)).get(conv.id)!, fb.has('agent'))
+    const agentId = attribution.agentId
+    const agent = agentId ? agents.find((a) => a.id === agentId) ?? (conv.agent?.id === agentId ? conv.agent : null) : null
 
     // --- classificação (respeita correções manuais) ---
     // Se o texto já foi apagado pela retenção, mantém a classificação que existia (não reclassifica em branco).
@@ -309,7 +306,9 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     await db.conversation.update({
       where: { id: conv.id },
       data: {
-        agentId: agentId ?? undefined,
+        agentId: attribution.agentId,
+        agentAttribution: attribution.agentAttribution,
+        suggestedAgentId: attribution.suggestedAgentId,
         primaryIntent: intent,
         inferredStage: stage,
         urgency,
@@ -421,6 +420,11 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
       }
     }
   }
+
+  // --- identidades (P5): contagens, sugestões (atendentes podem ter mudado) e conversas cuja sugestão trocou ---
+  await refreshIdentityStats([...touchedIdentities])
+  const resuggested = await refreshSuggestions(orgId, agents)
+  await reattributeConversations(orgId, await conversationsOfIdentities(resuggested), { metrics: false })
 
   await recomputeMetrics(orgId, org.timezone, now)
   return summary

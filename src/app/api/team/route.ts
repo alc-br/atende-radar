@@ -14,7 +14,8 @@ export async function GET() {
       where: agentScope(g.auth),
       include: {
         metrics: { orderBy: { date: 'desc' }, take: 2 },
-        identities: { orderBy: { confidence: 'desc' }, take: 1 },
+        // P5: só vínculo CONFIRMADO (sugestão não identifica ninguém na Equipe)
+        identities: { where: { associationStatus: 'confirmed' }, orderBy: [{ kind: 'desc' }, { conversationCount: 'desc' }], take: 1 },
       },
       orderBy: { name: 'asc' },
     })

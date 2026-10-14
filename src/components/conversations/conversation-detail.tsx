@@ -497,7 +497,11 @@ export default function ConversationDetail() {
                   {data.agent?.name && (
                     <span className={cn('av av--sm', avatarTone(data.agent.name))} aria-hidden="true">{initials(data.agent.name)}</span>
                   )}
-                  {conversation.agentName}
+                  {!data.agent && data.suggestedAgent?.name ? (
+                    <span className="suave" data-testid="agent-suggested" title="Sugestão pela identidade do WhatsApp; confirme em Equipe › Identidades do WhatsApp">
+                      {data.suggestedAgent.name} · sugerido
+                    </span>
+                  ) : conversation.agentName}
                 </li>
                 {conversation.operationalStatus && (
                   <li>

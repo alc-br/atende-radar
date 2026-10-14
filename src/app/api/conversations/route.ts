@@ -97,6 +97,14 @@ export async function GET(request: Request) {
       : []
     const messagesCount = new Map(counts.map((m) => [m.conversationId, m._count._all]))
 
+    // P5: nome do atendente SUGERIDO (identidade ainda sem confirmação) — aparece como "sugerido", não conta nos indicadores
+    const suggestedIds = [...new Set(conversations.filter((c) => !c.agent && c.suggestedAgentId).map((c) => c.suggestedAgentId!))]
+    const suggestedNames = new Map(
+      suggestedIds.length
+        ? (await db.agent.findMany({ where: { id: { in: suggestedIds }, organizationId: org.id }, select: { id: true, name: true } })).map((a) => [a.id, a.name])
+        : []
+    )
+
     const formatted = conversations.map((c) => {
       const waitingMs = c.waitingSince
         ? Date.now() - new Date(c.waitingSince).getTime()
@@ -111,6 +119,9 @@ export async function GET(request: Request) {
         agentId: c.agent?.id,
         agentName: c.agent?.name || 'Sem agente',
         agentTeam: c.agent?.team || '',
+        agentAttribution: c.agentAttribution,
+        suggestedAgentId: c.agent ? null : c.suggestedAgentId,
+        suggestedAgentName: c.agent || !c.suggestedAgentId ? null : suggestedNames.get(c.suggestedAgentId) ?? null,
         operationalStatus: c.operationalStatus,
         inferredStage: c.inferredStage,
         primaryIntent: c.primaryIntent,

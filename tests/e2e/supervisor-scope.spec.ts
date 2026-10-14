@@ -23,6 +23,7 @@ test('supervisor da Recepção vê a Recepção e o não atribuído; não vê o 
   await c.send(chatBruno, 'Ok, aguardo', { minutes: 60, pushName: 'Cliente Do Bruno' })
   await c.send(chatNinguem, 'Alguém me atende?', { minutes: 60, pushName: 'Cliente Sem Dono' })
   await c.tick()
+  await c.confirmSignatures() // P5: assinatura só sugere; confirmada, a conversa passa a ser do atendente
 
   // todos atribuídos como esperado
   const all = await c.conversations()
@@ -78,6 +79,7 @@ test('Visão Geral do supervisor da Recepção não conta nada do Comercial', as
   await c.send(chatBruno, 'Ok, aguardo', { minutes: 60, pushName: 'Painel Do Bruno' })
   await c.send(chatNinguem, 'Bom dia', { minutes: 60, pushName: 'Painel Sem Dono' })
   await c.tick({ onlyThisCompany: true })
+  await c.confirmSignatures()
 
   type Dash = {
     summary: { conversationsStarted: number; opportunitiesDetected: number }

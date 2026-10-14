@@ -37,7 +37,12 @@ export async function PATCH(
     }
 
     const data: Record<string, unknown> = { updatedAt: new Date() }
-    if (agentId !== undefined) data.agentId = agentId
+    if (agentId !== undefined) {
+      // P5: escolha manual vale mais que identidade/sugestão; tirar o atendente devolve a conversa às identidades
+      data.agentId = agentId || null
+      data.agentAttribution = agentId ? 'manual' : null
+      data.suggestedAgentId = null
+    }
     if (markReviewed) data.reviewedAt = new Date()
     if (addTag) {
       const currentTags = safeJsonParse<string[]>(existing.tags, [])
@@ -176,6 +181,11 @@ export async function GET(
             team: conversation.agent.team,
             role: conversation.agent.role,
           }
+        : null,
+      // P5: identity = vínculo confirmado · manual = escolhido na tela · null = sem atendente (pode haver sugestão)
+      agentAttribution: conversation.agentAttribution,
+      suggestedAgent: !conversation.agent && conversation.suggestedAgentId
+        ? await db.agent.findFirst({ where: { id: conversation.suggestedAgentId, organizationId: conversation.organizationId }, select: { id: true, name: true } })
         : null,
 
       // Connection

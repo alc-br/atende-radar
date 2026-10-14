@@ -680,7 +680,7 @@ export default function ConversationsView() {
                       </span>
                     )}
                     {c.potentialValue > 0 && <span className="verde-txt text-xs font-semibold">{formatCurrency(c.potentialValue)}</span>}
-                    <span className="suave ml-auto text-xs">{c.agentName}</span>
+                    <span className="suave ml-auto text-xs">{!c.agentId && c.suggestedAgentName ? `${c.suggestedAgentName} · sugerido` : c.agentName}</span>
                   </div>
                 </button>
               ))
@@ -751,7 +751,12 @@ export default function ConversationsView() {
                         <span className="suave text-xs">{c.connectionName}</span>
                       </td>
                       <td>
-                        {c.agentName ? (
+                        {!c.agentId && c.suggestedAgentName ? (
+                          // P5: identidade ainda sem confirmação — não conta nos indicadores do atendente
+                          <span className="suave" data-testid="agent-suggested" title="Sugestão pela identidade do WhatsApp; confirme em Equipe › Identidades do WhatsApp">
+                            {c.suggestedAgentName} · sugerido
+                          </span>
+                        ) : c.agentName ? (
                           <div className="pessoa">
                             <span className={cn('av av--sm', avatarTone(c.agentName))} aria-hidden="true">{initials(c.agentName)}</span>
                             <span>{c.agentName}</span>
