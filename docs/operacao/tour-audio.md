@@ -1,75 +1,98 @@
-# Voz do "Tour pelo sistema" (Piper)
+# Voz do "Tour pelo sistema" (Azure Speech)
 
 O botão **Ouvir** do tour toca uma narração gravada no servidor. Cada passo tem um texto próprio para ser ouvido
 (`narration`, em `src/lib/system-tour/narration.ts`), escrito como fala e diferente do texto da tela. O áudio é gerado
-com o [Piper](https://github.com/rhasspy/piper), um leitor de texto open source e gratuito que roda no próprio servidor.
-Nada vai para serviços de fora.
+pela [Azure Speech](https://learn.microsoft.com/azure/ai-services/speech-service/) (voz neural `pt-BR-FranciscaNeural`)
+no plano gratuito **F0**: cerca de 500 mil caracteres por mês sem custo. O tour inteiro tem ~80 textos e ~22 mil
+caracteres, e cada texto é gerado **uma vez** (não a cada play). Só o texto do manual vai para a Azure, nunca dados de
+clientes ou da empresa.
 
 ## Como funciona
 - `GET /api/tours/system/audio?chapter=<id>&step=<índice>` (precisa de login; o mesmo padrão das outras rotas do tour).
   O texto sai **só** do conteúdo do tour no servidor. O cliente nunca manda texto, e um capítulo ou passo que o papel
   não vê responde 404.
-- Na primeira vez que alguém pede um passo, o servidor chama o Piper, grava o arquivo no cache e devolve o áudio. Depois
-  disso, o mesmo passo sai direto do disco.
-- **Chave do cache** = sha256(nome da voz + versão + formato + texto). Por isso, mudar o texto de um passo, trocar a voz
-  ou mudar o formato gera um arquivo novo, e o resto do cache continua valendo. A chave também é o `ETag`, e o
-  navegador guarda o áudio por um ano (`Cache-Control: private, max-age=31536000, immutable`).
-- A gravação é atômica: o arquivo vai para um temporário e só depois é renomeado. Pedidos simultâneos do mesmo passo
-  esperam uma geração só. São no máximo 2 gerações ao mesmo tempo, e cada uma tem um limite de tempo
-  (`TOUR_AUDIO_TIMEOUT_MS`, padrão 60 s).
-- Se o Piper não estiver configurado, a rota responde 503 e o `/api/tours/system` informa `audio: false`. Nesse caso,
-  e também em qualquer erro, o navegador lê o mesmo texto com a própria voz (Web Speech API).
+- Se o arquivo já está no cache, sai direto do disco. Se não está, o servidor chama a Azure (REST, SSML pt-BR, MP3 mono
+  24 kHz a 48 kbit/s, ~6 KB por segundo de fala), grava no cache e devolve o áudio. Limite de 20 s por geração.
+- **Chave do cache** = sha256(provedor + voz + formato + versão + texto). Mudar o texto de um passo ou trocar a voz gera
+  um arquivo novo; o resto do cache continua valendo. A chave também é o `ETag`, e o navegador guarda o áudio por um
+  ano (`Cache-Control: private, max-age=31536000, immutable`). Suporta `Range` (206) e `If-None-Match` (304).
+- O cache (`TOUR_AUDIO_DIR`) é **um só para todos os usuários** e fica fora de `current/`, então sobrevive aos deploys.
+- A gravação é atômica (arquivo temporário e depois `rename`). Pedidos simultâneos do mesmo passo esperam uma geração
+  só, e no máximo 2 gerações rodam ao mesmo tempo.
+- Sem `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION`, ou se a Azure recusar (401, 403, 429 ou 5xx), a rota responde 503 e o
+  `/api/tours/system` informa `audio: false` quando não há chave. Nesses casos, e em qualquer erro, o navegador lê o
+  mesmo texto com a própria voz (Web Speech API).
+- A chave nunca vai para log, mensagem de erro ou resposta.
+
+## No navegador
+- **Ouvir**, **Pausar/Continuar** e **Parar** no painel do passo.
+- **Ler automaticamente** (rodapé, entre Voltar e Próximo): lê o passo, espera ~0,6 s depois do fim do áudio e avança,
+  até o fim do capítulo (não pula para outro). Passos de clique ou cadastro: lê e espera a ação; quando ela avança,
+  continua lendo. Vira **Pausar leitura** enquanto está ligado. Desliga com Voltar, Próximo, Parar, setas ou ao fechar.
+  Se o áudio do servidor e a voz do navegador falharem, desliga (sem loop). Não fica salvo entre visitas.
+- **Velocidade**: 0,8× a 2× (`playbackRate` com `preservesPitch`; na voz do navegador, `rate`). Fica salva por pessoa
+  no navegador (`localStorage`, chave `ar.systemTour.tts`) e vale para todos os passos.
 
 ## Variáveis (`/opt/atende-radar/shared/app.env`)
 | Variável | Produção | Para quê |
 |---|---|---|
-| `PIPER_BIN` | `/opt/atende-radar/shared/piper/piper/piper` | Executável do Piper |
-| `PIPER_VOICE` | `/opt/atende-radar/shared/piper/voices/pt_BR-faber-medium.onnx` | Modelo da voz (o `.onnx.json` fica ao lado) |
+| `AZURE_SPEECH_KEY` | secret do GitHub | Chave do recurso Speech (F0) |
+| `AZURE_SPEECH_REGION` | secret do GitHub | Região do recurso (ex.: `brazilsouth`, `eastus`) |
+| `AZURE_SPEECH_VOICE` | (vazio = `pt-BR-FranciscaNeural`) | Outra voz neural pt-BR, se quiser |
 | `TOUR_AUDIO_DIR` | `/opt/atende-radar/shared/tour-audio` | Cache dos áudios |
-| `PIPER_ARGS` | (vazio) | Argumentos extras, em JSON (`["--length_scale","1.1"]`) ou separados por espaço |
-| `TOUR_AUDIO_FFMPEG` | (vazio = `ffmpeg` do PATH) | `off` desliga a conversão para MP3 |
-| `TOUR_AUDIO_TIMEOUT_MS` | 60000 | Tempo máximo de uma geração |
 
-O deploy (`.github/workflows/deploy.yml`, passo "Voz do tour") instala o Piper **uma vez**, com a release
-`2023.11.14-2` e a voz `pt_BR-faber-medium` (v1.0.0), conferindo o sha256 de cada arquivo. Em seguida grava as três
-primeiras variáveis se ainda não existirem e cria a pasta do cache. Se o download falhar, o deploy **não** falha: só
-aparece um aviso no log, e o tour segue com a voz do navegador.
+O deploy (`.github/workflows/deploy.yml`, passo "Variáveis do app") grava `AZURE_SPEECH_KEY` e `AZURE_SPEECH_REGION`
+a partir dos *secrets* do GitHub com o mesmo nome (valor nunca impresso; secret vazio não apaga o que já está no
+servidor), cria `TOUR_AUDIO_DIR` se faltar e a pasta do cache. Depois do health check, o passo "Voz do tour" roda
+`scripts/tour-audio-warm.ts` com as variáveis do `app.env`; se falhar, o deploy **não** falha (só um aviso no log).
 
-## Formato e tamanho
-- Se houver `ffmpeg` com `libmp3lame` no servidor, o áudio é servido como MP3 mono a 48 kbit/s (cerca de 6 KB por
-  segundo de fala, uns 200 KB por passo). O deploy **não** instala o ffmpeg; para usar MP3, rode
-  `sudo apt install ffmpeg`.
-- Sem ffmpeg, o áudio é WAV de 22 kHz (cerca de 44 KB por segundo, ou 1 a 1,5 MB por passo). Funciona em todos os
-  navegadores, mas pesa mais no celular. Se a conversão para MP3 falhar uma vez, o servidor passa a servir WAV até
-  ser reiniciado.
-- O tour inteiro tem cerca de 80 passos. O cache completo fica em ~15 MB com MP3 ou ~100 MB com WAV.
+### Criar ou trocar a chave
+1. No portal da Azure: recurso **Speech** (Serviços de IA), plano **Free F0**. Em "Chaves e ponto de extremidade",
+   copie a Chave 1 e a Região.
+2. No GitHub: Settings → Secrets and variables → Actions → `AZURE_SPEECH_KEY` e `AZURE_SPEECH_REGION`.
+3. Rode o deploy. Para trocar a chave, atualize o secret e rode o deploy de novo (o cache continua valendo: a chave da
+   Azure não entra na chave do cache).
+
+## Pré-gerar o áudio (warm)
+```bash
+cd /opt/atende-radar/current
+( set -a; . /opt/atende-radar/shared/app.env; set +a; /usr/local/bin/bun scripts/tour-audio-warm.ts )
+```
+Percorre todos os capítulos e passos (de todos os papéis, sem repetir textos iguais), gera só o que falta, um por vez
+com uma pausa curta, e espera e tenta de novo em 429. No fim mostra quantos foram gerados, quantos já existiam e quantos
+falharam. Sem a chave, só avisa e sai com 0. Não precisa rodar à mão: o deploy roda sozinho.
 
 ## Conferir no servidor
 ```bash
-ls -l /opt/atende-radar/shared/piper/piper/piper /opt/atende-radar/shared/piper/voices/
-echo 'Olá, tudo bem?' | /opt/atende-radar/shared/piper/piper/piper \
-  --model /opt/atende-radar/shared/piper/voices/pt_BR-faber-medium.onnx --output_file /tmp/teste.wav && ls -l /tmp/teste.wav
-grep -E '^(PIPER_|TOUR_AUDIO_)' /opt/atende-radar/shared/app.env
-ls -ld /opt/atende-radar/shared/tour-audio   # o usuário do serviço precisa poder escrever aqui
+grep -E '^(AZURE_SPEECH_REGION|AZURE_SPEECH_VOICE|TOUR_AUDIO_DIR)=' /opt/atende-radar/shared/app.env
+grep -c '^AZURE_SPEECH_KEY=' /opt/atende-radar/shared/app.env   # 1 = chave presente (não imprima o valor)
+ls /opt/atende-radar/shared/tour-audio | wc -l                  # ~80 arquivos .mp3 depois do warm
+ls -ld /opt/atende-radar/shared/tour-audio                      # o usuário do serviço precisa poder escrever aqui
 ```
+O consumo do mês aparece no portal da Azure, em Métricas do recurso Speech ("Characters Synthesized").
 
 ## Limpar o cache
-Pode apagar a qualquer momento: os arquivos são recriados no próximo play.
+Pode apagar a qualquer momento: os arquivos são recriados no próximo play ou no próximo deploy (cada recriação gasta
+cota do F0 de novo).
 ```bash
 rm -f /opt/atende-radar/shared/tour-audio/*
 ```
 Arquivos de textos antigos (de narrações que mudaram) não são apagados sozinhos. Limpe de vez em quando, se quiser.
 
 ## Trocar a voz
-1. Baixe outro modelo `.onnx` e o `.onnx.json` em https://huggingface.co/rhasspy/piper-voices (pasta `pt/pt_BR`)
-   para `/opt/atende-radar/shared/piper/voices/`.
-2. Troque `PIPER_VOICE` no `app.env` e reinicie: `sudo systemctl restart atende-radar.service`.
-3. Como o nome da voz entra na chave, os áudios novos são gerados sozinhos. Os antigos podem ser apagados.
+1. Escolha uma voz neural pt-BR (lista na documentação da Azure, "Language and voice support").
+2. Grave `AZURE_SPEECH_VOICE=<nome>` no `app.env` e reinicie: `sudo systemctl restart atende-radar.service`.
+3. Como a voz entra na chave, os áudios novos são gerados sozinhos (rode o warm para gerar todos de uma vez). Os
+   antigos podem ser apagados.
 
-Se mudar algo que altera o som sem mudar o texto, como os parâmetros do Piper ou do ffmpeg, aumente
-`TOUR_AUDIO_VERSION` em `src/lib/system-tour/tts.ts`.
+Se mudar algo que altera o som sem mudar o texto (o SSML, por exemplo), aumente `TOUR_AUDIO_VERSION` em
+`src/lib/system-tour/tts.ts`.
 
 ## Testes
-- `tests/e2e/tour-audio.spec.ts` (projeto `api`) usa um "Piper falso" (`tests/e2e/fixtures/fake-piper.mjs`) que grava
-  silêncio e conta as chamadas. O teste cobre 401, 404, geração única, ETag, 304, Range e pedidos simultâneos.
-- `tests/e2e/system-tour.ui.spec.ts` cobre o áudio do servidor e a volta para a voz do navegador.
+- Modo falso do TTS (`TOUR_AUDIO_FAKE=1`, ignorado com `NODE_ENV=production`): não acessa a rede, grava um MP3 curto de
+  silêncio e conta as gerações em `TOUR_AUDIO_FAKE_LOG`. O `playwright.config.ts` liga esse modo
+  (`tests/e2e/tour-audio-env.ts`).
+- `tests/unit/system-tour.unit.spec.ts`: chave do cache, SSML (escape e voz) e configuração.
+- `tests/e2e/tour-audio.spec.ts` (projeto `api`): 401, 404, geração única, ETag, 304, Range e pedidos simultâneos.
+- `tests/e2e/system-tour.ui.spec.ts`: áudio do servidor, volta para a voz do navegador, Ler automaticamente (avança e
+  pausa) e velocidade (1,5× e 2× aplicadas ao `<audio>`).

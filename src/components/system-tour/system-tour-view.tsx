@@ -67,7 +67,7 @@ export default function SystemTourView() {
             <li>Cada passo destaca um item da tela e explica para que ele serve.</li>
             <li>Em alguns passos você clica no item destacado ou faz um cadastro de verdade; o manual segue sozinho quando percebe.</li>
             <li>Use as setas ← → do teclado para voltar e avançar, e Esc para fechar.</li>
-            <li>O botão Ouvir explica cada passo em voz alta, sem custo.</li>
+            <li>O botão Ouvir explica cada passo em voz alta, sem custo; Ler automaticamente lê e avança sozinho até o fim do capítulo.</li>
           </ul>
         </section>
 

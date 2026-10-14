@@ -58,7 +58,7 @@ export default defineConfig({
       PAGARME_WEBHOOK_PASS: 'webhook-e2e-senha',
       // Webhook de saída: libera http://127.0.0.1 (receptor local dentro do teste). Só vale fora de produção.
       WEBHOOK_ALLOW_LOCAL: '1',
-      // Narração do tour: "Piper falso" (WAV de silêncio) e cache descartável em .tmp/ (tests/e2e/tour-audio-env.ts)
+      // Narração do tour: TTS falso (MP3 de silêncio, sem rede) e cache descartável em .tmp/ (tests/e2e/tour-audio-env.ts)
       ...TOUR_AUDIO_TEST_ENV,
     },
   },

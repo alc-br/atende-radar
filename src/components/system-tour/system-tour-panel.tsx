@@ -2,13 +2,28 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Check, ChevronLeft, ChevronRight, ClipboardCheck, Loader2, MousePointerClick, Pause, Play, SkipForward, Square, Volume2, X } from 'lucide-react'
+import {
+  AudioLines,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CirclePause,
+  ClipboardCheck,
+  Loader2,
+  MousePointerClick,
+  Pause,
+  Play,
+  SkipForward,
+  Square,
+  Volume2,
+  X,
+} from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { allDone, chaptersFor, stepSpokenText } from '@/lib/system-tour/engine'
 import { onTourSignal } from '@/lib/system-tour/signals'
 import type { SystemTourChapter } from '@/lib/system-tour/types'
 import { useSystemTourProgress } from './progress-store'
-import { MAX_RATE, MIN_RATE, useSpeech } from './use-speech'
+import { RATE_OPTIONS, type SpeakHandlers, useSpeech } from './use-speech'
 import { StepBody } from './rich-text'
 
 // Painel do passo do "Tour pelo sistema": destaca o item da tela (sem bloquear cliques), explica, detecta o clique ou
@@ -20,7 +35,9 @@ const MISSING_AFTER_MS = 2500
 const POLL_MS = 400
 const DRAWER_QUERY = '(max-width: 1023.98px)' // abaixo disto o menu lateral é gaveta (painel.css)
 const SHEET_QUERY = '(max-width: 639.98px)' // abaixo disto o painel vira folha no rodapé
-const RATES = [0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5].filter((r) => r >= MIN_RATE && r <= MAX_RATE)
+/** Leitura automática: pausa entre o fim da fala de um passo e o próximo passo. */
+const AUTO_ADVANCE_MS = 600
+const rateLabel = (r: number) => `${r.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}×`
 
 type Rect = { top: number; left: number; width: number; height: number }
 type Placement = 'baixo-dir' | 'baixo-esq' | 'topo-dir' | 'topo-esq' | 'baixo' | 'topo'
@@ -131,6 +148,29 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     if (idx > 0) goTo(idx - 1)
   }, [goTo, idx])
 
+  // ── leitura automática (só nesta visita ao capítulo; não fica salva) ──
+  // Lê o passo; ao terminar a fala, espera um pouco e vai para o próximo passo, até o fim do capítulo. Passo de clique ou
+  // de cadastro: lê e espera a ação (quando ela avança o passo, continua lendo). Voltar, Próximo, Parar e fechar desligam.
+  const [autoRead, setAutoRead] = useState(false)
+  const autoRef = useRef(false)
+  /** Passo cuja fala terminou com a leitura automática ligada (null = ainda falando ou não lido). */
+  const [narrated, setNarrated] = useState<number | null>(null)
+  const stopAuto = useCallback(() => {
+    autoRef.current = false
+    setAutoRead(false)
+    setNarrated(null)
+  }, [])
+  const autoHandlers = useCallback(
+    (i: number): SpeakHandlers => ({
+      onEnd: () => {
+        if (autoRef.current) setNarrated(i)
+      },
+      // servidor e voz do navegador falharam: desliga, sem ficar tentando em loop
+      onFail: stopAuto,
+    }),
+    [stopAuto],
+  )
+
   // Onde estava o foco ao abrir: volta para lá ao fechar.
   useEffect(() => {
     returnFocus.current = document.activeElement
@@ -167,8 +207,21 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   )
   useEffect(() => {
     speech.stop()
-    if (speech.supported && speech.prefs.auto) speech.speak(speechItem)
-  }, [chapter.id, idx, speech.supported, speech.prefs.auto]) // lê de novo só quando o passo muda (ou ao ligar a leitura automática)
+    if (speech.supported && autoRef.current) speech.speak(speechItem, autoHandlers(idx))
+  }, [chapter.id, idx]) // lê de novo só quando o passo muda
+
+  const toggleAuto = () => {
+    if (autoRef.current) {
+      // pausa a fala e cancela o avanço pendente (o efeito abaixo limpa o timer)
+      stopAuto()
+      if (speech.state === 'speaking' || speech.state === 'loading') speech.pause()
+      return
+    }
+    autoRef.current = true
+    setAutoRead(true)
+    setNarrated(null)
+    speech.speak(speechItem, autoHandlers(idx))
+  }
 
   // ── acompanha o item destacado (aparece depois de carregar, muda com rolagem, some ao trocar de tela) ──
   useEffect(() => {
@@ -256,6 +309,39 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
 
   // ── teclado: Esc fecha (progresso salvo), ← volta, → avança só em passo de explicação ──
   const advancesByArrow = step.kind === 'info' || (step.kind === 'click' && missing)
+
+  // Fala do passo terminou (leitura automática): passo de explicação avança sozinho; no último passo para e mostra o
+  // "Concluir capítulo" (não pula para outro capítulo); clique/cadastro esperam a pessoa.
+  useEffect(() => {
+    if (!autoRead || narrated !== idx || !advancesByArrow) return
+    const t = window.setTimeout(
+      () => {
+        if (!autoRef.current) return
+        if (isLast) {
+          stopAuto()
+        } else {
+          setNarrated(null)
+          goTo(idx + 1)
+        }
+      },
+      isLast ? 0 : AUTO_ADVANCE_MS,
+    )
+    return () => window.clearTimeout(t)
+  }, [autoRead, narrated, idx, advancesByArrow, isLast, goTo, stopAuto])
+
+  // Botões e setas: a pessoa assumiu a navegação, a leitura automática desliga.
+  const manualNext = useCallback(() => {
+    stopAuto()
+    next()
+  }, [next, stopAuto])
+  const manualPrev = useCallback(() => {
+    stopAuto()
+    prev()
+  }, [prev, stopAuto])
+  const stopSpeech = () => {
+    stopAuto()
+    speech.stop()
+  }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
@@ -268,15 +354,15 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
         close()
       } else if (!typing && e.key === 'ArrowRight' && advancesByArrow) {
         e.preventDefault()
-        next()
+        manualNext()
       } else if (!typing && e.key === 'ArrowLeft') {
         e.preventDefault()
-        prev()
+        manualPrev()
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [advancesByArrow, close, next, prev])
+  }, [advancesByArrow, close, manualNext, manualPrev])
 
   const pad = 6
   const titleId = `tour-sistema-titulo-${chapter.id}`
@@ -356,11 +442,11 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
                 <Play className="ic" aria-hidden="true" />Continuar
               </button>
             ) : (
-              <button type="button" className="btn btn--sm" onClick={() => speech.speak(speechItem)}>
+              <button type="button" className="btn btn--sm" onClick={() => speech.speak(speechItem, autoRef.current ? autoHandlers(idx) : undefined)}>
                 <Volume2 className="ic" aria-hidden="true" />Ouvir
               </button>
             )}
-            <button type="button" className="btn btn--sm" onClick={speech.stop} disabled={speech.state === 'idle'}>
+            <button type="button" className="btn btn--sm" onClick={stopSpeech} disabled={speech.state === 'idle' && !autoRead}>
               <Square className="ic" aria-hidden="true" />Parar
             </button>
             {speech.state === 'loading' && (
@@ -369,18 +455,15 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
               </span>
             )}
             <label className="tour-sistema__opcao">
-              <input type="checkbox" checked={speech.prefs.auto} onChange={(e) => speech.setPrefs({ auto: e.target.checked })} />
-              Ler automaticamente cada passo
-            </label>
-            <label className="tour-sistema__opcao">
               Velocidade
               <select
                 value={String(speech.prefs.rate)}
-                onChange={(e) => speech.changeRate(Number(e.target.value), speechItem)}
+                onChange={(e) => speech.changeRate(Number(e.target.value), speechItem, autoRef.current ? autoHandlers(idx) : undefined)}
               >
-                {RATES.map((r) => (
+                {/* velocidade salva por uma versão antiga (ex.: 1,1×) continua aparecendo */}
+                {(RATE_OPTIONS.includes(speech.prefs.rate) ? RATE_OPTIONS : [...RATE_OPTIONS, speech.prefs.rate].sort((a, b) => a - b)).map((r) => (
                   <option key={r} value={String(r)}>
-                    {r.toLocaleString('pt-BR', { minimumFractionDigits: 1 })}×
+                    {rateLabel(r)}
                   </option>
                 ))}
               </select>
@@ -393,19 +476,35 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
         )}
 
         <footer className="tour-sistema__rodape">
-          <button type="button" className="btn btn--sm" onClick={prev} disabled={idx === 0}>
+          <button type="button" className="btn btn--sm" onClick={manualPrev} disabled={idx === 0}>
             <ChevronLeft className="ic" aria-hidden="true" />Voltar
           </button>
+          {speech.supported ? (
+            <button
+              type="button"
+              className={`btn btn--sm tour-sistema__auto${step.kind === 'task' || waitsClick || isLast ? ' tour-sistema__auto--icone' : ''}`}
+              aria-pressed={autoRead}
+              aria-label={autoRead ? 'Pausar leitura' : 'Ler automaticamente'}
+              title={autoRead ? 'Pausar leitura' : 'Ler automaticamente: lê cada passo e avança sozinho'}
+              onClick={toggleAuto}
+              data-testid="system-tour-auto"
+            >
+              {autoRead ? <CirclePause className="ic" aria-hidden="true" /> : <AudioLines className="ic" aria-hidden="true" />}
+              <span className="tour-sistema__auto-rotulo">{autoRead ? 'Pausar leitura' : 'Ler automaticamente'}</span>
+            </button>
+          ) : (
+            <span aria-hidden="true" />
+          )}
           {step.kind === 'task' ? (
-            <button type="button" className="btn btn--sm btn--primario" onClick={next}>
+            <button type="button" className="btn btn--sm btn--primario" onClick={manualNext}>
               <SkipForward className="ic" aria-hidden="true" />Já fiz / pular este passo
             </button>
           ) : waitsClick ? (
-            <button type="button" className="btn btn--sm btn--link" onClick={next}>
+            <button type="button" className="btn btn--sm btn--link" onClick={manualNext}>
               Pular este passo
             </button>
           ) : (
-            <button type="button" className="btn btn--sm btn--primario" onClick={next}>
+            <button type="button" className="btn btn--sm btn--primario" onClick={manualNext}>
               {isLast ? (
                 <>
                   <Check className="ic" aria-hidden="true" />Concluir capítulo

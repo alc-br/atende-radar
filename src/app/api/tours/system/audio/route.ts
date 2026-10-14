@@ -55,7 +55,7 @@ export async function GET(request: Request) {
   if (!step) return notFound()
   const text = stepSpokenText(step)
 
-  const identity = await tourAudioIdentity(text)
+  const identity = tourAudioIdentity(text)
   if (!identity) return unavailable()
   // O navegador já tem este áudio (a chave depende só da voz, da versão, do formato e do texto)
   if (etagMatches(request.headers.get('if-none-match'), `"${identity.key}"`)) {

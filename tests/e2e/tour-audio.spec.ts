@@ -1,17 +1,16 @@
 import { test, expect, type APIRequestContext } from '@playwright/test'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
-import { basename } from 'node:path'
 import { anonymous, loginAs } from './helpers'
-import { FAKE_PIPER_LOG, FAKE_PIPER_VOICE, TOUR_AUDIO_TEST_DIR } from './tour-audio-env'
+import { TOUR_AUDIO_FAKE_LOG, TOUR_AUDIO_TEST_DIR } from './tour-audio-env'
 import { SYSTEM_TOUR_CHAPTERS } from '../../src/lib/system-tour/content'
 import { stepSpokenText } from '../../src/lib/system-tour/engine'
-import { tourAudioKey } from '../../src/lib/system-tour/tts'
+import { DEFAULT_VOICE, looksLikeMp3, tourAudioKey } from '../../src/lib/system-tour/tts'
 
-// Narração do tour: o áudio é gerado no servidor UMA vez (Piper; aqui um "Piper falso" que conta as chamadas) e depois
+// Narração do tour: o áudio é gerado no servidor UMA vez (Azure Speech; aqui o TTS falso, sem rede, que conta as gerações) e depois
 // servido do cache, com ETag e cache longo no navegador. O texto vem só do conteúdo do servidor.
 
 const AUDIO = '/api/tours/system/audio'
-const calls = () => (existsSync(FAKE_PIPER_LOG) ? readFileSync(FAKE_PIPER_LOG, 'utf8').split('\n').filter(Boolean).length : 0)
+const calls = () => (existsSync(TOUR_AUDIO_FAKE_LOG) ? readFileSync(TOUR_AUDIO_FAKE_LOG, 'utf8').split('\n').filter(Boolean).length : 0)
 const clearCache = () => rmSync(TOUR_AUDIO_TEST_DIR, { recursive: true, force: true })
 
 let admin: APIRequestContext
@@ -55,19 +54,18 @@ test('gera uma vez, depois serve do cache com o mesmo ETag; If-None-Match devolv
 
   const first = await admin.get(`${AUDIO}?chapter=visao-geral&step=1`)
   expect(first.status()).toBe(200)
-  expect(first.headers()['content-type']).toBe('audio/wav')
+  expect(first.headers()['content-type']).toBe('audio/mpeg')
   expect(first.headers()['cache-control']).toBe('private, max-age=31536000, immutable')
   const body = await first.body()
-  expect(body.subarray(0, 4).toString()).toBe('RIFF')
-  expect(body.subarray(8, 12).toString()).toBe('WAVE')
+  expect(looksLikeMp3(body)).toBe(true)
   const etag = first.headers()['etag']
   expect(etag).toMatch(/^"[0-9a-f]{64}"$/)
   expect(calls(), 'a 1ª chamada gera o áudio').toBe(before + 1)
 
-  // A chave é sha256(voz + versão + formato + texto da narração do passo)
+  // A chave é sha256(provedor + voz + formato + versão + texto da narração do passo)
   const step = SYSTEM_TOUR_CHAPTERS.find((c) => c.id === 'visao-geral')!.steps[1]
-  expect(etag).toBe(`"${tourAudioKey(basename(FAKE_PIPER_VOICE), stepSpokenText(step), 'wav')}"`)
-  expect(existsSync(`${TOUR_AUDIO_TEST_DIR}/${etag.slice(1, -1)}.wav`)).toBe(true)
+  expect(etag).toBe(`"${tourAudioKey('fake', DEFAULT_VOICE, stepSpokenText(step))}"`)
+  expect(existsSync(`${TOUR_AUDIO_TEST_DIR}/${etag.slice(1, -1)}.mp3`)).toBe(true)
 
   const second = await admin.get(`${AUDIO}?chapter=visao-geral&step=1`)
   expect(second.status()).toBe(200)

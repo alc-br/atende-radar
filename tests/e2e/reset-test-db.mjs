@@ -6,7 +6,7 @@ for (const suffix of ['', '-journal', '-wal', '-shm']) {
   rmSync(fileURLToPath(new URL(`../../prisma/test.db${suffix}`, import.meta.url)), { force: true })
 }
 
-// Narração do tour: cache e contador do "Piper falso" começam vazios a cada execução (tests/e2e/tour-audio-env.ts)
-for (const p of ['../../.tmp/tour-audio-e2e', '../../.tmp/fake-piper-calls.log']) {
+// Narração do tour: cache e contador do TTS falso começam vazios a cada execução (tests/e2e/tour-audio-env.ts)
+for (const p of ['../../.tmp/tour-audio-e2e', '../../.tmp/tour-audio-fake-calls.log']) {
   rmSync(fileURLToPath(new URL(p, import.meta.url)), { force: true, recursive: true })
 }

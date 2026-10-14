@@ -3,32 +3,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Leitura em voz alta do "Tour pelo sistema".
-// 1º o áudio gerado no servidor (Piper, gravado uma vez e reaproveitado: GET /api/tours/system/audio), tocado num
+// 1º o áudio gerado no servidor (Azure Speech, gravado uma vez e reaproveitado: GET /api/tours/system/audio), tocado num
 //    elemento <audio> com a velocidade escolhida;
 // 2º se o servidor não tiver o áudio (503/erro), a Web Speech API do próprio navegador lê o mesmo texto: voz pt-BR
 //    quando houver; senão qualquer voz "pt"; senão a padrão do navegador (lang pt-BR).
 
 export const SPEECH_PREFS_KEY = 'ar.systemTour.tts'
 export const MIN_RATE = 0.8
-export const MAX_RATE = 1.5
+export const MAX_RATE = 2
+/** Opções do seletor de velocidade. */
+export const RATE_OPTIONS = [0.8, 1, 1.25, 1.5, 1.75, 2]
 
+/** Preferência guardada no navegador (só a velocidade: a leitura automática vale só enquanto o painel está aberto). */
 export interface SpeechPrefs {
-  /** Ler cada passo assim que ele aparece. */
-  auto: boolean
-  /** Velocidade da fala (0,8× a 1,5×). */
+  /** Velocidade da fala (0,8× a 2×). */
   rate: number
 }
 
-const DEFAULT_PREFS: SpeechPrefs = { auto: false, rate: 1 }
+const DEFAULT_PREFS: SpeechPrefs = { rate: 1 }
 
-export const clampRate = (r: number) => (Number.isFinite(r) ? Math.min(MAX_RATE, Math.max(MIN_RATE, Math.round(r * 10) / 10)) : 1)
+/** Velocidades salvas antes (0,9×, 1,1× ...) continuam valendo: só limita ao intervalo e a 2 casas. */
+export const clampRate = (r: number) => (Number.isFinite(r) ? Math.min(MAX_RATE, Math.max(MIN_RATE, Math.round(r * 100) / 100)) : 1)
 
 function readPrefs(): SpeechPrefs {
   try {
     const raw = window.localStorage.getItem(SPEECH_PREFS_KEY)
     if (!raw) return DEFAULT_PREFS
+    // versões antigas guardavam também { auto }: é ignorado
     const p = JSON.parse(raw) as Partial<SpeechPrefs>
-    return { auto: p.auto === true, rate: clampRate(Number(p.rate ?? 1)) }
+    return { rate: clampRate(Number(p.rate ?? 1)) }
   } catch {
     return DEFAULT_PREFS
   }
@@ -71,7 +74,7 @@ function releaseAudio(ref: { current: HTMLAudioElement | null }) {
   const a = ref.current
   ref.current = null
   if (!a) return
-  a.onplaying = a.onended = a.onerror = null
+  a.onplaying = a.onended = a.onerror = a.onloadedmetadata = null
   try {
     a.pause()
     a.removeAttribute('src')
@@ -91,6 +94,12 @@ export interface SpeechItem {
   audioUrl?: string
 }
 
+/** Avisos de uma fala: terminou de verdade (não foi parada) ou não deu para falar (servidor e navegador falharam). */
+export interface SpeakHandlers {
+  onEnd?: () => void
+  onFail?: () => void
+}
+
 export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {}) {
   // O painel do tour só monta depois de um clique (nunca no HTML do servidor), então dá para ler o navegador já aqui.
   const [browserVoice] = useState(speechSupported)
@@ -105,6 +114,8 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
   const turn = useRef(0)
   /** O servidor falhou nesta visita: as próximas falas vão direto para a voz do navegador. */
   const serverFailed = useRef(false)
+  /** Velocidade atual: lida na hora por cada fala e pelos eventos do <audio> (nunca um valor velho de closure). */
+  const rateRef = useRef(prefs.rate)
 
   const stop = useCallback(() => {
     turn.current++
@@ -114,9 +125,10 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
     setState('idle')
   }, [])
 
-  const speakBrowser = useCallback((text: string, rate: number, my: number) => {
+  const speakBrowser = useCallback((text: string, my: number, handlers?: SpeakHandlers) => {
     if (!speechSupported() || !text.trim()) {
       setState('idle')
+      handlers?.onFail?.()
       return
     }
     try {
@@ -125,35 +137,42 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
       const voice = pickVoice()
       if (voice) u.voice = voice
       u.lang = voice?.lang || 'pt-BR'
-      u.rate = rate
+      u.rate = rateRef.current
+      // cancel() também dispara onend/onerror da fala cancelada: só conta a fala atual
+      const isCurrent = () => current.current === u && turn.current === my
       u.onend = () => {
-        if (current.current === u && turn.current === my) {
-          current.current = null
-          setState('idle')
-        }
+        if (!isCurrent()) return
+        current.current = null
+        setState('idle')
+        handlers?.onEnd?.()
       }
-      u.onerror = u.onend
+      u.onerror = () => {
+        if (!isCurrent()) return
+        current.current = null
+        setState('idle')
+        handlers?.onFail?.()
+      }
       current.current = u
       window.speechSynthesis.speak(u)
       setSource('browser')
       setState('speaking')
     } catch {
       setState('idle')
+      handlers?.onFail?.()
     }
   }, [])
 
   const speak = useCallback(
-    (item: SpeechItem, rate?: number) => {
+    (item: SpeechItem, handlers?: SpeakHandlers) => {
       if (!item.text.trim()) return
       turn.current++
       const my = turn.current
       current.current = null
       releaseAudio(audio)
       cancelSynth()
-      const r = clampRate(rate ?? prefs.rate)
 
       if (!item.audioUrl || !useServer || serverFailed.current) {
-        speakBrowser(item.text, r, my)
+        speakBrowser(item.text, my, handlers)
         return
       }
       const a = new window.Audio()
@@ -163,21 +182,30 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
         if (turn.current !== my || audio.current !== a) return
         serverFailed.current = true
         releaseAudio(audio)
-        speakBrowser(item.text, r, my)
+        speakBrowser(item.text, my, handlers)
+      }
+      // Velocidade em todo <audio> novo: antes do play() e de novo quando os metadados chegam (alguns navegadores
+      // voltam para 1,0 ao trocar o src). A voz não engrossa nem afina.
+      const applyRate = () => {
+        a.defaultPlaybackRate = rateRef.current
+        a.playbackRate = rateRef.current
       }
       a.preload = 'auto'
-      a.defaultPlaybackRate = r
-      a.playbackRate = r
+      a.preservesPitch = true
+      applyRate()
+      a.onloadedmetadata = applyRate
       a.onplaying = () => {
-        if (turn.current === my) setState('speaking')
+        if (turn.current !== my) return
+        if (a.playbackRate !== rateRef.current) applyRate()
+        setState('speaking')
       }
       a.onended = () => {
-        if (turn.current === my) {
-          audio.current = null
-          setState('idle')
-        }
+        if (turn.current !== my) return
+        audio.current = null
+        setState('idle')
+        handlers?.onEnd?.()
       }
-      a.onerror = fallback // 503 (sem Piper), erro de rede ou formato que o navegador não toca
+      a.onerror = fallback // 503 (sem TTS), erro de rede ou formato que o navegador não toca
       a.src = item.audioUrl
       setSource('server')
       setState('loading')
@@ -188,13 +216,13 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
           // o navegador bloqueou o som sem um clique: tenta a voz do navegador sem desistir do servidor
           if (turn.current !== my || audio.current !== a) return
           releaseAudio(audio)
-          speakBrowser(item.text, r, my)
+          speakBrowser(item.text, my, handlers)
           return
         }
         fallback()
       })
     },
-    [prefs.rate, speakBrowser, useServer],
+    [speakBrowser, useServer],
   )
 
   const pause = useCallback(() => {
@@ -232,28 +260,26 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
     }
   }, [])
 
-  const setPrefs = useCallback((next: Partial<SpeechPrefs>) => {
-    setPrefsState((p) => {
-      const merged = { auto: next.auto ?? p.auto, rate: clampRate(next.rate ?? p.rate) }
-      writePrefs(merged)
-      return merged
-    })
-  }, [])
-
-  /** Muda a velocidade do que está tocando. Áudio do servidor: na hora, sem recomeçar; voz do navegador: recomeça. */
+  /**
+   * Muda a velocidade (fica salva). Áudio do servidor: vale na hora, sem recomeçar. Voz do navegador: a fala atual
+   * recomeça na nova velocidade, com os mesmos avisos (a leitura automática continua).
+   */
   const changeRate = useCallback(
-    (rate: number, item: SpeechItem) => {
+    (rate: number, item: SpeechItem, handlers?: SpeakHandlers) => {
       const r = clampRate(rate)
-      setPrefs({ rate: r })
+      rateRef.current = r
+      const merged = { rate: r }
+      writePrefs(merged)
+      setPrefsState(merged)
       const a = audio.current
       if (a) {
         a.defaultPlaybackRate = r
         a.playbackRate = r
       } else if (state !== 'idle') {
-        speak(item, r)
+        speak(item, handlers)
       }
     },
-    [setPrefs, speak, state],
+    [speak, state],
   )
 
   // Fechou o manual (desmontou): para de falar.
@@ -266,5 +292,5 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
     [],
   )
 
-  return { supported, prefs, setPrefs, changeRate, state, source, speak, pause, resume, stop }
+  return { supported, prefs, changeRate, state, source, speak, pause, resume, stop }
 }

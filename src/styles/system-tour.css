@@ -96,7 +96,6 @@
 .ar .tour-sistema__opcao {
   display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--texto-2); cursor: pointer;
 }
-.ar .tour-sistema__opcao input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--verde-600); }
 .ar .tour-sistema__opcao select {
   font: inherit; color: var(--texto); background: var(--superficie); border: 1px solid var(--borda-forte);
   border-radius: 6px; padding: 2px 4px;
@@ -106,9 +105,15 @@
 }
 
 .ar .tour-sistema__rodape {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 10px 16px 14px; border-top: 1px solid var(--borda);
+  /* Voltar | Ler automaticamente (no meio) | Próximo */
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  padding: 10px 12px 14px; border-top: 1px solid var(--borda);
 }
+.ar .tour-sistema__auto { justify-self: center; max-width: 100%; min-width: 0; padding: 0 8px; gap: 6px; }
+.ar .tour-sistema__auto-rotulo { overflow: hidden; text-overflow: ellipsis; }
+.ar .tour-sistema__auto[aria-pressed="true"] { color: var(--verde-700); border-color: var(--verde-300); background: var(--verde-50); }
+/* Sem espaço (botão da direita comprido ou celular): só o ícone; o nome continua no aria-label e no title */
+.ar .tour-sistema__auto--icone .tour-sistema__auto-rotulo { display: none; }
 
 /* Celular: o painel vira folha no rodapé (ou no topo, se o item destacado estiver embaixo) */
 @media (max-width: 639.98px) {
@@ -120,7 +125,14 @@
   .ar .tour-sistema--topo, .ar .tour-sistema--topo-dir, .ar .tour-sistema--topo-esq {
     top: 0; bottom: auto; border-radius: 0 0 var(--raio) var(--raio);
   }
-  .ar .tour-sistema__rodape .btn { flex: 1 1 auto; justify-content: center; }
+  /* colunas iguais dos lados: o botão do meio fica no centro mesmo com "Já fiz / pular este passo" (que quebra a linha) */
+  .ar .tour-sistema__rodape { grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr); gap: 6px; padding: 10px 12px 12px; }
+  .ar .tour-sistema__rodape > :first-child { justify-self: start; }
+  .ar .tour-sistema__rodape > :last-child { justify-self: end; }
+  .ar .tour-sistema__rodape .btn { justify-content: center; max-width: 100%; }
+  .ar .tour-sistema__rodape .btn:not(.tour-sistema__auto) { white-space: normal; height: auto; min-height: 36px; line-height: 1.2; text-align: center; }
+  .ar .tour-sistema__auto { width: 40px; height: 36px; padding: 0; }
+  .ar .tour-sistema__auto-rotulo { display: none; }
 }
 
 /* Lista de capítulos */

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { SYSTEM_TOUR_CHAPTERS } from '../../src/lib/system-tour/content'
 import { allDone, chapterStatus, chaptersFor, NARRATION_MAX, resumeChapter, stepSpeechText, stepSpokenText, stepsFor } from '../../src/lib/system-tour/engine'
 import { NARRATIONS } from '../../src/lib/system-tour/narration'
-import { normalizeTtsText, tourAudioKey, ttsConfig } from '../../src/lib/system-tour/tts'
+import { buildSsml, DEFAULT_VOICE, escapeXml, looksLikeMp3, normalizeTtsText, silentMp3, tourAudioKey, ttsConfig } from '../../src/lib/system-tour/tts'
 import { applyUpdate, EMPTY_PROGRESS, isChapterId, parseProgress, parseUpdate } from '../../src/lib/system-tour/progress'
 import { TOUR_SIGNALS } from '../../src/lib/system-tour/signals'
 import { can, canOpenView, ROLES } from '../../src/lib/permissions'
@@ -232,30 +232,52 @@ test.describe('narração falada', () => {
   })
 })
 
-test.describe('cache do áudio da narração', () => {
-  test('chave: sha256 em hexadecimal, estável, muda com voz, formato e texto', () => {
-    const k = tourAudioKey('pt_BR-faber-medium.onnx', 'Olá, mundo.', 'mp3')
+test.describe('áudio da narração (Azure Speech + cache)', () => {
+  test('chave: sha256 em hexadecimal, estável, muda com provedor, voz e texto', () => {
+    const k = tourAudioKey('azure', 'pt-BR-FranciscaNeural', 'Olá, mundo.')
     expect(k).toMatch(/^[0-9a-f]{64}$/)
-    expect(tourAudioKey('pt_BR-faber-medium.onnx', 'Olá, mundo.', 'mp3')).toBe(k)
-    expect(tourAudioKey('pt_BR-faber-medium.onnx', '  Olá,\n  mundo. ', 'mp3'), 'espaços não mudam a fala').toBe(k)
-    expect(tourAudioKey('pt_BR-edresson-low.onnx', 'Olá, mundo.', 'mp3')).not.toBe(k)
-    expect(tourAudioKey('pt_BR-faber-medium.onnx', 'Olá, mundo!', 'mp3')).not.toBe(k)
-    expect(tourAudioKey('pt_BR-faber-medium.onnx', 'Olá, mundo.', 'wav')).not.toBe(k)
+    expect(tourAudioKey('azure', 'pt-BR-FranciscaNeural', 'Olá, mundo.', 'mp3')).toBe(k)
+    expect(tourAudioKey('azure', 'pt-BR-FranciscaNeural', '  Olá,\n  mundo. '), 'espaços não mudam a fala').toBe(k)
+    expect(tourAudioKey('azure', 'pt-BR-AntonioNeural', 'Olá, mundo.')).not.toBe(k)
+    expect(tourAudioKey('fake', 'pt-BR-FranciscaNeural', 'Olá, mundo.')).not.toBe(k)
+    expect(tourAudioKey('azure', 'pt-BR-FranciscaNeural', 'Olá, mundo!')).not.toBe(k)
   })
 
-  test('texto para o Piper: uma linha só', () => {
+  test('texto da síntese: uma linha só', () => {
     expect(normalizeTtsText(' a\n\nb\t c ')).toBe('a b c')
   })
 
-  test('sem Piper configurado (ou com a voz ausente), o áudio fica indisponível', () => {
+  test('SSML: pt-BR, a voz escolhida e o texto escapado', () => {
+    expect(escapeXml(`a & b < c > d " e ' f`)).toBe('a &amp; b &lt; c &gt; d &quot; e &apos; f')
+    const ssml = buildSsml('Clientes <VIP> & "novos"\n  d\'água', 'pt-BR-FranciscaNeural')
+    expect(ssml).toContain('xml:lang="pt-BR"')
+    expect(ssml).toContain('<voice name="pt-BR-FranciscaNeural">')
+    expect(ssml).toContain('Clientes &lt;VIP&gt; &amp; &quot;novos&quot; d&apos;água</voice>')
+    expect(ssml).not.toContain('<VIP>')
+    expect(buildSsml('x', 'a"b')).toContain('<voice name="a&quot;b">')
+  })
+
+  test('configuração: sem chave ou região, indisponível; voz padrão Francisca; modo falso nunca em produção', () => {
     expect(ttsConfig({})).toBeNull()
-    expect(ttsConfig({ PIPER_BIN: 'piper' })).toBeNull()
-    expect(ttsConfig({ PIPER_BIN: 'piper', PIPER_VOICE: join(__dirname, 'nao-existe.onnx') })).toBeNull()
-    const voice = join(__dirname, 'system-tour.unit.spec.ts') // qualquer arquivo que exista
-    const cfg = ttsConfig({ PIPER_BIN: 'node', PIPER_ARGS: '["a b.mjs", "--x"]', PIPER_VOICE: voice, TOUR_AUDIO_DIR: 'cache-x' })!
-    expect(cfg.args).toEqual(['a b.mjs', '--x'])
-    expect(cfg.voiceName).toBe('system-tour.unit.spec.ts')
+    expect(ttsConfig({ AZURE_SPEECH_KEY: 'k' })).toBeNull()
+    expect(ttsConfig({ AZURE_SPEECH_REGION: 'brazilsouth' })).toBeNull()
+    expect(ttsConfig({ AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'x/../evil' }), 'região só letras, números e hífen').toBeNull()
+    const cfg = ttsConfig({ AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'brazilsouth', TOUR_AUDIO_DIR: 'cache-x' })!
+    expect(cfg.provider).toBe('azure')
+    expect(cfg.voice).toBe(DEFAULT_VOICE)
+    expect(DEFAULT_VOICE).toBe('pt-BR-FranciscaNeural')
     expect(cfg.dir).toBe(join(process.cwd(), 'cache-x'))
-    expect(ttsConfig({ PIPER_BIN: 'node', PIPER_ARGS: '--a --b', PIPER_VOICE: voice })!.args).toEqual(['--a', '--b'])
+    expect(ttsConfig({ AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'eastus', AZURE_SPEECH_VOICE: 'pt-BR-AntonioNeural' })!.voice).toBe('pt-BR-AntonioNeural')
+    expect(ttsConfig({ TOUR_AUDIO_FAKE: '1', NODE_ENV: 'test' })!.provider).toBe('fake')
+    expect(ttsConfig({ TOUR_AUDIO_FAKE: '1', NODE_ENV: 'production' })).toBeNull()
+    expect(ttsConfig({ TOUR_AUDIO_FAKE: '1', NODE_ENV: 'production', AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'eastus' })!.provider).toBe('azure')
+  })
+
+  test('MP3 de silêncio do modo falso é reconhecido como MP3', () => {
+    const mp3 = silentMp3()
+    expect(looksLikeMp3(mp3)).toBe(true)
+    expect(mp3.length).toBe(41700)
+    expect(looksLikeMp3(Buffer.from('RIFF....WAVE'))).toBe(false)
+    expect(looksLikeMp3(Buffer.from('ID3\u0004\u0000'))).toBe(true)
   })
 })

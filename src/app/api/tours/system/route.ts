@@ -14,7 +14,7 @@ export async function GET() {
 
   const member = await db.organizationMember.findUnique({ where: { id: g.auth.memberId }, select: { systemTourJson: true } })
   if (!member) return NextResponse.json({ error: 'Membro não encontrado' }, { status: 404 })
-  // audio: o servidor gera a narração (Piper); sem isso, o painel usa direto a voz do navegador
+  // audio: o servidor gera a narração (Azure Speech, com cache); sem isso, o painel usa direto a voz do navegador
   return NextResponse.json({ progress: parseProgress(member.systemTourJson), audio: ttsAvailable() })
 }
 

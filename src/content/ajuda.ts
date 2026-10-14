@@ -47,7 +47,7 @@ export const ARTIGOS_AJUDA: ArtigoAjuda[] = [
       { t: 'h2', x: 'Progresso salvo' },
       { t: 'p', x: 'O progresso de cada capítulo fica guardado na sua conta. Na lista você vê o que já concluiu e pode **Continuar de onde parei** ou **Recomeçar** qualquer capítulo, inclusive em outro computador.' },
       { t: 'h2', x: 'Leitura em voz alta' },
-      { t: 'p', x: 'O botão **Ouvir** explica o passo em voz alta, em português e sem custo: a narração vai além do texto da tela e conta para que serve cada item. A voz é gerada pelo próprio AtendeRadar (nada é enviado a serviços de fora); se ela não estiver disponível, o sistema usa a voz do seu navegador. Dá para pausar, parar, ligar a leitura automática de cada passo e escolher a velocidade (de 0,8× a 1,5×). Sem nenhuma das duas vozes, os botões não aparecem.' },
+      { t: 'p', x: 'O botão **Ouvir** explica o passo em voz alta, em português e sem custo: a narração vai além do texto da tela e conta para que serve cada item. A voz natural é gerada uma única vez por um serviço de voz da Microsoft (só o texto do manual, nunca dados seus ou dos seus clientes) e fica guardada no AtendeRadar; se ela não estiver disponível, o sistema usa a voz do seu navegador. O botão **Ler automaticamente**, no rodapé do passo, lê cada passo e avança sozinho até o fim do capítulo (nos passos de clique ou cadastro, espera você); toque de novo para pausar. Dá para pausar, parar e escolher a velocidade (de 0,8× a 2×), que fica guardada. Sem nenhuma das duas vozes, os botões não aparecem.' },
     ],
   },
   {
