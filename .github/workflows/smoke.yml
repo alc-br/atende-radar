@@ -21,6 +21,28 @@ jobs:
       - name: Testes de fumaça contra o app e o site no ar
         run: bash scripts/smoke.sh https://app.atenderadar.com.br https://atenderadar.com.br
 
+      # I3/T16 · certificado TLS: falha (e abre a issue abaixo) se faltar menos de 15 dias para vencer em algum domínio
+      - name: Certificado TLS com pelo menos 15 dias de validade
+        if: always()
+        run: |
+          falhou=0
+          for host in app.atenderadar.com.br atenderadar.com.br; do
+            cert=$(echo | timeout 20 openssl s_client -servername "$host" -connect "$host:443" 2>/dev/null || true)
+            fim=$(printf '%s' "$cert" | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || true)
+            if [ -z "$fim" ]; then
+              echo "::error::$host: não foi possível ler o certificado TLS"
+              falhou=1
+              continue
+            fi
+            dias=$(( ( $(date -d "$fim" +%s) - $(date +%s) ) / 86400 ))
+            echo "$host: certificado vence em $fim ($dias dias)"
+            if ! printf '%s' "$cert" | openssl x509 -noout -checkend $((15 * 86400)) >/dev/null; then
+              echo "::error::$host: certificado vence em $dias dias (mínimo: 15). Verifique a renovação automática."
+              falhou=1
+            fi
+          done
+          exit $falhou
+
       - name: "Abrir/atualizar issue quando falhar (alerta operacional sem depender de e-mail)"
         if: failure()
         uses: actions/github-script@v7

@@ -31,6 +31,7 @@ import {
   cn,
 } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
+import { can } from '@/lib/permissions'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { fetchMutation, runMutation } from '@/lib/mutation'
@@ -86,6 +87,8 @@ export default function ConversationsView() {
   const refreshTrigger = useAppStore((s) => s.refreshTrigger)
   const pendingSearch = useAppStore((s) => s.pendingSearch)
   const setPendingSearch = useAppStore((s) => s.setPendingSearch)
+  // T4 · atendente pode mandar à recuperação e exportar; atribuir, etiquetar e revisar é da gestão
+  const canManage = can(useAppStore((s) => s.me?.role), 'conversations.manage')
 
   // Filters
   const [search, setSearch] = useState('')
@@ -344,7 +347,7 @@ export default function ConversationsView() {
 
   if (error) {
     return (
-      <div className="cartao vazio flex flex-col items-center gap-4">
+      <div className="cartao vazio flex flex-col items-center gap-4" role="alert">
         <p className="font-medium vermelho">{error}</p>
         <button type="button" onClick={fetchData} className="btn btn--sm">Tentar novamente</button>
       </div>
@@ -614,6 +617,7 @@ export default function ConversationsView() {
             <span className="mr-2 text-[13.5px] font-semibold text-[color:var(--verde-700)]">
               {selectedIds.size} selecionada{selectedIds.size !== 1 ? 's' : ''}
             </span>
+            {canManage && (<>
             <button type="button" className="btn btn--sm" onClick={() => handleBatchAction('assign')}>
               <UserPlus className="ic" aria-hidden="true" />
               Atribuir atendente
@@ -622,6 +626,7 @@ export default function ConversationsView() {
               <Tag className="ic" aria-hidden="true" />
               Adicionar tag
             </button>
+            </>)}
             <button type="button" className="btn btn--sm" onClick={() => handleBatchAction('recovery')}>
               <Send className="ic" aria-hidden="true" />
               Enviar à recuperação
@@ -630,10 +635,12 @@ export default function ConversationsView() {
               <Download className="ic" aria-hidden="true" />
               Exportar metadados
             </button>
+            {canManage && (
             <button type="button" className="btn btn--sm" onClick={() => handleBatchAction('review')}>
               <CheckCircle2 className="ic" aria-hidden="true" />
               Marcar como revisada
             </button>
+            )}
             <button type="button" className="reticencias ml-auto" aria-label="Limpar seleção" onClick={clearSelection}>
               <X className="ic" aria-hidden="true" />
             </button>

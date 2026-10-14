@@ -1,5 +1,6 @@
 import { test, expect, type APIRequestContext } from '@playwright/test'
 import { loginAs } from './helpers'
+import { OWN_AUTH_ROUTES, PUBLIC_ROUTES, discoverRoutes, patternForPath } from './api-routes'
 
 // B4 · Papéis e permissões. A matriz abaixo é a especificação (spec §9): é escrita à mão, de propósito,
 // e NÃO importada do código de produção — senão o teste apenas repetiria a implementação.
@@ -85,7 +86,62 @@ const MATRIX: Row[] = [
 
   // Painel da plataforma: nenhum papel de cliente entra (só o operador da plataforma — ver session.spec.ts)
   ['GET', '/api/admin', []],
+  ['GET', '/api/admin/analytics', []],
+  ['GET', '/api/admin/support', []],
+  ['GET', '/api/admin/support/x', []],
+  ['PATCH', '/api/admin/support/x', []],
+  ['GET', '/api/admin/support/x/screenshot', []],
+
+  // T4 · rotas novas desde a matriz original
+  ['GET', '/api', ALL], // sobra do modelo do projeto ("Hello, world!"); exige sessão pelo proxy
+  ['PATCH', '/api/tours', ALL],
+  ['POST', '/api/events', ALL],
+  ['GET', '/api/agent-identities', ANALISE],
+  ['PATCH', '/api/agent-identities/x', CONFIG],
+  ['GET', '/api/connections/x/qr', ADMIN],
+  ['POST', '/api/members/x/invite', ADMIN],
+  ['DELETE', '/api/members/x/invite', ADMIN],
+  ['POST', '/api/reports/runs/x/send', ANALISE],
+  ['POST', '/api/reports/runs/x/retry', ANALISE],
+  ['GET', '/api/settings/webhook', CONFIG],
+  ['PUT', '/api/settings/webhook', CONFIG],
+  ['DELETE', '/api/settings/webhook', CONFIG],
+  ['POST', '/api/settings/webhook/secret', CONFIG],
+  ['POST', '/api/settings/webhook/test', CONFIG],
+  ['GET', '/api/billing', ADMIN],
+  ['POST', '/api/billing/checkout', ADMIN], // corpo vazio: recusado na validação, nada é cobrado
+  ['POST', '/api/billing/card', ADMIN],
+  ['POST', '/api/billing/cancel', ADMIN], // a empresa A não tem assinatura recorrente: 409
+  ['GET', '/api/organization/deletion', ALL], // faixa de aviso para todos
+  ['POST', '/api/organization/deletion', ADMIN], // sem senha e nome da empresa: 400
+  ['DELETE', '/api/organization/deletion', ADMIN],
+  ['GET', '/api/support', ALL],
+  ['POST', '/api/support', ALL], // sem formulário: 400
+  ['GET', '/api/profile', ALL],
+  ['PATCH', '/api/profile', ALL],
+  ['POST', '/api/profile/password', ALL],
+  // por último: "sair de todos os aparelhos" troca a versão da sessão (a de quem pediu é regravada e continua valendo)
+  ['DELETE', '/api/profile/sessions', ALL],
 ]
+
+// T2 · a matriz cobre TODA rota protegida: rota nova sem linha aqui derruba o teste (descoberta como em api-auth.spec.ts)
+test('toda rota protegida (e cada método exportado) tem linha na matriz de papéis', () => {
+  const routes = discoverRoutes()
+  const exempt = new Set([...Object.keys(PUBLIC_ROUTES), ...Object.keys(OWN_AUTH_ROUTES)])
+  const covered = new Set<string>()
+  const orphans: string[] = []
+  for (const [method, path] of MATRIX) {
+    const route = patternForPath(path, routes)
+    if (!route || !route.exported.includes(method)) orphans.push(`${method} ${path}`)
+    else covered.add(`${method} ${route.pattern}`)
+  }
+  expect(orphans, 'linhas da matriz que não correspondem a rota/método existente').toEqual([])
+  const missing = routes
+    .filter((r) => !exempt.has(r.pattern))
+    .flatMap((r) => r.exported.map((m) => `${m} ${r.pattern}`))
+    .filter((k) => !covered.has(k))
+  expect(missing, 'rotas protegidas sem linha na matriz de papéis (acrescente em MATRIX com os papéis permitidos)').toEqual([])
+})
 
 const clients = new Map<Role, APIRequestContext>()
 

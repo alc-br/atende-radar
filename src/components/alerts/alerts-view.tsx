@@ -60,6 +60,7 @@ import { formatCurrency, timeAgo, cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { mutate } from '@/lib/mutation'
 import { tourSignal } from '@/lib/system-tour/signals'
+import { can, canOpenView } from '@/lib/permissions'
 
 // ── Severity helpers ──────────────────────────────────────────────
 
@@ -203,6 +204,13 @@ interface AlertRuleItem {
 export default function AlertsView() {
   const selectConversation = useAppStore((s) => s.selectConversation)
   const refreshTrigger = useAppStore((s) => s.refreshTrigger)
+  // T4 · quem só consulta (leitura, analista) não vê os botões de tratar o alerta; as regras são da gestão
+  const role = useAppStore((s) => s.me?.role)
+  const canAct = can(role, 'alerts.manage')
+  const canOpenConversation = canOpenView(role, 'conversation-detail')
+  const canSeeRules = can(role, 'alert_rules.view')
+  const canEditRules = can(role, 'alert_rules.manage')
+  const tabs = canSeeRules ? TABS : TABS.filter((t) => t.key !== 'regras')
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>('ativos')
@@ -294,12 +302,9 @@ export default function AlertsView() {
 
   const toggleRuleActive = (ruleId: string, checked: boolean) => {
     setRulesData((prev) => prev.map((r) => (r.id === ruleId ? { ...r, active: checked } : r)))
-    fetch(`/api/alert-rules/${ruleId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: checked }),
-    }).catch(() => {
-      setRulesData((prev) => prev.map((r) => (r.id === ruleId ? { ...r, active: !checked } : r)))
+    // resposta 4xx/5xx também desfaz a troca (antes só erro de rede desfazia)
+    void mutate(`/api/alert-rules/${ruleId}`, { method: 'PUT', json: { active: checked } }).then((ok) => {
+      if (!ok) setRulesData((prev) => prev.map((r) => (r.id === ruleId ? { ...r, active: !checked } : r)))
     })
   }
 
@@ -414,13 +419,13 @@ export default function AlertsView() {
   // Abas com setas (padrão WAI-ARIA tabs, ativação automática)
   function handleTabKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next = -1
-    if (e.key === 'ArrowRight') next = (index + 1) % TABS.length
-    else if (e.key === 'ArrowLeft') next = (index - 1 + TABS.length) % TABS.length
+    if (e.key === 'ArrowRight') next = (index + 1) % tabs.length
+    else if (e.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length
     else if (e.key === 'Home') next = 0
-    else if (e.key === 'End') next = TABS.length - 1
+    else if (e.key === 'End') next = tabs.length - 1
     if (next < 0) return
     e.preventDefault()
-    const key = TABS[next].key
+    const key = tabs[next].key
     setActiveTab(key)
     tabRefs.current[key]?.focus()
   }
@@ -591,11 +596,15 @@ export default function AlertsView() {
               {alert.evidence}
             </p>
           )}
+          {(canOpenConversation || canAct) && (
           <div className="alerta__acoes">
+            {canOpenConversation && alert.conversationId && (
             <button type="button" className="btn btn--escuro" onClick={() => handleOpenConversation(alert.conversationId)}>
               <MessageSquare className="ic" aria-hidden="true" />
               Abrir conversa
             </button>
+            )}
+            {canAct && (<>
             <button type="button" className="btn" onClick={() => handleAssign(alert.id)}>
               <UserPlus className="ic" aria-hidden="true" />
               Atribuir
@@ -648,7 +657,9 @@ export default function AlertsView() {
               <RotateCcw className="ic" aria-hidden="true" />
               Recuperação
             </button>
+            </>)}
           </div>
+          )}
         </div>
       </article>
     )
@@ -703,15 +714,17 @@ export default function AlertsView() {
             <h2><Shield className="ic verde-txt" aria-hidden="true" />Regras de Alerta</h2>
             <p>Configure quando e como os alertas são gerados.</p>
           </div>
-          <button
-            type="button"
-            data-tour="alerts-new-rule"
-            className="btn btn--primario btn--sm"
-            onClick={() => setNewRuleOpen(true)}
-          >
-            <Plus className="ic" aria-hidden="true" />
-            Nova regra
-          </button>
+          {canEditRules && (
+            <button
+              type="button"
+              data-tour="alerts-new-rule"
+              className="btn btn--primario btn--sm"
+              onClick={() => setNewRuleOpen(true)}
+            >
+              <Plus className="ic" aria-hidden="true" />
+              Nova regra
+            </button>
+          )}
         </div>
         <div className="cartao__corpo">
           {isLoading && rulesData.length === 0 ? (
@@ -761,6 +774,7 @@ export default function AlertsView() {
                             type="checkbox"
                             role="switch"
                             checked={ruleToggles[rule.id] ?? rule.active}
+                            disabled={!canEditRules}
                             onChange={(e) => toggleRuleActive(rule.id, e.target.checked)}
                             aria-label={`Ativar regra ${rule.name}`}
                           />
@@ -793,7 +807,7 @@ export default function AlertsView() {
 
       {/* Abas */}
       <div className="abas" role="tablist" aria-label="Situação dos alertas" data-tour="alerts-tabs">
-        {TABS.map((t, i) => {
+        {tabs.map((t, i) => {
           const selected = activeTab === t.key
           const count = tabCounts[t.key]
           return (

@@ -4,6 +4,7 @@ import { guard, conversationScope } from '@/lib/api-auth'
 import { Prisma } from '@prisma/client'
 import { pageParams } from '@/lib/pagination'
 import { financialSettings } from '@/lib/analysis/revenue-params'
+import { contactIdsMatching, hasLikeWildcard } from '@/lib/search'
 
 export async function GET(request: Request) {
   try {
@@ -29,7 +30,10 @@ export async function GET(request: Request) {
     // Build where clause
     const where: Prisma.ConversationWhereInput = { AND: [conversationScope(g.auth)] }
 
-    if (search) {
+    if (search && hasLikeWildcard(search)) {
+      // "%" e "_" seriam curingas no LIKE (trariam tudo): busca literal, só entre os contatos desta empresa
+      where.contactId = { in: await contactIdsMatching(org.id, search) }
+    } else if (search) {
       where.OR = [
         { contact: { displayName: { contains: search } } },
         { contact: { phoneLast4: { contains: search } } },
@@ -42,6 +46,7 @@ export async function GET(request: Request) {
       switch (period) {
         case 'today':
           since = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          where.createdAt = { gte: since } // antes o filtro "Hoje" calculava a data e não aplicava
           break
         case 'yesterday':
           since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)

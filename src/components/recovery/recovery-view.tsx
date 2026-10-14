@@ -21,6 +21,8 @@ import {
   Search,
   MoreHorizontal,
   MessageSquare,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 
 import {
@@ -88,6 +90,8 @@ type OutcomeType =
   | 'nao_atendeu'
   | 'numero_errado'
   | 'nao_era_oportunidade'
+
+const PER_PAGE = 20
 
 const outcomeLabels: Record<OutcomeType, string> = {
   contato_feito: 'Contato feito',
@@ -224,6 +228,10 @@ export default function RecoveryView() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [recoveryItems, setRecoveryItems] = useState<any[]>([])
+  // D3 · antes a tela pedia a 1ª página da API (20 itens) e o resto da fila nunca aparecia; agora carrega até 100
+  // (os de maior prioridade) e pagina na tela
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(1)
   const [agentList, setAgentList] = useState<{id:string,name:string,team?:string}[]>([])
 
   const fetchData = useCallback(async () => {
@@ -233,10 +241,12 @@ export default function RecoveryView() {
       const params = new URLSearchParams()
       if (statusFilter !== 'all') params.set('status', statusFilter)
       if (agentFilter !== 'all') params.set('assignedTo', agentFilter)
+      params.set('limit', '100')
       const res = await fetch(`/api/recovery?${params.toString()}`)
       if (!res.ok) throw new Error('Erro ao carregar recuperação')
       const data = await res.json()
       setRecoveryItems(data.items || [])
+      setTotalCount(data.pagination?.total ?? (data.items || []).length)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido')
     } finally {
@@ -325,6 +335,10 @@ export default function RecoveryView() {
         }
       })
   }, [recoveryItems, statusFilter, agentFilter, priorityFilter, recoveredValueFilter, search, sortField, sortDir])
+
+  const totalPages = Math.max(1, Math.ceil(items.length / PER_PAGE))
+  const safePage = Math.min(page, totalPages)
+  const paged = items.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE)
 
   // Metrics
   const metrics = useMemo(() => {
@@ -627,7 +641,7 @@ export default function RecoveryView() {
                     </td>
                   </tr>
                 ) : (
-                  items.map((item) => {
+                  paged.map((item) => {
                     const due = item.dueAt ? dueLabel(item.dueAt) : null
                     return (
                       <tr key={item.id}>
@@ -748,6 +762,37 @@ export default function RecoveryView() {
               </tbody>
             </table>
           </div>
+
+          {items.length > 0 && (
+            <div className="paginacao">
+              <span className="suave">
+                Mostrando {(safePage - 1) * PER_PAGE + 1}–{Math.min(safePage * PER_PAGE, items.length)} de {items.length}
+                {totalCount > recoveryItems.length && ` (os ${recoveryItems.length} de maior prioridade, de ${totalCount}; use os filtros para ver os demais)`}
+              </span>
+              {totalPages > 1 && (
+                <div className="linha-flex flex-wrap !gap-1.5">
+                  <button type="button" className="pag" aria-label="Página anterior" disabled={safePage <= 1} onClick={() => setPage(Math.max(1, safePage - 1))}>
+                    <ChevronLeft className="ic" aria-hidden="true" />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={cn('pag', safePage === n && 'pag--atual')}
+                      aria-current={safePage === n ? 'page' : undefined}
+                      aria-label={`Página ${n}`}
+                      onClick={() => setPage(n)}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <button type="button" className="pag" aria-label="Próxima página" disabled={safePage >= totalPages} onClick={() => setPage(Math.min(totalPages, safePage + 1))}>
+                    <ChevronRight className="ic" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Assign Dialog */}

@@ -80,13 +80,58 @@ const initialState: OnboardingState = {
   reportWeekDay: 'seg',
 }
 
+// T5 · o assistente continua de onde parou: rascunho por pessoa neste navegador (não há campo no servidor para isso).
+// Sem armazenamento (aba anônima, bloqueado) o assistente funciona normalmente, só não lembra a etapa.
+type OnboardingDraft = { step: number; state: OnboardingState }
+const draftKey = (email: string) => `atenderadar:onboarding:${email}`
+
+function readDraft(email: string | null | undefined): OnboardingDraft | null {
+  if (!email || typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(draftKey(email))
+    if (!raw) return null
+    const d = JSON.parse(raw) as Partial<OnboardingDraft> | null
+    if (!d || typeof d !== 'object') return null
+    const step = typeof d.step === 'number' && Number.isInteger(d.step) ? Math.min(Math.max(d.step, 0), STEPS.length - 1) : 0
+    const saved = d.state && typeof d.state === 'object' ? d.state : null
+    const state: OnboardingState = saved
+      ? {
+          ...initialState,
+          ...saved,
+          businessHours: { ...defaultHours, ...(saved.businessHours && typeof saved.businessHours === 'object' ? saved.businessHours : {}) },
+          agents: Array.isArray(saved.agents) ? saved.agents : [],
+          whatsappConnected: false, // conferido de novo na etapa do WhatsApp
+        }
+      : initialState
+    return { step, state }
+  } catch {
+    return null
+  }
+}
+
+function writeDraft(email: string | null | undefined, draft: OnboardingDraft | null) {
+  if (!email || typeof window === 'undefined') return
+  try {
+    if (draft) window.localStorage.setItem(draftKey(email), JSON.stringify(draft))
+    else window.localStorage.removeItem(draftKey(email))
+  } catch {
+    // armazenamento indisponível: segue sem lembrar a etapa
+  }
+}
+
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase()
 
 // Visual de onboarding.html do pacote, dentro do conteúdo do painel (o `.conta` ativa as regras de conta).
 export default function OnboardingView() {
   const { setView, setCurrentOrganization } = useAppStore()
-  const [step, setStep] = useState(0)
-  const [state, setState] = useState<OnboardingState>(initialState)
+  const email = useAppStore((s) => s.me?.email)
+  const [draft] = useState(() => readDraft(email))
+  const [step, setStep] = useState(draft?.step ?? 0)
+  const [state, setState] = useState<OnboardingState>(draft?.state ?? initialState)
+  const [activated, setActivated] = useState(false)
+  useEffect(() => {
+    if (!activated) writeDraft(email, { step, state })
+  }, [email, step, state, activated])
   const [agentNameInput, setAgentNameInput] = useState('')
   const [agentEmailInput, setAgentEmailInput] = useState('')
   const [activating, setActivating] = useState(false)
@@ -200,6 +245,8 @@ export default function OnboardingView() {
         logoUrl: organization.logoUrl,
         website: organization.website,
       })
+      setActivated(true)
+      writeDraft(email, null) // ativou: a próxima vez começa do zero
       toast.success('Organização ativada com sucesso!')
       setView('dashboard')
     } catch (e) {

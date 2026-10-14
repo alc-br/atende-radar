@@ -45,6 +45,7 @@ import {
   cn,
 } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
+import { can } from '@/lib/permissions'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { Button } from '@/components/ui/button'
@@ -262,6 +263,10 @@ export default function ConversationDetail() {
   const setView = useAppStore((s) => s.setView)
   const selectConversation = useAppStore((s) => s.selectConversation)
   const refreshTrigger = useAppStore((s) => s.refreshTrigger)
+  // T4 · o atendente consulta a conversa e manda para a recuperação; corrigir a análise e confirmar venda é da gestão
+  const role = useAppStore((s) => s.me?.role)
+  const canManage = can(role, 'conversations.manage')
+  const canRecover = can(role, 'recovery.manage')
 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -565,6 +570,7 @@ export default function ConversationDetail() {
             </div>
             <div className="contato__acoes">
               <PrivacyMenu conversationId={selectedConversationId as string} onDone={handleBack} />
+              {(canRecover || canManage) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button type="button" className="reticencias" aria-label="Mais opções">
@@ -572,16 +578,21 @@ export default function ConversationDetail() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {canRecover && (
                   <DropdownMenuItem onClick={sendToRecovery}>
                     <RotateCcw className="h-4 w-4" aria-hidden="true" />
                     Enviar para recuperação
                   </DropdownMenuItem>
+                  )}
+                  {canManage && (
                   <DropdownMenuItem onClick={markReviewed}>
                     <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                     Marcar como revisada
                   </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
             </div>
           </header>
 
@@ -685,7 +696,7 @@ export default function ConversationDetail() {
                       <span className={cn('min-w-0 flex-1', answered && 'suave line-through')}>
                         {q.normalizedQuestion || q.text}
                       </span>
-                      {!answered && (
+                      {!answered && canManage && (
                         <button
                           type="button"
                           className="reticencias"
@@ -739,7 +750,7 @@ export default function ConversationDetail() {
                           </span>
                         )}
                       </div>
-                      {!isKept && !isCancelled && (
+                      {!isKept && !isCancelled && canManage && (
                         <div className="flex shrink-0 items-center">
                           <button type="button" className="reticencias" aria-label="Confirmar cumprida" title="Confirmar cumprida" onClick={() => setPromiseStatus(p.id, 'kept')}>
                             <CheckCircle2 className="ic verde-txt" aria-hidden="true" />
@@ -779,7 +790,7 @@ export default function ConversationDetail() {
                     </div>
                     {f.falsePositive ? (
                       <span className="tag tag--cinza">Falso positivo</span>
-                    ) : (
+                    ) : canManage && (
                       <button type="button" className="btn btn--sm" onClick={() => markFindingFalsePositive(f.id)}>
                         <Ban className="ic" aria-hidden="true" />
                         Falso positivo
@@ -818,6 +829,7 @@ export default function ConversationDetail() {
           )}
 
           {/* Ações de correção */}
+          {canManage && (
           <section className="cartao bloco">
             <header className="bloco__cab">
               <div>
@@ -856,6 +868,7 @@ export default function ConversationDetail() {
               </button>
             </div>
           </section>
+          )}
         </aside>
       </div>
 

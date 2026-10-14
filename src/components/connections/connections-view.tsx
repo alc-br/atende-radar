@@ -20,6 +20,8 @@ import {
 import { timeAgo } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { QrDialog } from './qr-dialog'
+import { useAppStore } from '@/lib/store'
+import { can } from '@/lib/permissions'
 
 // Rótulo e tom (classes do pacote: tag--*) de cada status real da conexão.
 const statusConfig: Record<string, { label: string; tom: 'cinza' | 'ambar' | 'azul' | 'verde' | 'laranja' | 'vermelho' }> = {
@@ -55,6 +57,8 @@ function SignalQuality({ quality }: { quality: 'good' | 'medium' | 'bad' | null 
 }
 
 export default function ConnectionsView() {
+  // T4 · gestor e supervisor acompanham a saúde das conexões; criar, parear, pausar ou excluir é do administrador
+  const canManage = can(useAppStore((s) => s.me?.role), 'connections.manage')
   const [newConnDialogOpen, setNewConnDialogOpen] = useState(false)
   const [newConnName, setNewConnName] = useState('')
   const [newConnPhone, setNewConnPhone] = useState('')
@@ -180,13 +184,9 @@ export default function ConnectionsView() {
   const togglePause = async (connId: string) => {
     const newPaused = !localPaused[connId]
     setLocalPaused(prev => ({ ...prev, [connId]: newPaused }))
-    try {
-      await fetch(`/api/connections/${connId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: newPaused ? 'pause' : 'resume' }),
-      })
-    } catch (_e) { /* ignore */ }
+    // falha (rede ou 4xx/5xx) vira aviso e desfaz a troca; antes o erro sumia e o botão mostrava um estado falso
+    const ok = await mutate(`/api/connections/${connId}`, { method: 'PATCH', json: { action: newPaused ? 'pause' : 'resume' } })
+    if (!ok) setLocalPaused(prev => ({ ...prev, [connId]: !newPaused }))
   }
 
   const connectedCount = connectionsData.filter((c: any) => c.status === 'connected').length
@@ -230,16 +230,18 @@ export default function ConnectionsView() {
           <h1>Conexões</h1>
           <p>Gerencie as conexões WhatsApp e monitore sua saúde operacional.</p>
         </div>
-        <div className="cab-pagina__acoes">
-          <button
-            type="button"
-            data-tour="connections-new"
-            className="btn btn--primario btn--lg"
-            onClick={() => setNewConnDialogOpen(true)}
-          >
-            <Plus className="ic" aria-hidden="true" />Nova conexão
-          </button>
-        </div>
+        {canManage && (
+          <div className="cab-pagina__acoes">
+            <button
+              type="button"
+              data-tour="connections-new"
+              className="btn btn--primario btn--lg"
+              onClick={() => setNewConnDialogOpen(true)}
+            >
+              <Plus className="ic" aria-hidden="true" />Nova conexão
+            </button>
+          </div>
+        )}
       </div>
 
       <Dialog open={newConnDialogOpen} onOpenChange={setNewConnDialogOpen}>
@@ -326,7 +328,9 @@ export default function ConnectionsView() {
           <div className="cartao vazio col-span-full">
             <Wifi className="ic" aria-hidden="true" />
             <strong>Nenhuma conexão ainda</strong>
-            Clique em &quot;Nova conexão&quot; para cadastrar um número de WhatsApp e ler o QR Code.
+            {canManage
+              ? 'Clique em "Nova conexão" para cadastrar um número de WhatsApp e ler o QR Code.'
+              : 'O administrador da empresa cadastra os números de WhatsApp.'}
           </div>
         )}
         {connectionsData.map((conn) => {
@@ -357,6 +361,7 @@ export default function ConnectionsView() {
               </ul>
 
               <div className="conexao__acoes mt-auto">
+                {canManage && (<>
                 <button type="button" title="Tentar reconectar" onClick={() => handleReconnect(conn.id)}>
                   <RefreshCw className="ic" aria-hidden="true" />Reconectar
                 </button>
@@ -377,6 +382,7 @@ export default function ConnectionsView() {
                 <button type="button" title="Alterar nome da conexão" onClick={() => openRenameDialog(conn.id, conn.name)}>
                   <Pencil className="ic" aria-hidden="true" />Renomear
                 </button>
+                </>)}
                 <button
                   type="button"
                   title="Ver diagnóstico detalhado"
@@ -385,12 +391,14 @@ export default function ConnectionsView() {
                 >
                   <Stethoscope className="ic" aria-hidden="true" />Diagnóstico
                 </button>
+                {canManage && (<>
                 <button type="button" className="laranja-txt" title="Desconectar sem excluir" onClick={() => handleDisconnect(conn.id)}>
                   <Unplug className="ic" aria-hidden="true" />Desconectar
                 </button>
                 <button type="button" className="vermelho" title="Excluir credenciais" onClick={() => handleDeleteConnection(conn.id)}>
                   <Trash2 className="ic" aria-hidden="true" />Excluir
                 </button>
+                </>)}
               </div>
 
               {/* Diagnóstico expansível (dados reais de /api/connections/:id/health) */}

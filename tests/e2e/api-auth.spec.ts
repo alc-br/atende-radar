@@ -1,66 +1,8 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
 import { test, expect } from '@playwright/test'
 import { PROTECTED_ROUTES, anonymous, loginAs } from './helpers'
+import { OWN_AUTH_ROUTES, PUBLIC_ROUTES, discoverRoutes } from './api-routes'
 
-// ---- descoberta automática: toda rota nova em src/app/api entra no teste sem ninguém lembrar de listá-la ----
-const API_DIR = join(process.cwd(), 'src', 'app', 'api')
-const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
-
-/**
- * Rotas PÚBLICAS de propósito (sem sessão podem responder 200/400/429...). Não são chamadas aqui: só se confere
- * que continuam existindo (lista viva). Rota nova pública = acrescentar aqui, com o motivo.
- */
-const PUBLIC_ROUTES: Record<string, string> = {
-  '/api/auth/[...nextauth]': 'login do NextAuth (csrf, providers, callback, session) — testado em auth.spec.ts',
-  '/api/auth/signup': 'cadastro público (limite por IP)',
-  '/api/auth/forgot': 'pedido de nova senha (limite por IP, não revela se o e-mail existe)',
-  '/api/auth/reset': 'troca de senha com token do e-mail (limite por IP)',
-  '/api/auth/accept-invite': 'aceite de convite com token do e-mail (limite por IP)',
-  '/api/auth/verify-email': 'confirmação de e-mail com token',
-  '/api/public/plans': 'catálogo de planos da página de vendas',
-  '/api/public/pageview': 'contador diário de visitas à página de vendas (sem cookie nem IP gravado, limite por IP) — product-events.spec.ts',
-  '/api/public/status': 'situação do serviço para monitores externos (só ok/atraso/fora, sem detalhe técnico)',
-  // link "parar de receber" dos alertas por e-mail: quem abre o e-mail não está logado; o token HMAC identifica o membro
-  '/api/public/unsubscribe': 'desliga os alertas por e-mail com o token assinado do link (só POST; token ruim = 400) — alert-email.spec.ts',
-}
-
-/**
- * Fora do proxy de sessão, mas com autenticação própria: sem a credencial devem recusar como as demais
- * (por isso CONTINUAM no teste genérico abaixo). Listadas para documentar a exceção do src/proxy.ts.
- */
-const OWN_AUTH_ROUTES: Record<string, string> = {
-  '/api/billing/webhook': 'aviso do Pagar.me: autenticação básica (PAGARME_WEBHOOK_USER/PASS)',
-  '/api/gateway/events': 'serviço do WhatsApp: Bearer GATEWAY_SECRET',
-  '/api/gateway/tick': 'serviço do WhatsApp / agendador: Bearer GATEWAY_SECRET',
-  '/api/gateway/connections': 'serviço do WhatsApp: Bearer GATEWAY_SECRET',
-}
-
-function discoverRoutes(): Array<{ pattern: string; path: string; methods: string[] }> {
-  if (!existsSync(API_DIR)) throw new Error(`pasta de rotas não encontrada: ${API_DIR} (rode a partir da raiz do projeto)`)
-  const out: Array<{ pattern: string; path: string; methods: string[] }> = []
-  const walk = (dir: string) => {
-    for (const name of readdirSync(dir)) {
-      const full = join(dir, name)
-      if (statSync(full).isDirectory()) walk(full)
-      else if (name === 'route.ts') {
-        const segs = relative(API_DIR, dir).split(sep).filter(Boolean)
-        const pattern = '/' + ['api', ...segs].join('/')
-        // segmento dinâmico ([id], [...slug], [[...slug]]) vira um id fictício
-        const path = '/' + ['api', ...segs.map((s) => (s.startsWith('[') ? 'x' : s))].join('/')
-        const src = readFileSync(full, 'utf8')
-        const exported = METHODS.filter(
-          (m) => new RegExp(`export\\s+(async\\s+)?function\\s+${m}\\b`).test(src) || new RegExp(`export\\s*\\{[^}]*\\bas\\s+${m}\\b`).test(src)
-        )
-        // sempre GET e POST (método não exportado deve dar 401 ou 405, nunca 200/500) + os que a rota exporta
-        out.push({ pattern, path, methods: [...new Set(['GET', 'POST', ...exported])] })
-      }
-    }
-  }
-  walk(API_DIR)
-  return out.sort((a, b) => a.pattern.localeCompare(b.pattern))
-}
-
+// ---- descoberta automática (api-routes.ts): toda rota nova em src/app/api entra no teste sem ninguém lembrar de listá-la ----
 const DISCOVERED = discoverRoutes()
 
 test.describe('B2 · APIs exigem sessão (descoberta automática das rotas)', () => {

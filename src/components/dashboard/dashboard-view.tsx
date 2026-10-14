@@ -303,7 +303,7 @@ export default function DashboardView() {
     setError(null)
     try {
       const res = await fetch(`/api/dashboard?period=${period}`)
-      if (!res.ok) throw new Error('Erro ao carregar dashboard')
+      if (!res.ok) throw new Error('Erro ao carregar a Visão Geral')
       const data = await res.json()
       setApiData(data)
     } catch (e) {
