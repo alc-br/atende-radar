@@ -37,6 +37,9 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactStrictMode: false,
   poweredByHeader: false,
+  // Só no dev: desde o next 16.3 o /_next/hmr de outra origem é bloqueado, e sem ele a página não hidrata.
+  // Os testes abrem o servidor por 127.0.0.1 (o dev se anuncia como localhost).
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
   env: { NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION || appVersion },
   async rewrites() {
     if (!siteHostname) return { beforeFiles: [] };
