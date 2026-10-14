@@ -6,6 +6,8 @@ import type { AuthContext } from './api-auth'
 
 export type AuditAction =
   | 'member.invited' | 'member.role_changed' | 'member.status_changed' | 'member.team_changed' | 'member.removed'
+  | 'member.invite_resent' | 'member.invite_canceled'
+  | 'account.profile_updated' | 'account.password_changed' | 'account.sessions_revoked'
   | 'settings.updated' | 'organization.updated'
   | 'alert_rule.created' | 'alert_rule.updated'
   | 'team.created' | 'team.updated' | 'team.removed'
@@ -49,6 +51,11 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'member.status_changed': 'Alterou o status de um membro',
   'member.team_changed': 'Alterou a equipe de um membro',
   'member.removed': 'Removeu membro',
+  'member.invite_resent': 'Reenviou convite',
+  'member.invite_canceled': 'Cancelou convite',
+  'account.profile_updated': 'Alterou o próprio perfil',
+  'account.password_changed': 'Trocou a própria senha',
+  'account.sessions_revoked': 'Saiu de todos os aparelhos',
   'settings.updated': 'Alterou configurações',
   'organization.updated': 'Alterou dados da empresa',
   'alert_rule.created': 'Criou regra de alerta',

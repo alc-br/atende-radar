@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { BlogShell } from '@/components/site/blog-shell'
 import { LegalPage } from '@/components/site/legal'
 import { SITE_URL } from '@/lib/hosts'
+import { PRIVACY_VERSION } from '@/lib/legal'
 
 export const metadata: Metadata = {
   title: 'Política de Privacidade — AtendeRadar',
@@ -14,7 +15,7 @@ const CONTATO = process.env.NEXT_PUBLIC_CONTACT_EMAIL || ''
 export default function PrivacidadePage() {
   return (
     <BlogShell>
-      <LegalPage titulo="Política de Privacidade" atualizado="2026-10-12">
+      <LegalPage titulo="Política de Privacidade" atualizado={PRIVACY_VERSION}>
         <p>
           Esta política explica quais dados pessoais o AtendeRadar trata, para quê, com quem eles são compartilhados e como você exerce os
           seus direitos previstos na Lei Geral de Proteção de Dados (Lei nº 13.709/2018, LGPD).

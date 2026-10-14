@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, badRequest, publicMember } from '@/lib/api-auth'
-import { issueToken } from '@/lib/auth-tokens'
-import { appUrl, sendMail } from '@/lib/mailer'
+import { sendInvite } from '@/lib/invites'
 import { isRole } from '@/lib/permissions'
 
 export async function GET() {
@@ -83,20 +82,8 @@ export async function POST(request: Request) {
     })
 
     await audit(g.auth, { action: 'member.invited', targetType: 'member', targetId: member.id, targetLabel: normalizedEmail, details: { role: finalRole } })
-    const token = await issueToken(member.id, 'invite')
-    await sendMail({
-      to: normalizedEmail,
-      subject: `${g.auth.name} convidou você para o AtendeRadar`,
-      text: `Olá, ${name}!
-
-${g.auth.name} convidou você para o AtendeRadar como "${finalRole}".
-Crie a sua senha e entre por este link (vale por 7 dias):
-${appUrl()}/accept-invite?token=${token}
-`,
-    })
-
     // Sem provedor de e-mail configurado o convite não chega à pessoa: o admin recebe o link para repassar.
-    const inviteLink = process.env.MAIL_PROVIDER === 'resend' ? undefined : `${appUrl()}/accept-invite?token=${token}`
+    const inviteLink = await sendInvite(g.auth, member)
     return NextResponse.json({ success: true, member: publicMember(member), inviteLink }, { status: 201 })
   } catch (error) {
     console.error('Members POST error:', error)

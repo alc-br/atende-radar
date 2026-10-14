@@ -6,12 +6,14 @@ import { issueToken } from '@/lib/auth-tokens'
 import { appUrl, sendMail } from '@/lib/mailer'
 import { allow, clientIp } from '@/lib/rate-limit'
 import { createOrganizationDefaults } from '@/lib/org-defaults'
+import { TERMS_REQUIRED_MESSAGE, termsAcceptance } from '@/lib/legal'
 
 const Body = z.object({
   name: z.string().trim().min(2, 'Informe o seu nome.').max(120),
   email: z.string().trim().toLowerCase().email('E-mail inválido.').max(200),
   password: z.string().min(1, 'Informe a senha.'),
   organizationName: z.string().trim().min(2, 'Informe o nome da empresa.').max(160),
+  acceptTerms: z.unknown().optional(),
 })
 
 const TRIAL_DAYS = 14
@@ -25,7 +27,9 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Dados inválidos.' }, { status: 400 })
   }
-  const { name, email, password, organizationName } = parsed.data
+  const { name, email, password, organizationName, acceptTerms } = parsed.data
+  // Aceite dos Termos e da Política é obrigatório (B9/V4): a versão aceita fica gravada no dono da conta.
+  if (acceptTerms !== true) return NextResponse.json({ error: TERMS_REQUIRED_MESSAGE }, { status: 400 })
 
   const problem = passwordProblem(password, email)
   if (problem) return NextResponse.json({ error: problem }, { status: 400 })
@@ -56,6 +60,7 @@ export async function POST(request: Request) {
         role: 'admin',
         status: 'active',
         passwordHash: hashPassword(password),
+        ...termsAcceptance(),
       },
     })
   })

@@ -30,6 +30,7 @@ test('jornada completa do cliente: do site ao cancelamento', async ({ page, brow
     await page.locator('#login-email').fill(dono.email)
     await page.locator('#login-password').fill(STRONG)
     await page.locator('#signup-org').fill(dono.empresa)
+    await page.locator('#signup-terms').check() // aceite dos Termos e da Política de Privacidade é obrigatório
     await page.getByRole('button', { name: /Iniciar teste grátis/ }).click()
     await expect(page.getByTestId('trial-banner')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByTestId('trial-banner')).toContainText(/1[34] dias/)
@@ -92,6 +93,7 @@ test('jornada completa do cliente: do site ao cancelamento', async ({ page, brow
     await expect(p2.getByRole('heading', { name: 'Aceitar convite' })).toBeVisible()
     await p2.locator('#new-password').fill(STRONG)
     await p2.locator('#confirm-password').fill(STRONG)
+    await p2.locator('#invite-terms').check()
     await p2.locator('button[type="submit"]').click()
     await expect(p2.getByRole('status')).toBeVisible({ timeout: 20_000 }) // convite aceito (o link abaixo existe desde o início)
     await p2.getByRole('link', { name: /Ir para o AtendeRadar/ }).click()

@@ -30,6 +30,12 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['POST', '/api/members'],
   ['PATCH', '/api/members/x'],
   ['DELETE', '/api/members/x'],
+  ['POST', '/api/members/x/invite'],
+  ['DELETE', '/api/members/x/invite'],
+  ['GET', '/api/profile'],
+  ['PATCH', '/api/profile'],
+  ['POST', '/api/profile/password'],
+  ['DELETE', '/api/profile/sessions'],
   ['GET', '/api/notifications'],
   ['PATCH', '/api/notifications/x'],
   ['POST', '/api/notifications/read-all'],
@@ -94,7 +100,7 @@ export async function createUser(
   if (res.status() !== 201) throw new Error(`convite falhou: ${res.status()} ${await res.text()}`)
   const { member } = await res.json()
   const anon = await request.newContext({ baseURL: BASE_URL })
-  const accept = await anon.post('/api/auth/accept-invite', { data: { token: await lastTokenFor(data.email), password } })
+  const accept = await anon.post('/api/auth/accept-invite', { data: { token: await lastTokenFor(data.email), password, acceptTerms: true } })
   if (accept.status() !== 200) throw new Error(`aceite falhou: ${accept.status()} ${await accept.text()}`)
   await anon.dispose()
   return member as { id: string; email: string; role: string }
@@ -106,7 +112,7 @@ export async function signupOrg(overrides: Partial<{ name: string; email: string
   const password = overrides.password ?? STRONG
   const anon = await request.newContext({ baseURL: BASE_URL })
   const res = await anon.post('/api/auth/signup', {
-    data: { name: overrides.name ?? 'Dona Teste', email, password, organizationName: overrides.organizationName ?? `Empresa ${uid()}` },
+    data: { name: overrides.name ?? 'Dona Teste', email, password, organizationName: overrides.organizationName ?? `Empresa ${uid()}`, acceptTerms: true },
   })
   if (res.status() !== 201) throw new Error(`cadastro falhou com ${res.status()}: ${await res.text()}`)
   await anon.dispose()

@@ -22,7 +22,7 @@ check "API fechada sem login (dashboard)" 401 "$(code "$BASE/api/dashboard")"
 check "API fechada sem login (membros)" 401 "$(code "$BASE/api/members")"
 check "escrita fechada sem login" 401 "$(code -X PATCH -H 'content-type: application/json' -d '{}' "$BASE/api/settings")"
 check "entrada do gateway protegida" 401 "$(code -X POST -H 'content-type: application/json' -d '{}' "$BASE/api/gateway/events")"
-check "cadastro recusa senha fraca" 400 "$(code -X POST -H 'content-type: application/json' -d '{"name":"Fumaca","email":"fumaca@exemplo.test","password":"curta","organizationName":"Fumaca"}' "$BASE/api/auth/signup")"
+check "cadastro recusa senha fraca" 400 "$(code -X POST -H 'content-type: application/json' -d '{"name":"Fumaca","email":"fumaca@exemplo.test","password":"curta","organizationName":"Fumaca","acceptTerms":true}' "$BASE/api/auth/signup")"
 
 PLANS="$(curl -s "$BASE/api/public/plans")"
 case "$PLANS" in *'"essencial"'*'"gestao"'*'"performance"'*) echo "ok   3 planos no catálogo";; *) echo "FALHOU catálogo de planos"; FAIL=1;; esac

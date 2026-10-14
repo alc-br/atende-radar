@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
 import { SITE_URL, splitHosts } from '@/lib/hosts'
+import { TermsCheckbox } from './terms-checkbox'
 import { toast } from 'sonner'
 import {
   Mail, Lock, Eye, EyeOff, Loader2, User, Building2, ArrowLeft, ArrowRight, Play, Zap, Coins, CalendarCheck,
@@ -35,6 +36,7 @@ export default function LoginPage() {
   const [name, setName] = useState('')
   const [organizationName, setOrganizationName] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
+  const [acceptTerms, setAcceptTerms] = useState(false)
 
   const handleLogin = async (loginEmail: string, loginPassword: string) => {
     setLoading(true)
@@ -73,7 +75,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       if (mode === 'signup') {
-        const r = await postJson('/api/auth/signup', { name, email, password, organizationName })
+        const r = await postJson('/api/auth/signup', { name, email, password, organizationName, acceptTerms })
         if (!r.ok) {
           toast.error('Não foi possível criar a conta', { description: r.error })
           return
@@ -256,6 +258,7 @@ export default function LoginPage() {
                     </div>
                   </div>
                 </div>
+                <TermsCheckbox id="signup-terms" checked={acceptTerms} onChange={setAcceptTerms} disabled={loading} />
                 <button className="btn btn--verde btn--xl btn--bloco" type="submit" disabled={loading}>
                   {loading ? <>{spinner}Criando conta...</> : <><Lock className="ic" aria-hidden="true" />Iniciar teste grátis <ArrowRight className="ic" aria-hidden="true" /></>}
                 </button>

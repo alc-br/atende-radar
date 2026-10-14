@@ -43,7 +43,7 @@ const post = (path, body, headers) => fetch(`${base}${path}`, { method: 'POST', 
 
 console.log(`Carga: ${CONVS} conversas × ${MSGS} mensagens = ${CONVS * MSGS} mensagens, concorrência ${CONCURRENCY}\n`)
 
-const signup = await post('/api/auth/signup', { name: 'Carga', email, password, organizationName: `Carga ${rnd()}` }, { 'Content-Type': 'application/json' })
+const signup = await post('/api/auth/signup', { name: 'Carga', email, password, organizationName: `Carga ${rnd()}`, acceptTerms: true }, { 'Content-Type': 'application/json' })
 if (signup.status !== 201) throw new Error(`cadastro falhou ${signup.status}`)
 const cookie = await login()
 const auth = () => ({ Cookie: cookie(), 'Content-Type': 'application/json' })

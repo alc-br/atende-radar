@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { BlogShell } from '@/components/site/blog-shell'
 import { LegalPage } from '@/components/site/legal'
 import { SITE_URL } from '@/lib/hosts'
+import { TERMS_VERSION } from '@/lib/legal'
 
 export const metadata: Metadata = {
   title: 'Termos de Uso — AtendeRadar',
@@ -14,7 +15,7 @@ const CONTATO = process.env.NEXT_PUBLIC_CONTACT_EMAIL || ''
 export default function TermosPage() {
   return (
     <BlogShell>
-      <LegalPage titulo="Termos de Uso" atualizado="2026-10-12">
+      <LegalPage titulo="Termos de Uso" atualizado={TERMS_VERSION}>
         <p>
           Estes termos regem o uso do AtendeRadar. Ao criar uma conta ou usar o sistema, você concorda com eles e com a nossa{' '}
           <a href="/privacidade">Política de Privacidade</a>.

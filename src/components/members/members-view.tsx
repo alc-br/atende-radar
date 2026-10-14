@@ -16,7 +16,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { UserPlus, MoreHorizontal, Shield, Trash2, Users, UsersRound, Search } from 'lucide-react'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { UserPlus, MoreHorizontal, Shield, Trash2, Users, UsersRound, Search, Send, MailX } from 'lucide-react'
 import { toast } from 'sonner'
 import { timeAgo } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
@@ -124,16 +128,7 @@ export default function MembersView() {
         throw new Error(data.error || 'Erro ao adicionar membro')
       }
       const created = await res.json().catch(() => ({}))
-      if (created.inviteLink) {
-        // Sem provedor de e-mail: o link precisa ser repassado à pessoa manualmente.
-        await navigator.clipboard?.writeText(created.inviteLink).catch(() => {})
-        toast.success('Convite criado. Link copiado!', {
-          description: `Envie este link para ${inviteEmail}: ${created.inviteLink}`,
-          duration: 20000,
-        })
-      } else {
-        toast.success(`Convite enviado para ${inviteEmail}.`)
-      }
+      await showInviteLink(inviteEmail, created.inviteLink, 'Convite criado.')
       setInviteName('')
       setInviteEmail('')
       setInviteRole('member')
@@ -187,6 +182,53 @@ export default function MembersView() {
       fetchMembers()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao remover membro')
+    }
+  }
+
+  // Convite pendente: reenviar (link novo; o anterior deixa de valer) ou cancelar (com confirmação).
+  const showInviteLink = async (email: string, link: string | undefined, title: string) => {
+    if (link) {
+      // Sem provedor de e-mail: o link precisa ser repassado à pessoa manualmente.
+      await navigator.clipboard?.writeText(link).catch(() => {})
+      toast.success(`${title} Link copiado!`, {
+        description: `Envie este link para ${email}: ${link}`,
+        duration: 20000,
+      })
+    } else {
+      toast.success(`${title} E-mail enviado para ${email}.`)
+    }
+  }
+
+  const resendInvite = async (member: Member) => {
+    try {
+      const res = await fetch(`/api/members/${member.id}/invite`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Erro ao reenviar convite')
+      await showInviteLink(member.email, data.inviteLink, 'Convite reenviado.')
+      fetchMembers()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao reenviar convite')
+    }
+  }
+
+  const [cancelTarget, setCancelTarget] = useState<Member | null>(null)
+  const [canceling, setCanceling] = useState(false)
+  const cancelInvite = async () => {
+    if (!cancelTarget) return
+    setCanceling(true)
+    try {
+      const res = await fetch(`/api/members/${cancelTarget.id}/invite`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erro ao cancelar convite')
+      }
+      toast.success(`Convite de ${cancelTarget.email} cancelado.`)
+      setCancelTarget(null)
+      fetchMembers()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao cancelar convite')
+    } finally {
+      setCanceling(false)
     }
   }
 
@@ -355,12 +397,23 @@ export default function MembersView() {
                                 <UsersRound className="w-4 h-4 mr-2" />Definir equipe
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => removeMember(member.id)}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />Remover
-                              </DropdownMenuItem>
+                              {member.status === 'invited' ? (
+                                <>
+                                  <DropdownMenuItem onClick={() => resendInvite(member)}>
+                                    <Send className="w-4 h-4 mr-2" />Reenviar convite
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="text-destructive" onClick={() => setCancelTarget(member)}>
+                                    <MailX className="w-4 h-4 mr-2" />Cancelar convite
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => removeMember(member.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />Remover
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>}
                         </td>
@@ -393,6 +446,23 @@ export default function MembersView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && !canceling && setCancelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar o convite de {cancelTarget?.email}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O link enviado deixa de funcionar e a pessoa sai da lista de membros. Se precisar, você pode convidá-la de novo depois.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={canceling}>Voltar</AlertDialogCancel>
+            <AlertDialogAction disabled={canceling} onClick={(e) => { e.preventDefault(); void cancelInvite() }}>
+              {canceling ? 'Cancelando...' : 'Cancelar convite'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

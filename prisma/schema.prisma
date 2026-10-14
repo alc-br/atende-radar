@@ -482,6 +482,10 @@ model OrganizationMember {
   failedLogins    Int          @default(0)
   lockedUntil     DateTime?
   sessionVersion  Int          @default(0) // incrementa ao trocar senha: derruba as sessões antigas
+  // --- aceite dos termos (B9/V4/T1): versão vigente no cadastro ou no aceite do convite (src/lib/legal.ts) ---
+  termsVersion    String?
+  privacyVersion  String?
+  termsAcceptedAt DateTime?
 }
 
 // Tokens de uso único enviados por e-mail (recuperar senha, aceitar convite, confirmar e-mail). Só o hash é guardado.

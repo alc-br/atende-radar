@@ -27,6 +27,7 @@ import NotificationsView from '@/components/notifications/notifications-view'
 import LandingPage from '@/components/landing/landing-page'
 import LoginPage from '@/components/login/login-page'
 import AdminView from '@/components/admin/admin-view'
+import ProfileView from '@/components/profile/profile-view'
 import { canOpenView } from '@/lib/permissions'
 import { TrialBanner } from '@/components/layout/trial-banner'
 import { onAppHost } from '@/lib/hosts'
@@ -139,6 +140,8 @@ function MainContent() {
         return <NotificationsView />
       case 'admin':
         return <AdminView />
+      case 'profile':
+        return <ProfileView />
       case 'landing':
         return <LandingPage />
       case 'login':

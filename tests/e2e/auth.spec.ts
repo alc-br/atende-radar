@@ -41,7 +41,7 @@ test.describe('B1 · cadastro cria a organização do cliente', () => {
 
   test('cadastro recusa senha fraca, e-mail repetido, e-mail inválido e dados faltando', async () => {
     const anon = await anonymous()
-    const ok = { name: 'Xavier', email: `v.${uid()}@cliente.test`, password: STRONG, organizationName: 'Org V' }
+    const ok = { name: 'Xavier', email: `v.${uid()}@cliente.test`, password: STRONG, organizationName: 'Org V', acceptTerms: true }
     expect((await anon.post('/api/auth/signup', { data: { ...ok, password: 'curta1' } })).status()).toBe(400)
     expect((await anon.post('/api/auth/signup', { data: { ...ok, password: 'somenteletrasaqui' } })).status()).toBe(400)
     expect((await anon.post('/api/auth/signup', { data: { ...ok, password: 'demo123demo123' } })).status()).toBe(400)
@@ -269,9 +269,9 @@ test.describe('B1 · convite de membro', () => {
 
     const anon = await anonymous()
     const token = await lastTokenFor(email)
-    expect((await anon.post('/api/auth/accept-invite', { data: { token, password: 'fraca' } })).status()).toBe(400)
-    expect((await anon.post('/api/auth/accept-invite', { data: { token, password: STRONG } })).status()).toBe(200)
-    expect((await anon.post('/api/auth/accept-invite', { data: { token, password: STRONG } })).status()).toBe(400) // uso único
+    expect((await anon.post('/api/auth/accept-invite', { data: { token, password: 'fraca', acceptTerms: true } })).status()).toBe(400)
+    expect((await anon.post('/api/auth/accept-invite', { data: { token, password: STRONG, acceptTerms: true } })).status()).toBe(200)
+    expect((await anon.post('/api/auth/accept-invite', { data: { token, password: STRONG, acceptTerms: true } })).status()).toBe(400) // uso único
     await anon.dispose()
 
     const c = await loginAs(email, STRONG)
@@ -290,7 +290,7 @@ test.describe('B1 · convite de membro', () => {
     // o link funciona de verdade
     const token = new URL(body.inviteLink).searchParams.get('token')!
     const anon = await anonymous()
-    expect((await anon.post('/api/auth/accept-invite', { data: { token, password: STRONG } })).status()).toBe(200)
+    expect((await anon.post('/api/auth/accept-invite', { data: { token, password: STRONG, acceptTerms: true } })).status()).toBe(200)
     await anon.dispose()
     const c = await loginAs(email, STRONG)
     expect((await c.get('/api/me')).status()).toBe(200)

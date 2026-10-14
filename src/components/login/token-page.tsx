@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, useSyncExternalStore } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { TermsCheckbox } from './terms-checkbox'
 import { Loader2, ShieldCheck, AlertCircle, ArrowLeft, ArrowRight, KeyRound, UserPlus, MailCheck, Lock, type LucideIcon } from 'lucide-react'
 
 type Kind = 'reset' | 'invite' | 'verify'
@@ -49,10 +50,11 @@ function Inner({ kind }: { kind: Kind }) {
   const [confirm, setConfirm] = useState('')
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>(copy.needsPassword ? 'idle' : 'loading')
   const [error, setError] = useState('')
+  const [acceptTerms, setAcceptTerms] = useState(false) // só no convite: quem entra pela 1ª vez aceita os termos
   // Campos só liberam depois da hidratação: o que fosse digitado antes seria apagado pelo React (visto no Safari)
   const pronto = useSyncExternalStore(semAssinatura, () => true, () => false)
 
-  const submit = async (body: Record<string, string>) => {
+  const submit = async (body: Record<string, unknown>) => {
     setState('loading')
     try {
       const res = await fetch(copy.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -83,7 +85,7 @@ function Inner({ kind }: { kind: Kind }) {
       setState('error')
       return
     }
-    submit({ token, password })
+    submit(kind === 'invite' ? { token, password, acceptTerms } : { token, password })
   }
 
   // Mesmo desenho de recuperar-senha.html do pacote (a raiz `.ar.conta` é o `<body class="conta">` de lá).
@@ -140,6 +142,9 @@ function Inner({ kind }: { kind: Kind }) {
                       <input className="entrada entrada--grande" id="confirm-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" disabled={!pronto || state === 'loading'} />
                     </div>
                   </div>
+                  {kind === 'invite' && (
+                    <TermsCheckbox id="invite-terms" checked={acceptTerms} onChange={setAcceptTerms} disabled={!pronto || state === 'loading'} />
+                  )}
                   <button type="submit" disabled={!pronto || state === 'loading'} className="btn btn--verde btn--xl btn--bloco">
                     {state === 'loading'
                       ? <><Loader2 className="ic animate-spin" aria-hidden="true" />Salvando...</>

@@ -5,7 +5,7 @@ import { useAppStore } from '@/lib/store'
 import { useSession, signOut } from 'next-auth/react'
 import {
   Moon, Sun, Menu, Search, ChevronDown, LogOut, CircleHelp, Crown, Settings, PanelLeft, Palette,
-  Bell, CalendarDays, ArrowRight, TriangleAlert, Home,
+  Bell, CalendarDays, ArrowRight, TriangleAlert, Home, UserRound,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup,
@@ -198,6 +198,7 @@ export function AppHeader() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[220px]">
+          <DropdownMenuItem onClick={() => setView('profile')}><UserRound aria-hidden="true" />Meu perfil</DropdownMenuItem>
           {can('plans') && (
             <DropdownMenuItem onClick={() => setView('plans')}><Crown aria-hidden="true" />Meu plano e teste grátis</DropdownMenuItem>
           )}
