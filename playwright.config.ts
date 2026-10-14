@@ -43,6 +43,8 @@ export default defineConfig({
       NEXTAUTH_SECRET: 'e2e-secret-not-for-production',
       PLATFORM_ADMIN_EMAILS: 'platform@test.local',
       GATEWAY_SECRET: 'gateway-secret-test',
+      // Credenciais do WhatsApp cifradas (32 bytes em base64, só para testes); o gateway Baileys fica desligado nos e2e
+      WA_SESSIONS_KEY: 'ZTJlLXdhLXNlc3Npb25zLWtleS1ub3QtZm9yLXByb2Q=',
       SALES_EMAIL: 'vendas@atenderadar.test',
       ANALYSIS_SCHEDULER: 'off', // os testes disparam o motor com POST /api/gateway/tick, de forma determinística
       SIGNUP_RATE_LIMIT_PER_HOUR: '500', // os testes criam muitas contas do mesmo IP

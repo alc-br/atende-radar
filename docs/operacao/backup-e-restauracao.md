@@ -8,6 +8,8 @@ O banco é um arquivo SQLite (`DATABASE_URL`, caminho relativo a `prisma/`). Nã
 - **Onde ficam:** `/opt/atende-radar/backups/atenderadar-AAAAMMDD-HHMMSS.db` (fora de `current/`, então o `rsync --delete` do deploy não apaga). Mantém os 30 mais recentes (`BACKUP_KEEP`).
 - **Mudança de schema perigosa:** o deploy usa `prisma db push` **sem** `--accept-data-loss`. Se a mudança apagaria dados, o deploy falha e o site continua no ar com a versão antiga. Quem decide é uma pessoa (migração manual ou `db:push` com a flag, depois de conferir o backup).
 
+- **Sessões do WhatsApp** entram no mesmo backup (`wa-sessions-<data>`), cifradas com `WA_SESSIONS_KEY`: sem a chave elas não servem. Ver `sessoes-whatsapp.md`.
+
 ## Fazer um backup agora
 Actions → "Backup diário do banco" → Run workflow. Ou no servidor:
 ```bash

@@ -4,10 +4,12 @@ import path from 'node:path'
 import { db } from '../db'
 import { ingestEvent } from '../ingest'
 import { mapBaileysMessage } from './map'
+import { SessionKeyError, sessionsKeyFromEnv, loadEncryptedAuthState } from './auth-store'
 
 // Gerenciador das sessões de WhatsApp (Baileys). Roda dentro do servidor, ligado por WHATSAPP_GATEWAY=on.
 // Só OBSERVA: nunca envia mensagem, nunca marca como lida, nunca aparece "online".
-// As credenciais de cada número ficam em WA_SESSIONS_DIR/<connectionId> (são chaves da conta: pasta privada).
+// As credenciais de cada número ficam em WA_SESSIONS_DIR/<connectionId> (são chaves da conta: pasta privada),
+// cifradas com WA_SESSIONS_KEY (ver auth-store.ts e docs/operacao/sessoes-whatsapp.md).
 
 interface Session {
   sock: any
@@ -18,11 +20,14 @@ interface Session {
   retryTimer?: ReturnType<typeof setTimeout>
 }
 
-const g = globalThis as { __waSessions?: Map<string, Session>; __waLoop?: ReturnType<typeof setInterval>; __waParked?: Map<string, number> }
+const g = globalThis as { __waSessions?: Map<string, Session>; __waLoop?: ReturnType<typeof setInterval>; __waParked?: Map<string, number>; __waLocked?: Set<string> }
 // Conexões "estacionadas": ninguém escaneou o QR a tempo. Só voltam quando o cliente pede de novo (a linha no banco muda).
 const parked = () => (g.__waParked ??= new Map())
 const MAX_UNSCANNED_QRS = 5
 const sessions = () => (g.__waSessions ??= new Map())
+// Credenciais cifradas que não abrem com a chave atual: a sessão fica parada (arquivos intactos) até o processo
+// reiniciar com a chave certa. Nunca tenta de novo sozinha nem apaga nada.
+const locked = () => (g.__waLocked ??= new Set())
 
 const sessionsDir = () => process.env.WA_SESSIONS_DIR || path.resolve(process.cwd(), '..', 'wa-sessions')
 const authDir = (id: string) => path.join(sessionsDir(), id)
@@ -56,7 +61,23 @@ async function startSession(connectionId: string) {
   const b = await loadBaileys()
   const makeWASocket = b.default ?? b.makeWASocket
   fs.mkdirSync(authDir(connectionId), { recursive: true, mode: 0o700 })
-  const { state, saveCreds } = await b.useMultiFileAuthState(authDir(connectionId))
+  let auth: Awaited<ReturnType<typeof loadEncryptedAuthState>>
+  try {
+    auth = await loadEncryptedAuthState(authDir(connectionId), {
+      key: sessionsKeyFromEnv(log),
+      initAuthCreds: b.initAuthCreds,
+      BufferJSON: b.BufferJSON,
+      proto: b.proto,
+    })
+  } catch (e) {
+    if (!(e instanceof SessionKeyError)) throw e
+    locked().add(connectionId)
+    log(`${connectionId} ATENÇÃO: credenciais cifradas não abrem com a WA_SESSIONS_KEY atual (${e.file}). Sessão parada e arquivos mantidos; restaure a chave certa e reinicie o serviço.`)
+    await emit(connectionId, 'connection.status', { status: 'degraded', reason: 'credenciais_ilegiveis' })
+    return
+  }
+  const { state, saveCreds } = auth
+  if (auth.migrated) log(`${connectionId} ${auth.migrated} arquivo(s) de credencial cifrado(s)`)
   let version: number[] | undefined
   try {
     version = (await b.fetchLatestBaileysVersion()).version
@@ -195,6 +216,7 @@ export async function reconcile() {
       if (c.updatedAt.getTime() <= parkedAt) continue // o cliente ainda não pediu de novo
       parked().delete(c.id)
     }
+    if (locked().has(c.id)) continue
     if (!sessions().has(c.id)) await startSession(c.id).catch((e) => log(`falha ao iniciar ${c.id}:`, e instanceof Error ? e.message : e))
   }
   for (const id of [...sessions().keys()]) if (!wanted.has(id)) await stopSession(id)

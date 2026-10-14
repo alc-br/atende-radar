@@ -167,6 +167,16 @@ jobs:
           add_if_missing WHATSAPP_GATEWAY on
           add_if_missing WA_SESSIONS_DIR /opt/atende-radar/wa-sessions
           mkdir -p /opt/atende-radar/wa-sessions && chmod 700 /opt/atende-radar/wa-sessions
+          # Chave que cifra as credenciais do WhatsApp em disco (docs/operacao/sessoes-whatsapp.md).
+          # No primeiro deploy com a chave, guarda antes uma cópia das sessões como estavam (texto puro) para voltar atrás.
+          if ! grep -q "^WA_SESSIONS_KEY=" "$ENVF"; then
+            mkdir -p /opt/atende-radar/backups
+            PRE=/opt/atende-radar/backups/wa-sessions-pre-cifra-$(date +%Y%m%d-%H%M%S).tar.gz
+            (umask 077 && tar -czf "$PRE" -C /opt/atende-radar wa-sessions)
+            tar -tzf "$PRE" > /dev/null
+            echo "sessões do WhatsApp guardadas em $PRE"
+          fi
+          add_if_missing WA_SESSIONS_KEY "$(openssl rand -base64 32)"
           echo "variáveis presentes: $(sed -E 's/=.*//' "$ENVF" | grep -vE '^#|^$' | tr '\n' ' ')"
 
       - name: Restart service
