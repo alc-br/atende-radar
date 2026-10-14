@@ -41,8 +41,11 @@ jobs:
 
       # Vulnerabilidades conhecidas nas dependências (base de avisos do GitHub, via bun.lock).
       # Só high/critical derrubam o deploy; low/moderate não são nem listados.
+      # Ignorados (14/10/2026), nenhum roda no app em produção:
+      #   GHSA-vfj7-8cjw-p6xm  braces: sem versão corrigida; só no lint (eslint-config-next > fast-glob > micromatch)
+      #   GHSA-ggr8-5vv4-36mx  deepmerge-ts: correção só na major 8; o CLI do Prisma fixa 7.1.5
       - name: "Auditoria de dependências (bun audit: falha só em high/critical)"
-        run: bun audit --audit-level=high
+        run: bun audit --audit-level=high --ignore GHSA-vfj7-8cjw-p6xm --ignore GHSA-ggr8-5vv4-36mx
 
       - name: Upload test report on failure
         if: failure()
