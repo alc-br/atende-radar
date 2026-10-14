@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, notFound } from '@/lib/api-auth'
 import { audit } from '@/lib/audit'
+import { maskSensitive } from '@/lib/mask-sensitive'
 
 // Portabilidade (LGPD): tudo o que a empresa guarda sobre UM cliente final, em JSON legível, para entregar ao titular.
 // Só quem configura a empresa (privacy.manage). O telefone completo nunca é guardado, então nunca sai daqui.
@@ -49,9 +50,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       sentiment: c.sentiment,
       urgency: c.urgency,
       score: c.score,
-      messages: c.messages.map((m) => ({ direction: m.direction === 'inbound' ? 'cliente' : 'empresa', type: m.messageType, text: m.text, occurredAt: m.occurredAt.toISOString() })),
+      messages: c.messages.map((m) => ({ direction: m.direction === 'inbound' ? 'cliente' : 'empresa', type: m.messageType, text: maskSensitive(m.text), occurredAt: m.occurredAt.toISOString() })),
       classifications: c.classifications.map((k) => ({ type: k.classificationType, label: k.label, confidence: k.confidence, reviewed: k.reviewedStatus, at: k.createdAt.toISOString() })),
-      promises: c.promises.map((p) => ({ action: p.action, by: p.promisorAgent, dueAt: p.dueAt?.toISOString() ?? null, status: p.status })),
+      promises: c.promises.map((p) => ({ action: maskSensitive(p.action), by: p.promisorAgent, dueAt: p.dueAt?.toISOString() ?? null, status: p.status })),
       alerts: c.alerts.map((a) => ({ rule: a.ruleName, severity: a.severity, status: a.status, at: a.createdAt.toISOString() })),
       opportunities: c.opportunities.map((o) => ({ status: o.status, expectedValue: o.expectedValue, rangeLow: o.rangeLow, rangeHigh: o.rangeHigh, at: o.createdAt.toISOString() })),
     })),

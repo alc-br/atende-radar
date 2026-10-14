@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, agentScope } from '@/lib/api-auth'
+import { maskSensitive } from '@/lib/mask-sensitive'
 
 export async function GET(
   request: Request,
@@ -119,7 +120,7 @@ export async function GET(
       })),
       promises: promises.map((p) => ({
         id: p.id,
-        text: p.action,
+        text: maskSensitive(p.action),
         status: p.status,
         dueDate: p.dueAt?.toISOString() || null,
       })),

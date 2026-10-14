@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, alertScope } from '@/lib/api-auth'
+import { maskSensitive } from '@/lib/mask-sensitive'
 import { Prisma } from '@prisma/client'
 
 export async function GET(request: Request) {
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
       ruleName: a.ruleName,
       severity: a.severity,
       title: a.title,
-      description: a.description,
+      description: maskSensitive(a.description), // alertas antigos podem citar a mensagem do cliente em claro
       customerName: a.customerName || a.conversation?.contact?.displayName || 'Desconhecido',
       agentName: a.agentName || a.conversation?.agent?.name || 'Sem agente',
       status: a.status,

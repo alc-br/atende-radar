@@ -1,4 +1,5 @@
 import { db } from '../db'
+import { maskSensitive } from '../mask-sensitive'
 
 export const REPORT_TYPES = ['daily', 'weekly', 'agent', 'lost_opportunities', 'promises', 'recovery', 'data_quality', 'connections'] as const
 export type ReportType = (typeof REPORT_TYPES)[number]
@@ -143,7 +144,7 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
     sections.push({
       heading: 'Promessas da empresa aos clientes',
       columns: ['Cliente', 'Promessa', 'Responsável', 'Prazo', 'Situação'],
-      rows: promises.map((p) => [p.conversation.contact?.displayName ?? 'Desconhecido', p.action, p.promisorAgent, fmtDate(p.dueAt), p.status === 'open' && p.dueAt && p.dueAt < new Date() ? 'Vencida' : label[p.status] ?? p.status]),
+      rows: promises.map((p) => [p.conversation.contact?.displayName ?? 'Desconhecido', maskSensitive(p.action), p.promisorAgent, fmtDate(p.dueAt), p.status === 'open' && p.dueAt && p.dueAt < new Date() ? 'Vencida' : label[p.status] ?? p.status]),
     })
   }
 

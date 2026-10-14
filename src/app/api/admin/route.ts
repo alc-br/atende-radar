@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, isPlatformOperator } from '@/lib/api-auth'
+import { maskSensitive } from '@/lib/mask-sensitive'
 import fs from 'fs'
 import path from 'path'
 
@@ -112,7 +113,7 @@ export async function GET() {
         timestamp: n.createdAt.toISOString(),
         action: n.title,
         organization: n.organization.name,
-        details: n.message,
+        details: maskSensitive(n.message),
       })),
       system: {
         databaseHealthy: dbHealthy,

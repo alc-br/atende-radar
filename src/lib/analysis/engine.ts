@@ -6,6 +6,7 @@ import { scoreConversation } from './score'
 import { estimateOpportunity } from './opportunity'
 import { recomputeMetrics } from './metrics'
 import { purgeExpired } from '../privacy'
+import { maskSensitive } from '../mask-sensitive'
 import { businessMinutesBetween, outsideRuleFrom, scheduleFrom, type HoursSettings } from './business-hours'
 
 // Só conversas que vieram do WhatsApp de verdade (têm mensagem com externalId) entram no motor.
@@ -132,7 +133,8 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
 
   for (const conv of conversations) {
     summary.conversations += 1
-    const msgs = conv.messages
+    // mensagens antigas (gravadas antes da máscara na entrada) também passam mascaradas: alerta/achado/promessa nunca copiam CPF ou cartão
+    const msgs = conv.messages.map((m) => ({ ...m, text: maskSensitive(m.text) }))
     const analysisMsgs: AnalysisMessage[] = msgs.map((m) => ({ direction: m.direction === 'inbound' ? 'inbound' : 'outbound', text: m.text, occurredAt: m.occurredAt }))
     const fb = new Set(feedbacks.filter((f) => f.targetId === conv.id).map((f) => f.targetType))
 

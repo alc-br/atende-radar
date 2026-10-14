@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto'
 import { z } from 'zod'
 import { db } from './db'
 import { requestAnalysis } from './background'
+import { maskSensitive } from './mask-sensitive'
 
 // ---------- contrato dos eventos (gateway → sistema) ----------
 export const EventSchema = z.object({
@@ -226,7 +227,8 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
         direction: inbound ? 'inbound' : 'outbound',
         senderType: inbound ? 'customer' : 'agent',
         messageType: msg.messageType,
-        text: msg.text ?? null,
+        // LGPD: CPF, cartão e CVV já entram mascarados (antes do motor e de qualquer log)
+        text: maskSensitive(msg.text) ?? null,
         occurredAt,
       },
     })

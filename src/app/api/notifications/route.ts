@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
+import { maskSensitive } from '@/lib/mask-sensitive'
 
 export async function GET(request: Request) {
   try {
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
         id: n.id,
         type: n.type,
         title: n.title,
-        message: n.message,
+        message: maskSensitive(n.message),
         data: JSON.parse(n.data || '{}') as Record<string, unknown>,
         read: n.read,
         createdAt: n.createdAt.toISOString(),

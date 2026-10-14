@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
+import { maskSensitive } from '@/lib/mask-sensitive'
 import { guard, conversationScope, badRequest } from '@/lib/api-auth'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
@@ -167,7 +168,7 @@ export async function GET(
         direction: m.direction,
         senderType: m.senderType,
         messageType: m.messageType,
-        text: m.text,
+        text: maskSensitive(m.text), // rede de segurança para mensagens gravadas antes da máscara na entrada
         occurredAt: m.occurredAt.toISOString(),
         isAutomatic: m.isAutomatic,
         deliveryStatus: m.deliveryStatus,
@@ -195,7 +196,7 @@ export async function GET(
         detectedAt: f.detectedAt.toISOString(),
         dueAt: f.dueAt?.toISOString(),
         resolvedAt: f.resolvedAt?.toISOString(),
-        evidence: f.evidence,
+        evidence: maskSensitive(f.evidence),
         confidence: +f.confidence.toFixed(2),
         assignedTo: f.assignedTo,
         resolutionReason: f.resolutionReason,
@@ -227,7 +228,7 @@ export async function GET(
       openQuestions: conversation.openQuestions.map((q) => ({
         id: q.id,
         sourceMessage: q.sourceMessage,
-        normalizedQuestion: q.normalizedQuestion,
+        normalizedQuestion: maskSensitive(q.normalizedQuestion),
         askedAt: q.askedAt.toISOString(),
         dueAt: q.dueAt?.toISOString(),
         answeredByMessage: q.answeredByMessage,
@@ -240,7 +241,7 @@ export async function GET(
         id: p.id,
         sourceMessage: p.sourceMessage,
         promisorAgent: p.promisorAgent,
-        action: p.action,
+        action: maskSensitive(p.action),
         dueAt: p.dueAt?.toISOString(),
         duePrecision: p.duePrecision,
         status: p.status,
