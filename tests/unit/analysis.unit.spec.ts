@@ -3,7 +3,7 @@ import { classifyMessages } from '../../src/lib/analysis/classify'
 import { extractPromise } from '../../src/lib/analysis/promises'
 import { attributeAgent } from '../../src/lib/analysis/agents'
 import { scoreConversation } from '../../src/lib/analysis/score'
-import { estimateOpportunity } from '../../src/lib/analysis/opportunity'
+import { estimateOpportunity, opportunityBreakdown, revenueSettings } from '../../src/lib/analysis/opportunity'
 import { normChat } from '../../src/lib/analysis/text'
 
 // B6 · Regras de análise (funções puras). Português de atendimento real, com acentos, gírias e erros de digitação.
@@ -206,5 +206,19 @@ test.describe('valor da oportunidade', () => {
   })
   test('suporte/reclamação/cancelamento não são oportunidade de venda', () => {
     for (const i of ['suporte', 'reclamacao', 'cancelamento', 'pos_venda', null]) expect(estimateOpportunity(i, 1000, 0.18)).toBeNull()
+  })
+  test('o passo a passo ("Como calculamos") chega exatamente ao mesmo valor da estimativa', () => {
+    for (const [intent, ticket, rate] of [['preco', 1500, 0.18], ['compra', 2000, 0.2], ['compra', 900, 0.5], ['consulta', 333, 0.07]] as const) {
+      const b = opportunityBreakdown(intent, ticket, rate)!
+      expect(b).toMatchObject({ ...estimateOpportunity(intent, ticket, rate)! })
+      expect(b.expectedValue).toBe(Math.round(ticket * Math.min(0.95, b.rawProbability)))
+      expect(b.rawProbability).toBeCloseTo(rate * b.intentFactor)
+    }
+    expect(opportunityBreakdown('compra', 900, 0.5)!.capped).toBe(true) // 0,5 × 3,3 passa de 95 %
+  })
+  test('Configurações: conversão aceita "20" (em %) ou 0.2; sem nada preenchido usa o padrão', () => {
+    expect(revenueSettings({ avgTicket: '2000', convRate: '20' })).toEqual({ avgTicket: 2000, conversionRate: 0.2 })
+    expect(revenueSettings({ convRate: 0.2 }).conversionRate).toBe(0.2)
+    expect(revenueSettings({})).toEqual({ avgTicket: 1500, conversionRate: 0.18 })
   })
 })

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { maskSensitive } from '@/lib/mask-sensitive'
 import { guard, conversationScope, badRequest } from '@/lib/api-auth'
+import { opportunityBreakdown, revenueSettings } from '@/lib/analysis/opportunity'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -107,6 +108,29 @@ export async function GET(
       ? safeJsonParse<Record<string, number>>(latestScore.componentScores, {})
       : {}
 
+    // P6 · "Como calculamos" o valor em risco: o MESMO cálculo do motor, com as Configurações atuais da empresa.
+    // Só sai quando bate com o valor exibido (se as Configurações mudaram depois de a conversa encerrar, não inventa).
+    const potentialValue = Math.round(conversation.potentialValue)
+    const org = await db.organization.findUnique({ where: { id: conversation.organizationId }, select: { settingsJson: true } })
+    const { avgTicket, conversionRate } = revenueSettings(safeJsonParse<Record<string, unknown>>(org?.settingsJson, {}))
+    const breakdown = potentialValue > 0 ? opportunityBreakdown(conversation.primaryIntent, avgTicket, conversionRate) : null
+    const valueExplanation = breakdown && breakdown.expectedValue === potentialValue
+      ? {
+          intent: breakdown.intent,
+          classificationConfidence: +conversation.confidence.toFixed(2),
+          avgTicket: breakdown.baseTicket,
+          conversionRate: breakdown.conversionRate,
+          intentFactor: breakdown.intentFactor,
+          rawProbability: breakdown.rawProbability,
+          probability: breakdown.probability,
+          capped: breakdown.capped,
+          expectedValue: breakdown.expectedValue,
+          rangeSpread: breakdown.rangeSpread,
+          rangeLow: breakdown.rangeLow,
+          rangeHigh: breakdown.rangeHigh,
+        }
+      : null
+
     const waitingMs = conversation.waitingSince
       ? Date.now() - new Date(conversation.waitingSince).getTime()
       : 0
@@ -121,7 +145,8 @@ export async function GET(
       sentiment: conversation.sentiment,
       score: Math.round(conversation.score),
       riskScore: Math.round(conversation.riskScore * 100) / 100,
-      potentialValue: Math.round(conversation.potentialValue),
+      potentialValue,
+      valueExplanation,
       confidence: +conversation.confidence.toFixed(2),
       tags: safeJsonParse<string[]>(conversation.tags, []),
       waitingMinutes: Math.floor(waitingMs / 60000),

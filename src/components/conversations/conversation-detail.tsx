@@ -173,6 +173,70 @@ function MarkerLine({ markers }: { markers: TimelineMarker[] }) {
   )
 }
 
+// P6 · "Como calculamos": os passos que o motor usou para chegar ao valor em risco (vêm prontos da API, mesma função do motor).
+interface ValueExplanationData {
+  intent: string
+  classificationConfidence: number
+  avgTicket: number
+  conversionRate: number
+  intentFactor: number
+  rawProbability: number
+  probability: number
+  capped: boolean
+  expectedValue: number
+  rangeSpread: number
+  rangeLow: number
+  rangeHigh: number
+}
+
+const pct = (x: number) => `${(x * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+const factor = (x: number) => `×${x.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`
+
+function ValueExplanation({ explanation: e, shownValue }: { explanation: ValueExplanationData | null | undefined; shownValue: number }) {
+  return (
+    <details className="mt-3 border-t border-[var(--borda)] pt-2" data-testid="value-explanation">
+      <summary className="flex cursor-pointer items-center gap-1.5 text-[13px] font-medium">
+        <HelpCircle className="ic verde-txt" aria-hidden="true" />
+        Como calculamos
+      </summary>
+      {e ? (
+        <>
+          <dl className="calculo mt-2">
+            <div><dt>Ticket médio da empresa</dt><dd>{formatCurrency(e.avgTicket)}</dd></div>
+            <div><dt>Taxa de conversão da empresa</dt><dd>{pct(e.conversionRate)}</dd></div>
+            <div>
+              <dt>Sinal detectado</dt>
+              <dd>Intenção “{getIntentLabel(e.intent)}” ({pct(e.classificationConfidence)} de confiança)</dd>
+            </div>
+            <div><dt>Multiplicador da intenção</dt><dd>{factor(e.intentFactor)}</dd></div>
+            <div>
+              <dt>Chance de fechar</dt>
+              <dd>
+                {pct(e.conversionRate)} {factor(e.intentFactor)} = {pct(e.rawProbability)}
+                {e.capped && ' (limitada a 95%)'}
+              </dd>
+            </div>
+            <div>
+              <dt>Valor em risco</dt>
+              <dd className="forte" data-testid="value-explanation-result">
+                {formatCurrency(e.avgTicket)} × {pct(Math.min(e.rawProbability, 0.95))} = {formatCurrency(e.expectedValue)}
+              </dd>
+            </div>
+            <div><dt>Faixa (±{pct(e.rangeSpread)})</dt><dd>{formatCurrency(e.rangeLow)} – {formatCurrency(e.rangeHigh)}</dd></div>
+          </dl>
+          <p className="suave mt-2 text-xs">
+            Ticket médio e taxa de conversão vêm de Configurações › Financeiro. É uma estimativa, não uma venda confirmada.
+          </p>
+        </>
+      ) : (
+        <p className="suave mt-2 text-xs">
+          {formatCurrency(shownValue)} foi calculado com um ticket médio ou uma taxa de conversão diferente dos atuais (Configurações › Financeiro), por isso o passo a passo não está disponível.
+        </p>
+      )}
+    </details>
+  )
+}
+
 export default function ConversationDetail() {
   const selectedConversationId = useAppStore((s) => s.selectedConversationId)
   const setView = useAppStore((s) => s.setView)
@@ -722,6 +786,7 @@ export default function ConversationDetail() {
                   <div><dt>Confiança</dt><dd className="forte">{(valueMemory.confidence * 100).toFixed(0)}%</dd></div>
                   <div><dt>Atualizado</dt><dd className="suave">{timeAgo(valueMemory.lastUpdated)}</dd></div>
                 </dl>
+                {conversation.potentialValue > 0 && <ValueExplanation explanation={data.valueExplanation} shownValue={conversation.potentialValue} />}
               </section>
             </div>
           ) : (
