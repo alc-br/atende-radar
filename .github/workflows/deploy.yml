@@ -26,6 +26,9 @@ jobs:
       - name: Prisma client (para o type-check)
         run: bunx prisma generate
 
+      - name: "Migrações (B10): o schema.prisma tem migração para cada mudança"
+        run: bun run db:check
+
       - name: "Type-check e lint (I1: erro de tipo já derrubou telas em produção)"
         run: bun run typecheck && bun run lint
 
@@ -112,28 +115,14 @@ jobs:
         working-directory: /opt/atende-radar/current
         run: /usr/local/bin/bun scripts/restore-drill.ts
 
-      - name: Prisma generate & sync schema
+      - name: "Prisma generate e migrações do banco (B10)"
         working-directory: /opt/atende-radar/current
         run: |
           /usr/local/bin/bun run db:generate
-          # Por padrão SEM --accept-data-loss. Se o Prisma avisar de perda de dados, o deploy só continua
-          # quando CADA aviso estiver aprovado em .github/approved-schema-changes.txt (aprovação fica no git).
-          if /usr/local/bin/bun run db:push:safe > /tmp/db-push.log 2>&1; then
-            cat /tmp/db-push.log
-          else
-            cat /tmp/db-push.log
-            grep -E '^  • ' /tmp/db-push.log | sed 's/^  • //' > /tmp/db-warnings.txt || true
-            if [ ! -s /tmp/db-warnings.txt ]; then echo "db push falhou por outro motivo"; exit 1; fi
-            while IFS= read -r w; do
-              if ! grep -qxF "$w" .github/approved-schema-changes.txt; then
-                echo "AVISO NÃO APROVADO: $w"
-                echo "Revise a mudança e registre-a em .github/approved-schema-changes.txt"
-                exit 1
-              fi
-            done < /tmp/db-warnings.txt
-            echo "Todos os avisos estão aprovados no repositório: aplicando com --accept-data-loss"
-            /usr/local/bin/bun run db:push
-          fi
+          # Aplica só as migrações versionadas que faltam (prisma/migrations, revisadas no git). Na 1ª vez, o banco
+          # criado pelo antigo `db push` vira baseline SÓ se for igual à 0_init; senão para sem alterar nada.
+          # Ver docs/operacao/migracoes.md.
+          /usr/local/bin/bun run db:migrate:deploy
 
       - name: "Catálogo de planos (nome e descrição iguais ao site; preços e assinaturas não mudam)"
         working-directory: /opt/atende-radar/current

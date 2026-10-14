@@ -34,7 +34,8 @@ export default defineConfig({
   ],
   webServer: {
     // Banco descartável: recriado e populado a cada execução, nunca toca dev.db nem produção.
-    command: `node tests/e2e/reset-test-db.mjs && bunx prisma db push && bun prisma/seed.ts && bun tests/e2e/seed-test-orgs.ts && bunx next dev -p ${PORT}`,
+    // Criado pelas migrações (prisma/migrations), como em produção: migração quebrada derruba os testes.
+    command: `node tests/e2e/reset-test-db.mjs && bun scripts/db-migrate.ts && bun prisma/seed.ts && bun tests/e2e/seed-test-orgs.ts && bunx next dev -p ${PORT}`,
     url: `http://127.0.0.1:${PORT}/login`,
     reuseExistingServer: false,
     timeout: 180_000,

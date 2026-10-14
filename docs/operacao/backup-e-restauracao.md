@@ -6,7 +6,7 @@ O banco é um arquivo SQLite (`DATABASE_URL`, caminho relativo a `prisma/`). Nã
 - **A cada deploy** (`.github/workflows/deploy.yml`): antes de mexer no schema, `scripts/backup-db.ts` faz uma cópia consistente (`VACUUM INTO`) e confere `PRAGMA integrity_check`. Se o backup falhar, o deploy para.
 - **Todo dia às 03:00 (Brasília)** (`.github/workflows/backup.yml`): mesma cópia.
 - **Onde ficam:** `/opt/atende-radar/backups/atenderadar-AAAAMMDD-HHMMSS.db` (fora de `current/`, então o `rsync --delete` do deploy não apaga). Mantém os 30 mais recentes (`BACKUP_KEEP`).
-- **Mudança de schema perigosa:** o deploy usa `prisma db push` **sem** `--accept-data-loss`. Se a mudança apagaria dados, o deploy falha e o site continua no ar com a versão antiga. Quem decide é uma pessoa (migração manual ou `db:push` com a flag, depois de conferir o backup).
+- **Mudança de schema:** o deploy só aplica migrações versionadas (`prisma/migrations`), cujo SQL foi revisado no git. Se uma migração falhar, o deploy para antes do build e o site continua no ar com a versão antiga. Ver `migracoes.md`.
 
 - **Sessões do WhatsApp** entram no mesmo backup (`wa-sessions-<data>`), cifradas com `WA_SESSIONS_KEY`: sem a chave elas não servem. Ver `sessoes-whatsapp.md`.
 

@@ -7,15 +7,15 @@
 1. `rsync -a --delete` do código para `/opt/atende-radar/current` (preserva só `.env`, `node_modules` e `.next`).
 2. `bun install`.
 3. Backup do banco (`scripts/backup-db.ts`) em `/opt/atende-radar/backups/atenderadar-AAAAMMDD-HHMMSS.db` + ensaio de restauração (`scripts/restore-drill.ts`).
-4. `db:generate` e `db:push:safe` (sem `--accept-data-loss`, salvo avisos aprovados em `.github/approved-schema-changes.txt`).
+4. `db:generate` e `db:migrate:deploy` (aplica as migrações de `prisma/migrations` que faltam; ver `migracoes.md`).
 5. `scripts/sync-plan-catalog.ts`, build, `sudo systemctl restart atende-radar.service`, `curl -sf http://127.0.0.1:3200`.
 
 Consequências:
 
 - **Não existe versão anterior guardada no servidor.** O deploy sobrescreve `current/` no lugar; desfazer = publicar de novo o código bom.
 - **Não há rollback automático.** Se o health check falhar, o job falha, mas o serviço fica com o build novo.
-- **O banco não volta sozinho.** Cada deploy deixa um backup feito *antes* do `db push`; restaurar é manual.
-- Se o deploy falhou **antes** do restart (testes, backup, `db push`, build), o serviço continua com a versão anterior: não há o que desfazer no servidor, só corrigir e mandar de novo.
+- **O banco não volta sozinho.** Cada deploy deixa um backup feito *antes* das migrações; restaurar é manual.
+- Se o deploy falhou **antes** do restart (testes, backup, migrações, build), o serviço continua com a versão anterior: não há o que desfazer no servidor, só corrigir e mandar de novo.
   (Atenção: se falhou no build, `current/` já tem o código novo, mas o serviço continua no build anterior até o próximo restart.)
 
 ## 1. Caminho normal: reverter no git (com testes)
@@ -25,10 +25,10 @@ git revert <sha-ruim>       # um commit por vez, do mais novo para o mais antigo
 git push origin main        # roda testes + deploy de novo (~45 min de testes)
 ```
 
-**Se o deploy ruim mudou o schema** (campo ou modelo novo), o revert tira o campo do `schema.prisma` e o `db:push:safe`
-do rollback vai avisar de perda de dados e **parar** (o site continua na versão ruim). Nesse caso reverta só o código e
-mantenha a parte aditiva do schema (campos novos opcionais não atrapalham o código antigo). Não aprove a remoção em
-`approved-schema-changes.txt` sem antes conferir o backup.
+**Se o deploy ruim trouxe uma migração**, não reverta o commit inteiro: migração já aplicada não se desfaz apagando a
+pasta (o `--check` do CI falharia e o histórico do banco ficaria diferente do git). Reverta só o código e mantenha a
+migração e o `schema.prisma` (campos novos opcionais não atrapalham o código antigo). Se for mesmo preciso tirar algo
+do banco, crie uma migração **nova** que faça isso, depois de conferir o backup.
 
 ## 2. Mais rápido: republicar um commit bom à mão (sem testes)
 
@@ -43,7 +43,7 @@ git -C /tmp/ar-rollback checkout "$SHA"
 rsync -a --delete --exclude '.env' --exclude 'node_modules' --exclude '.next' /tmp/ar-rollback/ /opt/atende-radar/current/
 cd /opt/atende-radar/current
 /usr/local/bin/bun install
-/usr/local/bin/bun run db:generate             # NÃO rode db:push aqui: o schema antigo tentaria apagar colunas novas
+/usr/local/bin/bun run db:generate             # NÃO rode migrações nem db:push aqui: o banco fica como está
 if [ -f /opt/atende-radar/shared/dominios.env ]; then set -a; . /opt/atende-radar/shared/dominios.env; set +a; fi
 NODE_OPTIONS=--max-old-space-size=1536 /usr/local/bin/bun run build
 sudo systemctl restart atende-radar.service

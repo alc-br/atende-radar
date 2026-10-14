@@ -34,7 +34,7 @@ bun install
 # variáveis: veja .env.example (lista completa, com comentários).
 # Atenção: o .env é rastreado pelo git e o repositório é público. Nunca commite segredo nele.
 bunx prisma generate
-bun run db:push:safe        # cria/atualiza as tabelas no SQLite (sem aceitar perda de dados)
+bun run db:migrate:deploy   # cria/atualiza as tabelas no SQLite pelas migrações (prisma/migrations)
 bun prisma/seed.ts          # dados de demonstração
 bun run dev                 # http://localhost:3000
 ```
@@ -50,9 +50,11 @@ Conta de demonstração (somente leitura, dados fictícios): botão de demonstra
 | `bun run start` | Sobe o build de produção |
 | `bun run lint` / `bun run typecheck` | ESLint / `tsc --noEmit` |
 | `bun run db:generate` | Gera o cliente Prisma |
-| `bun run db:push:safe` | Aplica o schema **sem** `--accept-data-loss` (o deploy usa este) |
-| `bun run db:push` | Aplica o schema **com** `--accept-data-loss` (cuidado) |
-| `bun run db:migrate` / `bun run db:reset` | Prisma Migrate (dev) / zera o banco |
+| `bun run db:migrate --name <descricao>` | Gera a migração de uma mudança no `schema.prisma` (commite `prisma/migrations`) |
+| `bun run db:migrate:deploy` | Aplica as migrações que faltam, com baseline do banco antigo (o deploy e os testes usam este) |
+| `bun run db:check` | Confere se o `schema.prisma` tem migração para tudo (CI) |
+| `bun run db:reset` | Zera o banco e reaplica as migrações |
+| `bun run db:push` | Aplica o schema direto, **com** `--accept-data-loss`: só para bancos descartáveis (carga) |
 | `bun run db:seed` | Seed via `npx tsx prisma/seed.ts` |
 | `bun run db:backup` | Backup consistente do banco (`scripts/backup-db.ts`) |
 | `bun run test:e2e` | Suíte completa do Playwright |
@@ -66,7 +68,7 @@ Outros scripts em `scripts/`: `restore-drill.ts` (ensaio de restauração do bac
 Playwright em `tests/`: `*.spec.ts` = API, `*.ui.spec.ts` = telas (desktop, celular e tablet), `*.unit.spec.ts` = unidade.
 O servidor de teste sobe sozinho na porta 3100 com um banco descartável (`prisma/test.db`).
 
-- Tudo: `bun run test:e2e` (~900 testes, ~45 min).
+- Tudo: `bun run test:e2e` (~1400 testes, ~1 h).
 - Navegadores extras: `bun run test:e2e:browsers`.
 - Só unidade: `bunx playwright test --project=unit`.
 - Não rode duas execuções do Playwright ao mesmo tempo (porta 3100 e `prisma/test.db` são compartilhados).
@@ -78,7 +80,7 @@ Push na `main` → GitHub Actions (`.github/workflows/deploy.yml`):
 
 1. `test` e `browsers` rodam em runners do GitHub (type-check, lint, Playwright). Se falhar, nada vai ao ar.
 2. `deploy` roda no runner próprio do servidor: copia o código para `/opt/atende-radar/current`, faz backup do banco
-   e o ensaio de restauração, aplica o schema (`db:push:safe`), sincroniza o catálogo de planos, faz o build e
+   e o ensaio de restauração, aplica as migrações (`db:migrate:deploy`, ver `docs/operacao/migracoes.md`), sincroniza o catálogo de planos, faz o build e
    reinicia o serviço `atende-radar` (systemd), com health check.
 
 Outros workflows: `smoke.yml` (fumaça nos dois domínios a cada 6 h), `backup.yml` (backup diário às 03:00 de
