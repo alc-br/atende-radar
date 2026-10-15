@@ -95,6 +95,46 @@ test.describe('E-mails: relatórios agendados', () => {
     await c.dispose()
   })
 
+  test('descadastro do relatório: link e clique único (Gmail) tiram só aquele endereço dos relatórios da empresa', async () => {
+    const { email, password } = await signupOrg()
+    const admin = await loginAs(email, password)
+    const gw = await gatewayClient()
+    const orgId = ((await (await admin.get('/api/me')).json()).organizationId) as string
+    const gerente = `gerente.${uid()}@cliente.test`
+    await testDb.reportDefinition.updateMany({ where: { organizationId: orgId }, data: { schedule: null, recipients: JSON.stringify([email, gerente]) } })
+    await testDb.reportDefinition.updateMany({ where: { organizationId: orgId, reportType: 'daily' }, data: { schedule: '18:00', sendEmpty: true } })
+    expect(await (await gw.post('/api/gateway/tick', { data: { organizationId: orgId, reportsAt: SEG_1800 } })).json()).toMatchObject({ emails: 2 })
+
+    const [mail] = (await mailsTo(gerente)).filter((m) => m.kind !== 'alert')
+    const token = mail.body.match(/descadastrar\?token=(r\.[A-Za-z0-9_.-]+)/)?.[1]
+    expect(token, mail.body).toBeTruthy()
+    const headers = JSON.parse(mail.headers || '{}') as Record<string, string>
+    expect(headers['List-Unsubscribe']).toBe(`<${BASE}/api/public/unsubscribe?token=${token}>`)
+    expect(headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click')
+    // cada destinatário tem o próprio link
+    const [mine] = await mailsTo(email).then((ms) => ms.filter((m) => /Relatório Diário/.test(m.subject)))
+    expect(mine.body).not.toContain(token!)
+
+    const anon = await request.newContext({ baseURL: BASE })
+    expect((await anon.post('/api/public/unsubscribe', { data: { token: `${token}x` } })).status()).toBe(400)
+    expect((await anon.get(`/api/public/unsubscribe?token=${token}`)).status()).toBe(405) // GET (antivírus) não tira
+    const page = await anon.get(`/descadastrar?token=${token}`)
+    expect(page.status()).toBe(200)
+
+    const r = await anon.post(headers['List-Unsubscribe'].slice(1, -1).replace(BASE, ''), { form: { 'List-Unsubscribe': 'One-Click' } })
+    expect(r.status(), await r.text()).toBe(200)
+    expect((await anon.post('/api/public/unsubscribe', { data: { token } })).status()).toBe(200) // repetir não quebra
+    for (const d of await testDb.reportDefinition.findMany({ where: { organizationId: orgId } })) expect(JSON.parse(d.recipients)).toEqual([email])
+    expect(await testDb.auditLog.count({ where: { organizationId: orgId, action: 'report.unsubscribed', actorEmail: gerente } })).toBe(1)
+
+    const before = (await mailsTo(gerente)).length
+    expect(await (await gw.post('/api/gateway/tick', { data: { organizationId: orgId, reportsAt: SEG2_1800 } })).json()).toMatchObject({ emails: 1 })
+    expect((await mailsTo(gerente)).length).toBe(before)
+    await anon.dispose()
+    await admin.dispose()
+    await gw.dispose()
+  })
+
   test('relatório sem dados não manda e-mail (a menos que "enviar vazio" esteja ligado), mas fica no histórico', async () => {
     const { email, password } = await signupOrg()
     const admin = await loginAs(email, password)

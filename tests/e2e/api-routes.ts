@@ -22,7 +22,7 @@ export const PUBLIC_ROUTES: Record<string, string> = {
   '/api/public/pageview': 'contador diário de visitas à página de vendas (sem cookie nem IP gravado, limite por IP) — product-events.spec.ts',
   '/api/public/status': 'situação do serviço para monitores externos (só ok/atraso/fora, sem detalhe técnico)',
   // link "parar de receber" dos alertas por e-mail: quem abre o e-mail não está logado; o token HMAC identifica o membro
-  '/api/public/unsubscribe': 'desliga os alertas por e-mail com o token assinado do link (só POST; token ruim = 400) — alert-email.spec.ts',
+  '/api/public/unsubscribe': 'desliga os alertas por e-mail ou tira o endereço dos relatórios, com o token assinado do link (só POST; token ruim = 400) — alert-email.spec.ts, email.spec.ts',
 }
 
 /**

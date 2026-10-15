@@ -66,3 +66,22 @@ Cópia local das credenciais: `D:\ALC\env\.env.atenderadar` (seções `# BREVO` 
 - Usuário `atenderadar-api` no Mautic: papel "AtendeRadar (API)", com tudo de marketing (contatos, segmentos, campos,
   e-mails, campanhas, formulários, páginas, pontos, estágios, relatórios, webhooks). Sem configuração, usuários, papéis
   ou plugins. Manual do Mautic: `D:\ALC\ferramentas\mautic\manual-mautic.md`.
+
+## Entregabilidade (DNS e Gmail)
+
+Zona DNS no registro.br (modo avançado), conferida em 15/10/2026:
+
+- **Brevo:** `brevo-code` (TXT) e DKIM `brevo1`/`brevo2._domainkey` (CNAME). O Brevo envia com endereço de retorno
+  próprio, então o SPF do domínio não precisa incluí-lo; o alinhamento do DMARC vem do DKIM.
+- **DMARC:** `v=DMARC1; p=quarantine; rua=mailto:rua@dmarc.brevo.com` (relatórios no painel do Brevo). Qualquer serviço
+  novo que mande e-mail como `@atenderadar.com.br` precisa assinar DKIM com o domínio antes, senão cai no spam.
+- **iCloud** (caixa do contato@): MX, SPF `include:icloud.com`, DKIM `sig1._domainkey`.
+- **Google Postmaster Tools:** domínio verificado (TXT `google-site-verification`, conta ilivindigital@gmail.com).
+  Mostra taxa de spam, autenticação e reputação quando houver volume para o Gmail. Manter a taxa de spam abaixo de 0,1 %
+  (o Gmail pune acima de 0,3 %).
+- **Descadastro com um clique (RFC 8058, exigido pelo Gmail e pelo Yahoo):** e-mails recorrentes levam
+  `List-Unsubscribe` + `List-Unsubscribe-Post: List-Unsubscribe=One-Click` e um link no texto. O POST em
+  `/api/public/unsubscribe` age na hora (o GET não age: antivírus abre links). Alertas: desliga os alertas por e-mail
+  da pessoa (`src/lib/alert-email.ts`). Relatórios agendados: tira o endereço dos relatórios da empresa
+  (`src/lib/report-unsubscribe.ts`, token `r.`). E-mails de conta (cadastro, senha, convite) são transacionais e não
+  levam. Marketing sai pelo Mautic, sempre com `{unsubscribe_url}`.

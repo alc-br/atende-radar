@@ -17,7 +17,7 @@ export type AuditAction =
   | 'connection.created' | 'connection.updated' | 'connection.removed'
   | 'conversation.viewed' | 'privacy.exclude' | 'privacy.erase' | 'privacy.export'
   | 'subscription.changed' | 'subscription.canceled' | 'subscription.reactivated' | 'subscription.withdrawn' | 'subscription.withdrawal_failed' | 'plan.updated' | 'billing.card_updated' | 'report.generated' | 'report.exported'
-  | 'report.sent' | 'report.retried'
+  | 'report.sent' | 'report.retried' | 'report.unsubscribed'
   | 'webhook.created' | 'webhook.updated' | 'webhook.secret_rotated' | 'webhook.removed'
   | 'agent_identity.confirmed' | 'agent_identity.changed' | 'agent_identity.ignored' | 'agent_identity.undone'
   | 'simulation.run' | 'simulation.inject' | 'simulation.tick' | 'simulation.clean' | 'simulation.viewed'
@@ -31,7 +31,8 @@ export interface AuditEntryInput {
   details?: Record<string, unknown>
 }
 
-export async function audit(auth: Pick<AuthContext, 'orgId' | 'memberId' | 'email' | 'role'>, entry: AuditEntryInput): Promise<void> {
+/** memberId null: quem agiu não é membro (ex.: destinatário de relatório que saiu pelo link do e-mail). */
+export async function audit(auth: Pick<AuthContext, 'orgId' | 'email' | 'role'> & { memberId: string | null }, entry: AuditEntryInput): Promise<void> {
   try {
     await db.auditLog.create({
       data: {
@@ -99,6 +100,7 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'report.exported': 'Exportou dados',
   'report.sent': 'Reenviou relatório por e-mail',
   'report.retried': 'Tentou de novo um relatório que falhou',
+  'report.unsubscribed': 'Saiu dos relatórios por e-mail (link do e-mail)',
   'webhook.created': 'Configurou o webhook',
   'webhook.updated': 'Alterou o webhook',
   'webhook.secret_rotated': 'Gerou novo segredo do webhook',

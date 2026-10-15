@@ -5,6 +5,7 @@ import { toPdf } from './pdf'
 import { reportFileName } from './render'
 import { safeTimeZone } from './types'
 import { REAL_ORGS, isIsolatedOrg } from '../sandbox'
+import { reportUnsubscribe } from '../report-unsubscribe'
 
 // Relatórios agendados: no horário configurado (fuso da empresa, dias da semana escolhidos) o relatório é gerado com os
 // dados reais e cada destinatário recebe UM e-mail com o resumo de todos os relatórios daquele horário e o PDF
@@ -79,7 +80,7 @@ async function pdfAttachment(content: ReportContent, createdAt: Date): Promise<M
   }
 }
 
-function mailText(orgName: string, blocks: string[], hasAttachment: boolean): string {
+function mailText(orgName: string, blocks: string[], hasAttachment: boolean, unsubscribeUrl?: string): string {
   return [
     `Relatórios de ${orgName}:`,
     '',
@@ -88,8 +89,21 @@ function mailText(orgName: string, blocks: string[], hasAttachment: boolean): st
     ...(hasAttachment ? ['O PDF executivo de cada relatório está em anexo.', ''] : []),
     `Relatório completo (com as tabelas, para baixar em PDF, XLSX, CSV ou JSON): ${appUrl()}/#reports`,
     '',
-    'Você recebe este e-mail porque está na lista de destinatários destes relatórios. Para sair, peça ao administrador da empresa no AtendeRadar (Relatórios › Configurar).',
+    'Você recebe este e-mail porque está na lista de destinatários dos relatórios desta empresa no AtendeRadar.',
+    unsubscribeUrl ? `Não quer mais receber estes relatórios? ${unsubscribeUrl}` : 'Para sair, peça ao administrador da empresa (Relatórios › Configurar).',
   ].join('\n')
+}
+
+/** E-mail de relatório para UM destinatário, com o link e os cabeçalhos de descadastro (clique único) dele. */
+function reportMail(orgId: string, to: string, subject: string, orgName: string, blocks: string[], attachments: MailAttachment[]) {
+  const unsub = reportUnsubscribe(orgId, to)
+  return {
+    to,
+    subject,
+    text: mailText(orgName, blocks, attachments.length > 0, unsub?.url),
+    attachments: attachments.length ? attachments : undefined,
+    headers: unsub?.headers,
+  }
 }
 
 const blockOf = (content: ReportContent) => [content.title || REPORT_TITLES[content.type], ...content.summary.map((s) => `• ${s}`)].join('\n')
@@ -106,12 +120,9 @@ export async function sendReportRun(runId: string, recipients: string[]): Promis
   const statuses: MailStatus[] = []
   for (const to of recipients) {
     statuses.push(
-      await sendMail({
-        to,
-        subject: `${content.title || REPORT_TITLES[content.type]} · ${run.organization.name}`,
-        text: mailText(run.organization.name, [blockOf(content)], !!attachment),
-        attachments: attachment ? [attachment] : undefined,
-      }),
+      await sendMail(
+        reportMail(run.organizationId, to, `${content.title || REPORT_TITLES[content.type]} · ${run.organization.name}`, run.organization.name, [blockOf(content)], attachment ? [attachment] : []),
+      ),
     )
   }
   const emailStatus = combine(statuses)
@@ -214,12 +225,8 @@ export async function runScheduledReports(now = new Date(), orgId?: string): Pro
   // situação de entrega por execução (um e-mail pode levar várias execuções)
   const delivery = new Map<string, { orgId: string; statuses: MailStatus[] }>()
   for (const { orgId: oid, orgName, to, blocks, attachments, runIds } of outbox.values()) {
-    const status = await sendMail({
-      to,
-      subject: blocks.length === 1 ? `${blocks[0].split('\n')[0]} · ${orgName}` : `${blocks.length} relatórios do AtendeRadar · ${orgName}`,
-      text: mailText(orgName, blocks, attachments.length > 0),
-      attachments,
-    })
+    const subject = blocks.length === 1 ? `${blocks[0].split('\n')[0]} · ${orgName}` : `${blocks.length} relatórios do AtendeRadar · ${orgName}`
+    const status = await sendMail(reportMail(oid, to, subject, orgName, blocks, attachments))
     for (const id of runIds) {
       const d = delivery.get(id) ?? { orgId: oid, statuses: [] }
       d.statuses.push(status)
