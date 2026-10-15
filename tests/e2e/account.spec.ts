@@ -172,6 +172,8 @@ test.describe('Convites pendentes', () => {
     const novo = await lastTokenFor(convidado)
     expect(novo).not.toBe(antigo)
     expect(body.inviteLink).toContain(novo)
+    // a resposta diz o que houve com o e-mail (nos testes não há provedor: fica na fila); a tela avisa se falhou
+    expect(body.emailStatus).toBe('queued')
 
     const anon = await anonymous()
     expect((await anon.post('/api/auth/accept-invite', { data: { token: antigo, password: STRONG, acceptTerms: true } })).status()).toBe(400)

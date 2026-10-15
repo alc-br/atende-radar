@@ -162,4 +162,28 @@ test.describe('Membros: convite pendente', () => {
     expect(await testDb.organizationMember.count({ where: { id: member.id } })).toBe(0)
     await api.dispose()
   })
+
+  test('reenviar convite quando o e-mail falha: o aviso é de falha (não "enviado") e traz o link', async ({ page, context, isMobile }) => {
+    const { api } = await enterNewOrg(context)
+    const convidado = `ui.falha.${uid()}@test.local`
+    const { member } = await (await api.post('/api/members', { data: { name: 'Falha UI', email: convidado, role: 'member' } })).json()
+    // nos testes não há provedor de e-mail; simula o provedor recusando o envio (a API devolve emailStatus 'failed')
+    await page.route(`**/api/members/${member.id}/invite`, async (route) => {
+      if (route.request().method() !== 'POST') return route.continue()
+      const res = await route.fetch()
+      await route.fulfill({ response: res, json: { ...(await res.json()), emailStatus: 'failed' } })
+    })
+
+    await openMembers(page, !!isMobile)
+    const linha = page.locator('table tbody tr').filter({ hasText: convidado })
+    await expect(linha).toBeVisible({ timeout: 15_000 })
+    await linha.getByRole('button', { name: 'Mais ações' }).click()
+    await page.getByRole('menuitem', { name: 'Reenviar convite' }).click()
+
+    const aviso = page.locator('[data-sonner-toast][data-type="error"]')
+    await expect(aviso).toContainText(`o e-mail para ${convidado} não foi entregue`)
+    await expect(aviso).toContainText('/accept-invite?token=')
+    await expect(page.locator('[data-sonner-toast][data-type="success"]')).toHaveCount(0)
+    await api.dispose()
+  })
 })

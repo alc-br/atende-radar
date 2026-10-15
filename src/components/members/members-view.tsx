@@ -129,7 +129,7 @@ export default function MembersView() {
         throw new Error(data.error || 'Erro ao adicionar membro')
       }
       const created = await res.json().catch(() => ({}))
-      await showInviteLink(inviteEmail, created.inviteLink, 'Convite criado.')
+      await showInviteLink(inviteEmail, created.inviteLink, 'Convite criado.', created.emailStatus)
       tourSignal('member.invited')
       setInviteName('')
       setInviteEmail('')
@@ -188,8 +188,17 @@ export default function MembersView() {
   }
 
   // Convite pendente: reenviar (link novo; o anterior deixa de valer) ou cancelar (com confirmação).
-  const showInviteLink = async (email: string, link: string | undefined, title: string) => {
-    if (link) {
+  // emailStatus: sent | queued (sem provedor de e-mail) | failed (o provedor recusou; o sistema tenta de novo sozinho)
+  const showInviteLink = async (email: string, link: string | undefined, title: string, emailStatus?: string) => {
+    if (emailStatus === 'failed') {
+      if (link) await navigator.clipboard?.writeText(link).catch(() => {})
+      toast.error(`${title.replace(/\.$/, '')}, mas o e-mail para ${email} não foi entregue.`, {
+        description: link
+          ? `O sistema tenta enviar de novo sozinho. Se preferir, repasse o link (já copiado): ${link}`
+          : 'O sistema tenta enviar de novo sozinho.',
+        duration: 20000,
+      })
+    } else if (link) {
       // Sem provedor de e-mail: o link precisa ser repassado à pessoa manualmente.
       await navigator.clipboard?.writeText(link).catch(() => {})
       toast.success(`${title} Link copiado!`, {
@@ -206,7 +215,7 @@ export default function MembersView() {
       const res = await fetch(`/api/members/${member.id}/invite`, { method: 'POST' })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Erro ao reenviar convite')
-      await showInviteLink(member.email, data.inviteLink, 'Convite reenviado.')
+      await showInviteLink(member.email, data.inviteLink, 'Convite reenviado.', data.emailStatus)
       fetchMembers()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao reenviar convite')

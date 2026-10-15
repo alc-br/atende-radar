@@ -1,14 +1,18 @@
 import { issueToken } from './auth-tokens'
-import { appUrl, sendMail } from './mailer'
+import { appUrl, sendMail, type MailStatus } from './mailer'
 
 /**
  * Gera um link de convite novo (invalida os anteriores do membro) e manda o e-mail.
- * Sem provedor de e-mail configurado o convite não chega à pessoa: devolve o link para o admin repassar.
+ * Devolve a situação do e-mail e, quando ele NÃO saiu (sem provedor configurado, ou o envio falhou), o link para o
+ * admin repassar à pessoa. Uma falha é tentada de novo sozinha (retryFailedEmails), mas a tela avisa.
  */
-export async function sendInvite(inviter: { name: string }, member: { id: string; name: string; email: string; role: string }): Promise<string | undefined> {
+export async function sendInvite(
+  inviter: { name: string },
+  member: { id: string; name: string; email: string; role: string },
+): Promise<{ inviteLink?: string; emailStatus: MailStatus }> {
   const token = await issueToken(member.id, 'invite')
   const link = `${appUrl()}/accept-invite?token=${token}`
-  await sendMail({
+  const emailStatus = await sendMail({
     to: member.email,
     subject: `${inviter.name} convidou você para o AtendeRadar`,
     text: `Olá, ${member.name}!
@@ -18,5 +22,5 @@ Crie a sua senha e entre por este link (vale por 7 dias):
 ${link}
 `,
   })
-  return process.env.MAIL_PROVIDER === 'resend' ? undefined : link
+  return { emailStatus, inviteLink: emailStatus === 'sent' ? undefined : link }
 }
