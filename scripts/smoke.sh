@@ -45,7 +45,9 @@ if [ -n "$SITE" ]; then
   HOME_HTML="$(curl -s "$SITE/")"
   check "site: página inicial abre" 200 "$(code "$SITE/")"
   has "site: texto da página de vendas vem no HTML (SEO)" "Quantas vendas sua empresa perde" "$HOME_HTML"
-  has "site: preços reais no HTML" "<strong>149</strong>" "$HOME_HTML"
+  # preço do Essencial vindo do catálogo (o Admin muda o preço; o site tem de mostrar o mesmo valor)
+  ESSENCIAL_PRICE="$(printf '%s' "$PLANS" | grep -oE '"code":"essencial"[^}]*"monthlyPrice":[0-9]+' | grep -oE '[0-9]+$')"
+  has "site: preços reais no HTML (Essencial R\$ ${ESSENCIAL_PRICE:-?})" "<strong>${ESSENCIAL_PRICE:-sem-preco}</strong>" "$HOME_HTML"
   has "site: endereço canônico" "<link rel=\"canonical\" href=\"$SITE\"" "$HOME_HTML"
   has "site: dados estruturados" "application/ld+json" "$HOME_HTML"
   has "site: rodapé leva aos artigos" 'href="/conteudos"' "$HOME_HTML"
