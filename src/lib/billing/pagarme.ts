@@ -101,6 +101,35 @@ export const pagarme = {
       metadata: input.metadata,
     }),
 
+  /**
+   * Renovação reativada: o cancelamento no Pagar.me é definitivo (status "canceled" não volta), então a reativação cria
+   * uma assinatura NOVA com o cartão que já está na carteira do cliente (card_id) e start_at no fim do período pago.
+   * Com start_at no futuro o Pagar.me não cobra nada agora (status "future"); a 1ª fatura sai na data de início.
+   */
+  createContinuation: (cfg: PagarmeConfig, input: {
+    customerId: string
+    cardId: string
+    startAt: Date
+    interval: 'month' | 'year'
+    priceCents: number
+    description: string
+    metadata: Record<string, string>
+  }) =>
+    call<Json>(cfg, 'POST', '/subscriptions', {
+      customer_id: input.customerId,
+      payment_method: 'credit_card',
+      interval: input.interval,
+      interval_count: 1,
+      billing_type: 'prepaid',
+      installments: 1,
+      currency: 'BRL',
+      statement_descriptor: 'ATENDERADAR',
+      start_at: input.startAt.toISOString(),
+      items: [{ description: input.description, quantity: 1, pricing_scheme: { scheme_type: 'unit', price: input.priceCents } }],
+      card_id: input.cardId,
+      metadata: input.metadata,
+    }),
+
   getSubscription: (cfg: PagarmeConfig, id: string) => call<Json>(cfg, 'GET', `/subscriptions/${encodeURIComponent(id)}`),
 
   listInvoices: async (cfg: PagarmeConfig, subscriptionId: string) =>

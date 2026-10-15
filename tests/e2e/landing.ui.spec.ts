@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { FAQ } from '../../src/lib/faq'
 
 // No celular/tablet estreito o "Entrar" fica dentro do menu do topo ("Abrir menu").
 async function clickEntrar(page: Page) {
@@ -79,6 +80,20 @@ test.describe('Página de vendas', () => {
     await expect(faq.nth(0)).not.toHaveAttribute('open', '')
   })
 
+  test('FAQ responde bloqueio do WhatsApp, cancelamento e fidelidade', async ({ page }) => {
+    const faq = page.locator('.faq')
+    await expect(faq.locator('details')).toHaveCount(FAQ.length)
+    for (const [q, trecho] of [
+      ['Meu WhatsApp pode ser bloqueado?', 'não podemos prometer que seja zero'],
+      ['Como cancelo?', 'Cancelar renovação'],
+      ['Tem fidelidade?', 'Não há prazo mínimo nem multa'],
+    ]) {
+      const item = faq.locator('details', { has: page.locator('summary', { hasText: q }) })
+      await item.locator('summary').click()
+      await expect(item).toContainText(trecho)
+    }
+  })
+
   test('cada plano leva ao cadastro', async ({ page }) => {
     await expect(ctaPlanos(page)).toHaveCount(3) // os planos chegam por fetch: espera carregar
     for (let i = 0; i < 3; i++) {
@@ -156,6 +171,15 @@ test.describe('Página de vendas renderizada no servidor', () => {
       expect(html).toContain(`<strong>${plan.monthlyPrice.toLocaleString('pt-BR')}</strong>`)
     }
     expect(html).toContain('href="/conteudos"')
+  })
+
+  test('perguntas frequentes também vão como dados estruturados (FAQPage), com o mesmo texto da tela', async ({ request }) => {
+    const html = await (await request.get('/inicio')).text()
+    const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]))
+    const faqLd = blocks.find((b) => b['@type'] === 'FAQPage')
+    expect(faqLd, 'sem bloco FAQPage').toBeTruthy()
+    expect(faqLd.mainEntity).toEqual(FAQ.map((x) => ({ '@type': 'Question', name: x.q, acceptedAnswer: { '@type': 'Answer', text: x.a } })))
+    expect(blocks.some((b) => b['@type'] === 'SoftwareApplication')).toBe(true)
   })
 
   test('sem JavaScript, o conteúdo fica visível e os planos aparecem', async ({ browser }) => {

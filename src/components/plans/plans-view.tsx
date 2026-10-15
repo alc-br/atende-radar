@@ -74,6 +74,7 @@ interface Billing {
     cancelAtPeriodEnd: boolean
     pending: boolean
     lastPaymentError: string | null
+    renewalAmount: number | null
   } | null
   invoices: { id: string; planName: string | null; billingCycle: string | null; amount: number; status: string; dueAt: string | null; paidAt: string | null; periodStart: string | null; periodEnd: string | null; failureMessage: string | null; createdAt: string }[]
 }
@@ -109,6 +110,8 @@ const INVOICE_STATUS: Record<string, { label: string; tag: string }> = {
 }
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—')
+// data de cobrança do Pagar.me (start_at): só o dia, gravado como meia-noite UTC
+const fmtUtcDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—')
 
 // Os planos se diferenciam pelos LIMITES (aplicados de verdade nas cotas). A lista de "recursos" do catálogo não é
 // aplicada a ninguém hoje, então não é exibida (nada de comparativo decorativo).
@@ -194,6 +197,25 @@ export default function PlansView() {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [canceling, setCanceling] = useState(false)
 
+  const [reactivateOpen, setReactivateOpen] = useState(false)
+  const [reactivating, setReactivating] = useState(false)
+
+  const reactivateRenewal = async () => {
+    setReactivating(true)
+    try {
+      const res = await fetch('/api/billing/reactivate', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Não foi possível reativar a renovação')
+      toast.success('Renovação reativada.', { description: `Nada foi cobrado agora. A próxima cobrança será em ${fmtUtcDate(data.nextChargeAt)}.` })
+      setReactivateOpen(false)
+      incrementRefresh()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Não foi possível reativar a renovação')
+    } finally {
+      setReactivating(false)
+    }
+  }
+
   const cancelRenewal = async () => {
     setCanceling(true)
     try {
@@ -228,6 +250,9 @@ export default function PlansView() {
   const paidPlanId = active ? subscription?.plan.id : null
   const priceOf = (p: { monthlyPrice: number; annualPrice: number }, c: Cycle) => (c === 'annual' ? p.annualPrice : p.monthlyPrice)
   const currentCycle: Cycle = recurring && bsub ? bsub.billingCycle : 'monthly'
+  // quem já assina paga o valor da contratação dele (preço novo do catálogo só vale para novas contratações)
+  const currentPrice = recurring && bsub?.renewalAmount != null ? bsub.renewalAmount : subscription ? priceOf(subscription.plan, currentCycle) : 0
+  const canReactivate = recurring && !!bsub?.cancelAtPeriodEnd && active && !bsub?.pending
 
   const COMPARE_ROWS: { label: string; value: (p: ApiPlan) => string | number }[] = [
     { label: 'Conversas/mês', value: (p) => p.limits.maxConversationsMonthly.toLocaleString('pt-BR') },
@@ -280,7 +305,7 @@ export default function PlansView() {
                       <div>
                         <b>Plano {subscription.plan.name}</b>
                         <span className="preco text-2xl">
-                          {formatCurrency(priceOf(subscription.plan, currentCycle))}
+                          {formatCurrency(currentPrice)}
                           <small className="inline">{currentCycle === 'annual' ? '/ano' : '/mês'}</small>
                         </span>
                       </div>
@@ -325,6 +350,12 @@ export default function PlansView() {
                       <div className="flex flex-col sm:flex-row gap-2">
                         <button type="button" className="btn btn--sm flex-1" onClick={() => setCardOpen(true)}>Trocar cartão</button>
                         <button type="button" className="btn btn--sm btn--perigo flex-1" onClick={() => setCancelOpen(true)}>Cancelar renovação</button>
+                      </div>
+                    )}
+                    {canReactivate && (
+                      <div className="space-y-2" data-testid="renewal-canceled">
+                        <p className="suave text-[13px]">A renovação automática está cancelada. O plano vale até {fmtDate(subscription.currentPeriodEnd)}; até lá, você pode reativá-la sem pagar nada agora.</p>
+                        <button type="button" className="btn btn--sm btn--primario w-full sm:w-auto" onClick={() => setReactivateOpen(true)}>Reativar renovação</button>
                       </div>
                     )}
                     {!recurring && online && status !== 'active' && (
@@ -568,12 +599,31 @@ export default function PlansView() {
         <ReplaceCardDialog open={cardOpen} onOpenChange={setCardOpen} publicKey={billing.publicKey} onDone={() => { setCardOpen(false); incrementRefresh() }} />
       )}
 
+      <AlertDialog open={reactivateOpen} onOpenChange={(o) => !reactivating && setReactivateOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reativar a renovação automática?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Nada é cobrado agora. No fim do período já pago ({fmtDate(subscription?.currentPeriodEnd ?? null)}), o plano {subscription?.plan.name} volta a ser cobrado
+              {bsub?.renewalAmount != null ? ` (${formatCurrency(bsub.renewalAmount)} ${currentCycle === 'annual' ? 'por ano' : 'por mês'})` : ''}
+              {bsub?.cardLast4 ? ` no cartão ${bsub.cardBrand ?? ''} final ${bsub.cardLast4}` : ' no mesmo cartão'} e segue renovando até você cancelar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reactivating}>Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); reactivateRenewal() }} disabled={reactivating}>
+              {reactivating ? 'Reativando…' : 'Reativar renovação'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={cancelOpen} onOpenChange={(o) => !canceling && setCancelOpen(o)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar a renovação automática?</AlertDialogTitle>
             <AlertDialogDescription>
-              Nenhuma nova cobrança será feita. O plano {subscription?.plan.name} continua valendo até {fmtDate(subscription?.currentPeriodEnd ?? null)}; depois disso, o cadastro de novos itens fica bloqueado até você contratar de novo. Não há reembolso do período já pago.
+              Nenhuma nova cobrança será feita. O plano {subscription?.plan.name} continua valendo até {fmtDate(subscription?.currentPeriodEnd ?? null)}; depois disso, o cadastro de novos itens fica bloqueado até você contratar de novo. Não há reembolso do período já pago. Se mudar de ideia antes dessa data, é só reativar a renovação aqui em Planos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

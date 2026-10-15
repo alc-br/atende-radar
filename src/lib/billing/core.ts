@@ -40,7 +40,10 @@ export interface InvoiceLike {
  * Situação da assinatura a partir do que o provedor diz: assinatura (active/canceled/…) + faturas.
  * O período vigente é o ciclo da última fatura PAGA.
  */
-export function deriveFromProvider(input: { providerStatus: string; invoices: InvoiceLike[] }, now = new Date()): { status: string; periodStart: Date | null; periodEnd: Date | null; everPaid: boolean } {
+export function deriveFromProvider(
+  input: { providerStatus: string; invoices: InvoiceLike[]; /** período atual já pago por uma assinatura anterior (renovação reativada) */ prepaid?: boolean },
+  now = new Date(),
+): { status: string; periodStart: Date | null; periodEnd: Date | null; everPaid: boolean } {
   const sorted = [...input.invoices].filter((i) => i.status !== 'canceled').sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
   const lastPaid = [...sorted].reverse().find((i) => i.status === 'paid') ?? null
   const latest = sorted[sorted.length - 1] ?? null
@@ -52,7 +55,17 @@ export function deriveFromProvider(input: { providerStatus: string; invoices: In
     const overdue = latest.status === 'failed' || (latest.dueAt !== null && latest.dueAt.getTime() < now.getTime())
     if (overdue) return { status: 'past_due', periodStart, periodEnd, everPaid }
   }
-  return { status: everPaid ? 'active' : 'past_due', periodStart, periodEnd, everPaid }
+  // renovação reativada: até a 1ª cobrança da assinatura nova (no fim do período já pago), segue ativa
+  return { status: everPaid || input.prepaid ? 'active' : 'past_due', periodStart, periodEnd, everPaid }
+}
+
+/**
+ * Data da 1ª cobrança de uma renovação reativada: o dia seguinte ao fim do período pago. O Pagar.me guarda só a data
+ * (meia-noite UTC); com o próprio fim do período ele cobraria um dia antes do que a assinatura original cobraria.
+ */
+export function reactivationStartAt(periodEnd: Date): Date {
+  const d = new Date(periodEnd.getTime() + 1000)
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + (d.getUTCHours() || d.getUTCMinutes() || d.getUTCSeconds() ? 1 : 0)))
 }
 
 // ── formato do Pagar.me (API v5) ────────────────────────────────────────────────────────────────────────────────────

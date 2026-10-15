@@ -91,6 +91,8 @@ const MATRIX: Row[] = [
   ['GET', '/api/admin/support/x', []],
   ['PATCH', '/api/admin/support/x', []],
   ['GET', '/api/admin/support/x/screenshot', []],
+  ['GET', '/api/admin/plans', []], // V7 · catálogo de planos: só o operador da plataforma
+  ['PATCH', '/api/admin/plans/x', []],
 
   // T4 · rotas novas desde a matriz original
   ['GET', '/api', ALL], // sobra do modelo do projeto ("Hello, world!"); exige sessão pelo proxy
@@ -112,6 +114,7 @@ const MATRIX: Row[] = [
   ['POST', '/api/billing/checkout', ADMIN], // corpo vazio: recusado na validação, nada é cobrado
   ['POST', '/api/billing/card', ADMIN],
   ['POST', '/api/billing/cancel', ADMIN], // a empresa A não tem assinatura recorrente: 409
+  ['POST', '/api/billing/reactivate', ADMIN], // idem: 409 (nada a reativar)
   ['GET', '/api/organization/deletion', ALL], // faixa de aviso para todos
   ['POST', '/api/organization/deletion', ADMIN], // sem senha e nome da empresa: 400
   ['DELETE', '/api/organization/deletion', ADMIN],

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import {
   isValidCpf, isValidCnpj, isValidDocument, luhnValid, cardBrand, formatCardNumber, formatExpiry, formatDocument, formatCep, formatPhone,
   parseExpiry, priceCents, effectiveStatus, deriveFromProvider, mapInvoice, subscriptionIdFromEvent, checkBasicAuth, friendlyPaymentError,
+  reactivationStartAt,
 } from '../../src/lib/billing/core'
 
 // B8 · Cobrança recorrente (Pagar.me): regras puras, sem rede.
@@ -74,6 +75,20 @@ test.describe('B8 · preço e situação da assinatura', () => {
   test('nunca pago → sem ativação; cancelada no provedor → canceled', () => {
     expect(deriveFromProvider({ providerStatus: 'active', invoices: [{ ...paid, status: 'failed' }] }, now)).toMatchObject({ status: 'past_due', everPaid: false })
     expect(deriveFromProvider({ providerStatus: 'canceled', invoices: [paid] }, now)).toMatchObject({ status: 'canceled', everPaid: true })
+  })
+  test('V7 · renovação reativada: sem fatura ainda, segue ativa (período já pago pela assinatura anterior)', () => {
+    expect(deriveFromProvider({ providerStatus: 'future', invoices: [], prepaid: true }, now)).toMatchObject({ status: 'active', everPaid: false })
+    expect(deriveFromProvider({ providerStatus: 'future', invoices: [] }, now).status).toBe('past_due')
+    // a 1ª cobrança da continuação recusada derruba para pagamento pendente, como numa renovação comum
+    const failed = { ...paid, status: 'failed', createdAt: new Date('2026-11-11T01:00:00Z') }
+    expect(deriveFromProvider({ providerStatus: 'active', invoices: [failed], prepaid: true }, now).status).toBe('past_due')
+    expect(deriveFromProvider({ providerStatus: 'canceled', invoices: [], prepaid: true }, now).status).toBe('canceled')
+  })
+  test('V7 · 1ª cobrança da renovação reativada: o dia seguinte ao fim do período pago (meia-noite UTC)', () => {
+    expect(reactivationStartAt(new Date('2026-11-13T23:59:59Z')).toISOString()).toBe('2026-11-14T00:00:00.000Z')
+    expect(reactivationStartAt(new Date('2026-11-13T23:59:59.999Z')).toISOString()).toBe('2026-11-14T00:00:00.000Z')
+    expect(reactivationStartAt(new Date('2026-11-13T15:30:00Z')).toISOString()).toBe('2026-11-14T00:00:00.000Z')
+    expect(reactivationStartAt(new Date('2026-12-31T23:59:59Z')).toISOString()).toBe('2027-01-01T00:00:00.000Z')
   })
 })
 

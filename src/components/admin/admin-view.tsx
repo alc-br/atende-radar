@@ -17,10 +17,12 @@ import {
   Settings,
   BarChart3,
   LifeBuoy,
+  Package,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ProductAnalyticsPanel } from '@/components/admin/product-analytics'
 import { SupportTickets } from './support-tickets'
+import { PlanCatalog } from './plan-catalog'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -392,6 +394,7 @@ export default function AdminView() {
           <TabsTrigger value="overview"><Activity className="ic" aria-hidden="true" />Visão Geral</TabsTrigger>
           <TabsTrigger value="organizations"><Building2 className="ic" aria-hidden="true" />Organizações</TabsTrigger>
           <TabsTrigger value="users"><Users className="ic" aria-hidden="true" />Usuários Globais</TabsTrigger>
+          <TabsTrigger value="plans"><Package className="ic" aria-hidden="true" />Planos</TabsTrigger>
           <TabsTrigger value="system"><Server className="ic" aria-hidden="true" />Sistema</TabsTrigger>
           <TabsTrigger value="product"><BarChart3 className="ic" aria-hidden="true" />Produto</TabsTrigger>
           <TabsTrigger value="support"><LifeBuoy className="ic" aria-hidden="true" />Suporte</TabsTrigger>
@@ -718,6 +721,11 @@ export default function AdminView() {
               </div>
             </div>
           </section>
+        </TabsContent>
+
+        {/* ── Planos (V7): catálogo editável; preço novo só para novas contratações ── */}
+        <TabsContent value="plans">
+          <PlanCatalog />
         </TabsContent>
 
         {/* ── Suporte (chamados de "Falar com o suporte") ─────────── */}

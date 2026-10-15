@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import LandingPage from '@/components/landing/landing-page'
 import { SITE_URL } from '@/lib/hosts'
 import { publicPlans } from '@/lib/public-plans'
+import { FAQ } from '@/lib/faq'
 
 // Página de vendas renderizada no servidor (o Google lê o texto e os preços sem rodar JavaScript).
 // No domínio do site o proxy serve esta rota em "/"; quem abre /inicio é levado para "/".
@@ -51,9 +52,18 @@ export default async function InicioPage() {
         }
       : {}),
   }
+  // perguntas frequentes: o mesmo texto da seção "Dúvidas" (src/lib/faq.ts)
+  const faqLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQ.map((x) => ({ '@type': 'Question', name: x.q, acceptedAnswer: { '@type': 'Answer', text: x.a } })),
+  }
+  // "<" vira a sequência de escape do JSON (barra + u003c): nenhum texto fecha a tag <script> antes da hora
+  const ld = (o: unknown) => JSON.stringify(o).replace(/</g, '\\u003c')
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld(faqLd) }} />
       <LandingPage initialPlans={plans} />
     </>
   )
