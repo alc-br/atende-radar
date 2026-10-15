@@ -56,7 +56,11 @@ test('conexão pausada aparece como "Pausada" (não "Erro") e continua assim dep
   const { email, password } = await signupOrg()
   const api = await loginAs(email, password)
   const name = `Pausa ${uid()}`
-  expect((await api.post('/api/connections', { data: { name, phoneNumber: '5511900004444' } })).status()).toBe(201)
+  const created = await api.post('/api/connections', { data: { name, phoneNumber: '5511900004444' } })
+  expect(created.status()).toBe(201)
+  // compila a rota do PATCH antes da tela: no servidor de dev o 1º POST/PATCH a uma rota nova pode perder o corpo
+  const { connection } = await created.json()
+  expect((await api.patch(`/api/connections/${connection.id}`, { data: { name } })).status()).toBe(200)
   await api.dispose()
 
   await enter(context, email, password)
