@@ -8,15 +8,41 @@
 }
 
 /* Contorno do item destacado: não bloqueia cliques (o clique vai para o próprio item) */
+/* Destaque em 3 níveis (Spotlight em system-tour-panel.tsx): o item aceso com o anel, a região de que o passo fala
+   (menu lateral, topo) em meia-luz e o resto da tela mais escuro, sem esconder. Nada aqui recebe cliques. */
+.ar .tour-sistema__veu {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 44;
+  pointer-events: none;
+}
+.ar .tour-sistema__veu-escuro { fill: rgba(4, 16, 10, .56); }
+.ar .tour-sistema__veu-medio { fill: rgba(4, 16, 10, .38); transition: opacity .3s ease; }
+/* a voz está falando da região: ela acende (sem a meia-luz) e ganha contorno; o anel do item espera a sua vez */
+.ar .tour-sistema__veu[data-focus="area"] .tour-sistema__veu-medio { opacity: 0; }
+.ar .tour-sistema__area {
+  position: fixed;
+  z-index: 44;
+  pointer-events: none;
+  border-radius: 8px;
+  border: 2px solid var(--verde-500);
+  box-shadow: 0 0 0 4px rgba(22, 160, 99, .22);
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+.ar .tour-sistema__veu[data-focus="area"] ~ .tour-sistema__area { opacity: 1; }
 .ar .tour-sistema__destaque {
   position: fixed;
   z-index: 44;
   pointer-events: none;
   border-radius: 10px;
   border: 2px solid var(--verde-500);
-  box-shadow: 0 0 0 4px rgba(22, 160, 99, .25), 0 0 0 9999px rgba(4, 16, 10, .38);
-  transition: top .2s ease, left .2s ease, width .2s ease, height .2s ease;
+  box-shadow: 0 0 0 4px rgba(22, 160, 99, .25);
+  transition: top .2s ease, left .2s ease, width .2s ease, height .2s ease, opacity .3s ease;
 }
+.ar .tour-sistema__veu[data-focus="area"] ~ .tour-sistema__destaque { opacity: 0; }
 
 /* Painel do passo */
 .ar .tour-sistema {
@@ -163,7 +189,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ar .tour-sistema { animation: none; }
-  .ar .tour-sistema__destaque, .ar .tour-sistema__barra > span { transition: none; }
+  .ar .tour-sistema__destaque, .ar .tour-sistema__area, .ar .tour-sistema__veu-medio, .ar .tour-sistema__barra > span { transition: none; }
 }
 
 /* Leitura automática: cursor simulado (auto-actions.ts). Fica no <body>, acima do painel (46) e dos formulários (50),

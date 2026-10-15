@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AudioLines,
@@ -19,9 +19,9 @@ import {
   X,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
-import { allDone, chaptersFor, stepSpokenText } from '@/lib/system-tour/engine'
+import { allDone, chaptersFor, spotlightFocus, stepArea, stepSpokenText } from '@/lib/system-tour/engine'
 import { onTourSignal } from '@/lib/system-tour/signals'
-import type { SystemTourChapter } from '@/lib/system-tour/types'
+import type { SpotlightFocus, SystemTourChapter } from '@/lib/system-tour/types'
 import { useSystemTourProgress } from './progress-store'
 import { RATE_OPTIONS, type SpeakHandlers, useSpeech } from './use-speech'
 import { StepBody } from './rich-text'
@@ -83,6 +83,56 @@ function choosePlacement(rect: Rect | null, panel: { w: number; h: number }, she
   return 'baixo-dir'
 }
 
+/** Retângulo do SVG com cantos arredondados. */
+const Box = ({ r, radius, fill }: { r: Rect; radius: number; fill: string }) => (
+  <rect x={r.left} y={r.top} width={Math.max(0, r.width)} height={Math.max(0, r.height)} rx={radius} fill={fill} />
+)
+
+/**
+ * Destaque em 3 níveis: o item (aceso, com o anel), a região de que o passo fala (meia-luz) e o resto da tela (mais
+ * escuro, sem esconder). Com foco na região, ela fica acesa e contornada e o anel some. Sem região: item aceso, resto
+ * escuro. Não recebe cliques: a pessoa usa a tela normalmente.
+ */
+function Spotlight({ target, area, focus }: { target: Rect; area: Rect | null; focus: SpotlightFocus }) {
+  const id = `tour-veu-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const areaFocus = !!area && focus === 'area'
+  return (
+    <>
+      <svg className="tour-sistema__veu" aria-hidden="true" data-focus={areaFocus ? 'area' : 'target'}>
+        <defs>
+          {/* véu escuro: a tela toda, menos a região e o item */}
+          <mask id={`${id}-escuro`} maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%">
+            <rect x="0" y="0" width="100%" height="100%" fill="white" />
+            {area && <Box r={area} radius={8} fill="black" />}
+            <Box r={target} radius={10} fill="black" />
+          </mask>
+          {/* meia-luz: só a região, menos o item */}
+          {area && (
+            <mask id={`${id}-medio`} maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%">
+              <Box r={area} radius={8} fill="white" />
+              <Box r={target} radius={10} fill="black" />
+            </mask>
+          )}
+        </defs>
+        <rect className="tour-sistema__veu-escuro" x="0" y="0" width="100%" height="100%" mask={`url(#${id}-escuro)`} />
+        {area && <rect className="tour-sistema__veu-medio" x="0" y="0" width="100%" height="100%" mask={`url(#${id}-medio)`} />}
+      </svg>
+      {area && (
+        <div
+          className="tour-sistema__area"
+          aria-hidden="true"
+          style={{ top: area.top, left: area.left, width: area.width, height: area.height }}
+        />
+      )}
+      <div
+        className="tour-sistema__destaque"
+        aria-hidden="true"
+        style={{ top: target.top, left: target.left, width: target.width, height: target.height }}
+      />
+    </>
+  )
+}
+
 export function SystemTourPanel() {
   const systemTour = useAppStore((s) => s.systemTour)
   const me = useAppStore((s) => s.me)
@@ -110,6 +160,8 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   const isLast = idx === total - 1
 
   const [rect, setRect] = useState<Rect | null>(null)
+  /** Região em meia-luz ao redor do item (menu lateral, topo), quando o passo tem uma. */
+  const [areaRect, setAreaRect] = useState<Rect | null>(null)
   const [missing, setMissing] = useState(false)
   const [panelSize, setPanelSize] = useState({ w: 380, h: 320 })
   const panelRef = useRef<HTMLDivElement>(null)
@@ -235,9 +287,23 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   }
 
   // ── acompanha o item destacado (aparece depois de carregar, muda com rolagem, some ao trocar de tela) ──
+  const areaName = stepArea(step)
   useEffect(() => {
     if (!step.target) return
     const target = step.target
+    const measureArea = () => {
+      const el = areaName ? findTarget(areaName) : null
+      const r = el?.getBoundingClientRect()
+      // fora da tela (gaveta do celular fechada): sem meia-luz
+      const visible = !!r && r.right > 0 && r.bottom > 0 && r.left < window.innerWidth && r.top < window.innerHeight
+      setAreaRect((old) =>
+        !visible || !r
+          ? null
+          : old && old.top === r.top && old.left === r.left && old.width === r.width && old.height === r.height
+            ? old
+            : { top: r.top, left: r.left, width: r.width, height: r.height },
+      )
+    }
     let scrolled = false
     let timer: number | undefined
     const started = Date.now()
@@ -248,6 +314,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
         if (Date.now() - started >= MISSING_AFTER_MS) setMissing(true)
         return
       }
+      measureArea()
       if (!scrolled) {
         scrolled = true
         const behavior: ScrollBehavior = reducedMotion() ? 'auto' : 'smooth'
@@ -280,9 +347,11 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
       window.removeEventListener('scroll', onMove, true)
       // o próximo passo (ou a próxima tela) começa sem destaque até achar o item
       setRect(null)
+      setAreaRect(null)
       setMissing(false)
     }
-  }, [step.target, chapter.id, idx, currentView])
+  }, [step.target, areaName, chapter.id, idx, currentView])
+  const focus = spotlightFocus(step, speech.state === 'idle' ? null : speech.progress)
 
   // Tamanho do painel (muda com o texto e com a largura da tela) para escolher o canto que não cobre o item.
   useEffect(() => {
@@ -444,13 +513,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
 
   return (
     <>
-      {rect && (
-        <div
-          className="tour-sistema__destaque"
-          aria-hidden="true"
-          style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }}
-        />
-      )}
+      {rect && <Spotlight target={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }} area={areaRect} focus={focus} />}
       <div
         ref={panelRef}
         className={`tour-sistema tour-sistema--${placement}`}

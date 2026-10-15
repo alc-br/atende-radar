@@ -91,7 +91,7 @@ export function AppHeader() {
   const showPeriod = currentView === 'dashboard'
 
   return (
-    <header className="topo">
+    <header className="topo" data-tour="topbar">
       <button
         className="icone-btn topo__menu"
         type="button"

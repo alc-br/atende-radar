@@ -11,7 +11,7 @@
 // Se o item destacado não existir na tela, o passo vira explicação sem destaque (nunca trava).
 // - narration    → o que a voz fala (explica o item, não repete a tela): fica em narration.ts, chave "capítulo/passo".
 import type { SystemTourChapter } from './types'
-import { NARRATIONS } from './narration'
+import { NARRATION_CUES, NARRATIONS } from './narration'
 
 const CHAPTERS: SystemTourChapter[] = [
   // ───────────────────────────── 1. Navegação ─────────────────────────────
@@ -1057,11 +1057,12 @@ const CHAPTERS: SystemTourChapter[] = [
   },
 ]
 
-/** Capítulos com a narração falada de cada passo (narration.ts). */
+/** Capítulos com a narração falada de cada passo e os momentos em que o destaque acompanha a voz (narration.ts). */
 export const SYSTEM_TOUR_CHAPTERS: SystemTourChapter[] = CHAPTERS.map((c) => ({
   ...c,
   steps: c.steps.map((s) => {
     const narration = NARRATIONS[`${c.id}/${s.id}`]
-    return narration ? { ...s, narration } : s
+    const cues = NARRATION_CUES[`${c.id}/${s.id}`]
+    return { ...s, ...(narration ? { narration } : {}), ...(cues ? { cues } : {}) }
   }),
 }))

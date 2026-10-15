@@ -74,7 +74,7 @@ function releaseAudio(ref: { current: HTMLAudioElement | null }) {
   const a = ref.current
   ref.current = null
   if (!a) return
-  a.onplaying = a.onended = a.onerror = a.onloadedmetadata = null
+  a.onplaying = a.onended = a.onerror = a.onloadedmetadata = a.ontimeupdate = null
   try {
     a.pause()
     a.removeAttribute('src')
@@ -116,16 +116,36 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
   const serverFailed = useRef(false)
   /** Velocidade atual: lida na hora por cada fala e pelos eventos do <audio> (nunca um valor velho de closure). */
   const rateRef = useRef(prefs.rate)
+  /**
+   * Quanto do texto já foi falado (0 a 1; null = sem fala): o destaque do tour acompanha a voz. Áudio do servidor: pela
+   * posição do áudio. Voz do navegador: pela palavra falada (onboundary); sem esse evento, estimado pelo tempo.
+   */
+  const [progress, setProgress] = useState<number | null>(null)
+  const ticker = useRef<number | undefined>(undefined)
+  const paused = useRef(false)
+  const endProgress = useCallback(() => {
+    if (ticker.current) window.clearInterval(ticker.current)
+    ticker.current = undefined
+    paused.current = false
+    setProgress(null)
+  }, [])
+  /** Avança aos poucos (só muda o estado quando anda pelo menos 1%). */
+  const moveProgress = useCallback((p: number) => {
+    const v = Math.min(1, Math.max(0, p))
+    setProgress((old) => (old != null && Math.abs(old - v) < 0.01 ? old : v))
+  }, [])
 
   const stop = useCallback(() => {
     turn.current++
     current.current = null
     releaseAudio(audio)
     cancelSynth()
+    endProgress()
     setState('idle')
-  }, [])
+  }, [endProgress])
 
   const speakBrowser = useCallback((text: string, my: number, handlers?: SpeakHandlers) => {
+    endProgress()
     if (!speechSupported() || !text.trim()) {
       setState('idle')
       handlers?.onFail?.()
@@ -140,27 +160,45 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
       u.rate = rateRef.current
       // cancel() também dispara onend/onerror da fala cancelada: só conta a fala atual
       const isCurrent = () => current.current === u && turn.current === my
+      // Estimativa (~14 caracteres por segundo em 1×) até a voz avisar a palavra falada; algumas vozes nunca avisam.
+      let boundary = false
+      let elapsed = 0
+      const STEP_MS = 250
+      ticker.current = window.setInterval(() => {
+        if (!isCurrent() || boundary || paused.current) return
+        elapsed += STEP_MS
+        moveProgress(Math.min(0.99, ((elapsed / 1000) * 14 * rateRef.current) / text.length))
+      }, STEP_MS)
+      u.onboundary = (e) => {
+        if (!isCurrent()) return
+        boundary = true
+        moveProgress(e.charIndex / text.length)
+      }
       u.onend = () => {
         if (!isCurrent()) return
         current.current = null
+        endProgress()
         setState('idle')
         handlers?.onEnd?.()
       }
       u.onerror = () => {
         if (!isCurrent()) return
         current.current = null
+        endProgress()
         setState('idle')
         handlers?.onFail?.()
       }
       current.current = u
       window.speechSynthesis.speak(u)
       setSource('browser')
+      setProgress(0)
       setState('speaking')
     } catch {
+      endProgress()
       setState('idle')
       handlers?.onFail?.()
     }
-  }, [])
+  }, [endProgress, moveProgress])
 
   const speak = useCallback(
     (item: SpeechItem, handlers?: SpeakHandlers) => {
@@ -170,6 +208,7 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
       current.current = null
       releaseAudio(audio)
       cancelSynth()
+      endProgress()
 
       if (!item.audioUrl || !useServer || serverFailed.current) {
         speakBrowser(item.text, my, handlers)
@@ -194,14 +233,21 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
       a.preservesPitch = true
       applyRate()
       a.onloadedmetadata = applyRate
+      const track = () => {
+        if (turn.current !== my || !(a.duration > 0) || !Number.isFinite(a.duration)) return
+        moveProgress(a.currentTime / a.duration)
+      }
       a.onplaying = () => {
         if (turn.current !== my) return
         if (a.playbackRate !== rateRef.current) applyRate()
+        track()
         setState('speaking')
       }
+      a.ontimeupdate = track
       a.onended = () => {
         if (turn.current !== my) return
         audio.current = null
+        endProgress()
         setState('idle')
         handlers?.onEnd?.()
       }
@@ -222,7 +268,7 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
         fallback()
       })
     },
-    [speakBrowser, useServer],
+    [endProgress, moveProgress, speakBrowser, useServer],
   )
 
   const pause = useCallback(() => {
@@ -235,6 +281,7 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
     if (!speechSupported()) return
     try {
       window.speechSynthesis.pause()
+      paused.current = true
       setState('paused')
     } catch {
       // sem pausa neste navegador
@@ -254,6 +301,7 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
     if (!speechSupported()) return
     try {
       window.speechSynthesis.resume()
+      paused.current = false
       setState('speaking')
     } catch {
       // sem retomada neste navegador
@@ -288,9 +336,10 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
       turn.current++
       releaseAudio(audio)
       cancelSynth()
+      if (ticker.current) window.clearInterval(ticker.current)
     },
     [],
   )
 
-  return { supported, prefs, changeRate, state, source, speak, pause, resume, stop }
+  return { supported, prefs, changeRate, state, source, progress, speak, pause, resume, stop }
 }

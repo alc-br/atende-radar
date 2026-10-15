@@ -2,7 +2,7 @@
 // Imports relativos: os testes de unidade (Playwright) carregam este arquivo sem o alias "@/".
 import { can, canOpenView } from '../permissions'
 import { SYSTEM_TOUR_CHAPTERS } from './content'
-import type { SystemTourBlock, SystemTourChapter, SystemTourStep } from './types'
+import type { SpotlightFocus, SystemTourBlock, SystemTourChapter, SystemTourStep } from './types'
 import type { SystemTourProgress } from './progress'
 
 export interface Viewer {
@@ -73,4 +73,33 @@ export const NARRATION_MAX = 600
 export function stepSpokenText(step: SystemTourStep): string {
   const n = step.narration?.trim()
   return n ? n : stepSpeechText(step)
+}
+
+/** Região em meia-luz do passo: a definida; senão o menu lateral (alvos do menu) ou o topo (alvos do topo). */
+export function stepArea(step: Pick<SystemTourStep, 'area' | 'target'>): string | undefined {
+  if (step.area) return step.area
+  const t = step.target
+  if (!t) return undefined
+  if (t.startsWith('nav-') || t.startsWith('sidebar-')) return 'sidebar'
+  if (t.startsWith('header-')) return 'topbar'
+  return undefined
+}
+
+/**
+ * O que fica em foco no destaque. Parado (progress null) ou sem momentos marcados: o alvo (com a região em meia-luz).
+ * Falando: o último momento da narração que a voz já alcançou (progress = fração do texto já falada, 0 a 1).
+ */
+export function spotlightFocus(step: SystemTourStep, progress: number | null): SpotlightFocus {
+  if (progress == null || !step.cues?.length || !stepArea(step)) return 'target'
+  const text = stepSpokenText(step)
+  const spoken = progress * text.length
+  let focus: SpotlightFocus = 'target'
+  let best = -1
+  for (const cue of step.cues) {
+    const at = text.indexOf(cue.at)
+    if (at < 0 || at > spoken || at < best) continue
+    best = at
+    focus = cue.focus
+  }
+  return focus
 }

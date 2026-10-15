@@ -2,8 +2,10 @@ import { test, expect } from '@playwright/test'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { SYSTEM_TOUR_CHAPTERS } from '../../src/lib/system-tour/content'
-import { allDone, chapterStatus, chaptersFor, NARRATION_MAX, resumeChapter, stepSpeechText, stepSpokenText, stepsFor } from '../../src/lib/system-tour/engine'
-import { NARRATIONS } from '../../src/lib/system-tour/narration'
+import {
+  allDone, chapterStatus, chaptersFor, NARRATION_MAX, resumeChapter, spotlightFocus, stepArea, stepSpeechText, stepSpokenText, stepsFor,
+} from '../../src/lib/system-tour/engine'
+import { NARRATION_CUES, NARRATIONS } from '../../src/lib/system-tour/narration'
 import { buildSsml, DEFAULT_VOICE, escapeXml, looksLikeMp3, normalizeTtsText, silentMp3, tourAudioKey, ttsConfig } from '../../src/lib/system-tour/tts'
 import { applyUpdate, EMPTY_PROGRESS, isChapterId, parseProgress, parseUpdate } from '../../src/lib/system-tour/progress'
 import { TOUR_SIGNALS } from '../../src/lib/system-tour/signals'
@@ -60,6 +62,16 @@ test.describe('conteúdo do tour pelo sistema', () => {
         }
         const found = SRC.includes(`"${s.target}"`) || SRC.includes(`'${s.target}'`)
         expect(found, `data-tour="${s.target}" (${c.id}/${s.id}) não existe em src/`).toBe(true)
+      }
+    }
+  })
+
+  test('toda região em meia-luz existe na tela (data-tour)', () => {
+    for (const c of SYSTEM_TOUR_CHAPTERS) {
+      for (const s of c.steps) {
+        const area = stepArea(s)
+        if (!area) continue
+        expect(SRC.includes(`data-tour="${area}"`), `região data-tour="${area}" (${c.id}/${s.id}) não existe em src/`).toBe(true)
       }
     }
   })
@@ -223,6 +235,43 @@ test.describe('narração falada', () => {
   test('toda narração pertence a um passo que existe', () => {
     const keys = new Set(SYSTEM_TOUR_CHAPTERS.flatMap((c) => c.steps.map((s) => `${c.id}/${s.id}`)))
     for (const k of Object.keys(NARRATIONS)) expect(keys.has(k), `narração órfã: ${k}`).toBe(true)
+  })
+
+  test('destaque acompanhando a voz: todo trecho existe na narração e o passo tem região', () => {
+    const steps = new Map(SYSTEM_TOUR_CHAPTERS.flatMap((c) => c.steps.map((s) => [`${c.id}/${s.id}` as string, s] as const)))
+    for (const [key, cues] of Object.entries(NARRATION_CUES)) {
+      const s = steps.get(key)
+      expect(s, `momentos de um passo que não existe: ${key}`).toBeDefined()
+      expect(stepArea(s!), `${key}: momentos sem região`).toBeDefined()
+      for (const cue of cues) expect(stepSpokenText(s!), `${key}: "${cue.at}" não está na narração`).toContain(cue.at)
+    }
+  })
+
+  test('foco do destaque: parado, o item; falando, o último trecho alcançado', () => {
+    const narration = 'Este é o menu. O item destacado abre a tela. Repare no resto do menu.'
+    const step = {
+      id: 'x', kind: 'info' as const, title: 'T', body: ['b'], target: 'nav-dashboard', narration,
+      cues: [
+        { at: 'Este é o menu', focus: 'area' as const },
+        { at: 'O item destacado', focus: 'target' as const },
+        { at: 'Repare no resto', focus: 'area' as const },
+      ],
+    }
+    const at = (s: string) => narration.indexOf(s) / narration.length
+    expect(stepArea(step)).toBe('sidebar')
+    expect(spotlightFocus(step, null), 'parado: os 3 níveis completos').toBe('target')
+    expect(spotlightFocus(step, 0)).toBe('area')
+    expect(spotlightFocus(step, at('O item destacado') - 0.01)).toBe('area')
+    expect(spotlightFocus(step, at('O item destacado') + 0.01)).toBe('target')
+    expect(spotlightFocus(step, at('Repare no resto') + 0.01)).toBe('area')
+    expect(spotlightFocus(step, 1)).toBe('area')
+    // sem momentos ou sem região: sempre o item
+    expect(spotlightFocus({ ...step, cues: undefined }, 0.5)).toBe('target')
+    expect(spotlightFocus({ ...step, target: 'dashboard-kpis' }, 0)).toBe('target')
+    expect(stepArea({ target: 'header-search' })).toBe('topbar')
+    expect(stepArea({ target: 'sidebar-help' })).toBe('sidebar')
+    expect(stepArea({ target: 'dashboard-kpis' })).toBeUndefined()
+    expect(stepArea({ target: 'dashboard-kpis', area: 'x' })).toBe('x')
   })
 
   test('sem narração, a voz lê o texto da tela', () => {

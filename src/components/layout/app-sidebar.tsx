@@ -93,7 +93,7 @@ export function AppSidebar() {
 
   return (
     <>
-      <aside className="lateral" id="lateral" aria-label="Menu principal">
+      <aside className="lateral" id="lateral" aria-label="Menu principal" data-tour="sidebar">
         <a
           className="lateral__marca"
           href="#dashboard"

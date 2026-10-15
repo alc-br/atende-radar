@@ -3,13 +3,14 @@
 // atende pelo WhatsApp. Regras: segunda pessoa, frases curtas, sem markdown, emojis ou siglas que a voz leria mal
 // (escreva por extenso), até NARRATION_MAX caracteres. Mudar um texto gera um áudio novo (a chave do cache é o texto).
 // Descreva só o que o sistema faz hoje (sem IA ligada; e-mail só com provedor configurado).
+import type { NarrationCue } from './types'
 
 export const NARRATIONS: Record<string, string> = {
   // ── 1. Primeiros passos ──
   'primeiros-passos/boas-vindas':
     'Olá! Este manual vai com você pelas telas do Atende Radar, uma de cada vez. A ideia é simples: o sistema acompanha as conversas de WhatsApp da sua empresa e mostra onde o atendimento está deixando venda escapar. Em cada passo eu destaco um item e explico para que ele serve. Às vezes vou pedir que você clique em algo ou faça um cadastro de verdade, e eu sigo sozinho quando perceber que deu certo. Se preferir, toque em Ler automaticamente: eu leio, mostro onde clicar e sigo sozinho. Cadastros eu só mostro. Pode fechar quando quiser: o seu progresso fica guardado.',
   'primeiros-passos/menu':
-    'Este é o menu lateral, o caminho para todas as telas. Repare que ele muda conforme o seu papel: um atendente vê só o que precisa para o dia a dia, enquanto o administrador vê também conexões, membros e plano. Isso evita confusão e protege informações sensíveis. No celular, o menu fica escondido atrás do botão de três tracinhos, no alto da tela.',
+    'Este é o menu lateral, o caminho para todas as telas. Cada item abre uma tela: o destacado agora, Visão Geral, é o painel principal, por onde você começa o dia. Repare que o menu muda conforme o seu papel: um atendente vê só o que precisa para o dia a dia, enquanto o administrador vê também conexões, membros e plano. Isso evita confusão e protege informações sensíveis. No celular, o menu fica escondido atrás do botão de três tracinhos, no alto da tela.',
   'primeiros-passos/clicar-alertas':
     'Vamos praticar. Os Alertas são o lugar onde o sistema avisa que algo saiu do combinado, por exemplo um cliente esperando resposta há tempo demais. Clique em Alertas no menu e eu continuo a explicação lá dentro.',
   'primeiros-passos/busca':
@@ -192,4 +193,24 @@ export const NARRATIONS: Record<string, string> = {
     'Estes números dão a saúde da plataforma: quantas empresas e pessoas usam o sistema e o volume de uso geral. É o primeiro lugar para perceber crescimento ou uma queda fora do normal.',
   'admin/abas':
     'Nas abas você aprofunda. Em Organizações, abre uma empresa para ver e ajustar a assinatura. Usuários globais lista as pessoas de todas as empresas, e Sistema mostra a situação do servidor. Produto traz ativação, retenção, uso por tela e a taxa de conclusão dos tours, inclusive deste manual. E Suporte reúne os chamados dos clientes, que você marca como resolvidos ou reabre.',
+}
+
+/**
+ * Destaque acompanhando a voz (mesma chave): a partir de cada trecho, a região (menu, topo) ou o item do passo fica em
+ * foco. Antes do primeiro trecho, e com a voz parada, o foco é o item. O trecho precisa existir na narração (teste).
+ */
+export const NARRATION_CUES: Record<string, NarrationCue[]> = {
+  'primeiros-passos/menu': [
+    { at: 'Este é o menu lateral', focus: 'area' },
+    { at: 'o destacado agora, Visão Geral', focus: 'target' },
+    { at: 'Repare que o menu muda', focus: 'area' },
+  ],
+  'primeiros-passos/busca': [
+    { at: 'no alto da tela', focus: 'area' },
+    { at: 'Quando um cliente liga', focus: 'target' },
+  ],
+  'primeiros-passos/onde-fica': [
+    { at: 'no rodapé do menu', focus: 'area' },
+    { at: 'Lá você vê a lista', focus: 'target' },
+  ],
 }

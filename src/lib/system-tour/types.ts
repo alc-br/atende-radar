@@ -50,7 +50,26 @@ export interface SystemTourStep {
    * Sem narração, a voz lê o texto da tela (stepSpeechText).
    */
   narration?: string
+  /**
+   * Região de que o passo fala (data-tour), em meia-luz ao redor do alvo: o alvo fica aceso, a região em meia-luz e o
+   * resto da tela mais escuro. Sem definição: o menu lateral para alvos do menu, o topo para alvos do topo (stepArea).
+   */
+  area?: string
+  /** Momentos da narração que mudam o destaque enquanto a voz fala (narration.ts, NARRATION_CUES). */
+  cues?: NarrationCue[]
 }
+
+/**
+ * Enquanto a voz fala, a partir do trecho `at` da narração o destaque passa a ser:
+ * - area: a região inteira acesa e contornada (a voz está falando dela);
+ * - target: o alvo aceso com o anel, a região em meia-luz (a voz está falando do item onde se clica).
+ */
+export interface NarrationCue {
+  at: string
+  focus: SpotlightFocus
+}
+
+export type SpotlightFocus = 'area' | 'target'
 
 export interface SystemTourChapter {
   id: string

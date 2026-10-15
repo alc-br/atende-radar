@@ -116,6 +116,47 @@ test('passo de clique só avança quando o item destacado é clicado', async ({ 
   await expect(page.locator('main').getByRole('heading', { name: 'Alertas', level: 1 })).toBeVisible()
 })
 
+test('destaque em 3 níveis: item aceso, menu em meia-luz, resto mais escuro; o foco acompanha a voz', async ({ page, context, isMobile }) => {
+  await page.addInitScript(fakeSpeechSynthesis)
+  await enterAsNewOwner(context)
+  await openSystemTour(page, !!isMobile)
+  await startChapter(page, 'primeiros-passos')
+  const p = panel(page)
+  await p.getByRole('button', { name: 'Próximo' }).click()
+  await expect(p.getByRole('heading', { name: 'O menu lateral' })).toBeVisible()
+
+  const veu = page.locator('.tour-sistema__veu')
+  const ring = page.locator('.tour-sistema__destaque')
+  const opacity = (sel: string) => page.locator(sel).evaluate((el) => Number(getComputedStyle(el).opacity))
+  const fillAlpha = (sel: string) =>
+    page.locator(sel).evaluate((el) => Number(getComputedStyle(el).fill.match(/rgba?\(([^)]+)\)/)?.[1].split(',')[3] ?? 1))
+  // parado: os 3 níveis (o anel no item, a meia-luz no menu, o resto mais escuro que o menu sem esconder)
+  await expect(veu).toHaveAttribute('data-focus', 'target')
+  await expect.poll(() => opacity('.tour-sistema__destaque')).toBe(1)
+  await expect.poll(() => opacity('.tour-sistema__veu-medio')).toBe(1)
+  const dark = await fillAlpha('.tour-sistema__veu-escuro')
+  const medium = await fillAlpha('.tour-sistema__veu-medio')
+  expect(dark).toBeGreaterThan(medium)
+  expect(dark).toBeLessThan(0.75)
+  const area = await page.locator('.tour-sistema__area').boundingBox()
+  const aside = await page.locator('aside.lateral').boundingBox()
+  expect(area && aside && Math.abs(area.x - aside.x) < 2 && Math.abs(area.width - aside.width) < 2).toBeTruthy()
+  // no celular a gaveta do menu ainda desliza: o anel acompanha até assentar
+  await expect.poll(async () => {
+    const item = await page.locator('[data-tour="nav-dashboard"]').boundingBox()
+    const ringBox = await ring.boundingBox()
+    return !!(item && ringBox && ringBox.x <= item.x && ringBox.x + ringBox.width >= item.x + item.width)
+  }).toBe(true)
+
+  // falando "Este é o menu lateral": o menu inteiro acende e o anel do item some; no fim volta aos 3 níveis
+  await p.getByRole('button', { name: 'Ouvir' }).click()
+  await expect(veu).toHaveAttribute('data-focus', 'area', { timeout: 15000 })
+  await expect.poll(() => opacity('.tour-sistema__area')).toBe(1)
+  await expect.poll(() => opacity('.tour-sistema__destaque')).toBe(0)
+  await expect(p.getByRole('button', { name: 'Ouvir' })).toBeVisible({ timeout: 15000 })
+  await expect(veu).toHaveAttribute('data-focus', 'target')
+})
+
 test('passo de cadastro avança sozinho depois de criar uma equipe de verdade pela tela', async ({ page, context, isMobile }) => {
   await enterAsRole(context, 'admin')
   await openSystemTour(page, !!isMobile)
