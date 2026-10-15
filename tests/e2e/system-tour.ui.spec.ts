@@ -151,10 +151,22 @@ test('destaque em 3 níveis: item aceso, menu em meia-luz, resto mais escuro; o 
   }).toBe(true)
 
   // falando "Este é o menu lateral": o menu inteiro acende e o anel do item some; no fim volta aos 3 níveis
+  // o áudio falso dos testes tem ~2,6 s para a narração inteira: o trecho do menu dura uma fração de segundo. A página
+  // pausa a fala no instante em que o foco vai para o menu, e o teste confere com a fala parada ali.
+  await veu.evaluate((svg) => {
+    const mo = new MutationObserver(() => {
+      if (svg.getAttribute('data-focus') !== 'area') return
+      mo.disconnect()
+      ;[...document.querySelectorAll<HTMLButtonElement>('[data-testid="system-tour-panel"] button')].find((b) => b.textContent?.trim() === 'Pausar')?.click()
+    })
+    mo.observe(svg, { attributes: true, attributeFilter: ['data-focus'] })
+  })
   await p.getByRole('button', { name: 'Ouvir' }).click()
-  await expect(veu).toHaveAttribute('data-focus', 'area', { timeout: 15000 })
+  await expect(p.getByRole('button', { name: 'Continuar' })).toBeVisible({ timeout: 15000 })
+  await expect(veu).toHaveAttribute('data-focus', 'area')
   await expect.poll(() => opacity('.tour-sistema__area')).toBe(1)
   await expect.poll(() => opacity('.tour-sistema__destaque')).toBe(0)
+  await p.getByRole('button', { name: 'Continuar' }).click()
   await expect(p.getByRole('button', { name: 'Ouvir' })).toBeVisible({ timeout: 15000 })
   await expect(veu).toHaveAttribute('data-focus', 'target')
 })
