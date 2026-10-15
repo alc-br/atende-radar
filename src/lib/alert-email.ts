@@ -74,7 +74,7 @@ export async function queueAlertEmails(rule: RuleLike, alert: AlertLike): Promis
     let queued = 0
     for (const m of members) {
       if (!can(m.role, 'alerts.view')) continue
-      const ctx: AuthContext = { memberId: m.id, orgId: alert.organizationId, role: m.role, email: m.email, name: m.name, emailVerified: true, team: m.team?.trim() || null }
+      const ctx: AuthContext = { memberId: m.id, orgId: alert.organizationId, role: m.role, email: m.email, name: m.name, emailVerified: true, team: m.team?.trim() || null, demoAccess: false }
       const visible = await db.alert.count({ where: { AND: [{ id: alert.id }, alertScope(ctx)] } })
       if (!visible) continue
       await db.alertEmailItem.create({

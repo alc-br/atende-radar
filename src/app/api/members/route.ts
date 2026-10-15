@@ -5,6 +5,7 @@ import { guard, badRequest, publicMember } from '@/lib/api-auth'
 import { sendInvite } from '@/lib/invites'
 import { isRole } from '@/lib/permissions'
 import { readJson } from '@/lib/json-body'
+import { queueMemberSync } from '@/lib/mautic'
 
 export async function GET() {
   try {
@@ -84,6 +85,7 @@ export async function POST(request: Request) {
       },
     })
 
+    queueMemberSync(member.id) // contato no Mautic (nunca lança)
     await audit(g.auth, { action: 'member.invited', targetType: 'member', targetId: member.id, targetLabel: normalizedEmail, details: { role: finalRole } })
     // E-mail não saiu (sem provedor ou falha no envio): o admin recebe o link para repassar.
     const { inviteLink, emailStatus } = await sendInvite(g.auth, member)

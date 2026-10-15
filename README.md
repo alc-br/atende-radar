@@ -19,7 +19,7 @@ mensagens** pelo número da empresa.
 | Login | NextAuth v4 (credenciais + JWT), papéis por organização |
 | WhatsApp | Baileys (`src/lib/whatsapp/`), sessões fora da pasta de deploy |
 | Cobrança | Pagar.me API v5, checkout transparente (`src/lib/billing/`) |
-| E-mail | Resend (opcional; sem ele os e-mails ficam na fila `EmailOutbox`) |
+| E-mail | Brevo (transacional; sem ele os e-mails ficam na fila `EmailOutbox`) + contatos no Mautic — ver docs/operacao/email.md |
 | Runtime e testes | Bun, Playwright |
 
 Domínios: em produção o site e o app ficam em domínios separados (`NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_APP_URL`,

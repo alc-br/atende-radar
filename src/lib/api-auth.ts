@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from './auth'
 import { db } from './db'
 import { can, type Permission } from './permissions'
+import { isDemoOrg } from './sandbox'
 
 export interface AuthContext {
   memberId: string
@@ -13,6 +14,8 @@ export interface AuthContext {
   name: string
   emailVerified: boolean
   team: string | null
+  /** Entrou pela demonstração com a senha pública (membro da empresa de demonstração sem senha própria). */
+  demoAccess: boolean
 }
 
 export type Guard = { ok: true; auth: AuthContext } | { ok: false; res: NextResponse }
@@ -42,13 +45,17 @@ export async function guard(permission?: Permission): Promise<Guard> {
 
   return {
     ok: true,
-    auth: { memberId: member.id, orgId: member.organizationId, role: member.role, email: member.email, name: member.name, emailVerified: !!member.emailVerifiedAt, team: member.team?.trim() || null },
+    auth: { memberId: member.id, orgId: member.organizationId, role: member.role, email: member.email, name: member.name, emailVerified: !!member.emailVerifiedAt, team: member.team?.trim() || null, demoAccess: isDemoOrg(member.organizationId) && !member.passwordHash },
   }
 }
 
-/** Operador da plataforma = e-mail listado em PLATFORM_ADMIN_EMAILS (separados por vírgula). */
-export function isPlatformOperator(email: string | null | undefined): boolean {
-  if (!email) return false
+/**
+ * Operador da plataforma = e-mail listado em PLATFORM_ADMIN_EMAILS (separados por vírgula), com senha própria: a senha
+ * pública da demonstração cria membros com qualquer e-mail, então quem entra por ela nunca vê o Admin (nem a Simulação).
+ */
+export function isPlatformOperator(a: Pick<AuthContext, 'email' | 'demoAccess'>): boolean {
+  const email = a.email
+  if (!email || a.demoAccess) return false
   const list = (process.env.PLATFORM_ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
   return list.includes(email.toLowerCase())
 }

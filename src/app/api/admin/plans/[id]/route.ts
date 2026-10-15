@@ -15,7 +15,7 @@ import { parsePlanPatch } from '@/lib/plan-catalog'
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const g = await guard()
   if (!g.ok) return g.res
-  if (!isPlatformOperator(g.auth.email)) return NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 })
+  if (!isPlatformOperator(g.auth)) return NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 })
   const { id } = await params
   const j = await readJson<unknown>(request)
   if (!j.ok) return j.res

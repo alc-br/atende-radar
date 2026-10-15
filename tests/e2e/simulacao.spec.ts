@@ -50,6 +50,17 @@ test.describe('acesso', () => {
     await client.dispose()
   })
 
+  test('demonstração nunca vê a Simulação nem o Admin, nem com um e-mail de operador', async () => {
+    // e-mail listado em PLATFORM_ADMIN_EMAILS que ainda não tem conta: a senha pública cria o membro na demonstração
+    const demo = await loginAs('operador.demo@test.local', 'demo123')
+    expect((await demo.get('/api/me')).ok()).toBe(true)
+    expect((await (await demo.get('/api/me')).json()).isPlatformOperator).toBe(false)
+    expect((await demo.get('/api/admin/simulation/scenarios')).status()).toBe(403)
+    expect((await demo.post('/api/admin/simulation/run', { data: { scenarioId: 'cpf-mascarado' } })).status()).toBe(403)
+    expect((await demo.get('/api/admin')).status()).toBe(403)
+    await demo.dispose()
+  })
+
   test('Bearer: segredo certo → 200; errado ou o do gateway → 401 (sem cair para a sessão)', async () => {
     const ok = await bearer()
     expect((await ok.get('/api/admin/simulation/scenarios')).status()).toBe(200)

@@ -1,5 +1,6 @@
 import { db } from './db'
 import { isSimulationEmail } from './sandbox'
+import { queueRecipientSync } from './mautic'
 
 export interface MailAttachment {
   filename: string
@@ -39,34 +40,48 @@ const parseHeaders = (json: string | null | undefined): Record<string, string> |
   }
 }
 
-/** Uma chamada ao provedor (Resend). Lança erro se não deu certo. */
+const mailEnabled = () => process.env.MAIL_PROVIDER === 'brevo'
+
+/** "Nome <email@x>" ou só "email@x" → remetente do Brevo. */
+export function parseSender(from: string): { name?: string; email: string } {
+  const m = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from)
+  if (!m) return { email: from.trim() }
+  const name = m[1].replace(/^"|"$/g, '').trim()
+  return name ? { name, email: m[2].trim() } : { email: m[2].trim() }
+}
+
+/**
+ * Uma chamada ao provedor (Brevo, API de e-mail transacional). Lança erro se não deu certo.
+ * A conta do Brevo só aceita chamadas de IPs autorizados: em produção, o do servidor.
+ */
 async function deliver(mail: { to: string; subject: string; text: string; attachments?: MailAttachment[]; headers?: Record<string, string> }) {
-  if (process.env.MAIL_PROVIDER !== 'resend') throw new Error('Provedor de e-mail não configurado (MAIL_PROVIDER)')
-  const key = process.env.RESEND_API_KEY
+  if (!mailEnabled()) throw new Error('Provedor de e-mail não configurado (MAIL_PROVIDER)')
+  const key = process.env.BREVO_API_KEY
   const from = process.env.MAIL_FROM
-  if (!key || !from) throw new Error('RESEND_API_KEY/MAIL_FROM ausentes')
-  const res = await fetch('https://api.resend.com/emails', {
+  if (!key || !from) throw new Error('BREVO_API_KEY/MAIL_FROM ausentes')
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    headers: { 'api-key': key, 'Content-Type': 'application/json', accept: 'application/json' },
     body: JSON.stringify({
-      from,
-      to: [mail.to],
+      sender: parseSender(from),
+      to: [{ email: mail.to }],
       subject: mail.subject,
-      text: mail.text,
+      textContent: mail.text,
       ...(mail.headers && Object.keys(mail.headers).length ? { headers: mail.headers } : {}),
       ...(mail.attachments?.length
-        ? { attachments: mail.attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content).toString('base64') })) }
+        ? { attachment: mail.attachments.map((a) => ({ name: a.filename, content: Buffer.from(a.content).toString('base64') })) }
         : {}),
     }),
   })
-  if (!res.ok) throw new Error(`Resend HTTP ${res.status}`)
+  if (!res.ok) throw new Error(`Brevo HTTP ${res.status}`)
 }
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'erro').slice(0, 300)
 
 /**
  * Todo e-mail passa pelo EmailOutbox (registro auditável). Se houver provedor configurado
- * (MAIL_PROVIDER=resend + RESEND_API_KEY + MAIL_FROM) ele é enviado; senão fica 'queued'.
+ * (MAIL_PROVIDER=brevo + BREVO_API_KEY + MAIL_FROM) ele é enviado; senão fica 'queued'.
+ * O destinatário também vai para o Mautic (contatos ficam lá; e-mail de marketing sai pelo Mautic).
  * Devolve a situação final do registro (quem chama decide o que fazer com uma falha).
  * Falha de envio de e-mail sem anexo é tentada de novo sozinha (retryFailedEmails).
  */
@@ -78,6 +93,8 @@ export async function sendMail(mail: Mail): Promise<MailStatus> {
 export async function sendMailRow(mail: Mail): Promise<{ id: string; status: MailStatus }> {
   // membros sintéticos das empresas simuladas (@sim.invalid): nada vai para a fila nem para o provedor
   if (isSimulationEmail(mail.to)) return { id: '', status: 'failed' }
+  // todo destinatário é contato no Mautic (menos as caixas internas de vendas e suporte)
+  if (![process.env.SALES_EMAIL, process.env.SUPPORT_EMAIL].some((x) => x?.trim().toLowerCase() === mail.to.trim().toLowerCase())) queueRecipientSync(mail.to)
   const attachments = mail.attachments?.length ? JSON.stringify(mail.attachments.map((a) => ({ filename: a.filename, size: a.content.byteLength }))) : null
   const row = await db.emailOutbox.create({
     data: {
@@ -86,7 +103,7 @@ export async function sendMailRow(mail: Mail): Promise<{ id: string; status: Mai
     },
   })
 
-  if (process.env.MAIL_PROVIDER !== 'resend') return { id: row.id, status: 'queued' }
+  if (!mailEnabled()) return { id: row.id, status: 'queued' }
   try {
     await deliver(mail)
     await db.emailOutbox.update({ where: { id: row.id }, data: { status: 'sent', sentAt: new Date(), attempts: 1 } })

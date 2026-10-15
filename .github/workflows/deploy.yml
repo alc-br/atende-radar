@@ -152,13 +152,31 @@ jobs:
           # Voz do tour (Azure Speech, plano F0): docs/operacao/tour-audio.md
           AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
           AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
+          # E-mail transacional (Brevo) e contatos (Mautic): docs/operacao/email.md
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          MAUTIC_USUARIO: ${{ secrets.MAUTIC_USUARIO }}
+          MAUTIC_SENHA: ${{ secrets.MAUTIC_SENHA }}
         run: |
           ENVF=/opt/atende-radar/shared/app.env
           add_if_missing() { grep -q "^$1=" "$ENVF" || echo "$1=$2" >> "$ENVF"; }
           # Chaves do Pagar.me e da Azure vêm dos secrets do GitHub (valor nunca impresso); trocar o secret troca no
           # servidor; secret vazio não apaga o que já está lá
           set_from_secret() { [ -n "${!1}" ] || return 0; sed -i "/^$1=/d" "$ENVF"; echo "$1=${!1}" >> "$ENVF"; }
-          for v in PAGARME_PUBLIC_KEY PAGARME_SECRET_KEY PAGARME_PUBLIC_KEY_TEST PAGARME_SECRET_KEY_TEST PAGARME_WEBHOOK_USER PAGARME_WEBHOOK_PASS AZURE_SPEECH_KEY AZURE_SPEECH_REGION; do set_from_secret "$v"; done
+          for v in PAGARME_PUBLIC_KEY PAGARME_SECRET_KEY PAGARME_PUBLIC_KEY_TEST PAGARME_SECRET_KEY_TEST PAGARME_WEBHOOK_USER PAGARME_WEBHOOK_PASS AZURE_SPEECH_KEY AZURE_SPEECH_REGION BREVO_API_KEY MAUTIC_USUARIO MAUTIC_SENHA; do set_from_secret "$v"; done
+          add_if_missing MAUTIC_URL https://mautic.alc.srv.br
+          add_if_missing MAIL_FROM "AtendeRadar <nao-responda@atenderadar.com.br>"
+          # restos do Resend (trocado pelo Brevo)
+          sed -i '/^RESEND_API_KEY=/d' "$ENVF"
+          # Liga o envio pelo Brevo só se o domínio do remetente estiver autenticado lá (conferido daqui: a conta só aceita o
+          # IP do servidor). MAIL_PROVIDER=off no app.env desliga de propósito e o deploy respeita.
+          CUR_MAIL=$(sed -n 's/^MAIL_PROVIDER=//p' "$ENVF" | tail -1)
+          if [ "$CUR_MAIL" != "off" ] && [ "$CUR_MAIL" != "brevo" ]; then
+            if ( set -a; . "$ENVF"; set +a; cd /opt/atende-radar/current && /usr/local/bin/bun scripts/mail-check.ts ); then
+              sed -i '/^MAIL_PROVIDER=/d' "$ENVF"; echo "MAIL_PROVIDER=brevo" >> "$ENVF"; echo "envio de e-mail ligado (Brevo)"
+            else
+              echo "::warning::E-mail continua na fila: o Brevo ainda não aceita o remetente (veja a saída do mail-check)"
+            fi
+          fi
           # test = sandbox; muda para live no servidor quando a conta de produção estiver liberada
           add_if_missing PAGARME_MODE test
           add_if_missing GATEWAY_SECRET "$(openssl rand -hex 32)"
@@ -168,10 +186,17 @@ jobs:
           # do dono, editando o app.env no servidor; o deploy nunca muda um valor que já existe. SIMULATION_SECRET (acesso
           # do CLI/agente pela API) não é criado aqui: sem ele, só o operador logado usa a aba Simulação.
           add_if_missing SIMULATION_ENABLED off
+          # 15/10/2026: o dono decidiu ligar a aba Simulação no Admin (sem SIMULATION_SECRET). Feito uma vez só: se depois
+          # alguém voltar para off no servidor, o deploy não liga de novo.
+          if [ ! -f /opt/atende-radar/shared/.simulation-on-2026-10-15 ]; then
+            sed -i 's/^SIMULATION_ENABLED=.*/SIMULATION_ENABLED=on/' "$ENVF" && touch /opt/atende-radar/shared/.simulation-on-2026-10-15
+          fi
           add_if_missing WA_SESSIONS_DIR /opt/atende-radar/wa-sessions
           mkdir -p /opt/atende-radar/wa-sessions && chmod 700 /opt/atende-radar/wa-sessions
           # Chave que cifra as credenciais do WhatsApp em disco (docs/operacao/sessoes-whatsapp.md).
           # No primeiro deploy com a chave, guarda antes uma cópia das sessões como estavam (texto puro) para voltar atrás.
+          # a cópia em texto puro de antes da cifra não é mais necessária (decisão do dono, 15/10/2026)
+          if grep -q "^WA_SESSIONS_KEY=" "$ENVF"; then rm -f /opt/atende-radar/backups/wa-sessions-pre-cifra-*.tar.gz; fi
           if ! grep -q "^WA_SESSIONS_KEY=" "$ENVF"; then
             mkdir -p /opt/atende-radar/backups
             PRE=/opt/atende-radar/backups/wa-sessions-pre-cifra-$(date +%Y%m%d-%H%M%S).tar.gz
@@ -195,6 +220,12 @@ jobs:
           sed -i '/^PIPER_BIN=/d; /^PIPER_VOICE=/d' "$ENVF"
           echo "variáveis presentes: $(sed -E 's/=.*//' "$ENVF" | grep -vE '^#|^$' | tr '\n' ' ')"
 
+      - name: "Capacidade do servidor (RAM, CPU e limites do serviço; só leitura, para o drop-in do systemd)"
+        continue-on-error: true
+        run: |
+          nproc; free -m
+          systemctl show atende-radar.service -p MemoryCurrent -p MemoryMax -p MemoryHigh -p TasksMax -p Restart
+
       - name: Restart service
         run: sudo systemctl restart atende-radar.service
 
@@ -202,6 +233,14 @@ jobs:
         run: |
           sleep 3
           curl -sf http://127.0.0.1:3200 > /dev/null
+
+      - name: "Contatos no Mautic (todo membro de empresa real; idempotente; falha só avisa)"
+        working-directory: /opt/atende-radar/current
+        continue-on-error: true
+        run: |
+          # Primeiro o catálogo (categoria, campos ar_*, tags, segmentos; só cria o que falta), depois os contatos
+          ( set -a; . /opt/atende-radar/shared/app.env; set +a; /usr/local/bin/bun scripts/mautic-setup.ts ) || echo "::warning::Catálogo do Mautic não conferido agora"
+          ( set -a; . /opt/atende-radar/shared/app.env; set +a; /usr/local/bin/bun scripts/mautic-sync.ts ) || echo "::warning::Contatos não sincronizados com o Mautic agora (o app sincroniza cada cadastro novo)"
 
       - name: "Voz do tour: gera o áudio que falta (Azure Speech; só o que não está no cache; falha só avisa)"
         working-directory: /opt/atende-radar/current

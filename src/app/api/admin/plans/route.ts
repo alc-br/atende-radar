@@ -6,7 +6,7 @@ import { guard, isPlatformOperator } from '@/lib/api-auth'
 export async function GET() {
   const g = await guard()
   if (!g.ok) return g.res
-  if (!isPlatformOperator(g.auth.email)) return NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 })
+  if (!isPlatformOperator(g.auth)) return NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 })
 
   const [plans, subs] = await Promise.all([
     db.plan.findMany({ orderBy: { sortOrder: 'asc' } }),

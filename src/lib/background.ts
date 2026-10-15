@@ -10,6 +10,7 @@ import { purgeProductEvents } from './privacy'
 import { flushAlertEmails } from './alert-email'
 import { retryFailedEmails } from './mailer'
 import { purgeExpiredSimulations } from './simulation/cleanup'
+import { mauticEnabled, syncAllMembersToMautic } from './mautic'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -77,6 +78,8 @@ export function startBackgroundJobs() {
   const optimize = () => safely('estatísticas do banco', () => optimizeDb())
   setTimeout(optimize, 30_000).unref?.()
   setInterval(optimize, 6 * 3600_000).unref?.()
+  // contatos no Mautic: papel, plano e assinatura em dia nos segmentos "[AtendeRadar] …" (só com o Mautic configurado)
+  if (mauticEnabled()) setInterval(() => safely('contatos no Mautic', () => syncAllMembersToMautic()), 6 * 3600_000).unref?.()
   console.log('[analysis] agendador ligado (a cada 60 s)')
 }
 

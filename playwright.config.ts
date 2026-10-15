@@ -46,7 +46,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: TEST_DB,
       NEXTAUTH_SECRET: 'e2e-secret-not-for-production',
-      PLATFORM_ADMIN_EMAILS: 'platform@test.local',
+      PLATFORM_ADMIN_EMAILS: 'platform@test.local,operador.demo@test.local',
       GATEWAY_SECRET: 'gateway-secret-test',
       // Credenciais do WhatsApp cifradas (32 bytes em base64, só para testes); o gateway Baileys fica desligado nos e2e
       WA_SESSIONS_KEY: 'ZTJlLXdhLXNlc3Npb25zLWtleS1ub3QtZm9yLXByb2Q=',

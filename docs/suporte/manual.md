@@ -119,7 +119,7 @@ Primeiro, onde ele esperava o alerta:
 ### "O e-mail não chegou" (convite, recuperação de senha, alerta, relatório)
 
 1. **Peça para olhar o spam e a aba Promoções.**
-2. **O servidor precisa estar com um provedor de e-mail configurado** (`MAIL_PROVIDER=resend`). Sem ele, os e-mails
+2. **O servidor precisa estar com um provedor de e-mail configurado** (`MAIL_PROVIDER=brevo`). Sem ele, os e-mails
    ficam na fila e **nunca saem**, para ninguém. Se nenhum cliente recebe nada, é isso: escale.
 3. **Tentativas:** o sistema tenta de novo depois de 5 min, 30 min e 2 h, num total de 4 tentativas. Um e-mail
    recém-pedido pode demorar.

@@ -6,7 +6,7 @@ import { productAnalytics } from '@/lib/product-analytics'
 export async function GET(request: Request) {
   const g = await guard()
   if (!g.ok) return g.res
-  if (!isPlatformOperator(g.auth.email)) {
+  if (!isPlatformOperator(g.auth)) {
     return NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 })
   }
   const days = new URL(request.url).searchParams.get('days') === '90' ? 90 : 30

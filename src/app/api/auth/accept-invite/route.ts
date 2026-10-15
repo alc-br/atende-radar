@@ -5,6 +5,7 @@ import { hashPassword, passwordProblem } from '@/lib/passwords'
 import { allow, clientIp } from '@/lib/rate-limit'
 import { TERMS_REQUIRED_MESSAGE, termsAcceptance } from '@/lib/legal'
 import { readJson } from '@/lib/json-body'
+import { queueMemberSync } from '@/lib/mautic'
 
 const INVALID = 'Convite inválido ou expirado. Peça um novo ao administrador.'
 
@@ -39,5 +40,6 @@ export async function POST(request: Request) {
       ...(name && name.length >= 2 ? { name } : {}),
     },
   })
+  queueMemberSync(memberId) // contato no Mautic com o nome escolhido (nunca lança)
   return NextResponse.json({ success: true })
 }

@@ -3,7 +3,7 @@ import { BASE_URL, loginAs, signupOrg, uid } from './helpers'
 import { gatewayClient, setupCompany, newChat } from './gw'
 import { mailsTo, testDb } from './db'
 
-// E-mails do produto: todo e-mail passa pelo EmailOutbox (o provedor real, Resend, entra com MAIL_PROVIDER=resend).
+// E-mails do produto: todo e-mail passa pelo EmailOutbox (o provedor real, Brevo, entra com MAIL_PROVIDER=brevo).
 // Aqui se prova o que o sistema manda, para quem, quando e que os links levam a páginas que funcionam.
 
 const BASE = BASE_URL

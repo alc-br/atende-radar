@@ -2,6 +2,7 @@ import { db } from './db'
 import { audit } from './audit'
 import { consumeToken, issueToken } from './auth-tokens'
 import { appUrl, sendMail } from './mailer'
+import { queueMemberSync } from './mautic'
 
 // Troca do e-mail de acesso (P7). O e-mail só muda quando a pessoa abre o link enviado ao NOVO endereço
 // (token de uso único, 24 h). O endereço antigo é avisado no pedido e na confirmação.
@@ -70,6 +71,7 @@ export async function confirmEmailChange(token: string): Promise<ConfirmResult> 
     { orgId: m.organizationId, memberId: m.id, email: newEmail, role: m.role },
     { action: 'account.email_changed', targetType: 'member', targetId: m.id, targetLabel: newEmail },
   )
+  queueMemberSync(m.id) // o novo endereço vira contato no Mautic (nunca lança)
   await sendMail({
     to: oldEmail,
     subject: 'O seu e-mail de acesso foi trocado — AtendeRadar',

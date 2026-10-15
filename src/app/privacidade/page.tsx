@@ -61,6 +61,7 @@ export default function PrivacidadePage() {
           <li>Criar e proteger a conta, autenticar o acesso e controlar permissões por função;</li>
           <li>Cobrar a assinatura e emitir os avisos de pagamento;</li>
           <li>Enviar e-mails do serviço, como confirmação de cadastro, convites, recuperação de senha e relatórios;</li>
+          <li>Manter o cadastro de contato de quem usa o sistema e, se enviarmos novidades por e-mail, sempre com link para deixar de receber;</li>
           <li>Cumprir obrigações legais e nos defender em processos.</li>
         </ul>
         <p>Não vendemos dados pessoais e não usamos as conversas das empresas clientes para publicidade.</p>
@@ -68,7 +69,8 @@ export default function PrivacidadePage() {
         <h2>4. Com quem compartilhamos</h2>
         <ul>
           <li><strong>Pagar.me</strong>: processamento dos pagamentos da assinatura;</li>
-          <li><strong>Resend</strong>: envio dos e-mails do serviço;</li>
+          <li><strong>Brevo</strong>: envio dos e-mails do serviço;</li>
+          <li><strong>Mautic</strong> (ferramenta de relacionamento operada por nós): cadastro de contato (nome, e-mail e empresa) de quem usa o sistema;</li>
           <li><strong>Provedor de infraestrutura</strong>: servidores onde o sistema e o banco de dados ficam hospedados;</li>
           <li>Autoridades públicas, quando houver obrigação legal ou ordem judicial.</li>
         </ul>

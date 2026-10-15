@@ -11,7 +11,7 @@ const STATUSES = ['trialing', 'active', 'past_due', 'canceled', 'expired']
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const g = await guard()
   if (!g.ok) return g.res
-  if (!isPlatformOperator(g.auth.email)) {
+  if (!isPlatformOperator(g.auth)) {
     return NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 })
   }
   const { id } = await params

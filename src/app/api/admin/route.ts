@@ -19,7 +19,7 @@ export async function GET() {
     // Painel da plataforma: só o operador (PLATFORM_ADMIN_EMAILS). Admin de cliente não entra.
     const g = await guard()
     if (!g.ok) return g.res
-    if (!isPlatformOperator(g.auth.email)) {
+    if (!isPlatformOperator(g.auth)) {
       return NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 })
     }
 

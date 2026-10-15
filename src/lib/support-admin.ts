@@ -8,7 +8,7 @@ import type { Prisma } from '@prisma/client'
 export async function operatorGuard(): Promise<{ ok: true; auth: AuthContext } | { ok: false; res: NextResponse }> {
   const g = await guard()
   if (!g.ok) return g
-  if (!isPlatformOperator(g.auth.email)) return { ok: false, res: NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 }) }
+  if (!isPlatformOperator(g.auth)) return { ok: false, res: NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 }) }
   return g
 }
 

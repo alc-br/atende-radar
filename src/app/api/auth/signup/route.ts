@@ -9,6 +9,7 @@ import { createOrganizationDefaults } from '@/lib/org-defaults'
 import { TERMS_REQUIRED_MESSAGE, termsAcceptance } from '@/lib/legal'
 import { readJson } from '@/lib/json-body'
 import { milestone } from '@/lib/product-events'
+import { queueMemberSync } from '@/lib/mautic'
 
 const Body = z.object({
   name: z.string().trim().min(2, 'Informe o seu nome.').max(120),
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
   })
 
   await milestone(member.organizationId, 'signup') // funil (I7): nunca lança erro
+  queueMemberSync(member.id) // contato no Mautic (nunca lança)
 
   const token = await issueToken(member.id, 'verify')
   await sendMail({

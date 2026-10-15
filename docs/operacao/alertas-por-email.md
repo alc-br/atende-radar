@@ -46,7 +46,7 @@ O envio roda a cada minuto (agendador interno) e em `POST /api/gateway/tick`.
 
 ## Novas tentativas
 
-Sem `MAIL_PROVIDER=resend`, o e-mail fica `queued` e não é tentado de novo. Com o provedor, uma falha marca o e-mail como `failed` e ele é tentado de novo depois de 5 min, 30 min e 2 h. São 4 envios no máximo.
+Sem `MAIL_PROVIDER=brevo`, o e-mail fica `queued` e não é tentado de novo. Com o provedor, uma falha marca o e-mail como `failed` e ele é tentado de novo depois de 5 min, 30 min e 2 h. São 4 envios no máximo.
 
 Na última falha, o campo `error` termina com "desistiu após 4 tentativas" e `nextAttemptAt` fica nulo. Se o e-mail era de alerta, a empresa recebe no sino o aviso "Alerta por e-mail não foi entregue".
 
@@ -60,4 +60,4 @@ O token é um HMAC do id do membro com `NEXTAUTH_SECRET`. Se esse segredo trocar
 
 ## Depois do deploy
 
-As regras padrão de toda empresa já vêm com o canal e-mail. Por isso, com `MAIL_PROVIDER=resend`, os alertas passam a sair por e-mail assim que este código entrar.
+As regras padrão de toda empresa já vêm com o canal e-mail. Por isso, com `MAIL_PROVIDER=brevo`, os alertas passam a sair por e-mail assim que este código entrar.

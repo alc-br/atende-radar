@@ -50,7 +50,7 @@ export async function GET(request: Request) {
   const stepRaw = url.searchParams.get('step') ?? ''
   if (!/^\d{1,3}$/.test(stepRaw)) return notFound()
   // Mesma filtragem por papel do conteúdo: capítulo ou passo que a pessoa não vê não existe para ela
-  const chapter = chaptersFor({ role: g.auth.role, isPlatformOperator: isPlatformOperator(g.auth.email) }).find((c) => c.id === chapterId)
+  const chapter = chaptersFor({ role: g.auth.role, isPlatformOperator: isPlatformOperator(g.auth) }).find((c) => c.id === chapterId)
   const step = chapter?.steps[Number(stepRaw)]
   if (!step) return notFound()
   const text = stepSpokenText(step)

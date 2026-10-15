@@ -115,7 +115,7 @@ test.describe('Alertas por e-mail', () => {
     await c.tick({ onlyThisCompany: true })
     const [mail] = await alertMails(c.email)
     const past = () => new Date(Date.now() - 60_000)
-    await testDb.emailOutbox.update({ where: { id: mail.id }, data: { status: 'failed', attempts: 1, nextAttemptAt: past(), error: 'Resend HTTP 500' } })
+    await testDb.emailOutbox.update({ where: { id: mail.id }, data: { status: 'failed', attempts: 1, nextAttemptAt: past(), error: 'Brevo HTTP 500' } })
 
     for (const attempts of [2, 3]) {
       await c.tick({ onlyThisCompany: true })

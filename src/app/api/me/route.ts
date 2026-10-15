@@ -17,7 +17,7 @@ export async function GET() {
     organizationId: orgId,
     organizationName: org?.displayName || org?.name || null,
     organizationLogoUrl: org ? logoUrl(org) : null,
-    isPlatformOperator: isPlatformOperator(email),
+    isPlatformOperator: isPlatformOperator(g.auth),
     // exclusão da empresa pedida pelo dono: a faixa de aviso aparece para todos os membros
     organizationDeletion: org ? deletionInfo(org) : null,
   })
