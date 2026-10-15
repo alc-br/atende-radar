@@ -222,7 +222,9 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   /** Passo cuja fala terminou com a leitura automática ligada (null = ainda falando ou não lido). */
   const [narrated, setNarrated] = useState<number | null>(null)
   const narratedRef = useRef<number | null>(null)
-  narratedRef.current = narrated
+  useEffect(() => {
+    narratedRef.current = narrated
+  }, [narrated])
   const stopAuto = useCallback(() => {
     autoRef.current = false
     setAutoRead(false)
@@ -250,12 +252,10 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   // demorou mais que VOICE_WAIT_MS), a tela aparece na hora.
   const [screenStep, setScreenStep] = useState<number | null>(null)
   const voiceStarted = speech.state === 'speaking'
+  // voz já falando (ou leitura automática desligada): a tela aparece no mesmo render
+  if (screenStep !== idx && (!autoRead || voiceStarted)) setScreenStep(idx)
   useEffect(() => {
-    if (screenStep === idx) return
-    if (!autoRead || voiceStarted) {
-      setScreenStep(idx)
-      return
-    }
+    if (screenStep === idx || !autoRead || voiceStarted) return
     const t = window.setTimeout(() => setScreenStep(idx), VOICE_WAIT_MS)
     return () => window.clearTimeout(t)
   }, [idx, autoRead, voiceStarted, screenStep])
@@ -446,9 +446,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   const [pointing, setPointing] = useState<number | null>(null)
   const cue = useMemo(() => (step.kind === 'click' ? actionCue(step) : 1), [step])
   const reachedCue = step.kind === 'click' && speech.state === 'speaking' && (speech.progress ?? 0) >= cue
-  useEffect(() => {
-    if (autoRead && reachedCue && pointing !== idx) setPointing(idx)
-  }, [autoRead, reachedCue, pointing, idx])
+  if (autoRead && reachedCue && pointing !== idx) setPointing(idx)
   const simulates = autoRead && screenReady && !advancesByArrow && (narrated === idx || pointing === idx)
 
   // Enquanto fala um passo, já baixa o áudio do próximo: a voz seguinte começa sem atraso, junto com a tela.

@@ -62,6 +62,15 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 15/10/2026
+
+- **Novo no backlog (pedido do dono), V8 "impacto na entrada":** quando o dono da empresa (assinante, papel administrador) entra no sistema, a primeira coisa que vê precisa mostrar o valor da plataforma com números reais da empresa dele:
+  - quanto dinheiro pode ter perdido (oportunidades em risco ou perdidas, em R$);
+  - atendimentos ruins (sem resposta, demora, frustração, promessas sem retorno);
+  - comparação com o período anterior e o que já foi recuperado.
+  - Usa o que o motor já calcula ("Como calculamos", valor em risco, alertas). Nunca números inventados: sem dados suficientes, mostra o que falta para medir (ex.: conectar o WhatsApp).
+  - Ainda não desenhado nem implementado.
+
 ### 14/10/2026
 
 - **Tour, destaque em 3 níveis (pedido do dono):** o item a clicar fica aceso com o anel, a região de que se fala (menu lateral, barra do topo) fica em meia-luz e o resto mais escuro sem esconder. Desenho em SVG com máscaras (`Spotlight` em `system-tour-panel.tsx`), região pelo `area` do passo ou deduzida do alvo (`stepArea`).
