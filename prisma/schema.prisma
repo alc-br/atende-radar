@@ -267,12 +267,18 @@ model Alert {
   confidence      Float?
   assignedTo      String?
   dismissedReason String?
+  // B6 · agrupamento: mesma conversa + mesma causa (ex.: "resposta|<conversa>") vira UM alerta com contador
+  groupKey        String?
+  occurrences     Int           @default(1) // quantas vezes o problema apareceu nesta conversa (reaberturas contam)
+  lastOccurredAt  DateTime? // última vez que apareceu (ordem da lista); null = alerta antigo (usa createdAt)
+  resolvedBy      String? // auto (o motor viu que deixou de valer) | user (alguém resolveu) | grouped (juntado a outro)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   @@index([organizationId, createdAt])
   @@index([organizationId, status])
   @@index([conversationId])
+  @@index([organizationId, groupKey])
 }
 
 model RecoveryItem {

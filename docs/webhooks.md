@@ -1,7 +1,7 @@
 # Webhook de alertas (AtendeRadar → seu sistema)
 
 Configure em **Configurações › Webhook** (administrador ou gestor). O AtendeRadar envia um `POST` em JSON para a sua URL
-quando um alerta é criado ou resolvido.
+quando um alerta é criado, resolvido ou atualizado (cada evento é ligado à parte).
 
 ## Eventos
 
@@ -9,6 +9,7 @@ quando um alerta é criado ou resolvido.
 |---|---|
 | `alert.created` | um alerta foi aberto |
 | `alert.resolved` | um alerta foi resolvido (pelo sistema ou por alguém da equipe) |
+| `alert.updated` | o mesmo problema voltou na conversa e o alerta reabriu (`occurrences` sobe), ou o alerta aberto ficou mais grave |
 | `webhook.test` | botão "Enviar teste" |
 
 ## Corpo
@@ -27,10 +28,18 @@ quando um alerta é criado ou resolvido.
     "potentialValue": 1500,
     "confidence": 0.8,
     "createdAt": "2026-10-13T14:05:00.000Z",
+    "occurrences": 1,
+    "lastOccurredAt": "2026-10-13T14:05:00.000Z",
     "resolvedAt": null
   }
 }
 ```
+
+Alertas agrupados: regras que apontam a mesma causa na mesma conversa (por exemplo "sem primeira resposta" e "preço sem
+retorno") viram um alerta só. Se o problema volta depois de o sistema ter resolvido o alerta, o **mesmo** alerta reabre:
+vai `alert.updated` (com `occurrences` maior e `lastOccurredAt` novo), e **não** vai um novo `alert.created`. Para saber
+que um cliente voltou a esperar, ligue `alert.updated`. Se alguém da equipe resolveu o alerta, um problema novo abre outro
+alerta (`alert.created`).
 
 O corpo traz só os dados do alerta. O texto das mensagens, os telefones e o nome do cliente nunca são enviados.
 

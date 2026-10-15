@@ -30,6 +30,7 @@ export async function POST(
       where: { id },
       data: {
         status: 'resolved',
+        resolvedBy: 'user', // B6: resolvido por uma pessoa → se o problema voltar, abre alerta novo (não reabre este)
         updatedAt: new Date(),
       },
     })

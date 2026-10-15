@@ -218,8 +218,12 @@ async function ingestEventInner(raw: unknown, source: 'gateway' | 'simulator'): 
             orderBy: { closedAt: 'desc' },
           })
         : null
-      if (recent) {
-        const tags = (() => { try { return JSON.parse(recent.tags || '[]') as string[] } catch { return [] } })()
+      const recentTags = (() => { try { return JSON.parse(recent?.tags || '[]') as string[] } catch { return [] } })()
+      // B6: venda/perda já DECIDIDA (por uma pessoa ou pelas mensagens) não reabre: o resultado não é desfeito e a
+      // mensagem nova vira conversa nova. Só a perda por abandono (decisão do motor por silêncio) volta a valer.
+      const decided = recent != null && ['won', 'lost'].includes(recent.operationalStatus) && !recentTags.includes('abandono')
+      if (recent && !decided) {
+        const tags = recentTags
         if (tags.includes('abandono')) await tx.revenueOpportunity.updateMany({ where: { conversationId: recent.id, status: 'lost' }, data: { status: 'active' } })
         conversation = await tx.conversation.update({
           where: { id: recent.id },

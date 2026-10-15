@@ -51,7 +51,8 @@ export async function GET(request: Request) {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        // B6: alerta agrupado que se repetiu volta para o topo (última ocorrência)
+        orderBy: [{ lastOccurredAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -81,6 +82,8 @@ export async function GET(request: Request) {
       potentialValue: a.potentialValue ?? undefined,
       confidence: a.confidence ?? undefined,
       createdAt: a.createdAt.toISOString(),
+      occurrences: a.occurrences, // B6: quantas vezes aconteceu nesta conversa
+      lastOccurredAt: (a.lastOccurredAt ?? a.createdAt).toISOString(),
       evidence: undefined, // evidence is on AuditFinding, not directly on Alert
     }))
 

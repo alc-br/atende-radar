@@ -15,6 +15,20 @@ O campo `AlertRule.recipients` **não** é usado. A lista "Destinatários" de Co
 
 A empresa de demonstração nunca manda e-mail.
 
+## Alertas agrupados (B6)
+
+Um alerta por conversa e por causa: "sem primeira resposta", "sem resposta após interação", "preço sem retorno" e
+"intenção alta sem resposta" são a mesma causa (cliente esperando a empresa); "promessa perto de vencer" e "promessa
+vencida" são outra. O alerta usa o nome da regra mais específica, a maior gravidade e os canais de todas as regras que
+dispararam. Se uma delas tem e-mail, o alerta do grupo manda e-mail.
+
+| Caso | E-mail? |
+|---|---|
+| Alerta novo | Sim |
+| O problema volta na mesma conversa depois de o sistema resolver o alerta (o alerta reabre, "Repetiu N vezes") | **Não** |
+| O alerta aberto fica mais grave (ex.: de média para crítica) | Sim, de novo |
+| Alguém da equipe resolveu e o problema voltou | Sim (é um alerta novo) |
+
 ## O que vai no e-mail
 
 O e-mail leva a regra, a gravidade, o horário (no fuso da empresa), o link do painel (`/#alerts`) e o link "parar de receber". **Não** leva o texto da mensagem, o nome do cliente nem o telefone.
