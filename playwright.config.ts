@@ -61,6 +61,9 @@ export default defineConfig({
       PAGARME_WEBHOOK_PASS: 'webhook-e2e-senha',
       // Webhook de saída: libera http://127.0.0.1 (receptor local dentro do teste). Só vale fora de produção.
       WEBHOOK_ALLOW_LOCAL: '1',
+      // Ambiente de simulação (S1): ligado só nos testes (em produção fica off); segredo de teste do Bearer
+      SIMULATION_ENABLED: 'on',
+      SIMULATION_SECRET: 'simulation-secret-test-only-0123456789',
       // Narração do tour: TTS falso (MP3 de silêncio, sem rede) e cache descartável em .tmp/ (tests/e2e/tour-audio-env.ts)
       ...TOUR_AUDIO_TEST_ENV,
       // Foto/logotipo em .tmp/uploads-e2e e chave FIXA de teste do telefone cifrado (tests/e2e/media-env.ts)

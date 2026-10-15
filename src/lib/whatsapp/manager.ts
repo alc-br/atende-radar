@@ -5,6 +5,7 @@ import { db } from '../db'
 import { ingestEvent } from '../ingest'
 import { mapBaileysMessage } from './map'
 import { SessionKeyError, sessionsKeyFromEnv, loadEncryptedAuthState } from './auth-store'
+import { SIMULATOR_PROVIDER, demoOrgId } from '../sandbox'
 
 // Gerenciador das sessões de WhatsApp (Baileys). Roda dentro do servidor, ligado por WHATSAPP_GATEWAY=on.
 // Só OBSERVA: nunca envia mensagem, nunca marca como lida, nunca aparece "online".
@@ -194,9 +195,9 @@ export async function discardSession(connectionId: string) {
 
 /** Compara o que o cliente pediu (banco) com as sessões abertas e ajusta. Roda a cada 15 s. */
 export async function reconcile() {
-  // A organização de demonstração tem conexões fictícias: nunca são abertas no WhatsApp.
-  const demoOrg = process.env.DEMO_ORG_ID || 'org_seed_1'
-  const conns = await db.whatsAppConnection.findMany({ where: { organizationId: { not: demoOrg } }, select: { id: true, status: true, disabledAt: true, updatedAt: true } })
+  // A organização de demonstração tem conexões fictícias e as conexões do simulador (S1) não são WhatsApp:
+  // nenhuma das duas é aberta no WhatsApp.
+  const conns = await db.whatsAppConnection.findMany({ where: { organizationId: { not: demoOrgId() }, provider: { not: SIMULATOR_PROVIDER } }, select: { id: true, status: true, disabledAt: true, updatedAt: true } })
   const wanted = new Set<string>()
   for (const c of conns) {
     const s = sessions().get(c.id)

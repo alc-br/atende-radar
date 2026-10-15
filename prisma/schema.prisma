@@ -27,6 +27,10 @@ model Organization {
   deletionRequestedAt     DateTime?
   deletionScheduledFor    DateTime?
   deletionRequestedBy     String? // id do membro (dono) que pediu
+  // Ambiente de simulação (S1): empresa criada pelo operador para testar cenários. Fica fora de motor agendado,
+  // e-mails, webhooks, cobrança, relatórios agendados, analytics e métricas do Admin (src/lib/sandbox.ts).
+  isSimulation            Boolean                  @default(false)
+  simulationExpiresAt     DateTime? // apagada sozinha depois disto (24 h)
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   connections             WhatsAppConnection[]
@@ -47,6 +51,8 @@ model Organization {
   auditLogs               AuditLog[]
   billingInvoices         BillingInvoice[]
   supportTickets          SupportTicket[]
+
+  @@index([isSimulation, simulationExpiresAt])
 }
 
 model WhatsAppConnection {
@@ -871,4 +877,22 @@ model SupportTicket {
 
   @@index([status, createdAt])
   @@index([organizationId, createdAt])
+}
+
+/// Ambiente de simulação (S1): cada ação do operador (rodar cenário, injetar mensagem, rodar o motor, limpar) vira uma
+/// linha. É também o registro de auditoria da simulação: a empresa simulada (e o AuditLog dela) some no "limpar".
+model SimulationRun {
+  id             String    @id @default(cuid())
+  kind           String    @default("run") // run | inject | tick | clean
+  scenarioId     String?
+  status         String    @default("running") // running | passed | failed | error | done
+  organizationId String? // empresa simulada (sem chave estrangeira: a linha fica depois que a empresa é apagada)
+  virtualStart   DateTime? // instante "zero" do relógio simulado
+  startedBy      String // e-mail do operador ou "token" (Bearer SIMULATION_SECRET) ou "cli"
+  resultJson     String? // resultado por asserção (sem texto de cliente real: tudo é sintético)
+  createdAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  @@index([createdAt])
+  @@index([scenarioId, createdAt])
 }

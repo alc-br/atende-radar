@@ -18,11 +18,13 @@ import {
   BarChart3,
   LifeBuoy,
   Package,
+  FlaskConical,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ProductAnalyticsPanel } from '@/components/admin/product-analytics'
 import { SupportTickets } from './support-tickets'
 import { PlanCatalog } from './plan-catalog'
+import { SimulationPanel, useSimulationAvailable } from './simulation-panel'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -245,6 +247,8 @@ export default function AdminView() {
   const [data, setData] = useState<AdminData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // aba Simulação (S1): só quando o servidor tem SIMULATION_ENABLED=on
+  const simulationAvailable = useSimulationAvailable()
 
   // Organizações tab state
   const [orgSearch, setOrgSearch] = useState('')
@@ -398,6 +402,7 @@ export default function AdminView() {
           <TabsTrigger value="system"><Server className="ic" aria-hidden="true" />Sistema</TabsTrigger>
           <TabsTrigger value="product"><BarChart3 className="ic" aria-hidden="true" />Produto</TabsTrigger>
           <TabsTrigger value="support"><LifeBuoy className="ic" aria-hidden="true" />Suporte</TabsTrigger>
+          {simulationAvailable && <TabsTrigger value="simulation"><FlaskConical className="ic" aria-hidden="true" />Simulação</TabsTrigger>}
         </TabsList>
 
         {/* ── Produto (I7): funil, ativação, retenção, uso por tela, tour e custo de IA ── */}
@@ -732,6 +737,12 @@ export default function AdminView() {
         <TabsContent value="support">
           <SupportTickets />
         </TabsContent>
+
+        {simulationAvailable && (
+          <TabsContent value="simulation">
+            <SimulationPanel />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* ── Detalhe da organização (portal: componentes shadcn) ─────── */}

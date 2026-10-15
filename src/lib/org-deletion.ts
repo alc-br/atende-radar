@@ -8,6 +8,7 @@ import { cancelAtPeriodEnd } from './billing/service'
 import { pagarme, pagarmeConfig } from './billing/pagarme'
 import { discardSession } from './whatsapp/manager'
 import { deleteOrganizationUploads } from './uploads'
+import { SIMULATOR_PROVIDER } from './sandbox'
 
 // Encerramento da conta pelo próprio cliente (LGPD · T17). O dono pede, a empresa fica 7 dias "em exclusão" (dá para
 // desistir) e depois o agendador apaga a organização e TUDO dela. Sobra só uma linha no log do servidor (sem dado pessoal).
@@ -121,7 +122,30 @@ export async function hardDeleteOrganization(orgId: string, now = new Date()): P
   const org = await db.organization.findUnique({ where: { id: orgId }, select: { id: true, name: true, createdAt: true, deletionRequestedAt: true, deletionScheduledFor: true } })
   if (!org?.deletionRequestedAt) return false // só apaga o que o dono pediu (e não desistiu)
   await stopProviderBilling(orgId)
-  const connectionIds = (await db.whatsAppConnection.findMany({ where: { organizationId: orgId }, select: { id: true } })).map((c) => c.id)
+  const { members, connectionIds } = await wipeOrganization(orgId)
+  // lápide: só o necessário para provar que a exclusão aconteceu (sem nome, e-mail ou qualquer dado pessoal)
+  const nameHash = createHash('sha256').update(org.name).digest('hex').slice(0, 16)
+  console.log(
+    `[org-deletion] organização apagada id=${org.id} nameHash=${nameHash} createdAt=${org.createdAt.toISOString()} requestedAt=${org.deletionRequestedAt?.toISOString() ?? '-'} scheduledFor=${org.deletionScheduledFor?.toISOString() ?? '-'} deletedAt=${now.toISOString()} members=${members} connections=${connectionIds.length}`,
+  )
+  return true
+}
+
+/**
+ * Apaga uma empresa SIMULADA (S1) e tudo dela. Recusa (false) qualquer empresa que não seja simulação: a limpeza do
+ * simulador nunca alcança uma empresa real, nem por id digitado errado. Simulação não tem cobrança nem sessão de WhatsApp.
+ */
+export async function deleteSimulationOrganization(orgId: string): Promise<boolean> {
+  const org = await db.organization.findUnique({ where: { id: orgId }, select: { isSimulation: true } })
+  if (!org?.isSimulation) return false
+  await wipeOrganization(orgId)
+  return true
+}
+
+/** Apaga a organização e tudo que pertence a ela, numa transação, na ordem que as chaves estrangeiras exigem. */
+async function wipeOrganization(orgId: string): Promise<{ members: number; connectionIds: string[] }> {
+  const conns = await db.whatsAppConnection.findMany({ where: { organizationId: orgId }, select: { id: true, provider: true } })
+  const connectionIds = conns.map((c) => c.id)
   const members = await db.organizationMember.findMany({ where: { organizationId: orgId }, select: { id: true, email: true } })
 
   await db.$transaction(
@@ -160,6 +184,9 @@ export async function hardDeleteOrganization(orgId: string, now = new Date()): P
       // alertas por e-mail: fila de envio e os e-mails de alerta da empresa
       await tx.alertEmailItem.deleteMany({ where })
       await tx.emailOutbox.deleteMany({ where })
+      // webhook da empresa (endereço e segredo) e a fila de entregas (sem chave estrangeira: não saem em cascata)
+      await tx.webhookDelivery.deleteMany({ where })
+      await tx.webhookEndpoint.deleteMany({ where })
       await tx.organization.delete({ where: { id: orgId } })
       // e-mails enviados a quem não tem mais conta em lugar nenhum
       const emails = [...new Set(members.map((m) => m.email.toLowerCase()))]
@@ -172,16 +199,12 @@ export async function hardDeleteOrganization(orgId: string, now = new Date()): P
 
   // foto dos membros e logotipo (UPLOADS_DIR/<organização>)
   await deleteOrganizationUploads(orgId)
-  // credenciais dos números no disco (WA_SESSIONS_DIR/<conexão>)
-  for (const id of connectionIds) {
-    await discardSession(id).catch((e) => console.error('[org-deletion] falha ao apagar sessão do WhatsApp', id, e instanceof Error ? e.message : e))
+  // credenciais dos números no disco (WA_SESSIONS_DIR/<conexão>); conexão simulada não tem sessão
+  for (const c of conns) {
+    if (c.provider === SIMULATOR_PROVIDER) continue
+    await discardSession(c.id).catch((e) => console.error('[org-deletion] falha ao apagar sessão do WhatsApp', c.id, e instanceof Error ? e.message : e))
   }
-  // lápide: só o necessário para provar que a exclusão aconteceu (sem nome, e-mail ou qualquer dado pessoal)
-  const nameHash = createHash('sha256').update(org.name).digest('hex').slice(0, 16)
-  console.log(
-    `[org-deletion] organização apagada id=${org.id} nameHash=${nameHash} createdAt=${org.createdAt.toISOString()} requestedAt=${org.deletionRequestedAt?.toISOString() ?? '-'} scheduledFor=${org.deletionScheduledFor?.toISOString() ?? '-'} deletedAt=${now.toISOString()} members=${members.length} connections=${connectionIds.length}`,
-  )
-  return true
+  return { members: members.length, connectionIds }
 }
 
 /** Agendador: apaga as empresas cujo prazo de desistência acabou. `orgId` restringe a uma empresa (testes). */

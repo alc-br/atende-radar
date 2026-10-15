@@ -15,7 +15,8 @@ export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
     // query logs só em desenvolvimento (em produção enchem o disco e vazam dados nos logs)
-    log: process.env.NODE_ENV === 'production' ? ['error'] : ['query'],
+    // DB_QUIET=1: scripts de linha de comando (ex.: bun scripts/simular.ts) sem log do Prisma (erros chegam como exceção)
+    log: process.env.DB_QUIET === '1' ? [] : process.env.NODE_ENV === 'production' ? ['error'] : ['query'],
     datasources: urlWithLockTimeout() ? { db: { url: urlWithLockTimeout() as string } } : undefined,
   })
 

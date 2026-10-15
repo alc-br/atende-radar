@@ -1,4 +1,8 @@
-# Plano: ambiente de simulação (backlog, pedido do dono em 14/10/2026)
+# Plano: ambiente de simulação (pedido do dono em 14/10/2026)
+
+> **Situação (14/10/2026): fases 1 a 3 feitas (card S1), menos "entrar como gestor/atendente".** Manual de uso:
+> `docs/operacao/simulacao.md`. Migração `20261014230746_simulation`. Testes: `tests/e2e/simulacao.spec.ts`,
+> `tests/e2e/simulacao.ui.spec.ts`, `tests/unit/simulacao.unit.spec.ts`.
 
 **Objetivo.** Testar a plataforma "na prática" sem conectar WhatsApp: cliente manda mensagem, atendente responde, atendente
 some, atrasos, várias conexões e atendentes conforme cada plano (1 número/3 atendentes, 3/10, 10/50). As mensagens
@@ -65,7 +69,11 @@ do Admin; e-mail de simulação nunca é entregue; membros sintéticos não entr
 
 ## Fases (estimativa 9–13 dias)
 
-1. Schema, `sandbox.ts` e exclusões + teste de isolamento (nada em `emailOutbox`, `webhookDelivery`, `productEvent`) — 2–3 d.
-2. Builder, injector, runner, asserções, CLI e 6 cenários — 3–4 d (risco: pontos que usam `new Date()` em vez de `now`).
-3. API de operador, "entrar como" e aba no Admin — 2–3 d (revisão de segurança; teste: `enter` em empresa real → 403).
-4. Catálogo completo e rodar os cenários no CI — 2–3 d.
+1. ✅ Schema, `sandbox.ts` e exclusões + teste de isolamento (nada em `emailOutbox`, `webhookDelivery`, `productEvent`) — 2–3 d.
+2. ✅ Builder, injector, runner, asserções, CLI e 6 cenários — 3–4 d (risco: pontos que usam `new Date()` em vez de `now`).
+   Feitos 16 cenários (lista no manual).
+3. ✅ API de operador e aba no Admin — 2–3 d. ⏳ **"Entrar como" ficou pendente:** o login é por e-mail único e uma sessão
+   emprestada pede revisão de segurança própria. No lugar: retrato só leitura da empresa simulada (empresa real → 404),
+   injetar mensagem e rodar o motor pela aba.
+4. ⏳ Catálogo completo e rodar os cenários no CI — 2–3 d. Faltam: pergunta ignorada, venda recuperada, fora do
+   expediente, limite de conversas no mês, contato excluído, carga ~500 conversas.

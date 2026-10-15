@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from './db'
 import { DEFAULT_RULE_NAMES } from './org-defaults'
 import { effectiveStatus, isActiveStatus } from './billing/core'
+import { isDemoOrg } from './sandbox'
 
 export type QuotaKind = 'connections' | 'agents' | 'alertRules'
 
@@ -10,8 +11,6 @@ const LABEL: Record<QuotaKind, string> = {
   agents: 'atendentes',
   alertRules: 'regras de alerta próprias (além das regras padrão do produto)',
 }
-
-const isDemoOrg = (orgId: string) => orgId === (process.env.DEMO_ORG_ID || 'org_seed_1')
 
 /** Ação de auditoria que conta como uma exportação na cota do plano (maxExports). */
 export const EXPORT_ACTION = 'report.exported'
@@ -41,7 +40,7 @@ export async function currentUsage(orgId: string): Promise<Record<QuotaKind, num
 
 /**
  * Confere o limite do plano antes de CRIAR algo. Devolve a resposta 402 se estourou (ou null se pode criar).
- * A organização de demonstração fica fora (seus dados são fixos). Sem assinatura cadastrada = sem limite.
+ * A organização de demonstração fica fora (seus dados são fixos); a simulada NÃO (o cenário testa o 402). Sem assinatura = sem limite.
  */
 export async function enforceQuota(orgId: string, kind: QuotaKind): Promise<NextResponse | null> {
   if (isDemoOrg(orgId)) return null

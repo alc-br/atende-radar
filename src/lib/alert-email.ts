@@ -4,6 +4,7 @@ import { can } from './permissions'
 import { alertScope, type AuthContext } from './api-auth'
 import { appUrl, sendMailRow } from './mailer'
 import { isOpenAt, localParts, scheduleFrom, type HoursSettings } from './analysis/business-hours'
+import { isIsolatedOrg } from './sandbox'
 
 /*
  * Alertas por e-mail (regras com o canal "email").
@@ -33,8 +34,6 @@ const parseJson = <T,>(s: string | null | undefined, fallback: T): T => {
     return fallback
   }
 }
-
-const isDemoOrg = (orgId: string) => orgId === (process.env.DEMO_ORG_ID || 'org_seed_1')
 
 // ---------- link "parar de receber" (token assinado, sem expiração: só desliga a preferência) ----------
 
@@ -67,7 +66,7 @@ interface AlertLike { id: string; organizationId: string }
 export async function queueAlertEmails(rule: RuleLike, alert: AlertLike): Promise<number> {
   try {
     if (!parseJson<string[]>(rule.notificationChannels, []).includes('email')) return 0
-    if (isDemoOrg(alert.organizationId)) return 0
+    if (await isIsolatedOrg(alert.organizationId)) return 0 // demonstração e simulação nunca mandam e-mail
     const members = await db.organizationMember.findMany({
       where: { organizationId: alert.organizationId, status: 'active', alertEmails: true },
       select: { id: true, email: true, name: true, role: true, team: true },

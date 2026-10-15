@@ -94,6 +94,15 @@ const MATRIX: Row[] = [
   ['GET', '/api/admin/support/x/screenshot', []],
   ['GET', '/api/admin/plans', []], // V7 · catálogo de planos: só o operador da plataforma
   ['PATCH', '/api/admin/plans/x', []],
+  // ambiente de simulação (S1): só o operador da plataforma (ou Bearer SIMULATION_SECRET) — simulacao.spec.ts
+  ['GET', '/api/admin/simulation/scenarios', []],
+  ['POST', '/api/admin/simulation/run', []],
+  ['GET', '/api/admin/simulation/runs', []],
+  ['GET', '/api/admin/simulation/runs/x', []],
+  ['GET', '/api/admin/simulation/orgs/x', []],
+  ['POST', '/api/admin/simulation/orgs/x/inject', []],
+  ['POST', '/api/admin/simulation/orgs/x/tick', []],
+  ['POST', '/api/admin/simulation/clean', []],
 
   // T4 · rotas novas desde a matriz original
   ['GET', '/api', ALL], // sobra do modelo do projeto ("Hello, world!"); exige sessão pelo proxy

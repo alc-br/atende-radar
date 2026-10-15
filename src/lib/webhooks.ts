@@ -5,6 +5,7 @@ import https from 'node:https'
 import type net from 'node:net'
 import { db } from './db'
 import { isBlockedAddress, signBody, validateWebhookUrl } from './webhook-url'
+import { isIsolatedOrg } from './sandbox'
 
 // Webhook de saída (P4): avisa o sistema do cliente quando um alerta abre ou se resolve.
 // Entrega por FILA (WebhookDelivery): quem cria/resolve o alerta só grava uma linha (rápido, nunca derruba o motor);
@@ -172,6 +173,7 @@ function alertData(a: AlertForWebhook) {
 /** Põe o evento na fila, se a empresa tem webhook ligado para ele. Nunca lança erro (não pode atrapalhar o motor nem a tela). */
 export async function enqueueAlertEvent(event: WebhookEvent, alert: AlertForWebhook): Promise<void> {
   try {
+    if (await isIsolatedOrg(alert.organizationId)) return // demonstração e simulação nunca chamam sistema de cliente
     const ep = await db.webhookEndpoint.findUnique({ where: { organizationId: alert.organizationId } })
     if (!ep?.enabled || !parseEvents(ep.events).includes(event)) return
     const id = randomUUID()

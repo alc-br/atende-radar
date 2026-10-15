@@ -1,6 +1,7 @@
 import { db } from '../db'
 import { usagePeriodStart } from '../quotas'
 import { effectiveStatus } from './core'
+import { isDemoOrg } from '../sandbox'
 
 // T11 · O que o plano libera para o motor de análise:
 //  · teste grátis vencido sem plano contratado, ou assinatura cancelada (fim do período pago): a análise PAUSA
@@ -24,7 +25,8 @@ const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).pad
 
 /** Só lê: situação da análise da empresa agora (usado pelo motor e pela tela Planos). */
 export async function analysisGateStatus(orgId: string, now = new Date()): Promise<AnalysisGate & { since: Date | null; planName: string | null }> {
-  if (orgId === (process.env.DEMO_ORG_ID || 'org_seed_1')) return { ...OPEN, since: null, planName: null }
+  // só a demonstração fica fora; a simulação passa pelo plano (é o que os cenários de teste vencido/cota testam)
+  if (isDemoOrg(orgId)) return { ...OPEN, since: null, planName: null }
   const sub = await db.subscription.findUnique({ where: { organizationId: orgId }, include: { plan: { select: { name: true, maxConversationsMonthly: true } } } })
   if (!sub) return { ...OPEN, since: null, planName: null }
 
