@@ -312,12 +312,14 @@ test.describe('leitura em voz alta', () => {
     await page.addInitScript(spyAudioPlay)
     await enterAsNewOwner(context)
     await openSystemTour(page, !!isMobile)
+    // A leitura automática já pede o áudio do passo 0 ao abrir o capítulo; o "Ouvir" depois pode vir do cache do
+    // navegador (sem nova ida à rede). Por isso a resposta é observada desde a abertura.
+    const audio = page.waitForResponse((r) => r.url().includes(stepAudio(0)))
     await startChapter(page, 'primeiros-passos')
     const p = panel(page)
     const voz = p.getByRole('group', { name: 'Leitura em voz alta' })
 
     const before = (await audioPlays(page)).length
-    const audio = page.waitForResponse((r) => r.url().includes(stepAudio(0)))
     await p.getByRole('button', { name: 'Ouvir' }).click()
     const res = await audio
     expect([200, 206], `o Chromium pede o áudio com Range (${res.status()} ${res.headers()['content-type']} ${res.status() >= 400 ? (await res.text()).slice(0, 300) : ''})`).toContain(res.status())
@@ -568,7 +570,7 @@ test.describe('leitura em voz alta', () => {
   })
 
   test('Ler automaticamente com a voz do navegador: avança no fim da fala; se a voz falhar, desliga', async ({ page, context, isMobile }) => {
-    // voz falsa que termina sozinha (onend) ou falha (onerror), conforme window.__ttsMode
+    // voz falsa que termina sozinha (onend) ou falha (onerror), conforme window.__ttsMode no momento da fala
     await page.addInitScript(() => {
       const calls: Array<{ text: string; rate: number }> = []
       const w = window as unknown as { __tts: typeof calls; __ttsMode: 'end' | 'error' }
@@ -588,7 +590,9 @@ test.describe('leitura em voz alta', () => {
       const synth = {
         speak: (u: U) => {
           calls.push({ text: u.text, rate: u.rate })
-          setTimeout(() => (w.__ttsMode === 'end' ? u.onend?.() : u.onerror?.()), 300)
+          // o modo vale a partir da próxima fala: a que já começou termina como começou
+          const mode = w.__ttsMode
+          setTimeout(() => (mode === 'end' ? u.onend?.() : u.onerror?.()), 300)
         },
         cancel: () => {},
         pause: () => {},
