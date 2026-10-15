@@ -47,6 +47,8 @@ spec_full.txt
 
 # uploads
 upload/
+# foto do perfil e logotipo enviados em dev (UPLOADS_DIR padrão; produção: /opt/atende-radar/shared/uploads)
+.uploads/
 
 # test
 coverage/

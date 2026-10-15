@@ -4,6 +4,7 @@ import { requestAnalysis } from './background'
 import { maskSensitive } from './mask-sensitive'
 import { milestone } from './product-events'
 import { phoneHash } from './phone-hash'
+import { encryptPhone } from './phone-crypto'
 import { isExcludedNumber } from './excluded-numbers'
 import { maskingEnabled } from './privacy-settings'
 
@@ -161,6 +162,8 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
 
   const mask = await maskingEnabled(connection.organizationId) // T17 · "Mascaramento automático" (padrão ligado)
   let openedConversation = false
+  // B5/B9: telefone completo cifrado (null sem PHONE_ENC_KEY: aí fica só o final, como antes). Fora da transação.
+  const phoneEncrypted = encryptPhone(connection.organizationId, digits)
   await db.$transaction(async (tx) => {
     let contact = await tx.contact.findFirst({ where: { organizationId: connection.organizationId, phoneHash: hash } })
     if (!contact) {
@@ -171,6 +174,7 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
           displayName: inbound ? msg.pushName ?? null : null,
           phoneHash: hash,
           phoneLast4: digits.slice(-4),
+          phoneEncrypted,
           firstSeenAt: occurredAt,
           lastSeenAt: occurredAt,
         },
@@ -181,6 +185,8 @@ async function ingestEventInner(raw: unknown): Promise<IngestResult> {
         data: {
           lastSeenAt: maxDate(contact.lastSeenAt, occurredAt),
           ...(inbound && msg.pushName && !contact.displayName ? { displayName: msg.pushName } : {}),
+          // contato criado antes da chave existir: completa na próxima mensagem
+          ...(phoneEncrypted && !contact.phoneEncrypted ? { phoneEncrypted } : {}),
         },
       })
     }

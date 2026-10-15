@@ -3,10 +3,11 @@
 // Variáveis: DATABASE_URL (padrão file:./dev.db, relativo a prisma/ como o Prisma faz),
 //            BACKUP_DIR   (padrão ../backups, fora da pasta de deploy para o rsync --delete não apagar),
 //            BACKUP_KEEP  (quantos manter; padrão 30),
-//            BACKUP_REQUIRE_DB=true (banco ausente vira erro).
+//            BACKUP_REQUIRE_DB=true (banco ausente vira erro),
+//            WA_SESSIONS_DIR (padrão ../wa-sessions) e UPLOADS_DIR (padrão ../shared/uploads): copiados junto.
 import { Database } from 'bun:sqlite'
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
-import { isAbsolute, join, resolve } from 'node:path'
+import { basename, isAbsolute, join, resolve } from 'node:path'
 
 const url = process.env.DATABASE_URL || 'file:./dev.db'
 if (!url.startsWith('file:')) {
@@ -70,6 +71,22 @@ if (existsSync(waDir) && readdirSync(waDir).length > 0) {
   console.log(`backup-db: sessões do WhatsApp copiadas para ${waTarget}`)
   const dirs = readdirSync(backupDir)
     .filter((f) => /^wa-sessions-/.test(f))
+    .map((f) => ({ f, t: statSync(join(backupDir, f)).mtimeMs }))
+    .sort((a, b) => b.t - a.t)
+  for (const old of dirs.slice(keep)) rmSync(join(backupDir, old.f), { recursive: true, force: true })
+}
+
+// Fotos do perfil e logotipos das empresas (P7). UPLOADS_DIR do app; padrão ../shared/uploads, ao lado de current/
+// no servidor. Mesma retenção, pasta privada (0700).
+const upDir = resolve(process.cwd(), process.env.UPLOADS_DIR || '../shared/uploads')
+if (existsSync(upDir) && readdirSync(upDir).length > 0) {
+  // mesmo sufixo do .db desta execução (dois backups no mesmo segundo não se misturam)
+  const upTarget = join(backupDir, `uploads-${basename(target).replace(/^atenderadar-/, '').replace(/\.db$/, '')}`)
+  mkdirSync(upTarget, { recursive: true, mode: 0o700 })
+  cpSync(upDir, upTarget, { recursive: true })
+  console.log(`backup-db: imagens enviadas copiadas para ${upTarget}`)
+  const dirs = readdirSync(backupDir)
+    .filter((f) => /^uploads-/.test(f))
     .map((f) => ({ f, t: statSync(join(backupDir, f)).mtimeMs }))
     .sort((a, b) => b.t - a.t)
   for (const old of dirs.slice(keep)) rmSync(join(backupDir, old.f), { recursive: true, force: true })

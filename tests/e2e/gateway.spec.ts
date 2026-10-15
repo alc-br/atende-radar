@@ -181,13 +181,15 @@ test.describe('B5 · mensagens viram conversas', () => {
     expect((await (await admB.get('/api/conversations?search=Exclusivo')).json()).conversations).toHaveLength(1)
   })
 
-  test('o telefone é guardado só como hash + últimos 4 dígitos', async () => {
+  test('o telefone é guardado como hash + últimos 4 dígitos + completo CIFRADO (nunca em texto)', async () => {
     const digits = `55119${Math.floor(10000000 + Math.random() * 89999999)}`
     await gw.post('/api/gateway/events', { data: evt(connA, 'message.received', msg({ chatId: `${digits}@s.whatsapp.net`, pushName: 'Hash Do Telefone' })) })
     const contact = await testDb.contact.findFirst({ where: { displayName: 'Hash Do Telefone' } })
     expect(contact!.phoneLast4).toBe(digits.slice(-4))
     expect(contact!.phoneHash).toBeTruthy()
     expect(contact!.phoneHash).not.toContain(digits)
-    expect(contact!.phoneEncrypted).toBeNull()
+    // B5/B9: completo só cifrado (phone-crypto.spec.ts confere que abre com a chave)
+    expect(contact!.phoneEncrypted).toMatch(/^v1:/)
+    expect(contact!.phoneEncrypted).not.toContain(digits)
   })
 })

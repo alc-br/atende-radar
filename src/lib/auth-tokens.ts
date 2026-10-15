@@ -1,12 +1,13 @@
 import { db } from './db'
 import { hashToken, newToken } from './passwords'
 
-export type TokenType = 'reset' | 'invite' | 'verify'
+export type TokenType = 'reset' | 'invite' | 'verify' | 'email_change'
 
 const TTL_MS: Record<TokenType, number> = {
   reset: 60 * 60 * 1000, // 1 hora
   invite: 7 * 24 * 60 * 60 * 1000, // 7 dias
   verify: 3 * 24 * 60 * 60 * 1000, // 3 dias
+  email_change: 24 * 60 * 60 * 1000, // 24 horas (P7: troca do e-mail de acesso)
 }
 
 /** Cria um token de uso único e invalida os anteriores do mesmo tipo para o membro. Devolve o token em claro (só vai por e-mail). */

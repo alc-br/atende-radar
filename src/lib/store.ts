@@ -24,6 +24,9 @@ interface Me {
   team?: string | null
   isPlatformOperator: boolean
   organizationName?: string | null
+  /** Foto do perfil (/api/media/avatar/...) e logotipo da empresa (/api/media/logo/...); null = sem imagem. */
+  avatarUrl?: string | null
+  organizationLogoUrl?: string | null
   /** Exclusão da empresa pedida pelo dono (null = conta normal). */
   organizationDeletion?: OrganizationDeletion | null
 }

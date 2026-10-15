@@ -5,6 +5,7 @@ import { guard } from '@/lib/api-auth'
 import { readJson } from '@/lib/json-body'
 import { applyReportPrefs, splitReportPrefs } from '@/lib/reports/settings-sync'
 import { applyExcludedNumbers } from '@/lib/excluded-numbers'
+import { logoUrl as uploadedLogoUrl } from '@/lib/uploads'
 
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   try {
@@ -41,7 +42,8 @@ export async function GET() {
         timezone: org.timezone,
         currency: org.currency,
         status: org.status,
-        logoUrl: org.logoUrl,
+        // logotipo enviado em Configurações › Empresa (servido por /api/media/logo, só para a própria empresa)
+        logoUrl: uploadedLogoUrl(org),
         website: org.website,
         phone: org.phone,
         adminEmail: org.adminEmail,
@@ -78,7 +80,6 @@ export async function PATCH(request: Request) {
       segment,
       timezone,
       currency,
-      logoUrl,
       website,
       phone,
       adminEmail,
@@ -90,7 +91,6 @@ export async function PATCH(request: Request) {
       segment?: string
       timezone?: string
       currency?: string
-      logoUrl?: string
       website?: string
       phone?: string
       adminEmail?: string
@@ -111,7 +111,7 @@ export async function PATCH(request: Request) {
     if (segment !== undefined) data.segment = segment
     if (timezone !== undefined) data.timezone = timezone
     if (currency !== undefined) data.currency = currency
-    if (logoUrl !== undefined) data.logoUrl = logoUrl
+    // logoUrl não é mais aceito aqui (era um endereço livre que a tela mostraria): o logotipo vai por POST /api/organization/logo
     if (website !== undefined) data.website = website
     if (phone !== undefined) data.phone = phone
     if (adminEmail !== undefined) data.adminEmail = adminEmail
@@ -142,7 +142,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({
       success: true,
-      organization: updated,
+      organization: { ...updated, logoUrl: uploadedLogoUrl(updated) },
       settings: safeJsonParse<Record<string, unknown>>(updated.settingsJson, {}),
       reportsUpdated,
       excludedContacts,

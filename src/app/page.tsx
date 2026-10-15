@@ -83,7 +83,7 @@ function MainContent() {
     }
     fetch('/api/me')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName, organizationDeletion: d.organizationDeletion ?? null } : null))
+      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName, organizationLogoUrl: d.organizationLogoUrl ?? null, organizationDeletion: d.organizationDeletion ?? null } : null))
       .catch(() => setMe(null))
   }, [status, setMe])
 

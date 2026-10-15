@@ -75,7 +75,7 @@ export async function GET(
     const conversation = await db.conversation.findFirst({
       where: { id, ...conversationScope(g.auth) },
       include: {
-        contact: { select: { id: true, displayName: true, phoneLast4: true, isGroup: true } },
+        contact: { select: { id: true, displayName: true, phoneLast4: true, isGroup: true, phoneEncrypted: true } },
         agent: { select: { id: true, name: true, email: true, team: true, role: true } },
         connection: { select: { id: true, name: true, phoneLast4: true, status: true, provider: true } },
         messages: {
@@ -184,6 +184,8 @@ export async function GET(
             displayName: conversation.contact.displayName || 'Desconhecido',
             phoneLast4: conversation.contact.phoneLast4 || '',
             isGroup: conversation.contact.isGroup,
+            // B5/B9: só diz SE há telefone completo guardado; o número sai por GET .../phone (registrado na auditoria)
+            hasFullPhone: !!conversation.contact.phoneEncrypted,
           }
         : null,
 

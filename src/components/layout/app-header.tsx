@@ -106,7 +106,7 @@ export function AppHeader() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="org" type="button">
-            <span className="ponto" />
+            {me?.organizationLogoUrl ? <img className="org-logo" src={me.organizationLogoUrl} alt="" /> : <span className="ponto" />}
             {orgName}
             <ChevronDown className="ic" aria-hidden="true" />
           </button>
@@ -192,7 +192,7 @@ export function AppHeader() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="usuario" type="button" data-tour="header-help" aria-label="Menu do usuário">
-            <span className="avatar-u">{initial}</span>
+            <span className="avatar-u">{me?.avatarUrl ? <img src={me.avatarUrl} alt="" /> : initial}</span>
             <span className="nome-u">{firstName}</span>
             <ChevronDown className="ic" aria-hidden="true" />
           </button>

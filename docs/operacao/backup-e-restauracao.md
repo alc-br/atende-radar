@@ -9,6 +9,8 @@ O banco é um arquivo SQLite (`DATABASE_URL`, caminho relativo a `prisma/`). Nã
 - **Mudança de schema:** o deploy só aplica migrações versionadas (`prisma/migrations`), cujo SQL foi revisado no git. Se uma migração falhar, o deploy para antes do build e o site continua no ar com a versão antiga. Ver `migracoes.md`.
 
 - **Sessões do WhatsApp** entram no mesmo backup (`wa-sessions-<data>`), cifradas com `WA_SESSIONS_KEY`: sem a chave elas não servem. Ver `sessoes-whatsapp.md`.
+- **Fotos do perfil e logotipos** (`UPLOADS_DIR`, produção `/opt/atende-radar/shared/uploads`) entram no mesmo backup (`uploads-<data>`, mesma retenção). Para restaurar, copie a pasta de volta para `UPLOADS_DIR`.
+- **Telefone completo dos clientes** fica no banco, cifrado com `PHONE_ENC_KEY`: restaurar o banco sem a mesma chave mantém tudo, menos os números completos. Ver `telefone-cifrado.md`.
 
 ## Fazer um backup agora
 Actions → "Backup diário do banco" → Run workflow. Ou no servidor:

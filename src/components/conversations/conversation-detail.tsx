@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { mutate } from '@/lib/mutation'
 import { PrivacyMenu } from './privacy-menu'
+import { RevealPhone } from './reveal-phone'
 import { SCORE_WEIGHTS_PERCENT } from '@/lib/analysis/score'
 import {
   ArrowLeft,
@@ -524,7 +525,7 @@ export default function ConversationDetail() {
             <div className="contato__info">
               <div className="linha-flex envolve">
                 <h1>{conversation.customerName}</h1>
-                <span className="mono suave contato__id">***{conversation.customerPhone.slice(-4)}</span>
+                <RevealPhone conversationId={conversation.id} masked={`***${conversation.customerPhone.slice(-4)}`} available={!!data.contact?.hasFullPhone} />
               </div>
               <ul className="contato__meta">
                 {conversation.connectionName && (
