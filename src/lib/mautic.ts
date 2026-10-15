@@ -132,11 +132,12 @@ export async function upsertMauticContact(c: MauticContact): Promise<number | nu
 }
 
 const memberSelect = {
-  id: true, email: true, name: true, role: true, status: true, createdAt: true, lastAccessAt: true, emailVerifiedAt: true, organizationId: true,
+  id: true, email: true, name: true, role: true, status: true, invitedAt: true, lastAccessAt: true, emailVerifiedAt: true, organizationId: true,
   organization: { select: { name: true, displayName: true, subscription: { select: { status: true, trialEnd: true, cancelAtPeriodEnd: true, plan: { select: { code: true } } } } } },
 } as const
 
-type MemberRow = { email: string; name: string; organization: { name: string; displayName: string | null; subscription: MemberSnapshot['subscription'] } } & Omit<MemberSnapshot, 'subscription'>
+// invitedAt = entrada na empresa (cadastro do dono ou convite do membro); OrganizationMember não tem createdAt
+type MemberRow = { email: string; name: string; invitedAt: Date; organization: { name: string; displayName: string | null; subscription: MemberSnapshot['subscription'] } } & Omit<MemberSnapshot, 'subscription' | 'createdAt'>
 
 function memberContact(m: MemberRow): MauticContact {
   return {
@@ -144,7 +145,7 @@ function memberContact(m: MemberRow): MauticContact {
     name: m.name,
     company: m.organization.displayName || m.organization.name,
     tags: [MAUTIC_TAG_MEMBER],
-    fields: memberFields({ ...m, subscription: m.organization.subscription }),
+    fields: memberFields({ ...m, createdAt: m.invitedAt, subscription: m.organization.subscription }),
   }
 }
 
@@ -180,7 +181,7 @@ export async function syncAllMembersToMautic(): Promise<{ ok: number; failed: nu
       out.ok++
     } catch (e) {
       out.failed++
-      if (out.errors.length < 3) out.errors.push(e instanceof Error ? e.message : 'erro')
+      if (out.errors.length < 3) out.errors.push(e instanceof Error ? e.message.trim().split('\n').pop()!.slice(0, 300) : 'erro')
     }
   }
   return out

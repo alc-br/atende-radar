@@ -20,7 +20,8 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error(`mautic-sync: ${e instanceof Error ? e.message : 'erro'}`)
+    // erro do Prisma vem em várias linhas (a causa fica na última)
+    console.error(`mautic-sync: ${e instanceof Error ? e.message.trim().split('\n').pop() : 'erro'}`)
     process.exitCode = 1
   })
   .finally(() => db.$disconnect())
