@@ -56,11 +56,7 @@ test('conexão pausada aparece como "Pausada" (não "Erro") e continua assim dep
   const { email, password } = await signupOrg()
   const api = await loginAs(email, password)
   const name = `Pausa ${uid()}`
-  const created = await api.post('/api/connections', { data: { name, phoneNumber: '5511900004444' } })
-  expect(created.status()).toBe(201)
-  // compila a rota do PATCH antes da tela: no servidor de dev o 1º POST/PATCH a uma rota nova pode perder o corpo
-  const { connection } = await created.json()
-  expect((await api.patch(`/api/connections/${connection.id}`, { data: { name } })).status()).toBe(200)
+  expect((await api.post('/api/connections', { data: { name, phoneNumber: '5511900004444' } })).status()).toBe(201)
   await api.dispose()
 
   await enter(context, email, password)
@@ -68,7 +64,10 @@ test('conexão pausada aparece como "Pausada" (não "Erro") e continua assim dep
   await openView(page, 'connections', !!isMobile)
   const c = card(page, name)
   await expect(c).toContainText('QR necessário', { timeout: 15000 })
+  // a tela mostra "Pausada" antes da resposta; recarregar antes de o PATCH chegar ao servidor o cancelaria
+  const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && /\/api\/connections\/[^/]+$/.test(r.url()))
   await c.getByRole('button', { name: 'Pausar' }).click()
+  expect((await saved).status()).toBe(200)
   await expect(c.locator('.tag', { hasText: 'Pausada' })).toBeVisible()
   await expect(c.locator('.tag', { hasText: /^Erro$/ })).toHaveCount(0)
 
