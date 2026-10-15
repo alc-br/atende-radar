@@ -138,10 +138,12 @@ test('destaque em 3 níveis: item aceso, menu em meia-luz, resto mais escuro; o 
   const medium = await fillAlpha('.tour-sistema__veu-medio')
   expect(dark).toBeGreaterThan(medium)
   expect(dark).toBeLessThan(0.75)
-  const area = await page.locator('.tour-sistema__area').boundingBox()
-  const aside = await page.locator('aside.lateral').boundingBox()
-  expect(area && aside && Math.abs(area.x - aside.x) < 2 && Math.abs(area.width - aside.width) < 2).toBeTruthy()
-  // no celular a gaveta do menu ainda desliza: o anel acompanha até assentar
+  // no celular a gaveta do menu ainda desliza: a meia-luz e o anel acompanham até assentar
+  await expect.poll(async () => {
+    const area = await page.locator('.tour-sistema__area').boundingBox()
+    const aside = await page.locator('aside.lateral').boundingBox()
+    return !!(area && aside && Math.abs(area.x - aside.x) < 2 && Math.abs(area.width - aside.width) < 2)
+  }).toBe(true)
   await expect.poll(async () => {
     const item = await page.locator('[data-tour="nav-dashboard"]').boundingBox()
     const ringBox = await ring.boundingBox()
