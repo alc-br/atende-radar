@@ -286,7 +286,6 @@ export default function PlansView() {
     { label: 'Mensagens/mês', value: (p) => p.limits.maxMessagesMonthly.toLocaleString('pt-BR') },
     { label: 'Regras de alerta', value: (p) => p.limits.maxAlertRules },
     { label: 'Exportações/mês', value: (p) => p.limits.maxExports },
-    { label: 'Histórico (dias)', value: (p) => p.limits.retentionDays },
   ]
 
   return (
@@ -473,7 +472,6 @@ export default function PlansView() {
                   `${plan.limits.maxAgents} agentes`,
                   `${plan.limits.maxConnections} conexão(ões) WhatsApp`,
                   `${plan.limits.maxAlertRules} regras de alerta`,
-                  `Histórico de ${plan.limits.retentionDays} dias`,
                 ]
                 const actionLabel = !online
                   ? 'Solicitar troca'

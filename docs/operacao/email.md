@@ -85,3 +85,8 @@ Zona DNS no registro.br (modo avançado), conferida em 15/10/2026:
   da pessoa (`src/lib/alert-email.ts`). Relatórios agendados: tira o endereço dos relatórios da empresa
   (`src/lib/report-unsubscribe.ts`, token `r.`). E-mails de conta (cadastro, senha, convite) são transacionais e não
   levam. Marketing sai pelo Mautic, sempre com `{unsubscribe_url}`.
+- **Mautic:** e-mails de marketing (não transacionais) já levam `List-Unsubscribe` + `List-Unsubscribe-Post` (o próprio
+  Mautic põe; o POST de um clique é aceito). Conferido em 15/10/2026 com um envio de teste (e-mail #41, despublicado):
+  chegou na caixa de entrada do Gmail com o botão "Cancelar inscrição". O remetente padrão da instância é
+  `ALC <contato@alc.srv.br>`: todo e-mail do AtendeRadar no Mautic precisa preencher o remetente como
+  `AtendeRadar <contato@atenderadar.com.br>` (domínio autenticado no Brevo), senão sai com a marca errada.

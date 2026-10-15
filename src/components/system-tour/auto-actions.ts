@@ -5,10 +5,13 @@ import { autoActionOf, type SystemTourStep } from '@/lib/system-tour/types'
 // Leitura automática do "Tour pelo sistema": o tour lê cada passo e mostra a ação com um cursor simulado.
 // Um cursor de mentira desliza até o item e então:
 // - click/select: aponta o item e ESPERA a pessoa clicar (o tour nunca clica sozinho);
-// - demo: só mostra onde fica (cadastro, envio, exclusão, pagamento NUNCA são executados) e segue.
+// - demo: só mostra onde fica (cadastro, envio, exclusão, pagamento NUNCA são executados). Clique demonstrado segue;
+//   cadastro ("task") ESPERA a pessoa fazer (o aviso da tela de que deu certo avança) ou clicar em Próximo.
 // Tudo é cancelável (AbortSignal): pausar a leitura ou trocar de passo para o cursor e a ação pendente na hora.
 
 export const AUTO_DEMO_MESSAGE = 'Na leitura automática só mostramos onde fica. Faça você mesmo quando quiser.'
+/** Passo de cadastro: o tour mostra como e espera a pessoa fazer (nunca cadastra sozinho). */
+export const AUTO_TASK_MESSAGE = 'Agora é com você: preencha e salve. O tour continua quando você terminar.'
 /** Passo de clique: o tour aponta e espera a pessoa clicar (nunca clica sozinho). */
 export const AUTO_WAIT_MESSAGE = 'Clique aqui para continuar'
 
@@ -280,6 +283,12 @@ export async function runAutoAction(step: SystemTourStep, o: AutoRunOptions): Pr
         undo.splice(0).forEach((f) => f())
         undo.push(mark(t.button, 'tour-alvo--parado'))
       }
+    }
+    if (step.kind === 'task') {
+      // cadastro: a pessoa faz; o balão fica até ela terminar ou trocar de passo
+      undo.splice(0).forEach((f) => f())
+      o.ghost.balloon(AUTO_TASK_MESSAGE)
+      return 'waiting'
     }
     o.ghost.balloon(AUTO_DEMO_MESSAGE)
     await sleep(DEMO_HOLD_MS, o.signal)

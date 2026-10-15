@@ -208,7 +208,7 @@ export function PlanCatalog() {
               <div className="space-y-1">
                 <p className="text-sm font-medium">Limites</p>
                 <p className="suave text-xs">
-                  {editing.limits.maxConnections} {editing.limits.maxConnections === 1 ? 'conexão' : 'conexões'} · {editing.limits.maxAgents} atendentes · {editing.limits.maxConversationsMonthly.toLocaleString('pt-BR')} conversas/mês · {editing.limits.maxAlertRules} regras · {editing.limits.maxExports} exportações/mês · histórico de {editing.limits.retentionDays} dias.
+                  {editing.limits.maxConnections} {editing.limits.maxConnections === 1 ? 'conexão' : 'conexões'} · {editing.limits.maxAgents} atendentes · {editing.limits.maxConversationsMonthly.toLocaleString('pt-BR')} conversas/mês · {editing.limits.maxAlertRules} regras · {editing.limits.maxExports} exportações/mês.
                   Os limites são as cotas aplicadas a quem já assina, por isso não mudam por aqui.
                 </p>
               </div>

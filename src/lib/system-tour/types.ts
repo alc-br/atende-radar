@@ -39,7 +39,7 @@ export interface SystemTourStep {
    * - click: navegação (menu, tela, botão que só abre um formulário); o tour clica de verdade.
    * - select: aba ou filtro; o item aparece escolhido e o tour clica de verdade.
    * - demo: só mostra onde fica, sem executar. Padrão quando não definido, e sempre em "task" (cadastro, envio,
-   *   exclusão, pagamento nunca são executados pelo tour).
+   *   exclusão, pagamento nunca são executados pelo tour); em "task" o tour espera a pessoa fazer.
    */
   autoAction?: AutoAction
   /** Passo só aparece para quem tem esta permissão. */

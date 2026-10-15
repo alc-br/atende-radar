@@ -25,7 +25,7 @@ import type { SpotlightFocus, SystemTourChapter } from '@/lib/system-tour/types'
 import { useSystemTourProgress } from './progress-store'
 import { RATE_OPTIONS, type SpeakHandlers, useSpeech } from './use-speech'
 import { StepBody } from './rich-text'
-import { AUTO_DEMO_MESSAGE, GhostCursor, isAborted, runAutoAction } from './auto-actions'
+import { AUTO_DEMO_MESSAGE, AUTO_TASK_MESSAGE, GhostCursor, isAborted, runAutoAction } from './auto-actions'
 
 // Painel do passo do "Tour pelo sistema": destaca o item da tela (sem bloquear cliques), explica, detecta o clique ou
 // o cadastro pedido e navega entre as telas. Não é modal: a pessoa usa o sistema normalmente com ele aberto.
@@ -467,8 +467,13 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
       onDemo: () => setDemoNote(idx),
     }).then(
       (result) => {
-        // passo de clique: o cursor aponta e o tour espera a pessoa clicar (o ouvinte do passo avança e a leitura segue)
-        if (ctrl.signal.aborted || !autoRef.current || result === 'waiting') return
+        if (ctrl.signal.aborted || !autoRef.current) return
+        // clique: o cursor aponta e o tour espera a pessoa clicar; cadastro: mostrou como e espera a pessoa salvar (o
+        // aviso da tela avança e tira o passo de "só demonstrado"; pular com Próximo deixa o capítulo por concluir)
+        if (result === 'waiting') {
+          if (step.kind === 'task') demoed.current.add(idx)
+          return
+        }
         // item que não apareceu enquanto a voz ainda fala: o passo vira "explicação" (missing) e segue ao fim da fala
         if (result === 'missing' && narratedRef.current !== idx) return
         if (result === 'demo') demoed.current.add(idx)
@@ -596,7 +601,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
           )}
           {autoRead && demoNote === idx && (
             <p className="tour-sistema__aviso" role="status" data-testid="system-tour-demo-note">
-              {AUTO_DEMO_MESSAGE}
+              {step.kind === 'task' ? AUTO_TASK_MESSAGE : AUTO_DEMO_MESSAGE}
             </p>
           )}
           {step.target && missing && (

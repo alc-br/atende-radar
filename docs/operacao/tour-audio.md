@@ -40,9 +40,11 @@ clientes ou da empresa.
     da narração (`actionCue` em `engine.ts`; sem pedido na fala, ao fim dela), o cursor desliza até o item e mostra
     "Clique aqui para continuar". O tour **nunca clica sozinho**: espera a pessoa clicar e então segue lendo.
   - `demo` (padrão quando não definido, e sempre nos passos de cadastro): ao fim da fala, NUNCA executa. Aponta o campo
-    (digita "Exemplo" e apaga) e o botão de concluir, mostra "Na leitura automática só mostramos onde fica. Faça você
-    mesmo quando quiser." e segue (o formulário que a pessoa abriu continua aberto). O passo fica "demonstrado": o
-    capítulo terminado assim não conta como concluído (o cadastro feito de verdade no passo volta a contar).
+    (digita "Exemplo" e apaga) e o botão de concluir. Passo de cadastro (`task`): mostra "Agora é com você: preencha e
+    salve. O tour continua quando você terminar." e ESPERA; o aviso da tela de que o cadastro deu certo (`signal`)
+    avança e a leitura segue. Pular com Próximo deixa o passo "demonstrado": o capítulo terminado assim não conta como
+    concluído. Clique demonstrado (`click` sem `autoAction`): mostra "Na leitura automática só mostramos onde fica.
+    Faça você mesmo quando quiser." e segue.
   - Item não aparece: o passo vira explicação e segue no fim da fala. Pausar tira o cursor. Com
     `prefers-reduced-motion`, sem deslize: o cursor aparece parado no item.
 - **Velocidade**: 0,8× a 2× (`playbackRate` com `preservesPitch`; na voz do navegador, `rate`). Fica salva por pessoa

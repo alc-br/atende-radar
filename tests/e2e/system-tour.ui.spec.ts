@@ -497,7 +497,7 @@ test.describe('leitura em voz alta', () => {
       expect(await page.evaluate(() => (window as unknown as { __glide: boolean }).__glide)).toBe(false)
     })
 
-    test('passo de cadastro só é demonstrado: a pessoa abre o formulário, nada é criado e o tour segue', async ({ page, context, isMobile }) => {
+    test('passo de cadastro: o tour mostra como, não cria nada e espera a pessoa salvar para seguir', async ({ page, context, isMobile }) => {
       await page.addInitScript(fakeSpeechSynthesis)
       await enterAsRole(context, 'admin')
       const writes: string[] = []
@@ -520,19 +520,29 @@ test.describe('leitura em voz alta', () => {
       const dialog = page.getByRole('dialog', { name: 'Criar equipe' })
       await expect(dialog).toBeVisible()
 
-      // demonstração: aviso no painel e no balão, um exemplo digitado e apagado, nada enviado
-      await expect(balloon).toHaveText('Na leitura automática só mostramos onde fica. Faça você mesmo quando quiser.', { timeout: 15000 })
-      await expect(p.getByTestId('system-tour-demo-note')).toBeAttached()
+      // demonstração: um exemplo digitado e apagado, nada enviado; depois o aviso "é com você" no painel e no balão
+      const taskMessage = 'Agora é com você: preencha e salve. O tour continua quando você terminar.'
+      await expect(balloon).toHaveText(taskMessage, { timeout: 15000 })
+      await expect(p.getByTestId('system-tour-demo-note')).toHaveText(taskMessage)
       await expect(dialog.locator('#team-name')).toHaveValue('')
-      // o tour segue para o próximo passo (o formulário que a pessoa abriu continua com ela)
-      // (o formulário aberto esconde o resto da tela da árvore de acessibilidade)
-      await expect(p.getByRole('heading', { name: 'Sua equipe apareceu', includeHidden: true })).toBeAttached({ timeout: 10000 })
-      await expect(dialog).toBeVisible()
-      await expect(step).toHaveText(/Passo \d+ de \d+/)
-
+      // o tour espera: não passa para o próximo passo sozinho
+      const stepText = await step.textContent()
+      await page.waitForTimeout(4000)
+      await expect(step).toHaveText(stepText!)
       expect(writes, 'a leitura automática nunca cria nada').toEqual([])
       const teams = (await (await page.request.get('/api/teams')).json()) as { teams: Array<{ name: string }> }
       expect(teams.teams.some((t) => t.name === 'Exemplo' || t.name.startsWith('Exemp'))).toBe(false)
+
+      // a pessoa cadastra: o tour segue com a leitura ligada
+      const nome = `Equipe Tour ${uid()}`
+      await dialog.locator('#team-name').fill(nome)
+      await dialog.getByRole('combobox', { name: 'Selecione o supervisor' }).click()
+      await page.getByRole('option').first().click()
+      await dialog.getByRole('button', { name: 'Criar', exact: true }).click()
+      await expect(dialog).toHaveCount(0)
+      await expect(p.getByRole('heading', { name: 'Sua equipe apareceu' })).toBeVisible({ timeout: 15000 })
+      await expect(p.getByTestId('system-tour-auto')).toHaveAttribute('aria-pressed', 'true')
+      expect(writes).toHaveLength(1)
     })
   })
 

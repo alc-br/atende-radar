@@ -242,7 +242,6 @@ export default function CheckoutView() {
     `${plan.limits.maxAgents} agentes`,
     `${plan.limits.maxConnections} conexão(ões) WhatsApp`,
     `${plan.limits.maxAlertRules} regras de alerta`,
-    `Histórico de ${plan.limits.retentionDays} dias`,
   ]
 
   const cycles: { value: Cycle; label: string; detail: string }[] = [

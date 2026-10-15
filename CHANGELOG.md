@@ -8,7 +8,9 @@ Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no
 - **Tour: voz e tela sincronizadas.** A leitura automática começa sozinha ao abrir um capítulo; a tela do passo só aparece quando a voz começa a falar; o áudio do passo seguinte é baixado enquanto o atual fala; nos passos de clique o cursor aponta o item quando a voz diz "Clique…" e o tour espera a pessoa clicar (nunca clica sozinho).
 - **Áudio do tour já gerado não depende mais da Azure:** sai do cache em disco mesmo sem chave configurada ou com a Azure fora do ar.
 - **Relatórios agendados com descadastro em um clique:** cada destinatário recebe o próprio link "Não quer mais receber estes relatórios?" e o cabeçalho de cancelamento do Gmail; usar tira só aquele endereço dos relatórios da empresa (registrado na auditoria).
-- **Entregabilidade:** DMARC em `quarantine` e domínio verificado no Google Postmaster Tools.
+- **Entregabilidade:** DMARC em `quarantine` e domínio verificado no Google Postmaster Tools. Descadastro em um clique do Mautic conferido com envio de teste (o remetente dos e-mails do AtendeRadar no Mautic precisa ser `contato@atenderadar.com.br`).
+- **Planos sem "dias de histórico":** página de vendas, Planos, checkout e catálogo do Admin deixam de prometer histórico por plano (a retenção real é a mesma para todos e está nos Termos).
+- **Tour: cadastro espera a pessoa.** Na leitura automática, o passo de cadastro mostra onde preencher e fica esperando a pessoa salvar; ao salvar, o tour segue. Nunca cadastra sozinho.
 
 ## 2026-10-14
 - **Tour pelo sistema:** manual interativo por papel (botão no rodapé do menu, acima de "Precisa de ajuda?"). Capítulos com passos de explicação, de clique e de cadastro real, que avançam sozinhos; progresso salvo por pessoa; leitura em voz alta (pt-BR, velocidade 0,8–2×, guardada por pessoa) com botão "Ler automaticamente", que lê e avança passo a passo até o fim do capítulo, simulando com um cursor na tela os cliques de navegação e só mostrando (sem executar) os cadastros; funciona no celular. Artigo novo na Central de ajuda.

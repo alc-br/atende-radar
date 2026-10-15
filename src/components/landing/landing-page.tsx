@@ -28,7 +28,7 @@ function itensDoPlano(plan: PublicPlan, anterior?: PublicPlan): string[] {
     ...(anterior ? [`Tudo do ${anterior.name}`] : []),
     ...novos,
     `${l.maxConnections} ${l.maxConnections === 1 ? 'número' : 'números'} de WhatsApp · até ${l.maxAgents} atendentes`,
-    `${l.maxConversationsMonthly.toLocaleString('pt-BR')} conversas/mês · histórico de ${l.retentionDays} dias`,
+    `${l.maxConversationsMonthly.toLocaleString('pt-BR')} conversas/mês`,
   ]
 }
 
