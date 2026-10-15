@@ -22,9 +22,17 @@ async function openCheckout(page: Page, planCode: string) {
   await expect(page.locator('main').getByRole('heading', { name: 'Contratar plano' })).toBeVisible()
 }
 
+// No Firefox o clique na opção às vezes chega cedo demais e a lista fica aberta, deixando o resto da página inerte:
+// tenta de novo até a lista fechar com a UF escolhida.
 async function chooseUf(page: Page, prefix: string, uf: string) {
-  await page.locator(`#${prefix}-state`).click()
-  await page.getByRole('option', { name: uf, exact: true }).click()
+  const trigger = page.locator(`#${prefix}-state`)
+  const listbox = page.getByRole('listbox')
+  await expect(async () => {
+    if (!(await listbox.count())) await trigger.click()
+    await page.getByRole('option', { name: uf, exact: true }).click({ timeout: 3_000 })
+    await expect(listbox).toHaveCount(0, { timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
+  await expect(trigger).toContainText(uf)
 }
 
 // Mesmo endereço que o ViaCEP devolve para o CEP: o preenchimento automático (se chegar) não muda nada
