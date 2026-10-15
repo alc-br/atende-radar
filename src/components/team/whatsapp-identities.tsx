@@ -58,7 +58,7 @@ function IdentityCard({ identity, data, onDone }: { identity: Identity; data: Da
         const res = await fetchMutation(`/api/agent-identities/${identity.id}`, { method: 'PATCH', json: { action, ...(action === 'confirm' ? { agentId: choice } : {}) } })
         changed = ((await res.json()) as { conversationsUpdated?: number }).conversationsUpdated ?? 0
       },
-      { onSettled: onDone, errorMessage: 'Não foi possível salvar o vínculo. Tente de novo.' }
+      { onSettled: onDone, errorMessage: 'Não foi possível salvar o vínculo. Tente novamente.' }
     )
     setBusy(false)
     if (ok) toast.success(`Vínculo salvo · ${changed} ${changed === 1 ? 'conversa atualizada' : 'conversas atualizadas'}`)

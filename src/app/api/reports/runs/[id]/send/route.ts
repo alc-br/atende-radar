@@ -25,7 +25,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!recipients.length) return badRequest('Este relatório não tem destinatários. Cadastre-os em Configurar.')
 
   if (!allow(`report-send:${g.auth.orgId}`, Number(process.env.REPORT_RESEND_PER_HOUR) || 20, 3_600_000)) {
-    return NextResponse.json({ error: 'Muitos reenvios em pouco tempo. Tente de novo em uma hora.' }, { status: 429 })
+    return NextResponse.json({ error: 'Muitos reenvios em pouco tempo. Tente novamente em uma hora.' }, { status: 429 })
   }
 
   try {

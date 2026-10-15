@@ -754,7 +754,7 @@ const CHAPTERS: SystemTourChapter[] = [
         title: 'Tipos e histórico',
         target: 'reports-tabs',
         view: 'reports',
-        body: ['Em **Tipos de Relatório** ficam os modelos prontos. Em **Histórico** ficam os relatórios já gerados, com as ações Reenviar e Tentar de novo.'],
+        body: ['Em **Tipos de Relatório** ficam os modelos prontos. Em **Histórico** ficam os relatórios já gerados, com as ações Reenviar e Tentar novamente.'],
       },
       {
         id: 'tipos',

@@ -21,7 +21,7 @@ export function DeletionBanner() {
 
   const cancel = async () => {
     setBusy(true)
-    const ok = await runMutation(() => fetchMutation('/api/organization/deletion', { method: 'DELETE' }), { errorMessage: 'Não foi possível cancelar a exclusão. Tente de novo.' })
+    const ok = await runMutation(() => fetchMutation('/api/organization/deletion', { method: 'DELETE' }), { errorMessage: 'Não foi possível cancelar a exclusão. Tente novamente.' })
     setBusy(false)
     if (!ok) return
     setMe({ ...me, organizationDeletion: null })

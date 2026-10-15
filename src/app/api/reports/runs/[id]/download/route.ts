@@ -45,7 +45,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     body = format === 'csv' ? toCsv(content) : format === 'json' ? toJson(content) : format === 'xlsx' ? new Uint8Array(await toXlsx(content)) : await toPdf(content)
   } catch (e) {
     console.error('Report export error:', e)
-    return NextResponse.json({ error: 'Não foi possível montar o arquivo. Tente de novo.' }, { status: 500 })
+    return NextResponse.json({ error: 'Não foi possível montar o arquivo. Tente novamente.' }, { status: 500 })
   }
   // só conta na cota o que de fato foi entregue
   await audit(g.auth, { action: 'report.exported', targetType: 'report_run', targetId: id, details: { format, reportType: run.reportType } })

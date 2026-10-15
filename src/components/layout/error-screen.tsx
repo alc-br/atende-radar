@@ -39,7 +39,7 @@ export function ErrorScreen({
               {retry && (
                 <button type="button" onClick={retry} className="btn btn--verde btn--xl btn--bloco">
                   <RotateCcw className="ic" aria-hidden="true" />
-                  Tentar de novo
+                  Tentar novamente
                 </button>
               )}
               <a href={painel} className={`btn ${retry ? 'btn--contorno-verde' : 'btn--verde'} btn--xl btn--bloco`}>

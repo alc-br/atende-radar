@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 // lista é recarregada de qualquer jeito, para a tela mostrar o estado real.
 // Só para uso em componentes do navegador.
 
-export const MUTATION_ERROR_MESSAGE = 'Não foi possível concluir a ação. Tente de novo.'
+export const MUTATION_ERROR_MESSAGE = 'Não foi possível concluir a ação. Tente novamente.'
 
 export class MutationError extends Error {
   readonly status: number

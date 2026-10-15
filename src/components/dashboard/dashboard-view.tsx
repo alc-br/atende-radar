@@ -339,7 +339,7 @@ export default function DashboardView() {
   const header = (
     <div className="cab-pagina">
       <div>
-        <h1>Visão Geral</h1>
+        <h1>Visão geral</h1>
         <p>Acompanhe o desempenho do atendimento, identifique oportunidades e recupere mais vendas pelo WhatsApp.</p>
       </div>
     </div>
