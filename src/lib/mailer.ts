@@ -1,6 +1,7 @@
 import { db } from './db'
 import { isSimulationEmail } from './sandbox'
 import { queueRecipientSync } from './mautic'
+import { mailHtml } from './mail-html'
 
 export interface MailAttachment {
   filename: string
@@ -66,6 +67,8 @@ async function deliver(mail: { to: string; subject: string; text: string; attach
       sender: parseSender(from),
       to: [{ email: mail.to }],
       subject: mail.subject,
+      // HTML com o visual do AtendeRadar, montado do texto (mail-html.ts); o texto vai junto como versão alternativa
+      htmlContent: mailHtml(mail.subject, mail.text),
       textContent: mail.text,
       ...(mail.headers && Object.keys(mail.headers).length ? { headers: mail.headers } : {}),
       ...(mail.attachments?.length
