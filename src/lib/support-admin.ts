@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { guard, isPlatformOperator, type AuthContext } from './api-auth'
-import { TICKET_LIST_SELECT } from './support'
+import { db } from './db'
+import { replyTextFromMail, SUPPORT_REPLY_KIND, SUPPORT_TICKET_HEADER, TICKET_LIST_SELECT } from './support'
 import type { Prisma } from '@prisma/client'
 
 /** Só o operador da plataforma (PLATFORM_ADMIN_EMAILS) vê os chamados; admin de cliente recebe 403. */
@@ -12,6 +13,26 @@ export async function operatorGuard(): Promise<{ ok: true; auth: AuthContext } |
 }
 
 type TicketRow = Prisma.SupportTicketGetPayload<{ select: typeof TICKET_LIST_SELECT }>
+
+export type TicketReply = { id: string; text: string; to: string; emailStatus: string; sentAt: string | null; createdAt: string }
+
+/** Respostas já enviadas a um chamado (e-mails do EmailOutbox marcados com o id dele), da mais antiga à mais nova. */
+export async function ticketReplies(ticketId: string): Promise<TicketReply[]> {
+  const rows = await db.emailOutbox.findMany({
+    where: { kind: SUPPORT_REPLY_KIND, headers: { contains: `"${SUPPORT_TICKET_HEADER}":"${ticketId}"` } },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, body: true, toEmail: true, status: true, sentAt: true, createdAt: true },
+    take: 50,
+  })
+  return rows.map((r) => ({
+    id: r.id,
+    text: replyTextFromMail(r.body),
+    to: r.toEmail,
+    emailStatus: r.status,
+    sentAt: r.sentAt?.toISOString() ?? null,
+    createdAt: r.createdAt.toISOString(),
+  }))
+}
 
 /** Chamado para a tela do operador (sem os bytes da imagem; ela sai por /api/admin/support/[id]/screenshot). */
 export function adminTicket(t: TicketRow) {

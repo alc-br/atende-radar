@@ -24,6 +24,12 @@ async function postJson(url: string, body: unknown): Promise<{ ok: boolean; erro
   }
 }
 
+/** "locked:15" (erro do authorize em src/lib/auth.ts) → 15; qualquer outro erro → null. */
+function lockMinutes(error: string): number | null {
+  const m = /^locked:(\d+)$/.exec(error)
+  return m ? Number(m[1]) : null
+}
+
 // Visual das páginas de conta do pacote de design (entrar, cadastro, recuperar-senha). A raiz `.ar.conta` faz o
 // papel do `<body class="conta">` do pacote; o `.conta` interno ativa as regras descendentes (`.ar .conta …`).
 export default function LoginPage() {
@@ -47,7 +53,13 @@ export default function LoginPage() {
         redirect: false,
       })
 
-      if (result?.error) {
+      const lockedMinutes = result?.error ? lockMinutes(result.error) : null
+      if (lockedMinutes) {
+        // conta (ou e-mail) bloqueada por tentativas: o aviso é o mesmo exista o e-mail ou não
+        toast.error('Muitas tentativas', {
+          description: `Muitas tentativas de entrar. Tente novamente em ${lockedMinutes} ${lockedMinutes === 1 ? 'minuto' : 'minutos'} ou use "Esqueceu sua senha?".`,
+        })
+      } else if (result?.error) {
         toast.error('Falha na autenticação', {
           description: 'E-mail ou senha inválidos. Tente novamente.',
         })

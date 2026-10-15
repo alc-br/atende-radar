@@ -19,7 +19,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         <ErrorScreen
           icon={TriangleAlert}
           title="Algo deu errado"
-          text="O AtendeRadar teve um problema ao abrir. Tente de novo em instantes."
+          text="O AtendeRadar teve um problema ao abrir. Tente novamente em instantes."
           retry={reset}
           code={error.digest}
         />

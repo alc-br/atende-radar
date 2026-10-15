@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { parsePlanPatch, catalogSyncPatch, PREVIOUS_CATALOG, PLAN_FEATURES } from '../../src/lib/plan-catalog'
-import { plans } from '../../src/lib/seed-data'
+import { parsePlanPatch, catalogSyncPatch, PREVIOUS_CATALOG, PLAN_FEATURES, PLAN_CATALOG as plans } from '../../src/lib/plan-catalog'
 
 // V7 · Admin › Planos: validação do que o operador edita e regra do sync do deploy (não sobrescreve edição do Admin).
 test.describe('V7 · edição do catálogo de planos', () => {

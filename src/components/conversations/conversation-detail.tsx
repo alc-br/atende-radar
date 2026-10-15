@@ -125,6 +125,8 @@ function timelineMarkersBefore(
 }
 
 const INTENT_OPTIONS = Object.keys(INTENT_TAG)
+
+const NOT_FOUND = 'Conversa não encontrada'
 const URGENCY_OPTIONS = Object.keys(URGENCY_TAG)
 
 const SEVERITY_LABEL: Record<string, string> = { critical: 'Crítica', high: 'Alta', medium: 'Média', low: 'Baixa' }
@@ -295,6 +297,8 @@ export default function ConversationDetail() {
     setError(null)
     try {
       const res = await fetch(`/api/conversations/${selectedConversationId}`)
+      // 404: a conversa não existe (apagada a pedido do cliente, link antigo ou de outra empresa); não é falha de carga
+      if (res.status === 404) throw new Error(NOT_FOUND)
       if (!res.ok) throw new Error('Erro ao carregar conversa')
       const json = await res.json()
       setData(json)
@@ -330,10 +334,17 @@ export default function ConversationDetail() {
   }
 
   if (error || !data) {
+    const notFound = !error || error === NOT_FOUND
     return (
-      <div className="cartao vazio flex flex-col items-center gap-4">
-        <p className="vermelho font-medium">{error || 'Conversa não encontrada'}</p>
-        <button type="button" onClick={() => setView('conversations')} className="btn btn--sm">Voltar</button>
+      <div className="cartao vazio flex flex-col items-center gap-4" role={notFound ? 'status' : 'alert'}>
+        <p className={notFound ? 'font-medium' : 'vermelho font-medium'}>{notFound ? NOT_FOUND : error}</p>
+        {notFound && <p className="suave">Ela pode ter sido apagada a pedido do cliente ou o link não é mais válido.</p>}
+        <div className="flex gap-2">
+          {!notFound && (
+            <button type="button" onClick={fetchData} className="btn btn--sm">Tentar novamente</button>
+          )}
+          <button type="button" onClick={() => setView('conversations')} className="btn btn--sm">Voltar para Conversas</button>
+        </div>
       </div>
     )
   }

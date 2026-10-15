@@ -90,6 +90,7 @@ const MATRIX: Row[] = [
   ['GET', '/api/admin/support', []],
   ['GET', '/api/admin/support/x', []],
   ['PATCH', '/api/admin/support/x', []],
+  ['POST', '/api/admin/support/x/reply', []],
   ['GET', '/api/admin/support/x/screenshot', []],
   ['GET', '/api/admin/plans', []], // V7 · catálogo de planos: só o operador da plataforma
   ['PATCH', '/api/admin/plans/x', []],

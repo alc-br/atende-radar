@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
     if (!name || !phoneNumber) {
       return NextResponse.json(
-        { error: 'name and phoneNumber are required' },
+        { error: 'Informe o nome da conexão e o número do WhatsApp.' },
         { status: 400 }
       )
     }
@@ -96,6 +96,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, connection }, { status: 201 })
   } catch (error) {
     console.error('Connections POST error:', error)
-    return NextResponse.json({ error: 'Failed to create connection' }, { status: 500 })
+    return NextResponse.json({ error: 'Não foi possível criar a conexão. Tente novamente.' }, { status: 500 })
   }
 }

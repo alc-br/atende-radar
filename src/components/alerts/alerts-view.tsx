@@ -26,7 +26,9 @@ import {
   Shield,
   Zap,
   ChevronDown,
+  Pencil,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,7 +60,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 import { formatCurrency, timeAgo, cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
-import { mutate } from '@/lib/mutation'
+import { mutate, fetchMutation, MUTATION_ERROR_MESSAGE } from '@/lib/mutation'
+import { RULE_CHANNELS, RULE_CHANNEL_LABELS, type RuleChannel } from '@/lib/alert-channels'
 import { tourSignal } from '@/lib/system-tour/signals'
 import { can, canOpenView } from '@/lib/permissions'
 
@@ -162,7 +165,7 @@ const alertTypeLabels: Record<string, string> = {
 }
 
 const channelLabels: Record<string, string> = {
-  in_app: 'In-app',
+  in_app: 'No sistema',
   email: 'E-mail',
   whatsapp: 'WhatsApp',
   sms: 'SMS',
@@ -308,44 +311,66 @@ export default function AlertsView() {
     })
   }
 
-  // New rule dialog state
+  // Diálogo de regra: criar (editingRuleId = null) ou editar uma existente
   const [newRuleOpen, setNewRuleOpen] = useState(false)
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
   const [newRuleName, setNewRuleName] = useState('')
   const [newRuleType, setNewRuleType] = useState('')
   const [newRuleSeverity, setNewRuleSeverity] = useState('medium')
   const [newRuleCooldown, setNewRuleCooldown] = useState('30')
+  const [newRuleChannels, setNewRuleChannels] = useState<RuleChannel[]>(['in_app', 'email'])
   const [creatingRule, setCreatingRule] = useState(false)
 
+  const openNewRule = () => {
+    setEditingRuleId(null)
+    setNewRuleName('')
+    setNewRuleType('')
+    setNewRuleSeverity('medium')
+    setNewRuleCooldown('30')
+    setNewRuleChannels(['in_app', 'email'])
+    setNewRuleOpen(true)
+  }
+
+  const openEditRule = (rule: AlertRuleItem) => {
+    setEditingRuleId(rule.id)
+    setNewRuleName(rule.name)
+    setNewRuleType(rule.type)
+    setNewRuleSeverity(rule.severity)
+    setNewRuleCooldown(String(rule.cooldownMinutes))
+    setNewRuleChannels(RULE_CHANNELS.filter((c) => rule.channels.includes(c)))
+    setNewRuleOpen(true)
+  }
+
+  const toggleNewRuleChannel = (ch: RuleChannel, on: boolean) =>
+    setNewRuleChannels((prev) => (on ? RULE_CHANNELS.filter((c) => c === ch || prev.includes(c)) : prev.filter((c) => c !== ch)))
+
   const handleCreateRule = async () => {
-    if (!newRuleName.trim() || !newRuleType) return
+    if (!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0) return
     setCreatingRule(true)
+    const json = {
+      name: newRuleName.trim(),
+      severity: newRuleSeverity,
+      cooldownMinutes: parseInt(newRuleCooldown, 10) || 30,
+      channels: newRuleChannels,
+    }
     try {
-      const res = await fetch('/api/alert-rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newRuleName,
-          type: newRuleType,
-          severity: newRuleSeverity,
-          cooldownMinutes: parseInt(newRuleCooldown, 10) || 30,
-          channels: ['in_app'],
-        }),
-      })
-      if (!res.ok) throw new Error()
-      setNewRuleName('')
-      setNewRuleType('')
-      setNewRuleSeverity('medium')
-      setNewRuleCooldown('30')
+      if (editingRuleId) {
+        await fetchMutation(`/api/alert-rules/${editingRuleId}`, { method: 'PUT', json })
+        toast.success('Regra atualizada.')
+      } else {
+        await fetchMutation('/api/alert-rules', { method: 'POST', json: { ...json, type: newRuleType } })
+        toast.success('Regra criada.')
+        tourSignal('alert-rule.created')
+      }
       setNewRuleOpen(false)
-      tourSignal('alert-rule.created')
       fetchAlerts()
-    } catch {
-      // keep dialog open with entered values so the user can retry
+    } catch (e) {
+      // o diálogo continua aberto com o que foi digitado; a mensagem do servidor diz o que fazer (ex.: limite do plano)
+      toast.error(e instanceof Error && !e.message.startsWith('HTTP ') ? e.message : MUTATION_ERROR_MESSAGE)
     } finally {
       setCreatingRule(false)
     }
   }
-
   // Equipes distintas, a partir dos atendentes carregados de /api/team
   const teams = useMemo(
     () => [...new Set(agents.map((a) => a.team).filter(Boolean))].sort(),
@@ -719,7 +744,7 @@ export default function AlertsView() {
               type="button"
               data-tour="alerts-new-rule"
               className="btn btn--primario btn--sm"
-              onClick={() => setNewRuleOpen(true)}
+              onClick={openNewRule}
             >
               <Plus className="ic" aria-hidden="true" />
               Nova regra
@@ -748,6 +773,7 @@ export default function AlertsView() {
                     <th scope="col" className="hidden md:table-cell">Cooldown</th>
                     <th scope="col" className="hidden lg:table-cell">Canais</th>
                     <th scope="col" className="centro">Ativa</th>
+                    {canEditRules && <th scope="col"><span className="sr-only">Ações</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -781,6 +807,13 @@ export default function AlertsView() {
                           <span />
                         </label>
                       </td>
+                      {canEditRules && (
+                        <td>
+                          <button type="button" className="btn btn--sm" onClick={() => openEditRule(rule)} aria-label={`Editar regra ${rule.name}`}>
+                            <Pencil className="ic" aria-hidden="true" />Editar
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -981,8 +1014,8 @@ export default function AlertsView() {
       <Dialog open={newRuleOpen} onOpenChange={setNewRuleOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova regra de alerta</DialogTitle>
-            <DialogDescription>Configure quando este alerta deve ser gerado.</DialogDescription>
+            <DialogTitle>{editingRuleId ? 'Editar regra de alerta' : 'Nova regra de alerta'}</DialogTitle>
+            <DialogDescription>Configure quando este alerta deve ser gerado e por onde ele avisa.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -996,7 +1029,7 @@ export default function AlertsView() {
             </div>
             <div className="space-y-2">
               <Label>Tipo</Label>
-              <Select value={newRuleType} onValueChange={setNewRuleType}>
+              <Select value={newRuleType} onValueChange={setNewRuleType} disabled={!!editingRuleId}>
                 <SelectTrigger aria-label="Selecione o tipo"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(alertTypeLabels).map(([value, label]) => (
@@ -1026,11 +1059,29 @@ export default function AlertsView() {
                 onChange={(e) => setNewRuleCooldown(e.target.value)}
               />
             </div>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Avisar por</legend>
+              {RULE_CHANNELS.map((ch) => (
+                <label key={ch} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={newRuleChannels.includes(ch)}
+                    onChange={(e) => toggleNewRuleChannel(ch, e.target.checked)}
+                  />
+                  {RULE_CHANNEL_LABELS[ch]}
+                  <span className="suave">
+                    {ch === 'in_app' ? '(sino e tela Alertas)' : '(membros que veem o alerta e deixaram ligado em Meu perfil)'}
+                  </span>
+                </label>
+              ))}
+              {newRuleChannels.length === 0 && <p className="text-sm text-[var(--vermelho)]" role="alert">Escolha pelo menos um canal.</p>}
+              <p className="text-xs suave">O webhook vale para todos os alertas da empresa: configure em Configurações › Webhook.</p>
+            </fieldset>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewRuleOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateRule} disabled={!newRuleName.trim() || !newRuleType || creatingRule}>
-              Criar regra
+            <Button onClick={handleCreateRule} disabled={!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0 || creatingRule}>
+              {editingRuleId ? 'Salvar regra' : 'Criar regra'}
             </Button>
           </DialogFooter>
         </DialogContent>

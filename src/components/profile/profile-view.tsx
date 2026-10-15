@@ -36,7 +36,7 @@ function SecaoCab({ icon, title, id, children }: { icon: ReactNode; title: strin
   )
 }
 
-const erro = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Não foi possível concluir a ação. Tente de novo.')
+const erro = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Não foi possível concluir a ação. Tente novamente.')
 
 // Meu perfil (P7): nome, troca de senha e "sair de todos os aparelhos". Aberto pelo menu do usuário.
 export default function ProfileView() {

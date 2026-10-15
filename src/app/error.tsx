@@ -14,7 +14,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
     <ErrorScreen
       icon={TriangleAlert}
       title="Algo deu errado"
-      text="Não conseguimos abrir esta página agora. Tente de novo; se continuar, volte ao painel."
+      text="Não conseguimos abrir esta página agora. Tente novamente; se continuar, volte ao painel."
       retry={reset}
       code={error.digest}
     />

@@ -60,5 +60,5 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: true, seen })
     }
   }
-  return NextResponse.json({ error: 'Tente de novo' }, { status: 409 })
+  return NextResponse.json({ error: 'Tente novamente' }, { status: 409 })
 }

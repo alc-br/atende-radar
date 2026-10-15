@@ -37,7 +37,7 @@ export function DangerZone() {
       })
       const data = (await res.json().catch(() => ({}))) as { error?: string; deletion?: OrganizationDeletion }
       if (!res.ok || !data.deletion) {
-        setError(data.error || 'Não foi possível pedir a exclusão. Tente de novo.')
+        setError(data.error || 'Não foi possível pedir a exclusão. Tente novamente.')
         return
       }
       setMe({ ...me, organizationDeletion: data.deletion })
@@ -45,7 +45,7 @@ export function DangerZone() {
       setTypedName('')
       toast.success(`Exclusão agendada para ${new Date(data.deletion.scheduledFor).toLocaleDateString('pt-BR')}.`)
     } catch {
-      setError('Não foi possível pedir a exclusão. Tente de novo.')
+      setError('Não foi possível pedir a exclusão. Tente novamente.')
     } finally {
       setBusy(false)
       setConfirmOpen(false)

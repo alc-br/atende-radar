@@ -372,7 +372,7 @@ export default function AdminView() {
         <div className="cab-pagina__titulo">
           <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><Settings className="ic" /></span>
           <div>
-            <h1>Painel Administrativo</h1>
+            <h1>Painel administrativo</h1>
             <p>Gerencie organizações, usuários e configurações da plataforma</p>
           </div>
         </div>

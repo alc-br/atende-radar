@@ -62,7 +62,7 @@ async function downloadExport(e: React.MouseEvent<HTMLAnchorElement>, fallbackNa
     const res = await fetch(href)
     if (!res.ok) {
       const data = await res.json().catch(() => null)
-      toast.error(data?.error || 'Não foi possível exportar. Tente de novo.')
+      toast.error(data?.error || 'Não foi possível exportar. Tente novamente.')
       return
     }
     const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || fallbackName

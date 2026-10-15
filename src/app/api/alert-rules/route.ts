@@ -4,6 +4,7 @@ import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 import { enforceQuota } from '@/lib/quotas'
 import { readJson } from '@/lib/json-body'
+import { parseRuleChannels, RULE_CHANNELS_ERROR } from '@/lib/alert-channels'
 
 export async function GET() {
   try {
@@ -92,6 +93,10 @@ export async function POST(request: Request) {
       )
     }
 
+    // canais: só os que o motor entende (in_app, email); sem a lista, só no sistema
+    const parsedChannels = channels === undefined ? ['in_app'] : parseRuleChannels(channels)
+    if (!parsedChannels) return NextResponse.json({ error: RULE_CHANNELS_ERROR, code: 'invalid_channels' }, { status: 400 })
+
     const rule = await db.alertRule.create({
       data: {
         organizationId: org.id,
@@ -99,7 +104,7 @@ export async function POST(request: Request) {
         type,
         active: active ?? true,
         severity: severity ?? 'medium',
-        notificationChannels: JSON.stringify(channels || ['in_app']),
+        notificationChannels: JSON.stringify(parsedChannels),
         cooldownMinutes: cooldownMinutes ?? 30,
         limitMinutes: limitMinutes ?? null,
         scopeConnections: JSON.stringify(scopeConnections || []),
@@ -112,7 +117,7 @@ export async function POST(request: Request) {
       },
     })
 
-    await audit(g.auth, { action: 'alert_rule.created', targetType: 'alert_rule', targetId: rule.id, targetLabel: rule.name, details: { type: rule.type, severity: rule.severity, limitMinutes: rule.limitMinutes } })
+    await audit(g.auth, { action: 'alert_rule.created', targetType: 'alert_rule', targetId: rule.id, targetLabel: rule.name, details: { type: rule.type, severity: rule.severity, limitMinutes: rule.limitMinutes, channels: parsedChannels } })
     return NextResponse.json({ success: true, rule }, { status: 201 })
   } catch (error) {
     console.error('Alert rules POST error:', error)

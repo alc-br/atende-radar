@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 import { readJson } from '@/lib/json-body'
+import { parseRuleChannels, RULE_CHANNELS_ERROR } from '@/lib/alert-channels'
 
 export async function PUT(
   request: Request,
@@ -57,7 +58,11 @@ export async function PUT(
     if (type !== undefined) data.type = type
     if (active !== undefined) data.active = active
     if (severity !== undefined) data.severity = severity
-    if (channels !== undefined) data.notificationChannels = JSON.stringify(channels)
+    if (channels !== undefined) {
+      const parsed = parseRuleChannels(channels)
+      if (!parsed) return NextResponse.json({ error: RULE_CHANNELS_ERROR, code: 'invalid_channels' }, { status: 400 })
+      data.notificationChannels = JSON.stringify(parsed)
+    }
     if (cooldownMinutes !== undefined) data.cooldownMinutes = cooldownMinutes
     if (limitMinutes !== undefined) data.limitMinutes = limitMinutes
     if (scopeConnections !== undefined) data.scopeConnections = JSON.stringify(scopeConnections)

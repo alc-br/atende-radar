@@ -1,5 +1,13 @@
-// Catálogo de planos (V7): o que o operador da plataforma edita em Admin › Planos e as regras do sync do deploy.
-// Puro (sem banco): usado no servidor, no navegador (nomes dos recursos) e em scripts/sync-plan-catalog.ts.
+// Catálogo de planos: os valores do código (PLAN_CATALOG), o que o operador da plataforma edita em Admin › Planos (V7)
+// e as regras do sync do deploy. Puro (sem banco): usado no servidor, no navegador (nomes dos recursos),
+// em prisma/seed.ts (banco novo, desenvolvimento e testes) e em scripts/sync-plan-catalog.ts.
+// O código "gestao" aparece para o cliente como "Growth".
+
+export const PLAN_CATALOG = [
+  { id: 'plan_seed_1', code: 'essencial', name: 'Essencial', description: 'Para começar a ter visibilidade da sua operação.', monthlyPrice: 149, annualPrice: 1490, stripePriceIds: JSON.stringify({ monthly: 'price_monthly_essencial', annual: 'price_annual_essencial' }), currency: 'BRL', trialDays: 7, maxConnections: 1, maxAgents: 3, maxConversationsMonthly: 300, maxMessagesMonthly: 2000, maxAudioMinutes: 0, retentionDays: 30, maxExports: 5, maxAlertRules: 5, features: JSON.stringify({ basic_dashboard: true, conversation_audit: true, daily_report: true, alert_rules: true, team_management: false, advanced_dashboard: false, custom_reports: false, api_access: false }), active: true, sortOrder: 1, highlight: false },
+  { id: 'plan_seed_2', code: 'gestao', name: 'Growth', description: 'Para empresas que querem mais resultados.', monthlyPrice: 299, annualPrice: 2990, stripePriceIds: JSON.stringify({ monthly: 'price_monthly_gestao', annual: 'price_annual_gestao' }), currency: 'BRL', trialDays: 14, maxConnections: 3, maxAgents: 10, maxConversationsMonthly: 1000, maxMessagesMonthly: 10000, maxAudioMinutes: 120, retentionDays: 90, maxExports: 20, maxAlertRules: 20, features: JSON.stringify({ basic_dashboard: true, conversation_audit: true, daily_report: true, alert_rules: true, team_management: true, advanced_dashboard: true, custom_reports: false, api_access: false }), active: true, sortOrder: 2, highlight: true },
+  { id: 'plan_seed_3', code: 'performance', name: 'Performance', description: 'Para operações maiores e mais complexas.', monthlyPrice: 599, annualPrice: 5990, stripePriceIds: JSON.stringify({ monthly: 'price_monthly_performance', annual: 'price_annual_performance' }), currency: 'BRL', trialDays: 14, maxConnections: 10, maxAgents: 50, maxConversationsMonthly: 5000, maxMessagesMonthly: 50000, maxAudioMinutes: 600, retentionDays: 365, maxExports: 100, maxAlertRules: 100, features: JSON.stringify({ basic_dashboard: true, conversation_audit: true, daily_report: true, alert_rules: true, team_management: true, advanced_dashboard: true, custom_reports: true, api_access: true }), active: true, sortOrder: 3, highlight: false },
+]
 
 /**
  * Recursos exibidos como destaques do plano (chaves do campo `features` do Plan), na ordem da página de vendas.
@@ -84,7 +92,7 @@ export function parsePlanPatch(body: unknown): { ok: true; patch: PlanPatch } | 
  * Valores que o catálogo do código já teve (por código do plano). O sync do deploy só troca nome/descrição que ainda
  * estejam num destes valores antigos, isto é, que ninguém editou em Admin › Planos. Valor editado no Admin nunca
  * coincide com um valor antigo do código (a não ser que o operador volte a ele de propósito), então fica como está.
- * Ao mudar nome/descrição em src/lib/seed-data.ts, acrescente aqui o valor que sai.
+ * Ao mudar nome/descrição em PLAN_CATALOG, acrescente aqui o valor que sai.
  */
 export const PREVIOUS_CATALOG: Record<string, { names: string[]; descriptions: string[] }> = {
   essencial: { names: [], descriptions: ['Para clínicas que estão começando a monitorar atendimento via WhatsApp.'] },

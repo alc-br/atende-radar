@@ -92,7 +92,9 @@ Desfazer um deploy ruim: `docs/operacao/rollback.md`.
 
 - `handoff.md`: estado atual, pendências e cuidados (comece por aqui).
 - `CHANGELOG.md`: o que mudou, por data.
-- `docs/operacao/`: backup e restauração, rollback, capacidade, cobrança (Pagar.me).
+- `docs/operacao/`: incidentes (`incidente.md`), backup e restauração, rollback, migrações, capacidade, desempenho, cobrança (Pagar.me).
+- `docs/suporte/manual.md`: manual de suporte (perguntas frequentes dos clientes e onde olhar).
+- `docs/design/guia-de-ui.md`: guia curto de UI (tokens, componentes, textos, estados, acessibilidade).
 - `docs/testes/`: roteiro de teste de usabilidade.
 - `docs/superpowers/`: especificação e plano do tour guiado.
 

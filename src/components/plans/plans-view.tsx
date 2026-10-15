@@ -270,7 +270,7 @@ export default function PlansView() {
         <div className="cab-pagina__titulo">
           <span className="cab-pagina__icone cab-pagina__icone--caixa" aria-hidden="true"><CreditCard className="ic" /></span>
           <div>
-            <h1>Planos e Faturamento</h1>
+            <h1>Planos e faturamento</h1>
             <p>Gerencie sua assinatura e acompanhe o uso.</p>
           </div>
         </div>

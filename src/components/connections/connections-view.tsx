@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
-import { mutate } from '@/lib/mutation'
+import { fetchMutation, mutate, MutationError } from '@/lib/mutation'
 import { tourSignal } from '@/lib/system-tour/signals'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,7 +36,10 @@ const statusConfig: Record<string, { label: string; tom: 'cinza' | 'ambar' | 'az
   blocked:      { label: 'Bloqueada',     tom: 'vermelho' },
   error:        { label: 'Erro',          tom: 'vermelho' },
   disabled:     { label: 'Desabilitada',  tom: 'cinza' },
+  paused:       { label: 'Pausada',       tom: 'cinza' },
 }
+// status que esta tela ainda não conhece: mostra neutro, sem alarmar como "Erro"
+const unknownStatus = { label: 'Status desconhecido', tom: 'cinza' as const }
 
 function SignalQuality({ quality }: { quality: 'good' | 'medium' | 'bad' | null }) {
   if (!quality) {
@@ -66,15 +69,20 @@ export default function ConnectionsView() {
   const [creatingConn, setCreatingConn] = useState(false)
   const [qrConnId, setQrConnId] = useState<string | null>(null)
 
+  // Erro da criação: fica no diálogo (que continua aberto para tentar de novo). 402 = limite do plano.
+  const [newConnError, setNewConnError] = useState<{ message: string; plan: boolean } | null>(null)
+  const setView = useAppStore((s) => s.setView)
+
+  const openNewConnDialog = (open: boolean) => {
+    setNewConnDialogOpen(open)
+    if (open) setNewConnError(null)
+  }
+
   const handleCreateConnection = async () => {
     setCreatingConn(true)
+    setNewConnError(null)
     try {
-      const res = await fetch('/api/connections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newConnName, phoneNumber: newConnPhone }),
-      })
-      if (!res.ok) throw new Error()
+      const res = await fetchMutation('/api/connections', { json: { name: newConnName.trim(), phoneNumber: newConnPhone.trim() } })
       const created = await res.json().catch(() => null)
       setNewConnName('')
       setNewConnPhone('')
@@ -83,8 +91,14 @@ export default function ConnectionsView() {
       tourSignal('connection.created')
       fetchData()
       if (created?.connection?.id) setQrConnId(created.connection.id) // já abre o QR para parear
-    } catch {
-      // keep dialog open so the user can retry
+    } catch (e) {
+      const status = e instanceof MutationError ? e.status : 0
+      const serverMessage = e instanceof MutationError && !e.message.startsWith('HTTP ') ? e.message : null
+      const message = status === 402
+        ? (serverMessage ?? 'O limite do seu plano não permite mais conexões. Troque de plano em Planos para cadastrar mais.')
+        : (serverMessage ?? 'Não foi possível criar a conexão. Confira sua internet e tente novamente.')
+      setNewConnError({ message, plan: status === 402 })
+      toast.error(status === 402 ? 'Limite do plano atingido' : 'Não foi possível criar a conexão')
     } finally {
       setCreatingConn(false)
     }
@@ -187,12 +201,17 @@ export default function ConnectionsView() {
     }
   }
 
-  const togglePause = async (connId: string) => {
-    const newPaused = !localPaused[connId]
+  const togglePause = async (connId: string, currentlyPaused: boolean) => {
+    const newPaused = !currentlyPaused
     setLocalPaused(prev => ({ ...prev, [connId]: newPaused }))
-    // falha (rede ou 4xx/5xx) vira aviso e desfaz a troca; antes o erro sumia e o botão mostrava um estado falso
-    const ok = await mutate(`/api/connections/${connId}`, { method: 'PATCH', json: { action: newPaused ? 'pause' : 'resume' } })
-    if (!ok) setLocalPaused(prev => ({ ...prev, [connId]: !newPaused }))
+    // falha (rede ou 4xx/5xx) vira aviso; depois vale o status que o servidor guardou (pausada = "paused")
+    await mutate(`/api/connections/${connId}`, { method: 'PATCH', json: { action: newPaused ? 'pause' : 'resume' } })
+    await refreshQuietly()
+    setLocalPaused(prev => {
+      const next = { ...prev }
+      delete next[connId]
+      return next
+    })
   }
 
   const connectedCount = connectionsData.filter((c: any) => c.status === 'connected').length
@@ -242,7 +261,7 @@ export default function ConnectionsView() {
               type="button"
               data-tour="connections-new"
               className="btn btn--primario btn--lg"
-              onClick={() => setNewConnDialogOpen(true)}
+              onClick={() => openNewConnDialog(true)}
             >
               <Plus className="ic" aria-hidden="true" />Nova conexão
             </button>
@@ -250,10 +269,10 @@ export default function ConnectionsView() {
         )}
       </div>
 
-      <Dialog open={newConnDialogOpen} onOpenChange={setNewConnDialogOpen}>
+      <Dialog open={newConnDialogOpen} onOpenChange={openNewConnDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova Conexão WhatsApp</DialogTitle>
+            <DialogTitle>Nova conexão WhatsApp</DialogTitle>
             <DialogDescription>
               Adicione um novo número WhatsApp para monitoramento.
             </DialogDescription>
@@ -295,6 +314,23 @@ export default function ConnectionsView() {
             <p className="text-xs text-muted-foreground">
               Ao criar a conexão, o QR Code aparece na próxima tela para você ler com o celular deste número.
             </p>
+            {newConnError && (
+              <Alert variant="destructive" data-testid="nova-conexao-erro">
+                <CircleX className="h-4 w-4" aria-hidden="true" />
+                <AlertDescription className="text-sm">
+                  {newConnError.message}
+                  {newConnError.plan && (
+                    <button
+                      type="button"
+                      className="btn btn--sm mt-2"
+                      onClick={() => { setNewConnDialogOpen(false); setView('plans') }}
+                    >
+                      Ver planos
+                    </button>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewConnDialogOpen(false)}>Cancelar</Button>
@@ -340,10 +376,10 @@ export default function ConnectionsView() {
           </div>
         )}
         {connectionsData.map((conn) => {
-          const cfg = statusConfig[conn.status] || statusConfig.error
+          const paused = localPaused[conn.id] ?? conn.status === 'paused'
+          const cfg = paused ? statusConfig.paused : (statusConfig[conn.status] || unknownStatus)
           const diag = diagnosticsMap[conn.id]
           const isExpanded = expandedDiag === conn.id
-          const paused = !!localPaused[conn.id]
 
           return (
             <div key={conn.id} className={`cartao conexao flex flex-col${cfg.tom === 'vermelho' ? ' conexao--alerta' : ''}`}>
@@ -381,7 +417,7 @@ export default function ConnectionsView() {
                 >
                   <QrCode className="ic" aria-hidden="true" />Gerar QR
                 </button>
-                <button type="button" title={paused ? 'Retomar conexão' : 'Pausar temporariamente'} onClick={() => togglePause(conn.id)}>
+                <button type="button" title={paused ? 'Retomar conexão' : 'Pausar temporariamente'} onClick={() => togglePause(conn.id, paused)}>
                   {paused ? <Play className="ic" aria-hidden="true" /> : <Pause className="ic" aria-hidden="true" />}
                   {paused ? 'Retomar' : 'Pausar'}
                 </button>

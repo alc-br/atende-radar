@@ -1,11 +1,10 @@
-// Roda a cada deploy. Leva para o banco as mudanças de nome/descrição feitas no CÓDIGO (src/lib/seed-data.ts), mas só
+// Roda a cada deploy. Leva para o banco as mudanças de nome/descrição feitas no CÓDIGO (PLAN_CATALOG em src/lib/plan-catalog.ts), mas só
 // em planos que ninguém editou em Admin › Planos: um campo só é trocado se ainda guarda um valor antigo do código
 // (PREVIOUS_CATALOG em src/lib/plan-catalog.ts). O que o operador editou no Admin nunca é sobrescrito.
 // Preços, destaques, limites, ativo/inativo e assinaturas NÃO são tocados. Idempotente.
 //   bun scripts/sync-plan-catalog.ts
 import { PrismaClient } from '@prisma/client'
-import { plans } from '../src/lib/seed-data'
-import { catalogSyncPatch } from '../src/lib/plan-catalog'
+import { PLAN_CATALOG as plans, catalogSyncPatch } from '../src/lib/plan-catalog'
 
 const db = new PrismaClient()
 

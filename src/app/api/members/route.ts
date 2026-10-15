@@ -85,9 +85,9 @@ export async function POST(request: Request) {
     })
 
     await audit(g.auth, { action: 'member.invited', targetType: 'member', targetId: member.id, targetLabel: normalizedEmail, details: { role: finalRole } })
-    // Sem provedor de e-mail configurado o convite não chega à pessoa: o admin recebe o link para repassar.
-    const inviteLink = await sendInvite(g.auth, member)
-    return NextResponse.json({ success: true, member: publicMember(member), inviteLink }, { status: 201 })
+    // E-mail não saiu (sem provedor ou falha no envio): o admin recebe o link para repassar.
+    const { inviteLink, emailStatus } = await sendInvite(g.auth, member)
+    return NextResponse.json({ success: true, member: publicMember(member), inviteLink, emailStatus }, { status: 201 })
   } catch (error) {
     console.error('Members POST error:', error)
     return NextResponse.json({ error: 'Failed to invite member' }, { status: 500 })

@@ -27,10 +27,11 @@ export async function POST(
       return NextResponse.json({ error: 'Muitos reenvios para este convite. Tente novamente mais tarde.' }, { status: 429 })
     }
 
-    const inviteLink = await sendInvite(g.auth, member)
+    const { inviteLink, emailStatus } = await sendInvite(g.auth, member)
     await db.organizationMember.update({ where: { id }, data: { invitedAt: new Date() } })
-    await audit(g.auth, { action: 'member.invite_resent', targetType: 'member', targetId: id, targetLabel: member.email, details: { role: member.role } })
-    return NextResponse.json({ success: true, inviteLink })
+    await audit(g.auth, { action: 'member.invite_resent', targetType: 'member', targetId: id, targetLabel: member.email, details: { role: member.role, emailStatus } })
+    // emailStatus: sent | queued (sem provedor) | failed (o provedor recusou; tenta de novo sozinho) — a tela avisa a falha
+    return NextResponse.json({ success: true, inviteLink, emailStatus })
   } catch (error) {
     console.error('Invite resend error:', error)
     return NextResponse.json({ error: 'Failed to resend invite' }, { status: 500 })

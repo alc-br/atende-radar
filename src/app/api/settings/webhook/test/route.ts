@@ -11,7 +11,7 @@ export async function POST() {
   const exists = await db.webhookEndpoint.count({ where: { organizationId: g.auth.orgId } })
   if (!exists) return notFound('Webhook')
   if (!allow(`webhook-test:${g.auth.orgId}`, 30, 60 * 60_000)) {
-    return NextResponse.json({ error: 'Muitos testes seguidos. Tente de novo mais tarde.' }, { status: 429 })
+    return NextResponse.json({ error: 'Muitos testes seguidos. Tente novamente mais tarde.' }, { status: 429 })
   }
   const result = await sendTestEvent(g.auth.orgId)
   return NextResponse.json({ ok: result.ok, statusCode: result.statusCode ?? null, error: result.error ?? null })
