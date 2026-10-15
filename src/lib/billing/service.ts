@@ -325,7 +325,7 @@ export async function reactivateRenewal(auth: AuthContext): Promise<Fail | { ok:
   const row = await db.subscription.findUnique({ where: { organizationId: auth.orgId }, include: { plan: true } })
   if (!row?.providerSubscriptionId || !cfg || row.billingMode !== cfg.mode) return fail(409, 'no_recurring', 'Não há cobrança automática para reativar. Escolha um plano para contratar.')
   if (!row.cancelAtPeriodEnd) return fail(409, 'not_canceled', 'A renovação automática já está ativa.')
-  if (row.pendingProviderSubscriptionId) return fail(409, 'change_pending', 'Há uma troca de plano aguardando a confirmação do pagamento. Tente de novo em alguns minutos.')
+  if (row.pendingProviderSubscriptionId) return fail(409, 'change_pending', 'Há uma troca de plano aguardando a confirmação do pagamento. Tente novamente em alguns minutos.')
   const now = new Date()
   // margem de 1 h: o Pagar.me precisa de uma data de início no futuro
   if (effectiveStatus(row, now) !== 'active' || row.currentPeriodEnd.getTime() <= now.getTime() + 3600_000) {

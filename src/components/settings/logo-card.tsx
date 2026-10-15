@@ -6,7 +6,7 @@ import { Building2, ImageUp, Trash2 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { fetchMutation } from '@/lib/mutation'
 
-const erro = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Não foi possível concluir a ação. Tente de novo.')
+const erro = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Não foi possível concluir a ação. Tente novamente.')
 
 // Configurações › Empresa (P7): logotipo da empresa. Aparece na barra superior para todos os membros.
 export function LogoCard() {

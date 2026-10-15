@@ -116,7 +116,7 @@ export function PlanCatalog() {
         </div>
       </div>
       <div className="cartao__corpo">
-        {erro && <p className="aviso aviso--ambar" role="alert">Não foi possível carregar os planos. <button type="button" className="btn btn--sm" onClick={carregar}>Tentar de novo</button></p>}
+        {erro && <p className="aviso aviso--ambar" role="alert">Não foi possível carregar os planos. <button type="button" className="btn btn--sm" onClick={carregar}>Tentar novamente</button></p>}
         {plans === null ? (
           <p className="suave text-[13px]">Carregando…</p>
         ) : (
