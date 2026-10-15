@@ -27,7 +27,7 @@ export function effectiveStatus(sub: SubscriptionLike, now = new Date()): string
 export const isActiveStatus = (status: string) => status === 'active' || status === 'trialing'
 
 export interface InvoiceLike {
-  status: string // pending | paid | canceled | scheduled | failed
+  status: string // pending | paid | canceled | scheduled | failed | refunded
   dueAt: Date | null
   cycleStart: Date | null
   cycleEnd: Date | null
@@ -99,7 +99,10 @@ export function mapInvoice(inv: Obj): InvoiceRow {
   const charge = obj(inv.charge)
   const tx = obj(charge?.last_transaction)
   const cycle = obj(inv.cycle)
-  const status = str(inv.status) ?? 'pending'
+  // estorno (arrependimento): o Pagar.me cancela a cobrança já paga (fatura e cobrança "canceled", com canceled_amount);
+  // aqui isso vira "refunded" para não se confundir com fatura cancelada antes de cobrar
+  const refunded = str(charge?.status) === 'refunded' || (str(charge?.status) === 'canceled' && Number(charge?.paid_amount) > 0 && Number(charge?.canceled_amount) > 0)
+  const status = refunded ? 'refunded' : (str(inv.status) ?? 'pending')
   return {
     providerInvoiceId: String(inv.id),
     providerSubscriptionId: str(obj(inv.subscription)?.id) ?? str(inv.subscription_id) ?? str(inv.subscriptionId) ?? '',
@@ -108,7 +111,7 @@ export function mapInvoice(inv: Obj): InvoiceRow {
     status,
     paymentMethod: str(inv.payment_method),
     dueAt: date(inv.due_at),
-    paidAt: status === 'paid' ? (date(charge?.paid_at) ?? date(inv.updated_at)) : null,
+    paidAt: status === 'paid' || status === 'refunded' ?(date(charge?.paid_at) ?? date(inv.updated_at)) : null,
     periodStart: date(cycle?.start_at),
     periodEnd: date(cycle?.end_at),
     failureMessage: status === 'failed' ? (str(tx?.acquirer_message) ?? str(tx?.gateway_response && obj(tx.gateway_response)?.code) ?? 'Pagamento recusado') : null,

@@ -125,6 +125,7 @@ const MATRIX: Row[] = [
   ['POST', '/api/billing/card', ADMIN],
   ['POST', '/api/billing/cancel', ADMIN], // a empresa A não tem assinatura recorrente: 409
   ['POST', '/api/billing/reactivate', ADMIN], // idem: 409 (nada a reativar)
+  ['POST', '/api/billing/withdraw', ADMIN], // idem: 409 (sem contratação paga no prazo)
   ['GET', '/api/organization/deletion', ALL], // faixa de aviso para todos
   ['POST', '/api/organization/deletion', ADMIN], // sem senha e nome da empresa: 400
   ['DELETE', '/api/organization/deletion', ADMIN],

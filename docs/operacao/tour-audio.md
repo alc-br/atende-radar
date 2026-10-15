@@ -11,7 +11,8 @@ clientes ou da empresa.
 - `GET /api/tours/system/audio?chapter=<id>&step=<índice>` (precisa de login; o mesmo padrão das outras rotas do tour).
   O texto sai **só** do conteúdo do tour no servidor. O cliente nunca manda texto, e um capítulo ou passo que o papel
   não vê responde 404.
-- Se o arquivo já está no cache, sai direto do disco. Se não está, o servidor chama a Azure (REST, SSML pt-BR, MP3 mono
+- Se o arquivo já está no cache, sai direto do disco, **sem chamar a Azure** (nem precisa da chave: um áudio já gerado
+  continua sendo servido com a Azure fora do ar ou sem chave configurada). Se não está, o servidor chama a Azure (REST, SSML pt-BR, MP3 mono
   24 kHz a 48 kbit/s, ~6 KB por segundo de fala), grava no cache e devolve o áudio. Limite de 20 s por geração.
 - **Chave do cache** = sha256(provedor + voz + formato + versão + texto). Mudar o texto de um passo ou trocar a voz gera
   um arquivo novo; o resto do cache continua valendo. A chave também é o `ETag`, e o navegador guarda o áudio por um
@@ -19,29 +20,31 @@ clientes ou da empresa.
 - O cache (`TOUR_AUDIO_DIR`) é **um só para todos os usuários** e fica fora de `current/`, então sobrevive aos deploys.
 - A gravação é atômica (arquivo temporário e depois `rename`). Pedidos simultâneos do mesmo passo esperam uma geração
   só, e no máximo 2 gerações rodam ao mesmo tempo.
-- Sem `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION`, ou se a Azure recusar (401, 403, 429 ou 5xx), a rota responde 503 e o
+- Áudio que ainda não existe, sem `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` ou com a Azure recusando (401, 403, 429 ou 5xx): a rota responde 503 e o
   `/api/tours/system` informa `audio: false` quando não há chave. Nesses casos, e em qualquer erro, o navegador lê o
   mesmo texto com a própria voz (Web Speech API).
 - A chave nunca vai para log, mensagem de erro ou resposta.
 
 ## No navegador
 - **Ouvir**, **Pausar/Continuar** e **Parar** no painel do passo.
-- **Ler automaticamente** (rodapé, entre Voltar e Próximo): lê o passo, espera ~0,6 s depois do fim do áudio e avança,
-  até o fim do capítulo (não pula para outro). Vira **Pausar leitura** enquanto está ligado. Desliga com Voltar,
-  Próximo, Parar, setas ou ao fechar. Se o áudio do servidor e a voz do navegador falharem, desliga (sem loop). Não fica
-  salvo entre visitas.
-- **Ações simuladas** (`src/components/system-tour/auto-actions.ts`): quem liga a leitura automática não clica em nada,
-  então, ao fim da fala de um passo de clique ou de cadastro, um cursor simulado (`aria-hidden`, sem foco, sem receber
-  cliques, z-index 55: acima do painel e dos formulários) desliza ~600 ms até o item, mostra uma onda e "aperta" o item.
-  O que acontece depois vem de `autoAction` no passo (`src/lib/system-tour/content.ts`):
-  - `click` (menu, tela, botão que só abre formulário) e `select` (aba/filtro; o item aparece escolhido antes): clique
-    de verdade, a tela muda e o passo avança como se a pessoa tivesse clicado.
-  - `demo` (padrão quando não definido, e sempre nos passos de cadastro): NUNCA executa. Aponta o campo (digita
-    "Exemplo" e apaga) e o botão de concluir, mostra "Na leitura automática só mostramos onde fica. Faça você mesmo
-    quando quiser.", fecha o formulário se foi o próprio tour que o abriu e segue. O passo fica "demonstrado": o
+- **Leitura automática** (rodapé, entre Voltar e Próximo): **começa ligada** ao abrir um capítulo (o clique que abriu o
+  capítulo libera o som no navegador). Lê o passo, espera ~0,6 s depois do fim do áudio e avança, até o fim do capítulo
+  (não pula para outro). Vira **Pausar leitura** enquanto está ligada. Desliga com Voltar, Próximo, Parar, setas ou ao
+  fechar. Se o áudio do servidor e a voz do navegador falharem, desliga (sem loop). Não fica salva entre visitas.
+- **Tela junto com a voz**: na leitura automática, a tela do passo (troca de tela, gaveta do celular, destaque) só
+  aparece quando a voz começa de fato a falar (no máximo 4 s de espera; sem voz, na hora). Enquanto um passo fala, o
+  áudio do passo seguinte já é baixado (`fetch` para o cache do navegador), então a próxima fala começa sem atraso.
+- **Cursor simulado** (`src/components/system-tour/auto-actions.ts`; `aria-hidden`, sem foco, sem receber cliques,
+  z-index 55: acima do painel e dos formulários). O que faz vem de `autoAction` no passo (`src/lib/system-tour/content.ts`):
+  - `click` (menu, tela, botão que só abre formulário) e `select` (aba/filtro): quando a voz chega no "Clique…"/"Toque…"
+    da narração (`actionCue` em `engine.ts`; sem pedido na fala, ao fim dela), o cursor desliza até o item e mostra
+    "Clique aqui para continuar". O tour **nunca clica sozinho**: espera a pessoa clicar e então segue lendo.
+  - `demo` (padrão quando não definido, e sempre nos passos de cadastro): ao fim da fala, NUNCA executa. Aponta o campo
+    (digita "Exemplo" e apaga) e o botão de concluir, mostra "Na leitura automática só mostramos onde fica. Faça você
+    mesmo quando quiser." e segue (o formulário que a pessoa abriu continua aberto). O passo fica "demonstrado": o
     capítulo terminado assim não conta como concluído (o cadastro feito de verdade no passo volta a contar).
-  - Item não aparece em ~3 s: segue sem simulação. O clique da própria pessoa continua valendo; Pausar cancela o
-    cursor e a ação pendente. Com `prefers-reduced-motion`, sem deslize: destaque parado de ~400 ms e a ação.
+  - Item não aparece: o passo vira explicação e segue no fim da fala. Pausar tira o cursor. Com
+    `prefers-reduced-motion`, sem deslize: o cursor aparece parado no item.
 - **Velocidade**: 0,8× a 2× (`playbackRate` com `preservesPitch`; na voz do navegador, `rate`). Fica salva por pessoa
   no navegador (`localStorage`, chave `ar.systemTour.tts`) e vale para todos os passos.
 

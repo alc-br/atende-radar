@@ -68,7 +68,7 @@ export function DangerZone() {
           de auditoria e os usuários que só pertencem a esta empresa.
         </p>
         <ul className="list-disc pl-5">
-          <li>A renovação da assinatura é cancelada na hora (o período já pago não é estornado).</li>
+          <li>A renovação da assinatura é cancelada na hora (o período já pago não é estornado). Se a contratação foi paga há menos de 7 dias, use antes <b>Desistir e receber reembolso</b> em Planos para ter o valor integral de volta.</li>
           <li>Os WhatsApp são desconectados na hora e a análise para.</li>
           <li>Você tem <b>7 dias</b> para desistir. Depois disso não há como recuperar.</li>
         </ul>

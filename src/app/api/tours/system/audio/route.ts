@@ -56,7 +56,6 @@ export async function GET(request: Request) {
   const text = stepSpokenText(step)
 
   const identity = tourAudioIdentity(text)
-  if (!identity) return unavailable()
   // O navegador já tem este áudio (a chave depende só da voz, da versão, do formato e do texto)
   if (etagMatches(request.headers.get('if-none-match'), `"${identity.key}"`)) {
     return new NextResponse(null, { status: 304, headers: { ETag: `"${identity.key}"`, 'Cache-Control': CACHE_CONTROL } })

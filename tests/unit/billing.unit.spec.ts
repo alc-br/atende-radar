@@ -108,6 +108,11 @@ test.describe('B8 · fatura e aviso (webhook) do Pagar.me', () => {
     const failed = mapInvoice({ ...apiInvoice, status: 'failed', charge: { id: 'ch_2', status: 'failed', last_transaction: { acquirer_message: 'Saldo insuficiente' } } })
     expect(failed.failureMessage).toBe('Saldo insuficiente')
     expect(failed.paidAt).toBeNull()
+    // estorno (arrependimento): fatura e cobrança "canceled" no Pagar.me, mas a cobrança tinha sido paga
+    const charge = { id: 'ch_1', status: 'canceled', paid_at: '2026-10-12T01:08:27Z', paid_amount: 19700, canceled_amount: 19700 }
+    expect(mapInvoice({ ...apiInvoice, status: 'canceled', charge })).toMatchObject({ status: 'refunded', paidAt: new Date('2026-10-12T01:08:27Z') })
+    // cancelada antes de cobrar continua "canceled"
+    expect(mapInvoice({ ...apiInvoice, status: 'canceled', charge: { id: 'ch_3', status: 'canceled', paid_amount: 0, canceled_amount: 19700 } }).status).toBe('canceled')
   })
 
   test('acha a assinatura em qualquer tipo de aviso', () => {

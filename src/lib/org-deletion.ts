@@ -64,7 +64,8 @@ export async function requestDeletion(auth: AuthContext, input: { password?: unk
   if (!verifyPassword(password, member?.passwordHash)) return fail(400, 'Senha incorreta.')
   if (typedName !== confirmationName(org)) return fail(400, 'O nome digitado não confere com o nome da empresa.')
 
-  // 1) para a cobrança: cancela a renovação (o que já foi pago não é estornado). Sem cobrança automática: segue.
+  // 1) para a cobrança: cancela a renovação (o que já foi pago não é estornado aqui; o reembolso do arrependimento é
+  //    pedido em Planos, e a tela de exclusão avisa). Sem cobrança automática: segue.
   const billing = await cancelAtPeriodEnd(auth)
   if (!billing.ok && billing.code === 'provider_error') return fail(502, `Não foi possível cancelar a renovação da assinatura agora (${billing.error}). Nada foi alterado; tente de novo.`)
   const renewalCanceled = billing.ok

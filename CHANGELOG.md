@@ -2,6 +2,12 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-15
+- **Direito de arrependimento (7 dias):** em Planos, "Desistir e receber reembolso" cancela a assinatura e estorna integralmente no cartão (Pagar.me) a cobrança que abriu a contratação, se ela foi paga há menos de 7 dias. Fatura fica "Estornada", com registro de auditoria e notificação. Se o estorno falhar, a renovação é cancelada e o pedido fica para a equipe.
+- **Termos de Uso e Política de Privacidade reescritos** (versão 2026-10-15) para descrever o sistema como ele funciona: dados da empresa (razão social, CNPJ e endereço, também no rodapé do site), teste de 14 dias, preço novo só para contratações novas, troca de plano, arrependimento, encerramento da conta, prazos reais de retenção, cifragem do telefone e das sessões do WhatsApp, campos enviados ao Mautic e armazenamento no navegador.
+- **Tour: voz e tela sincronizadas.** A leitura automática começa sozinha ao abrir um capítulo; a tela do passo só aparece quando a voz começa a falar; o áudio do passo seguinte é baixado enquanto o atual fala; nos passos de clique o cursor aponta o item quando a voz diz "Clique…" e o tour espera a pessoa clicar (nunca clica sozinho).
+- **Áudio do tour já gerado não depende mais da Azure:** sai do cache em disco mesmo sem chave configurada ou com a Azure fora do ar.
+
 ## 2026-10-14
 - **Tour pelo sistema:** manual interativo por papel (botão no rodapé do menu, acima de "Precisa de ajuda?"). Capítulos com passos de explicação, de clique e de cadastro real, que avançam sozinhos; progresso salvo por pessoa; leitura em voz alta (pt-BR, velocidade 0,8–2×, guardada por pessoa) com botão "Ler automaticamente", que lê e avança passo a passo até o fim do capítulo, simulando com um cursor na tela os cliques de navegação e só mostrando (sem executar) os cadastros; funciona no celular. Artigo novo na Central de ajuda.
 - **Tour com voz natural:** cada passo ganhou uma narração própria (fala explicativa, não a leitura da tela). O áudio é gerado no servidor com a Azure Speech (plano gratuito F0, voz pt-BR-FranciscaNeural), uma vez por texto, e reaproveitado de um cache compartilhado que sobrevive aos deploys; se não houver, o navegador lê com a própria voz. O deploy grava as chaves (secrets `AZURE_SPEECH_KEY` e `AZURE_SPEECH_REGION`) e pré-gera o que falta. Detalhes em `docs/operacao/tour-audio.md`.

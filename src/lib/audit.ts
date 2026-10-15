@@ -16,7 +16,7 @@ export type AuditAction =
   | 'team.created' | 'team.updated' | 'team.removed'
   | 'connection.created' | 'connection.updated' | 'connection.removed'
   | 'conversation.viewed' | 'privacy.exclude' | 'privacy.erase' | 'privacy.export'
-  | 'subscription.changed' | 'subscription.canceled' | 'subscription.reactivated' | 'plan.updated' | 'billing.card_updated' | 'report.generated' | 'report.exported'
+  | 'subscription.changed' | 'subscription.canceled' | 'subscription.reactivated' | 'subscription.withdrawn' | 'subscription.withdrawal_failed' | 'plan.updated' | 'billing.card_updated' | 'report.generated' | 'report.exported'
   | 'report.sent' | 'report.retried'
   | 'webhook.created' | 'webhook.updated' | 'webhook.secret_rotated' | 'webhook.removed'
   | 'agent_identity.confirmed' | 'agent_identity.changed' | 'agent_identity.ignored' | 'agent_identity.undone'
@@ -90,6 +90,8 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'privacy.export': 'Exportou os dados de um cliente (portabilidade)',
   'subscription.changed': 'Alterou a assinatura',
   'subscription.canceled': 'Cancelou a renovação da assinatura',
+  'subscription.withdrawn': 'Desistiu da contratação (arrependimento) e pediu o estorno',
+  'subscription.withdrawal_failed': 'Pediu o arrependimento, mas o estorno foi recusado pela operadora',
   'subscription.reactivated': 'Reativou a renovação da assinatura',
   'plan.updated': 'Editou um plano do catálogo (operador da plataforma)',
   'billing.card_updated': 'Trocou o cartão da assinatura',

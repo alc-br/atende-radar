@@ -138,6 +138,9 @@ export const pagarme = {
   cancelSubscription: (cfg: PagarmeConfig, id: string) =>
     call<Json>(cfg, 'DELETE', `/subscriptions/${encodeURIComponent(id)}`, { cancel_pending_invoices: true }),
 
+  /** Estorno integral de uma cobrança de cartão (direito de arrependimento). */
+  refundCharge: (cfg: PagarmeConfig, chargeId: string) => call<Json>(cfg, 'DELETE', `/charges/${encodeURIComponent(chargeId)}`),
+
   updateCard: (cfg: PagarmeConfig, id: string, cardToken: string, billingAddress: Address) =>
     call<Json>(cfg, 'PATCH', `/subscriptions/${encodeURIComponent(id)}/card`, { card_token: cardToken, card: { billing_address: billingAddress } }),
 }

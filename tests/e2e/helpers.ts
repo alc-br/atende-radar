@@ -87,6 +87,7 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['GET', '/api/billing'],
   ['POST', '/api/billing/checkout'],
   ['POST', '/api/billing/cancel'],
+  ['POST', '/api/billing/withdraw'],
   ['POST', '/api/billing/card'],
   ['POST', '/api/billing/reactivate'],
   ['GET', '/api/organization/deletion'],

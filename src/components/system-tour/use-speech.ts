@@ -114,6 +114,8 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
   const turn = useRef(0)
   /** O servidor falhou nesta visita: as próximas falas vão direto para a voz do navegador. */
   const serverFailed = useRef(false)
+  /** Áudios já pré-carregados (ou sendo) nesta visita: cada um é pedido uma vez só. */
+  const prefetched = useRef(new Set<string>())
   /** Velocidade atual: lida na hora por cada fala e pelos eventos do <audio> (nunca um valor velho de closure). */
   const rateRef = useRef(prefs.rate)
   /**
@@ -252,6 +254,7 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
         handlers?.onEnd?.()
       }
       a.onerror = fallback // 503 (sem TTS), erro de rede ou formato que o navegador não toca
+      // pré-carregado durante o passo anterior (prefetch): vem do cache do navegador, sem esperar a rede
       a.src = item.audioUrl
       setSource('server')
       setState('loading')
@@ -330,6 +333,23 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
     [speak, state],
   )
 
+  /**
+   * Baixa antes o áudio de uma fala que vem a seguir (o próximo passo), para a voz começar junto com a tela. A rota
+   * responde com cache imutável de 1 ano: o <audio> do passo seguinte toca o mesmo endereço direto do cache do navegador.
+   * Falhou (503, rede): esquece; a fala usa o caminho normal e, se preciso, a voz do navegador.
+   */
+  const prefetch = useCallback(
+    (audioUrl: string | undefined) => {
+      if (!audioUrl || !useServer || serverFailed.current || prefetched.current.has(audioUrl)) return
+      const done = prefetched.current
+      done.add(audioUrl)
+      fetch(audioUrl)
+        .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(String(res.status)))))
+        .catch(() => done.delete(audioUrl))
+    },
+    [useServer],
+  )
+
   // Fechou o manual (desmontou): para de falar.
   useEffect(
     () => () => {
@@ -341,5 +361,5 @@ export function useSpeech({ serverAudio = false }: { serverAudio?: boolean } = {
     [],
   )
 
-  return { supported, prefs, changeRate, state, source, progress, speak, pause, resume, stop }
+  return { supported, prefs, changeRate, state, source, progress, speak, pause, resume, stop, prefetch }
 }

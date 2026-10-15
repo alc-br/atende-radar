@@ -75,6 +75,7 @@ interface Billing {
     pending: boolean
     lastPaymentError: string | null
     renewalAmount: number | null
+    withdrawal: { until: string; amount: number } | null
   } | null
   invoices: { id: string; planName: string | null; billingCycle: string | null; amount: number; status: string; dueAt: string | null; paidAt: string | null; periodStart: string | null; periodEnd: string | null; failureMessage: string | null; createdAt: string }[]
 }
@@ -107,7 +108,10 @@ const INVOICE_STATUS: Record<string, { label: string; tag: string }> = {
   pending: { label: 'Pendente', tag: 'tag--azul' },
   failed: { label: 'Recusada', tag: 'tag--vermelho' },
   canceled: { label: 'Cancelada', tag: 'tag--cinza' },
+  refunded: { label: 'Estornada', tag: 'tag--cinza' },
 }
+
+const fmtDateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—')
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—')
 // data de cobrança do Pagar.me (start_at): só o dia, gravado como meia-noite UTC
@@ -213,6 +217,27 @@ export default function PlansView() {
       toast.error(e instanceof Error ? e.message : 'Não foi possível reativar a renovação')
     } finally {
       setReactivating(false)
+    }
+  }
+
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [withdrawing, setWithdrawing] = useState(false)
+
+  const withdrawNow = async () => {
+    setWithdrawing(true)
+    try {
+      const res = await fetch('/api/billing/withdraw', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Não foi possível desfazer a contratação')
+      toast.success('Contratação desfeita.', { description: `O estorno de ${formatCurrency(data.amountCents / 100)} foi pedido à operadora do cartão.` })
+      setWithdrawOpen(false)
+      incrementRefresh()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Não foi possível desfazer a contratação')
+      setWithdrawOpen(false)
+      incrementRefresh()
+    } finally {
+      setWithdrawing(false)
     }
   }
 
@@ -356,6 +381,12 @@ export default function PlansView() {
                       <div className="space-y-2" data-testid="renewal-canceled">
                         <p className="suave text-[13px]">A renovação automática está cancelada. O plano vale até {fmtDate(subscription.currentPeriodEnd)}; até lá, você pode reativá-la sem pagar nada agora.</p>
                         <button type="button" className="btn btn--sm btn--primario w-full sm:w-auto" onClick={() => setReactivateOpen(true)}>Reativar renovação</button>
+                      </div>
+                    )}
+                    {bsub?.withdrawal && (
+                      <div className="space-y-2 border-t border-[var(--borda)] pt-3" data-testid="withdrawal-offer">
+                        <p className="suave text-[13px]">Direito de arrependimento: até {fmtDateTime(bsub.withdrawal.until)} você pode desistir da contratação e receber de volta o valor integral ({formatCurrency(bsub.withdrawal.amount)}) no cartão.</p>
+                        <button type="button" className="btn btn--sm w-full sm:w-auto" onClick={() => setWithdrawOpen(true)}>Desistir e receber reembolso</button>
                       </div>
                     )}
                     {!recurring && online && status !== 'active' && (
@@ -623,13 +654,34 @@ export default function PlansView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar a renovação automática?</AlertDialogTitle>
             <AlertDialogDescription>
-              Nenhuma nova cobrança será feita. O plano {subscription?.plan.name} continua valendo até {fmtDate(subscription?.currentPeriodEnd ?? null)}; depois disso, o cadastro de novos itens fica bloqueado até você contratar de novo. Não há reembolso do período já pago. Se mudar de ideia antes dessa data, é só reativar a renovação aqui em Planos.
+              Nenhuma nova cobrança será feita. O plano {subscription?.plan.name} continua valendo até {fmtDate(subscription?.currentPeriodEnd ?? null)}; depois disso, o cadastro de novos itens fica bloqueado até você contratar de novo. O período já pago não é reembolsado
+              {bsub?.withdrawal ? ` (mas você ainda está no prazo de arrependimento: use "Desistir e receber reembolso" para encerrar agora com o valor integral de volta)` : ''}. Se mudar de ideia antes dessa data, é só reativar a renovação aqui em Planos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={canceling}>Manter assinatura</AlertDialogCancel>
             <AlertDialogAction onClick={(e) => { e.preventDefault(); cancelRenewal() }} disabled={canceling} className="bg-destructive text-white hover:bg-destructive/90">
               {canceling ? 'Cancelando…' : 'Cancelar renovação'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={withdrawOpen} onOpenChange={(o) => !withdrawing && setWithdrawOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desistir da contratação e receber o reembolso?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O plano {subscription?.plan.name} termina agora, a renovação automática é cancelada e o valor integral
+              {bsub?.withdrawal ? ` (${formatCurrency(bsub.withdrawal.amount)})` : ''} é estornado
+              {bsub?.cardLast4 ? ` no cartão final ${bsub.cardLast4}` : ' no mesmo cartão'}. O crédito aparece na fatura do cartão conforme o prazo do banco emissor.
+              Seus dados continuam guardados; para voltar a usar, é só contratar de novo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={withdrawing}>Manter o plano</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); withdrawNow() }} disabled={withdrawing} className="bg-destructive text-white hover:bg-destructive/90">
+              {withdrawing ? 'Processando…' : 'Desistir e estornar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

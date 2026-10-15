@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
 import { pagarmeConfig } from '@/lib/billing/pagarme'
-import { syncOrganization } from '@/lib/billing/service'
+import { syncOrganization, withdrawalOffer } from '@/lib/billing/service'
 import { effectiveStatus } from '@/lib/billing/core'
 
 // Resumo da cobrança para a tela Planos: se o pagamento on-line está ligado (e em qual ambiente), a chave PÚBLICA
@@ -14,9 +14,10 @@ export async function GET() {
   const cfg = pagarmeConfig()
   if (cfg) await syncOrganization(g.auth.orgId, { maxAgeMs: 120_000 })
 
-  const [sub, invoices] = await Promise.all([
+  const [sub, invoices, offer] = await Promise.all([
     db.subscription.findUnique({ where: { organizationId: g.auth.orgId }, include: { plan: { select: { id: true, name: true, code: true } } } }),
     db.billingInvoice.findMany({ where: { organizationId: g.auth.orgId }, orderBy: { createdAt: 'desc' }, take: 24 }),
+    withdrawalOffer(g.auth.orgId),
   ])
 
   // Valor que a assinatura vigente cobra de fato: o da fatura dela (o preço do catálogo pode ter mudado depois da
@@ -44,6 +45,8 @@ export async function GET() {
           pending: !!sub.pendingProviderSubscriptionId,
           lastPaymentError: sub.lastPaymentError,
           renewalAmount: chargeOf ? chargeOf.amountCents / 100 : null,
+          // direito de arrependimento: desistir com estorno integral até esta data
+          withdrawal: offer ? { until: offer.until.toISOString(), amount: offer.amountCents / 100 } : null,
         }
       : null,
     invoices: invoices.map((i) => ({

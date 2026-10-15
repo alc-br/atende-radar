@@ -19,7 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
-import { allDone, chaptersFor, spotlightFocus, stepArea, stepSpokenText } from '@/lib/system-tour/engine'
+import { actionCue, allDone, chaptersFor, spotlightFocus, stepArea, stepSpokenText } from '@/lib/system-tour/engine'
 import { onTourSignal } from '@/lib/system-tour/signals'
 import type { SpotlightFocus, SystemTourChapter } from '@/lib/system-tour/types'
 import { useSystemTourProgress } from './progress-store'
@@ -38,6 +38,8 @@ const DRAWER_QUERY = '(max-width: 1023.98px)' // abaixo disto o menu lateral é 
 const SHEET_QUERY = '(max-width: 639.98px)' // abaixo disto o painel vira folha no rodapé
 /** Leitura automática: pausa entre o fim da fala de um passo e o próximo passo. */
 const AUTO_ADVANCE_MS = 600
+/** Leitura automática: espera da voz começar antes de mostrar a tela do passo (áudio lento ou travado não prende o tour). */
+const VOICE_WAIT_MS = 4000
 const rateLabel = (r: number) => `${r.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}×`
 
 type Rect = { top: number; left: number; width: number; height: number }
@@ -211,13 +213,16 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   }, [goTo, idx])
 
   // ── leitura automática (só nesta visita ao capítulo; não fica salva) ──
-  // Lê o passo; ao terminar a fala, espera um pouco e vai para o próximo passo, até o fim do capítulo. Passo de clique ou
-  // de cadastro: um cursor simulado mostra a ação (navegação é clicada de verdade; cadastro só é demonstrado, nunca
-  // executado) e o tour segue. O clique da própria pessoa continua valendo. Voltar, Próximo, Pausar e fechar desligam.
-  const [autoRead, setAutoRead] = useState(false)
-  const autoRef = useRef(false)
+  // Lê o passo; ao terminar a fala, espera um pouco e vai para o próximo passo, até o fim do capítulo. Passo de clique:
+  // quando a voz pede o clique, um cursor simulado aponta o item e o tour ESPERA a pessoa clicar (nunca clica sozinho).
+  // Passo de cadastro: o cursor só demonstra (nunca executa) e o tour segue. Voltar, Próximo, Pausar e fechar desligam.
+  // começa ligada: abrir um capítulo já lê o 1º passo (o clique que abriu o capítulo libera o som no navegador)
+  const [autoRead, setAutoRead] = useState(speech.supported)
+  const autoRef = useRef(speech.supported)
   /** Passo cuja fala terminou com a leitura automática ligada (null = ainda falando ou não lido). */
   const [narrated, setNarrated] = useState<number | null>(null)
+  const narratedRef = useRef<number | null>(null)
+  narratedRef.current = narrated
   const stopAuto = useCallback(() => {
     autoRef.current = false
     setAutoRead(false)
@@ -239,8 +244,31 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     returnFocus.current = document.activeElement
   }, [])
 
-  // ── ao mudar de passo: tela certa, gaveta do celular, foco e voz ──
+  // ── tela junto com a voz ──
+  // Na leitura automática, a tela do passo (troca de tela, gaveta, destaque) só aparece quando a voz começa de fato a
+  // falar: o áudio pode demorar a chegar e a tela não pode correr na frente da fala. Sem voz (desligada, falhou ou
+  // demorou mais que VOICE_WAIT_MS), a tela aparece na hora.
+  const [screenStep, setScreenStep] = useState<number | null>(null)
+  const voiceStarted = speech.state === 'speaking'
   useEffect(() => {
+    if (screenStep === idx) return
+    if (!autoRead || voiceStarted) {
+      setScreenStep(idx)
+      return
+    }
+    const t = window.setTimeout(() => setScreenStep(idx), VOICE_WAIT_MS)
+    return () => window.clearTimeout(t)
+  }, [idx, autoRead, voiceStarted, screenStep])
+  const screenReady = screenStep === idx
+
+  // ── ao mudar de passo: foco no título ──
+  useEffect(() => {
+    titleRef.current?.focus({ preventScroll: true })
+  }, [chapter.id, idx]) // só ao trocar de passo
+
+  // ── tela do passo pronta: tela certa e gaveta do celular ──
+  useEffect(() => {
+    if (!screenReady) return
     if (step.view && useAppStore.getState().currentView !== step.view) setView(step.view)
     if (step.view) markTourSeen(step.view) // o guia rápido da tela não abre por cima do manual
     const drawer = matches(DRAWER_QUERY)
@@ -251,8 +279,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
       setMobileNavOpen(false)
       openedDrawer.current = false
     }
-    titleRef.current?.focus({ preventScroll: true })
-  }, [chapter.id, idx]) // só ao trocar de passo
+  }, [chapter.id, idx, screenReady]) // só ao trocar de passo (quando a tela dele fica pronta)
 
   // Passo que aponta para o menu, no celular: tocar fora fecha a gaveta e o item some da tela. Reabre,
   // para a pessoa não ficar presa num passo cujo item não dá para ver (sair do tour continua no "Fechar").
@@ -289,7 +316,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   // ── acompanha o item destacado (aparece depois de carregar, muda com rolagem, some ao trocar de tela) ──
   const areaName = stepArea(step)
   useEffect(() => {
-    if (!step.target) return
+    if (!step.target || !screenReady) return
     const target = step.target
     const measureArea = () => {
       const el = areaName ? findTarget(areaName) : null
@@ -350,7 +377,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
       setAreaRect(null)
       setMissing(false)
     }
-  }, [step.target, areaName, chapter.id, idx, currentView])
+  }, [step.target, areaName, chapter.id, idx, currentView, screenReady])
   const focus = spotlightFocus(step, speech.state === 'idle' ? null : speech.progress)
 
   // Tamanho do painel (muda com o texto e com a largura da tela) para escolher o canto que não cobre o item.
@@ -411,40 +438,49 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     return () => window.clearTimeout(t)
   }, [autoRead, narrated, idx, advancesByArrow, isLast, goTo, stopAuto])
 
-  // Fala terminou num passo de clique ou de cadastro (leitura automática): simula a ação com o cursor.
+  // Leitura automática: passo de clique, o cursor aponta o item quando a voz chega no "Clique…" (ou ao fim da fala);
+  // passo de cadastro, a demonstração começa quando a fala termina.
   const ghost = useRef<GhostCursor | null>(null)
-  /** Passo em que o tour clicou sozinho (o formulário que ele abriu é fechado depois da demonstração). */
-  const simulatedStep = useRef<number | null>(null)
   const [demoNote, setDemoNote] = useState<number | null>(null)
-  const simulates = autoRead && narrated === idx && !advancesByArrow
+  /** Passo em que a voz já pediu o clique (fica marcado até trocar de passo, mesmo se a fala pausar). */
+  const [pointing, setPointing] = useState<number | null>(null)
+  const cue = useMemo(() => (step.kind === 'click' ? actionCue(step) : 1), [step])
+  const reachedCue = step.kind === 'click' && speech.state === 'speaking' && (speech.progress ?? 0) >= cue
+  useEffect(() => {
+    if (autoRead && reachedCue && pointing !== idx) setPointing(idx)
+  }, [autoRead, reachedCue, pointing, idx])
+  const simulates = autoRead && screenReady && !advancesByArrow && (narrated === idx || pointing === idx)
+
+  // Enquanto fala um passo, já baixa o áudio do próximo: a voz seguinte começa sem atraso, junto com a tela.
+  useEffect(() => {
+    if (!autoRead || !voiceStarted || isLast) return
+    speech.prefetch(`/api/tours/system/audio?chapter=${encodeURIComponent(chapter.id)}&step=${idx + 1}`)
+  }, [autoRead, voiceStarted, isLast, chapter.id, idx, speech.prefetch])
+
   useEffect(() => {
     if (!simulates) return
     const ctrl = new AbortController()
     if (!ghost.current) ghost.current = new GhostCursor()
-    const closeDialogAfter = simulatedStep.current === idx - 1
-    if (step.kind === 'click' && (step.autoAction === 'click' || step.autoAction === 'select')) simulatedStep.current = idx
     let fallback: number | undefined
     runAutoAction(step, {
       ghost: ghost.current,
       signal: ctrl.signal,
       reduced: reducedMotion(),
-      closeDialogAfter,
       onDemo: () => setDemoNote(idx),
     }).then(
       (result) => {
-        if (ctrl.signal.aborted || !autoRef.current) return
+        // passo de clique: o cursor aponta e o tour espera a pessoa clicar (o ouvinte do passo avança e a leitura segue)
+        if (ctrl.signal.aborted || !autoRef.current || result === 'waiting') return
+        // item que não apareceu enquanto a voz ainda fala: o passo vira "explicação" (missing) e segue ao fim da fala
+        if (result === 'missing' && narratedRef.current !== idx) return
         if (result === 'demo') demoed.current.add(idx)
-        // o clique normalmente já avançou (ouvinte do passo); se não avançou, segue mesmo assim. Último passo
-        // demonstrado: para e mostra o "Concluir capítulo".
-        fallback = window.setTimeout(
-          () => {
-            if (!autoRef.current) return
-            setNarrated(null)
-            if (isLast && result !== 'clicked') stopAuto()
-            else next()
-          },
-          result === 'clicked' ? 400 : AUTO_ADVANCE_MS,
-        )
+        // demonstrado (ou item que não apareceu): segue. Último passo: para e mostra o "Concluir capítulo".
+        fallback = window.setTimeout(() => {
+          if (!autoRef.current) return
+          setNarrated(null)
+          if (isLast) stopAuto()
+          else next()
+        }, AUTO_ADVANCE_MS)
       },
       (e: unknown) => {
         if (!isAborted(e)) console.error(e)

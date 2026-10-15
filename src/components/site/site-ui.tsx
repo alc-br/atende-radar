@@ -2,6 +2,7 @@
 
 import { useEffect, type CSSProperties, type RefObject } from 'react'
 import { appLink } from '@/lib/hosts'
+import { EMPRESA } from '@/lib/legal'
 
 /** Ícone do sprite da página (os símbolos ficam em <Sprite />, um por página). */
 export function Ic({ n, className, style }: { n: string; className?: string; style?: CSSProperties }) {
@@ -112,6 +113,9 @@ export function SiteFooter() {
               <a href="/status">Status do serviço</a>
             </nav>
           </div>
+          <p className="rodape__empresa">
+            {EMPRESA.razaoSocial} · CNPJ {EMPRESA.cnpj} · {EMPRESA.endereco}
+          </p>
         </div>
       </footer>
     </div>

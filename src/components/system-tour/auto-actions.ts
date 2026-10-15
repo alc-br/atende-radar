@@ -2,13 +2,15 @@
 
 import { autoActionOf, type SystemTourStep } from '@/lib/system-tour/types'
 
-// Leitura automática do "Tour pelo sistema": quem a liga não clica em nada, então o tour SIMULA a ação do passo.
-// Um cursor de mentira desliza até o item, mostra o toque (onda + item "apertado") e então:
-// - click/select: clica de verdade (só navegação: menu, tela, aba, botão que abre um formulário);
+// Leitura automática do "Tour pelo sistema": o tour lê cada passo e mostra a ação com um cursor simulado.
+// Um cursor de mentira desliza até o item e então:
+// - click/select: aponta o item e ESPERA a pessoa clicar (o tour nunca clica sozinho);
 // - demo: só mostra onde fica (cadastro, envio, exclusão, pagamento NUNCA são executados) e segue.
 // Tudo é cancelável (AbortSignal): pausar a leitura ou trocar de passo para o cursor e a ação pendente na hora.
 
 export const AUTO_DEMO_MESSAGE = 'Na leitura automática só mostramos onde fica. Faça você mesmo quando quiser.'
+/** Passo de clique: o tour aponta e espera a pessoa clicar (nunca clica sozinho). */
+export const AUTO_WAIT_MESSAGE = 'Clique aqui para continuar'
 
 /** Tempo do deslize do cursor até o item. */
 export const GLIDE_MS = 600
@@ -22,7 +24,7 @@ const PRESS_MS = 260
 const TYPE_KEY_MS = 70
 const EXAMPLE_TEXT = 'Exemplo'
 
-export type AutoResult = 'clicked' | 'demo' | 'missing'
+export type AutoResult = 'waiting' | 'demo' | 'missing'
 
 class Aborted extends Error {}
 
@@ -117,17 +119,6 @@ function setInputValue(input: HTMLInputElement, value: string) {
   // campo controlado do React: usa o setter nativo e avisa com "input" para o estado acompanhar
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value)
   input.dispatchEvent(new Event('input', { bubbles: true }))
-}
-
-/** Clique de verdade, com a sequência que abas e menus (Radix) escutam: pointerdown/mousedown/mouseup/click. */
-function realClick(el: HTMLElement) {
-  const r = el.getBoundingClientRect()
-  const init = { bubbles: true, cancelable: true, composed: true, button: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }
-  if (typeof PointerEvent !== 'undefined') el.dispatchEvent(new PointerEvent('pointerdown', { ...init, pointerType: 'mouse', isPrimary: true }))
-  el.dispatchEvent(new MouseEvent('mousedown', init))
-  if (typeof PointerEvent !== 'undefined') el.dispatchEvent(new PointerEvent('pointerup', { ...init, pointerType: 'mouse', isPrimary: true }))
-  el.dispatchEvent(new MouseEvent('mouseup', init))
-  el.click()
 }
 
 // ── cursor simulado ──
@@ -226,14 +217,12 @@ export interface AutoRunOptions {
   ghost: GhostCursor
   signal: AbortSignal
   reduced: boolean
-  /** O formulário aberto foi aberto pelo próprio tour no passo anterior: fecha depois de demonstrar. */
-  closeDialogAfter: boolean
   /** Chamado quando começa a demonstração (para o painel mostrar o aviso). */
   onDemo?: () => void
 }
 
 /**
- * Simula a ação do passo. Devolve 'clicked' (clicou de verdade), 'demo' (só mostrou) ou 'missing' (item não apareceu).
+ * Simula a ação do passo. Devolve 'waiting' (apontou e espera o clique da pessoa), 'demo' (só mostrou) ou 'missing' (item não apareceu).
  * Rejeita só quando cancelado (signal); quem chama ignora o erro.
  */
 export async function runAutoAction(step: SystemTourStep, o: AutoRunOptions): Promise<AutoResult> {
@@ -242,22 +231,13 @@ export async function runAutoAction(step: SystemTourStep, o: AutoRunOptions): Pr
   let typed: HTMLInputElement | null = null
   try {
     if (action === 'click' || action === 'select') {
+      // o clique é da pessoa: o cursor só aponta o item e o tour espera (o ouvinte do passo avança quando ela clicar)
       const el = step.target ? await waitForElement(() => byTour(step.target as string), o.signal) : null
       if (!el) return 'missing'
       await o.ghost.moveTo(el, o.reduced, o.signal)
-      if (action === 'select') {
-        undo.push(mark(el, 'tour-alvo--escolhendo'))
-        await sleep(o.reduced ? STILL_MS : 450, o.signal)
-      } else if (o.reduced) {
-        undo.push(mark(el, 'tour-alvo--parado'))
-        await sleep(STILL_MS, o.signal)
-      }
-      o.ghost.press()
-      undo.push(mark(el, 'tour-alvo--apertado'))
-      await sleep(PRESS_MS, o.signal)
-      undo.splice(0).forEach((f) => f())
-      realClick(el) // a onda termina sobre a tela nova; o cursor volta ao normal quando o passo muda
-      return 'clicked'
+      if (!o.reduced) o.ghost.press()
+      o.ghost.balloon(AUTO_WAIT_MESSAGE)
+      return 'waiting'
     }
 
     // demo: aponta o campo e o botão, sem nunca enviar nada
@@ -305,18 +285,12 @@ export async function runAutoAction(step: SystemTourStep, o: AutoRunOptions): Pr
     await sleep(DEMO_HOLD_MS, o.signal)
     o.ghost.idle()
     undo.splice(0).forEach((f) => f())
-    if (o.closeDialogAfter && t.dialog && t.dialog.isConnected) closeDialog(t.dialog)
     return 'demo'
   } finally {
     // cancelado no meio: nada fica marcado nem digitado
     undo.forEach((f) => f())
     if (typed) setInputValue(typed, '')
   }
-}
-
-/** Fecha o formulário que o próprio tour abriu (Esc, como a pessoa faria; o Radix trata e cancela o evento). */
-function closeDialog(dialog: HTMLElement) {
-  dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }))
 }
 
 export const isAborted = (e: unknown) => e instanceof Aborted

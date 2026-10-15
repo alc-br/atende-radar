@@ -1,12 +1,16 @@
 import { test, expect } from '@playwright/test'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SYSTEM_TOUR_CHAPTERS } from '../../src/lib/system-tour/content'
 import {
-  allDone, chapterStatus, chaptersFor, NARRATION_MAX, resumeChapter, spotlightFocus, stepArea, stepSpeechText, stepSpokenText, stepsFor,
+  actionCue, allDone, chapterStatus, chaptersFor, NARRATION_MAX, resumeChapter, spotlightFocus, stepArea, stepSpeechText, stepSpokenText, stepsFor,
 } from '../../src/lib/system-tour/engine'
 import { NARRATION_CUES, NARRATIONS } from '../../src/lib/system-tour/narration'
-import { buildSsml, DEFAULT_VOICE, escapeXml, looksLikeMp3, normalizeTtsText, silentMp3, tourAudioKey, ttsConfig } from '../../src/lib/system-tour/tts'
+import {
+  buildSsml, DEFAULT_VOICE, escapeXml, getTourAudio, looksLikeMp3, normalizeTtsText, silentMp3, tourAudioCached, tourAudioIdentity, tourAudioKey,
+  ttsConfig, TtsUnavailableError,
+} from '../../src/lib/system-tour/tts'
 import { applyUpdate, EMPTY_PROGRESS, isChapterId, parseProgress, parseUpdate } from '../../src/lib/system-tour/progress'
 import { TOUR_SIGNALS } from '../../src/lib/system-tour/signals'
 import { autoActionOf } from '../../src/lib/system-tour/types'
@@ -330,6 +334,33 @@ test.describe('áudio da narração (Azure Speech + cache)', () => {
     expect(looksLikeMp3(Buffer.from('RIFF....WAVE'))).toBe(false)
     expect(looksLikeMp3(Buffer.from('ID3\u0004\u0000'))).toBe(true)
   })
+
+  test('áudio já gerado é servido do cache sem chave da Azure (e sem chamar a Azure)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tour-audio-'))
+    try {
+      const text = 'Fala já gravada.'
+      const key = tourAudioKey('azure', DEFAULT_VOICE, text)
+      writeFileSync(join(dir, `${key}.mp3`), silentMp3(2))
+      const env = { TOUR_AUDIO_DIR: dir } // sem AZURE_SPEECH_KEY/REGION
+      expect(tourAudioIdentity(text, env).key).toBe(key)
+      expect(await tourAudioCached(text, env)).toBe(true)
+      const audio = await getTourAudio(text, env)
+      expect(audio).toMatchObject({ key, generated: false })
+      // o que ainda não foi gerado continua indisponível (o navegador lê)
+      await expect(getTourAudio('Fala nova.', env)).rejects.toBeInstanceOf(TtsUnavailableError)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+test('o cursor aponta o item quando a voz pede o clique', () => {
+  const step = { id: 'x', kind: 'click' as const, title: 'T', body: ['b'], narration: 'Os alertas ficam aqui. Clique em Alertas no menu.' }
+  const text = step.narration
+  expect(actionCue(step)).toBeCloseTo(text.indexOf('Clique') / text.length)
+  expect(actionCue({ ...step, narration: 'Sem pedido de ação.' }), 'sem pedido na fala: ao fim').toBe(1)
+  // todo passo de clique do conteúdo pede o clique antes do fim da fala ou espera o fim
+  for (const ch of SYSTEM_TOUR_CHAPTERS) for (const st of ch.steps) if (st.kind === 'click') expect(actionCue(st)).toBeGreaterThan(0)
 })
 
 test('leitura automática: todo passo de clique diz o que simular; cadastro nunca é executado', () => {

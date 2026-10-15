@@ -158,7 +158,77 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     await c.dispose()
   })
 
-  test('V7 · reativar a renovação depois de cancelar: assinatura de continuação no Pagar.me, sem cobrar o período já pago', async () => {
+  test('V7 · direito de arrependimento: em 7 dias, encerra agora e estorna o valor integral no Pagar.me', async () => {
+    test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
+    const { c, orgId } = await newAdmin()
+    const essencial = await plan('essencial')
+    expect((await c.post('/api/billing/checkout', { data: { planId: essencial.id, cycle: 'monthly', cardToken: await cardToken(publicKey, APPROVED), ...billingData() } })).status()).toBe(200)
+    const offer = (await config(c)).subscription.withdrawal
+    expect(offer.amount).toBe(essencial.monthlyPrice)
+    expect(new Date(offer.until).getTime()).toBeGreaterThan(Date.now() + 6.9 * 86400000)
+    const subId = (await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })).providerSubscriptionId!
+
+    const res = await c.post('/api/billing/withdraw')
+    expect(res.status(), await res.text()).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, amountCents: Math.round(essencial.monthlyPrice * 100) })
+
+    // no banco: plano encerrado agora, desligado do provedor; fatura estornada
+    const after = await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })
+    expect(after).toMatchObject({ status: 'canceled', cancelAtPeriodEnd: false, providerSubscriptionId: null })
+    expect(after.currentPeriodEnd.getTime()).toBeLessThanOrEqual(Date.now())
+    const summary = await config(c)
+    expect(summary.subscription).toMatchObject({ status: 'canceled', recurring: false, withdrawal: null })
+    expect(summary.invoices[0]).toMatchObject({ status: 'refunded', amount: essencial.monthlyPrice })
+
+    // no Pagar.me: assinatura cancelada e cobrança estornada
+    expect((await providerSubscription(subId)).status).toBe('canceled')
+    const chargeId = (await testDb.billingInvoice.findFirstOrThrow({ where: { organizationId: orgId } })).providerChargeId!
+    const key = process.env.PAGARME_SECRET_KEY_TEST?.trim() ?? ''
+    const charge = await (await fetch(`https://api.pagar.me/core/v5/charges/${chargeId}`, { headers: { Authorization: 'Basic ' + Buffer.from(`${key}:`).toString('base64') } })).json()
+    // estorno de cartão no Pagar.me v5 = cobrança paga cancelada (valor cancelado = valor pago)
+    expect(charge).toMatchObject({ status: 'canceled', canceled_amount: charge.paid_amount })
+    expect(charge.paid_amount).toBe(Math.round(essencial.monthlyPrice * 100))
+
+    // o aviso (webhook) do cancelamento chega depois: não reabre o plano e a fatura segue "estornada"
+    const anon = await anonymous()
+    const hook = await anon.post('/api/billing/webhook', { data: { id: `hook_e2e_wd_${Date.now()}`, type: 'subscription.canceled', created_at: new Date().toISOString(), data: { id: subId } }, headers: { Authorization: basic() } })
+    expect(hook.status(), await hook.text()).toBe(200)
+    await anon.dispose()
+    expect(await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })).toMatchObject({ status: 'canceled', providerSubscriptionId: null })
+    expect((await testDb.billingInvoice.findFirstOrThrow({ where: { organizationId: orgId } })).status).toBe('refunded')
+
+    // pedido repetido não estorna duas vezes; sem plano, nada novo é cadastrado
+    expect((await c.post('/api/billing/withdraw')).status()).toBe(409)
+    expect((await c.post('/api/connections', { data: { name: 'X', phoneNumber: '+5511900000198' } })).status()).toBe(402)
+    const actions = (await testDb.auditLog.findMany({ where: { organizationId: orgId }, select: { action: true } })).map((a) => a.action)
+    expect(actions).toContain('subscription.withdrawn')
+    expect(await testDb.notification.count({ where: { organizationId: orgId, title: 'Contratação desfeita e valor estornado' } })).toBe(1)
+    await c.dispose()
+  })
+
+  test('V7 · arrependimento: fora dos 7 dias é recusado; com a renovação já cancelada ainda vale no prazo', async () => {
+    test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
+    const { c, orgId } = await newAdmin()
+    const essencial = await plan('essencial')
+    expect((await c.post('/api/billing/checkout', { data: { planId: essencial.id, cycle: 'monthly', cardToken: await cardToken(publicKey, APPROVED), ...billingData() } })).status()).toBe(200)
+    expect((await c.post('/api/billing/cancel')).status()).toBe(200)
+    const inv = await testDb.billingInvoice.findFirstOrThrow({ where: { organizationId: orgId } })
+
+    await testDb.billingInvoice.update({ where: { id: inv.id }, data: { paidAt: new Date(Date.now() - 8 * 86400000) } })
+    expect((await config(c)).subscription.withdrawal).toBeNull()
+    const late = await c.post('/api/billing/withdraw')
+    expect(late.status()).toBe(409)
+    expect((await late.json()).code).toBe('withdrawal_unavailable')
+    expect(await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })).toMatchObject({ cancelAtPeriodEnd: true, status: 'active' })
+
+    await testDb.billingInvoice.update({ where: { id: inv.id }, data: { paidAt: inv.paidAt } })
+    const ok = await c.post('/api/billing/withdraw')
+    expect(ok.status(), await ok.text()).toBe(200)
+    expect(await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })).toMatchObject({ status: 'canceled', cancelAtPeriodEnd: false, providerSubscriptionId: null })
+    await c.dispose()
+  })
+
+  test('V7 · reativar a renovação depois de cancelar:assinatura de continuação no Pagar.me, sem cobrar o período já pago', async () => {
     test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
     const { c, orgId } = await newAdmin()
     const gestao = await plan('gestao')

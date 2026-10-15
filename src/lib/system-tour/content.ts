@@ -32,7 +32,7 @@ const CHAPTERS: SystemTourChapter[] = [
             'Setas ← e → do teclado: voltar e avançar.',
             'Esc: fecha o manual. O seu progresso fica salvo e você continua de onde parou.',
             'Ouvir: explica o passo em voz alta.',
-            'Ler automaticamente: lê cada passo, mostra com um cursor onde clicar e avança sozinho até o fim do capítulo (escolha a velocidade, até 2×). Cadastros são só mostrados, nunca feitos pelo manual.',
+            'Leitura automática: começa sozinha ao abrir o capítulo, lê cada passo, mostra com um cursor onde clicar e espera o seu clique para seguir (escolha a velocidade, até 2×; Pausar leitura para). Cadastros são só mostrados, nunca feitos pelo manual.',
           ] },
         ],
       },

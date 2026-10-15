@@ -86,6 +86,17 @@ export function stepArea(step: Pick<SystemTourStep, 'area' | 'target'>): string 
 }
 
 /**
+ * Em que ponto da narração (0 a 1, fração do texto falado) a voz pede o clique: o último "clique"/"toque" do texto.
+ * É aí que o cursor da leitura automática vai até o item. Sem pedido na fala: 1 (só depois de terminar).
+ */
+export function actionCue(step: SystemTourStep): number {
+  const text = stepSpokenText(step)
+  let at = -1
+  for (const m of text.matchAll(/\b(clique|toque)\b/gi)) at = m.index ?? at
+  return at < 0 || !text.length ? 1 : at / text.length
+}
+
+/**
  * O que fica em foco no destaque. Parado (progress null) ou sem momentos marcados: o alvo (com a região em meia-luz).
  * Falando: o último momento da narração que a voz já alcançou (progress = fração do texto já falada, 0 a 1).
  */

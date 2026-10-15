@@ -288,6 +288,74 @@ export async function cancelAtPeriodEnd(auth: AuthContext): Promise<Fail | { ok:
   return { ok: true, until: row.currentPeriodEnd.toISOString() }
 }
 
+/** Prazo do direito de arrependimento (Código de Defesa do Consumidor, art. 49): 7 dias da contratação paga. */
+export const WITHDRAWAL_DAYS = 7
+
+/**
+ * Pagamento que abriu a contratação vigente, se ainda estiver no prazo de arrependimento. Só a 1ª fatura paga da
+ * assinatura vigente conta: renovação não é contratação nova, e a renovação reativada (continuação) não tem fatura paga
+ * própria no período atual.
+ */
+export async function withdrawalOffer(orgId: string, now = new Date()) {
+  const cfg = pagarmeConfig()
+  const row = await db.subscription.findUnique({ where: { organizationId: orgId } })
+  if (!cfg || !row?.providerSubscriptionId || row.billingMode !== cfg.mode || row.status === 'canceled') return null
+  const paid = await db.billingInvoice.findMany({ where: { organizationId: orgId, providerSubscriptionId: row.providerSubscriptionId, status: 'paid' }, orderBy: { paidAt: 'asc' } })
+  const first = paid[0]
+  if (paid.length !== 1 || !first.paidAt || !first.providerChargeId) return null
+  const until = new Date(first.paidAt.getTime() + WITHDRAWAL_DAYS * 86400_000)
+  if (until.getTime() <= now.getTime()) return null
+  return { invoice: first, until, amountCents: first.amountCents }
+}
+
+/**
+ * Direito de arrependimento: dentro de 7 dias do pagamento que abriu a contratação, a empresa desiste e recebe de volta
+ * o valor INTEGRAL no cartão. A cobrança automática para no Pagar.me, o estorno é pedido na hora e o acesso pago termina
+ * agora. A assinatura fica desligada do provedor (a sincronização não a reabre); as faturas continuam no histórico.
+ */
+export async function withdraw(auth: AuthContext, now = new Date()): Promise<Fail | { ok: true; amountCents: number }> {
+  const cfg = pagarmeConfig()
+  const offer = await withdrawalOffer(auth.orgId, now)
+  if (!cfg || !offer) return fail(409, 'withdrawal_unavailable', `O prazo de arrependimento é de ${WITHDRAWAL_DAYS} dias a partir do pagamento da contratação. Fora dele, use "Cancelar renovação": o plano vale até o fim do período pago.`)
+  const row = await db.subscription.findUniqueOrThrow({ where: { organizationId: auth.orgId }, include: { plan: true } })
+  const subId = row.providerSubscriptionId!
+
+  // trava contra clique duplo: só um pedido passa (o outro já encontra a assinatura desligada do provedor)
+  const claimed = await db.subscription.updateMany({ where: { organizationId: auth.orgId, providerSubscriptionId: subId }, data: { providerSubscriptionId: null } })
+  if (claimed.count !== 1) return fail(409, 'withdrawal_unavailable', 'O pedido de arrependimento já foi feito.')
+  const undo = () => db.subscription.update({ where: { organizationId: auth.orgId }, data: { providerSubscriptionId: subId } })
+
+  try {
+    // já cancelada (renovação cancelada antes): o Pagar.me recusa um 2º cancelamento, e tudo bem
+    if (!row.cancelAtPeriodEnd) await pagarme.cancelSubscription(cfg, subId)
+  } catch (e) {
+    await undo()
+    if (e instanceof PagarmeError) return fail(502, 'provider_error', friendlyPaymentError(e.status, e.body))
+    throw e
+  }
+  try {
+    await pagarme.refundCharge(cfg, offer.invoice.providerChargeId!)
+  } catch (e) {
+    // a renovação já parou no provedor: fica como cancelamento comum (vale até o fim do período) e o estorno vai para o suporte
+    await db.subscription.update({ where: { organizationId: auth.orgId }, data: { providerSubscriptionId: subId, cancelAtPeriodEnd: true, lastSyncedAt: now } })
+    console.error('[billing] estorno recusado', offer.invoice.providerChargeId, e instanceof PagarmeError ? e.status : e)
+    await audit(auth, { action: 'subscription.withdrawal_failed', targetType: 'subscription', targetId: subId, targetLabel: row.plan.name, details: { chargeId: offer.invoice.providerChargeId, amountCents: offer.amountCents } })
+    return fail(502, 'refund_failed', 'A renovação foi cancelada, mas o estorno não foi aceito pela operadora agora. Nossa equipe vai concluir o reembolso; se preferir, escreva para contato@atenderadar.com.br.')
+  }
+
+  await db.billingInvoice.update({ where: { id: offer.invoice.id }, data: { status: 'refunded' } })
+  await db.subscription.update({ where: { organizationId: auth.orgId }, data: { status: 'canceled', cancelAtPeriodEnd: false, currentPeriodEnd: now, lastPaymentError: null, lastSyncedAt: now } })
+  const valor = (offer.amountCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  await audit(auth, { action: 'subscription.withdrawn', targetType: 'subscription', targetId: subId, targetLabel: row.plan.name, details: { chargeId: offer.invoice.providerChargeId, amountCents: offer.amountCents, mode: cfg.mode } })
+  await db.notification.create({
+    data: {
+      organizationId: auth.orgId, type: 'billing', title: 'Contratação desfeita e valor estornado',
+      message: `O plano ${row.plan.name} foi encerrado e o estorno de ${valor} foi pedido à operadora do cartão${row.cardLast4 ? ` final ${row.cardLast4}` : ''}. O crédito aparece na fatura do cartão conforme o prazo do banco emissor.`,
+    },
+  })
+  return { ok: true, amountCents: offer.amountCents }
+}
+
 export async function replaceCard(auth: AuthContext, input: { cardToken?: string; address?: CheckoutInput['address'] }): Promise<Fail | { ok: true; cardBrand: string | null; cardLast4: string | null }> {
   const cfg = pagarmeConfig()
   const row = await db.subscription.findUnique({ where: { organizationId: auth.orgId } })
