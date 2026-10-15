@@ -32,7 +32,7 @@ papel dele.
 | Usuários Globais | lista e filtra as pessoas cadastradas em todas as empresas |
 | Sistema | saúde do banco, da autenticação e do armazenamento |
 | Produto | funil, retenção semanal, uso por tela, guia de telas, custo de IA |
-| Suporte | chamados abertos em "Falar com o suporte": ler, **Marcar como resolvido** ou **Reabrir chamado** |
+| Suporte | chamados de "Falar com o suporte": ler, **responder por e-mail**, **Fechar chamado** ou **Reabrir chamado** |
 
 **Admin › Organizações › Assinatura muda só o nosso registro. Não cria, não cancela e não altera a cobrança no
 Pagar.me.** Use para estender um teste ou acertar a situação depois de conferir o painel do Pagar.me.
@@ -44,8 +44,17 @@ Pagar.me.** Use para estender um teste ou acertar a situação depois de conferi
   seu e-mail."
 - O chamado aparece em **Admin › Suporte**. Também vai por e-mail para `SUPPORT_EMAIL`, **se essa variável estiver
   definida no servidor**. Sem ela, o chamado só existe no Admin.
-- **Limitação:** não há como responder pelo sistema. Responda por e-mail, de fora, para o endereço do chamado, e depois
-  clique em **Marcar como resolvido**.
+- **Responder:** abra o chamado em **Admin › Suporte**, escreva em **Responder por e-mail** e clique em **Enviar
+  resposta**.
+  - A resposta vai por e-mail para quem abriu o chamado, com a mensagem original no fim, e fica listada em
+    **Respostas enviadas** com a situação do e-mail.
+  - Marque **Fechar o chamado ao enviar** se o assunto terminou. Sem essa opção, o chamado passa para **Respondido**.
+  - "O e-mail ficou na fila" quer dizer que o servidor está sem provedor de e-mail (veja "O e-mail não chegou"). "Não
+    foi entregue": o sistema tenta enviar de novo sozinho.
+- **Situação do chamado:** **Aberto** (novo), **Respondido** (já tem resposta) e **Fechado**. O cliente vê a mesma
+  situação na Central de ajuda. Use **Fechar chamado** e **Reabrir chamado** no próprio chamado.
+- **Limitação:** a resposta chega ao cliente **só por e-mail**; ele não a lê dentro do sistema. O chamado também não
+  guarda qual operador respondeu.
 
 ## Perguntas frequentes
 
@@ -54,12 +63,12 @@ Pagar.me.** Use para estender um teste ou acertar a situação depois de conferi
 1. **Quem está tentando?** Só o Administrador conecta.
 2. **Crie a conexão, se ainda não existe:**
    - vá em **Conexões › Nova conexão**;
-   - no diálogo "Nova Conexão WhatsApp", ligue o interruptor que confirma o risco da integração não oficial (é
+   - no diálogo "Nova conexão WhatsApp", ligue o interruptor que confirma o risco da integração não oficial (é
      obrigatório);
    - clique em **Criar conexão**.
-   - **Limitação:** se a criação falhar, por exemplo por ter chegado ao **limite de conexões do plano**, a tela não
-     mostra mensagem nenhuma. Confira o plano em **Planos**. No Essencial cabe 1 conexão, no Growth 3 e no
-     Performance 10.
+   - Se a criação falhar, o motivo aparece em vermelho dentro do próprio diálogo. No **limite de conexões do plano** a
+     mensagem diz quantas o plano permite e traz o botão **Ver planos**. No Essencial cabe 1 conexão, no Growth 3 e
+     no Performance 10.
 3. **Leia o QR:** o diálogo "Conectar o WhatsApp" busca o QR a cada 3 segundos.
    - O QR apareceu: o cliente lê pelo celular em **WhatsApp › Aparelhos conectados › Conectar um aparelho**. Quando
      conecta, aparece "WhatsApp conectado!".
@@ -76,8 +85,8 @@ Pagar.me.** Use para estender um teste ou acertar a situação depois de conferi
    - peça uma captura dessa tela.
    - **"Degradada" com motivo de credenciais** é problema do servidor, não do cliente: escale.
    - **"Bloqueada"**: o número foi bloqueado pelo WhatsApp. Não há o que fazer pelo sistema.
-7. **Limitação:** uma conexão **pausada** (botão Pausar) aparece com o estado "Erro". Antes de investigar, pergunte se
-   alguém pausou e peça para clicar em **Retomar**.
+7. **"Pausada":** alguém clicou em **Pausar** no cartão da conexão. Antes de investigar, pergunte se foi de propósito;
+   para voltar, basta clicar em **Retomar**.
 
 ### "O alerta não chegou"
 
@@ -93,8 +102,8 @@ Primeiro, onde ele esperava o alerta:
   contratar ou mudar de plano. Veja "Trocar de plano".
 - **Por e-mail:**
   - o e-mail só sai para regras com o canal **e-mail**; 6 das 8 regras que vêm prontas já têm;
-  - **Limitação:** a **Nova regra** criada pela tela fica só no sistema, sem e-mail, e não há como incluir o e-mail
-    pela tela.
+  - o canal se escolhe em **Avisar por**, ao criar a regra (**Nova regra**) ou ao editá-la (botão de editar ao lado da
+    regra, em **Alertas › Regras**);
   - **Quem recebe:** os membros ativos que **podem ver aquele alerta** pelo papel e pela equipe, e que estão com
     **Meu perfil › Alertas por e-mail** ligado.
   - **Configurações › Notificações › Destinatários não é usado** (a tela diz "uso futuro").
@@ -118,7 +127,8 @@ Primeiro, onde ele esperava o alerta:
      olhar o banco ou o painel do provedor de e-mail.
 4. **Por tipo:**
    - **Convite:** **Membros › Mais ações › Reenviar convite**. Limite de 10 por hora; o convite vale 7 dias.
-     - **Limitação:** a mensagem de sucesso aparece mesmo quando a entrega falha.
+     - Se o provedor recusar o e-mail, a tela avisa em vermelho que ele "não foi entregue" e copia o link do
+       convite para o administrador repassar. O sistema também tenta enviar de novo sozinho.
      - Convite vencido mostra "Convite inválido ou expirado. Peça um novo ao administrador.": reenvie.
    - **Recuperar senha:** na tela de login, **Esqueceu sua senha?** abre "Recuperar acesso". O link vale **1 hora**. O
      limite é de 5 pedidos por hora por e-mail.
@@ -129,8 +139,10 @@ Primeiro, onde ele esperava o alerta:
 
 - A mensagem é sempre "E-mail ou senha inválidos" e não diz qual dos dois está errado. Siga o caminho de **Esqueceu
   sua senha?**.
-- **Limitação:** depois de 5 tentativas erradas o acesso fica **bloqueado por 15 minutos**, mas a tela continua
-  mostrando a mesma mensagem. Se o cliente jura que a senha está certa, peça para esperar 15 minutos.
+- Depois de **5 tentativas erradas** o acesso fica **bloqueado por 15 minutos** e a tela mostra "Muitas tentativas de
+  entrar. Tente novamente em X minutos". Nem a senha certa entra antes disso; recuperar a senha desbloqueia na hora.
+  - O aviso aparece igual mesmo para um e-mail que **não tem conta**. Ele não confirma que o cadastro existe.
+  - O mesmo aviso aparece quando muitas senhas erradas saem da mesma rede (proteção contra ataque).
 - A sessão dura 7 dias. Depois disso, pede login de novo.
 
 ### "Meu cartão foi recusado"
@@ -184,8 +196,8 @@ Primeiro, onde ele esperava o alerta:
 e Gestor:
 - **Exportar dados deste cliente (JSON):** baixa um arquivo com tudo o que existe sobre aquele contato.
   - Precisa de **Configurações › Privacidade › Exportação pelo titular** ligado.
-  - **Limitação:** com essa opção desligada, o navegador baixa um arquivo com uma mensagem de erro em vez dos dados.
-    Se o "arquivo veio estranho", é isso.
+  - Com essa opção desligada, nada é baixado e a tela avisa que a exportação está desligada em **Configurações ›
+    Privacidade**.
 - **Parar de monitorar este contato:** a conversa some das telas e das análises e as próximas mensagens dele não são
   guardadas. O que já existe **não** é apagado.
 - **Apagar dados deste cliente:** remove de vez conversas, mensagens, alertas, promessas e itens de recuperação daquele

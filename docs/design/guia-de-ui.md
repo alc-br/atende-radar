@@ -102,10 +102,12 @@ ficam valendo apenas onde o ajuste não chega.
 ## Textos
 
 - **Tom:** português do Brasil, tratando por "você", frases curtas e sem jargão técnico.
-- **Botões e títulos de cartão:** com maiúscula só na primeira palavra, por exemplo "Nova conexão" e "Salvar
-  assinatura".
-- **Inconsistência conhecida, a corrigir:** alguns `h1` estão com cada palavra em maiúscula, como "Visão Geral" e
-  "Planos e Faturamento".
+- **Botões, títulos de cartão e títulos de tela (`h1`):** com maiúscula só na primeira palavra, por exemplo "Nova
+  conexão", "Salvar assinatura" e "Planos e faturamento". Nomes próprios mantêm a maiúscula (WhatsApp, AtendeRadar,
+  Growth). O `tests/unit/ui-text.unit.spec.ts` confere os `h1`.
+  - **Ainda fora do padrão:** os itens do menu lateral e as abas do Admin, como "Visão Geral" e "Usuários Globais".
+- **Repetir a ação:** o botão é sempre "Tentar novamente" e a frase, "Tente novamente" (nunca "de novo"); o mesmo teste
+  confere.
 - **Nomes dos planos:** Essencial, **Growth** e Performance.
   - No código e no banco o Growth é `gestao`. Para o cliente, é sempre "Growth", nunca "Gestão".
   - O catálogo fica em `src/lib/plan-catalog.ts`.
@@ -114,8 +116,11 @@ ficam valendo apenas onde o ajuste não chega.
 - **Caminhos:** escreva com "›", por exemplo "Configurações › Privacidade".
 - **Erros de ação** (salvar, excluir, conectar): use `src/lib/mutation.ts`, nunca um `fetch` solto.
   - `mutate(url, init, { errorMessage, onSettled })`, ou `runMutation(() => fetchMutation(...), { errorMessage })`.
-  - Em caso de erro, eles mostram `toast.error` com a mensagem do servidor (campo `error` da resposta). Na falta dela,
-    usam a `errorMessage` ou o padrão "Não foi possível concluir a ação. Tente de novo." (`MUTATION_ERROR_MESSAGE`).
+  - Em caso de erro, `mutate` e `runMutation` mostram `toast.error` com a `errorMessage` ou o padrão "Não foi possível
+    concluir a ação. Tente novamente." (`MUTATION_ERROR_MESSAGE`). **Eles não mostram a mensagem do servidor.**
+  - Quando a mensagem do servidor importa (limite do plano, validação), chame `fetchMutation` direto: ele lança
+    `MutationError` com `message` (o campo `error` da resposta, ou "HTTP nnn") e `status`. Exemplo:
+    `connections-view.tsx`, que no 402 mostra o limite e o botão "Ver planos".
   - A mensagem de erro diz o que aconteceu e o que fazer. Exemplo: "Pagamento recusado: … Nenhum valor foi cobrado".
   - Uso real: `alerts-view.tsx`, `mutate('/api/alerts/${id}/acknowledge', …)`.
 - **Sucesso:** `toast.success` curto, no passado, por exemplo "Alertas por e-mail ligados.".
@@ -131,9 +136,8 @@ Siga o padrão de `src/components/dashboard/dashboard-view.tsx`:
 - **Erro ao carregar:**
   - mostre `<div className="cartao vazio" role="alert">` com uma frase do que falhou e o botão "Tentar novamente", que
     chama o `refetch`;
-  - **inconsistência conhecida:** quase todas as telas usam "Tentar novamente", mas a tela de erro geral
-    (`ErrorScreen`, `error.tsx`) e o `MUTATION_ERROR_MESSAGE` dizem "Tentar de novo". Numa tela nova, use "Tentar
-    novamente", até alguém unificar.
+  - recurso que não existe (404) não é erro: diga o que não foi encontrado e ofereça o caminho de volta, como em
+    `conversation-detail.tsx` ("Conversa não encontrada" e "Voltar para Conversas").
 - **Vazio:**
   - mostre `.vazio` com um `<strong>` dizendo o que falta e uma frase dizendo como preencher, de preferência com o
     botão da ação, por exemplo "Nova conexão";
