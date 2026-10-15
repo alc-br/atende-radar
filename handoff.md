@@ -37,6 +37,9 @@ Sem segredos aqui: o repositório é público.
 - Depois que a migração cifrada estiver confirmada, apagar à mão o backup `.tar.gz` das sessões feito antes da cifra (guarda credenciais em texto puro).
 - Retenção de dados (card V2): definir prazos.
 - Guardar fora do servidor uma cópia da `PHONE_ENC_KEY` (criada pelo deploy em `app.env`; sem ela os telefones completos dos clientes, no banco e nos backups, não abrem). Ver `docs/operacao/telefone-cifrado.md`.
+- Decidir se liga o ambiente de simulação (`SIMULATION_ENABLED`, `SIMULATION_SECRET`). Ver `docs/operacao/simulacao.md`.
+- Conferir a RAM real do servidor antes de aplicar o drop-in do systemd proposto no I8 (supõe 4 GB).
+- V7: confirmar o texto dos termos sobre arrependimento em 7 dias e mudança de preço (Admin › Planos muda só contratos novos).
 
 ## Como rodar os testes (Windows)
 
@@ -61,13 +64,21 @@ Sem segredos aqui: o repositório é público.
 
 ### 14/10/2026
 
-- **Branch `wave-p7` (sem deploy):**
+- **Tour, destaque em 3 níveis (pedido do dono):** o item a clicar fica aceso com o anel, a região de que se fala (menu lateral, barra do topo) fica em meia-luz e o resto mais escuro sem esconder. Desenho em SVG com máscaras (`Spotlight` em `system-tour-panel.tsx`), região pelo `area` do passo ou deduzida do alvo (`stepArea`).
+  - Com Ouvir ou Ler automaticamente, trechos da narração (`NARRATION_CUES` em `narration.ts`) trocam o foco: "menu lateral" acende o menu inteiro com contorno; ao falar do item, o anel volta. O progresso vem do `currentTime` do áudio da Azure ou do `onboundary`/estimativa da voz do navegador (`use-speech.ts`).
+  - A narração do passo do menu ganhou a frase "o destacado agora, Visão Geral" (áudio novo gerado pelo deploy).
+- **Ondas juntadas na `main` (branch `integracao`):** V7, docs, P7, S1 e B6. Conflitos resolvidos: o catálogo de planos ficou em `src/lib/plan-catalog.ts` (`PLAN_CATALOG`, dados) com a regra do V7 no sync (não sobrescreve o que o operador editou no Admin); admin, exclusão de empresa e rbac somam os dois lados.
+- **V7 Cobrança e catálogo:** reativar a renovação depois de cancelar, enquanto o período pago dura (assinatura de continuação na Pagar.me com início no dia seguinte ao fim do período); Admin › Planos edita nome, descrição, destaques, selo "Mais escolhido", preço para contratos novos e se está à venda (limites e código não); FAQ do site com risco de banimento, cancelamento e sem fidelidade, mais o FAQPage em JSON-LD.
+- **Docs e polimento (branch `wave-docs`):** guia de UI curto (D5), manual de suporte e runbook de incidente (I5), medição de LCP (V6: 3,1 s na 1ª medição), proposta de drop-in do systemd (I8, supõe 4 GB de RAM; não aplicada), teste de isolamento pelas telas (T3), varredura de design em 1440/1920 (D1); canais por regra de alerta; operador responde chamado por e-mail (pelo `EmailOutbox`, sem tabela própria); erros de convite e de conexão aparecem na tela; mensagem própria após 5 tentativas de login.
+- **B6 Motor de análise:** alertas da mesma conversa e causa viram um só (reabre com "Repetiu N vezes", sem novo e-mail); evento novo de webhook `alert.updated` (opt-in); ganho/perda detectados de forma conservadora pelas mensagens; correção humana nunca é desfeita. Migração `20261014231053_alert_grouping`.
+- **P7 / B5 / B9:**
   - **P7 Meu perfil:**
     - Troca de e-mail: pede a senha atual e manda um link de uso único (24 h) para o NOVO e-mail. O e-mail só muda depois da confirmação, e o antigo é avisado no pedido e na troca.
     - Foto do perfil aparece no menu do usuário. Logotipo da empresa (Configurações › Empresa) aparece na barra superior.
     - As imagens ficam em `UPLOADS_DIR` (`/opt/atende-radar/shared/uploads`), servidas por `/api/media/...` só para a própria empresa. Entram no backup.
   - **B5/B9:** telefone completo do cliente cifrado em `Contact.phoneEncrypted` com a `PHONE_ENC_KEY`. Aparece no detalhe da conversa ("Mostrar", auditado) e na exportação LGPD. Doc: `docs/operacao/telefone-cifrado.md`.
-- **S1 Ambiente de simulação (branch `wave-s1`, não está no ar):** fases 1 a 3 do plano `docs/planos/ambiente-de-simulacao.md`.
+  - Migração `20261014230745_profile_media_email_change`; o deploy cria `UPLOADS_DIR` e `PHONE_ENC_KEY`.
+- **S1 Ambiente de simulação (desligado por padrão):** fases 1 a 3 do plano `docs/planos/ambiente-de-simulacao.md`.
   - Empresas `isSimulation` ficam isoladas: fora do motor agendado, de e-mails, webhooks, cobrança, relatórios, analytics e Admin.
   - O provider `simulator` passa pela mesma ingestão do WhatsApp real. O relógio é virtual.
   - São 16 cenários com verificações, rodados pelo CLI `bun scripts/simular.ts`, pela API `/api/admin/simulation/*` e pela aba Simulação do Admin.
