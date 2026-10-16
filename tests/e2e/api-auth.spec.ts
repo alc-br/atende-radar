@@ -37,7 +37,7 @@ test.describe('B2 · APIs exigem sessão', () => {
   }
 
   test('login pelo NextAuth continua funcionando e libera as leituras', async () => {
-    const ctx = await loginAs('contato@odontovida.com.br')
+    const ctx = await loginAs('admin.a@test.local')
     for (const path of ['/api/dashboard', '/api/members', '/api/settings', '/api/conversations']) {
       const res = await ctx.get(path)
       expect(res.status(), path).toBe(200)
@@ -46,7 +46,7 @@ test.describe('B2 · APIs exigem sessão', () => {
   })
 
   test('senha errada não gera sessão', async () => {
-    const ctx = await loginAs('contato@odontovida.com.br', 'errada')
+    const ctx = await loginAs('admin.a@test.local', 'errada')
     const res = await ctx.get('/api/members')
     expect(res.status()).toBe(401)
     await ctx.dispose()
