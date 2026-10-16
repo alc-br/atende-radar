@@ -12,6 +12,8 @@ import { AuditLog } from './audit-log'
 import { WebhookSettings } from './webhook-settings'
 import { DangerZone } from './danger-zone'
 import { useAppStore } from '@/lib/store'
+import { ALERT_RULE_HELP, alertChannelLabel, alertTypeLabel } from '@/lib/alert-labels'
+import { HelpTip } from '@/components/ui/help-tip'
 import { toast } from 'sonner'
 import { mutate } from '@/lib/mutation'
 import { tourSignal } from '@/lib/system-tour/signals'
@@ -50,10 +52,11 @@ const SEGMENT_LABELS: Record<string, string> = {
 }
 
 const SEVERITY: Record<string, { label: string; tag: string }> = {
-  critical: { label: 'Crítica', tag: 'tag--vermelho' },
-  high: { label: 'Alta', tag: 'tag--laranja' },
-  medium: { label: 'Média', tag: 'tag--ambar' },
-  low: { label: 'Baixa', tag: 'tag--cinza' },
+  critical: { label: 'Crítico', tag: 'tag--vermelho' },
+  high: { label: 'Alto', tag: 'tag--laranja' },
+  medium: { label: 'Atenção', tag: 'tag--ambar' },
+  low: { label: 'Informativo', tag: 'tag--cinza' },
+  info: { label: 'Informativo', tag: 'tag--cinza' },
 }
 
 // ── Peças visuais do pacote (Configurações) ────────────────────────────────
@@ -856,11 +859,11 @@ export default function SettingsView() {
                     <thead>
                       <tr>
                         <th>Nome</th>
-                        <th className="hidden sm:table-cell">Tipo</th>
+                        <th className="hidden sm:table-cell"><span className="th-ajuda">Tipo<HelpTip label="Tipo">{ALERT_RULE_HELP.tipo}</HelpTip></span></th>
                         <th className="centro">Ativa</th>
-                        <th>Severidade</th>
-                        <th className="hidden md:table-cell">Cooldown</th>
-                        <th className="hidden lg:table-cell">Canais</th>
+                        <th><span className="th-ajuda">Severidade<HelpTip label="Severidade">{ALERT_RULE_HELP.severidade}</HelpTip></span></th>
+                        <th className="hidden md:table-cell"><span className="th-ajuda">Cooldown<HelpTip label="Cooldown">{ALERT_RULE_HELP.cooldown}</HelpTip></span></th>
+                        <th className="hidden lg:table-cell"><span className="th-ajuda">Canais<HelpTip label="Canais">{ALERT_RULE_HELP.canais}</HelpTip></span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -869,7 +872,7 @@ export default function SettingsView() {
                         return (
                           <tr key={rule.id}>
                             <td className="forte">{rule.name}</td>
-                            <td className="hidden sm:table-cell suave">{rule.type}</td>
+                            <td className="hidden sm:table-cell suave">{alertTypeLabel(rule.type)}</td>
                             <td className="centro">
                               <Interruptor checked={!!rule.active} onChange={(v) => toggleRule(rule.id, v)} label={`Regra ${rule.name} ativa`} />
                             </td>
@@ -877,7 +880,7 @@ export default function SettingsView() {
                             <td className="hidden md:table-cell suave">{rule.cooldownMinutes} min</td>
                             <td className="hidden lg:table-cell">
                               <div className="flex flex-wrap gap-1">
-                                {(rule.channels || []).map((ch: string) => <span key={ch} className="tag tag--cinza">{ch}</span>)}
+                                {(rule.channels || []).map((ch: string) => <span key={ch} className="tag tag--cinza">{alertChannelLabel(ch)}</span>)}
                               </div>
                             </td>
                           </tr>

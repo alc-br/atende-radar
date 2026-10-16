@@ -26,7 +26,7 @@
   .ar .av--verde { color: #0f6e46; }
   .ar .av--vermelho { color: #b81c25; }
   .ar .av--laranja { color: #a14f05; }
-  .ar .contador-pill,
+  .ar .contador-pill:not(.contador-pill--cinza),
   .ar .nav-lateral .contador { background: #c92029; }
   .dark .ar .av--verde { color: #6fe2aa; }
   .dark .ar .av--vermelho { color: #ff8d93; }
@@ -91,4 +91,38 @@
     --azul: #235fe1;
     --teal: #0b776c;
   }
+}
+
+/* Contadores das abas (Alertas): menores, números alinhados; o neutro (Em acompanhamento, Resolvidos, Ignorados)
+   fica discreto em vez de uma bolinha vermelha, e acompanha a cor da aba quando ela está aberta. */
+@layer components {
+  .ar .contador-pill {
+    min-width: 20px; height: 20px; padding: 0 6px; margin-left: 2px;
+    font-size: 11.5px; line-height: 1; font-variant-numeric: tabular-nums;
+  }
+  .ar .contador-pill.contador-pill--cinza {
+    color: var(--texto-2); background: var(--cinza-fundo);
+    box-shadow: inset 0 0 0 1px var(--borda); font-weight: 600;
+  }
+  .ar .aba[aria-selected="true"] .contador-pill--cinza {
+    color: var(--verde-700); background: var(--verde-50); box-shadow: inset 0 0 0 1px var(--verde-100);
+  }
+
+  /* (?) que abre a explicação de um campo ou coluna (src/components/ui/help-tip.tsx) */
+  .ajuda-tip {
+    display: inline-grid; place-items: center; flex: none;
+    width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%;
+    background: transparent; color: var(--muito-suave); cursor: pointer;
+  }
+  .ajuda-tip .ic { width: 15px; height: 15px; }
+  .ajuda-tip:hover, .ajuda-tip[data-state="open"] { color: var(--verde-700); }
+  .ajuda-tip:focus-visible { outline: 2px solid var(--verde-500); outline-offset: 1px; }
+  .th-ajuda { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .rotulo-ajuda { display: flex; align-items: center; gap: 4px; }
+
+  /* Opção de canal no "Nova regra": nome numa linha e explicação embaixo (o "E-mail" não quebra mais) */
+  .canal-opcao { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.35; cursor: pointer; }
+  .canal-opcao input { margin-top: 2px; flex: none; }
+  .canal-opcao__nome { display: block; font-weight: 500; white-space: nowrap; }
+  .canal-opcao__desc { display: block; font-size: 12.5px; color: var(--texto-2); }
 }

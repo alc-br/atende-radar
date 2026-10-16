@@ -62,6 +62,8 @@ import { formatCurrency, timeAgo, cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { mutate, fetchMutation, MUTATION_ERROR_MESSAGE } from '@/lib/mutation'
 import { RULE_CHANNELS, RULE_CHANNEL_LABELS, type RuleChannel } from '@/lib/alert-channels'
+import { ALERT_CHANNEL_LABELS, ALERT_RULE_HELP, ALERT_TYPE_LABELS } from '@/lib/alert-labels'
+import { HelpTip } from '@/components/ui/help-tip'
 import { tourSignal } from '@/lib/system-tour/signals'
 import { can, canOpenView } from '@/lib/permissions'
 
@@ -148,29 +150,8 @@ const ignoreReasons = [
   { value: 'outro', label: 'Outro' },
 ]
 
-const alertTypeLabels: Record<string, string> = {
-  no_response: 'Sem resposta',
-  slow_response: 'Resposta lenta',
-  ignored_question: 'Pergunta ignorada',
-  pending_quote: 'Orçamento pendente',
-  overdue_promise: 'Promessa vencida',
-  abandoned_lead: 'Lead abandonado',
-  customer_frustrated: 'Cliente frustrado',
-  quota_warning: 'Quota próxima do limite',
-  no_response_followup: 'Sem resposta (follow-up)',
-  high_intent_no_reply: 'Alta intenção sem resposta',
-  promise_approaching: 'Promessa próxima vencimento',
-  promise_overdue: 'Promessa vencida',
-  connection_down: 'Conexão desconectada',
-}
-
-const channelLabels: Record<string, string> = {
-  in_app: 'No sistema',
-  email: 'E-mail',
-  whatsapp: 'WhatsApp',
-  sms: 'SMS',
-  webhook: 'Webhook',
-}
+const alertTypeLabels = ALERT_TYPE_LABELS
+const channelLabels = ALERT_CHANNEL_LABELS
 
 const statusLabels: Record<string, string> = {
   acknowledged: 'Reconhecido',
@@ -786,10 +767,10 @@ export default function AlertsView() {
                 <thead>
                   <tr>
                     <th scope="col">Regra</th>
-                    <th scope="col" className="hidden sm:table-cell">Tipo</th>
-                    <th scope="col">Severidade</th>
-                    <th scope="col" className="hidden md:table-cell">Cooldown</th>
-                    <th scope="col" className="hidden lg:table-cell">Canais</th>
+                    <th scope="col" className="hidden sm:table-cell"><span className="th-ajuda">Tipo<HelpTip label="Tipo">{ALERT_RULE_HELP.tipo}</HelpTip></span></th>
+                    <th scope="col"><span className="th-ajuda">Severidade<HelpTip label="Severidade">{ALERT_RULE_HELP.severidade}</HelpTip></span></th>
+                    <th scope="col" className="hidden md:table-cell"><span className="th-ajuda">Cooldown<HelpTip label="Cooldown">{ALERT_RULE_HELP.cooldown}</HelpTip></span></th>
+                    <th scope="col" className="hidden lg:table-cell"><span className="th-ajuda">Canais<HelpTip label="Canais">{ALERT_RULE_HELP.canais}</HelpTip></span></th>
                     <th scope="col" className="centro">Ativa</th>
                     {canEditRules && <th scope="col"><span className="sr-only">Ações</span></th>}
                   </tr>
@@ -1046,7 +1027,7 @@ export default function AlertsView() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Tipo</Label>
+              <div className="rotulo-ajuda"><Label>Tipo</Label><HelpTip label="Tipo">{ALERT_RULE_HELP.tipo}</HelpTip></div>
               <Select value={newRuleType} onValueChange={setNewRuleType} disabled={!!editingRuleId}>
                 <SelectTrigger aria-label="Selecione o tipo"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                 <SelectContent>
@@ -1057,7 +1038,7 @@ export default function AlertsView() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Severidade</Label>
+              <div className="rotulo-ajuda"><Label>Severidade</Label><HelpTip label="Severidade">{ALERT_RULE_HELP.severidade}</HelpTip></div>
               <Select value={newRuleSeverity} onValueChange={setNewRuleSeverity}>
                 <SelectTrigger aria-label="Severidade"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1068,7 +1049,7 @@ export default function AlertsView() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="nova-regra-cooldown">Cooldown (minutos)</Label>
+              <div className="rotulo-ajuda"><Label htmlFor="nova-regra-cooldown">Cooldown (minutos)</Label><HelpTip label="Cooldown">{ALERT_RULE_HELP.cooldown}</HelpTip></div>
               <Input
                 id="nova-regra-cooldown"
                 type="number"
@@ -1078,17 +1059,19 @@ export default function AlertsView() {
               />
             </div>
             <fieldset className="space-y-2">
-              <legend className="text-sm font-medium">Avisar por</legend>
+              <legend className="rotulo-ajuda text-sm font-medium">Avisar por<HelpTip label="Canais">{ALERT_RULE_HELP.canais}</HelpTip></legend>
               {RULE_CHANNELS.map((ch) => (
-                <label key={ch} className="flex items-center gap-2 text-sm">
+                <label key={ch} className="canal-opcao">
                   <input
                     type="checkbox"
                     checked={newRuleChannels.includes(ch)}
                     onChange={(e) => toggleNewRuleChannel(ch, e.target.checked)}
                   />
-                  {RULE_CHANNEL_LABELS[ch]}
-                  <span className="suave">
-                    {ch === 'in_app' ? '(sino e tela Alertas)' : '(membros que veem o alerta e deixaram ligado em Meu perfil)'}
+                  <span>
+                    <span className="canal-opcao__nome">{RULE_CHANNEL_LABELS[ch]}</span>
+                    <span className="canal-opcao__desc">
+                      {ch === 'in_app' ? 'Sino e tela Alertas' : 'Para os membros que veem o alerta e deixaram ligado em Meu perfil'}
+                    </span>
                   </span>
                 </label>
               ))}
