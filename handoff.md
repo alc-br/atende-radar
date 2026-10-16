@@ -27,15 +27,14 @@ Sem segredos aqui: o repositório é público.
 ## Pendências que só o usuário resolve
 
 - 2 chips para o teste de WhatsApp real (item 8).
-- Webhook no painel Stone/Pagar.me: URL `https://app.atenderadar.com.br/api/billing/webhook`, Basic Auth com `PAGARME_WEBHOOK_USER`/`PAGARME_WEBHOOK_PASS`, **todos os eventos** (pode; o sistema ignora o que não é dele).
-- Decidir quando virar `PAGARME_MODE=live` (chaves de produção já validadas).
-- Caixa de e-mail de contato + `NEXT_PUBLIC_CONTACT_EMAIL`; chave do Resend + `MAIL_PROVIDER`.
-- Revisão jurídica de privacidade/termos + razão social e CNPJ.
+- **Backup diário + cópia no Google Drive** (escolhido em 15/10): o usuário precisa dizer qual conta do Google e qual pasta usar e autorizar o acesso. Depois disso, implementar o agendamento diário no servidor (pelo workflow de deploy) e a cópia para o Drive (ex.: rclone). Ainda não começado.
+- **Atualizar o CNPJ na Receita:** a Dash Stone mostra o aviso "Atualize seu CNPJ na Receita Federal… evitar que sua Conta Stone seja encerrada".
+- Decidir quando virar `PAGARME_MODE=live` (chaves de produção já validadas; Pagar.me só vai para produção depois do T19). Na 1ª venda real, conferir em Dash Stone › Vendas online › Webhooks › Eventos se o aviso chegou com autenticação OK.
+- Revisão jurídica de privacidade/termos.
 - Provedor de IA (sobe a cobertura dos alertas; ver item 3).
 - Guardar fora do servidor uma cópia da `WA_SESSIONS_KEY` (criada pelo deploy em `app.env`; sem ela as sessões cifradas do WhatsApp e os backups delas não abrem). Ver `docs/operacao/sessoes-whatsapp.md`.
 - Definir `SUPPORT_EMAIL` no servidor para receber por e-mail os chamados do "Falar com o suporte" (sem ela, os chamados ficam só no Admin › Suporte).
 - Depois que a migração cifrada estiver confirmada, apagar à mão o backup `.tar.gz` das sessões feito antes da cifra (guarda credenciais em texto puro).
-- Retenção de dados (card V2): definir prazos.
 - Guardar fora do servidor uma cópia da `PHONE_ENC_KEY` (criada pelo deploy em `app.env`; sem ela os telefones completos dos clientes, no banco e nos backups, não abrem). Ver `docs/operacao/telefone-cifrado.md`.
 - Decidir se liga o ambiente de simulação (`SIMULATION_ENABLED`, `SIMULATION_SECRET`). Ver `docs/operacao/simulacao.md`.
 - Conferir a RAM real do servidor antes de aplicar o drop-in do systemd proposto no I8 (supõe 4 GB).
@@ -64,6 +63,17 @@ Sem segredos aqui: o repositório é público.
 
 ### 15/10/2026
 
+- **Stone x Pagar.me:** o Pagar.me virou Stone. A conta opera pela **Dash Stone** (conta.stone.com.br, Al Chipak Treinamentos, CNPJ 22.629.446/0001-12). O dash.pagar.me ficou só para consulta e mostra a conta antiga "ilivin digital" como INATIVO. Isso é esperado.
+  - A integração já está na Stone: as cobranças dos testes ("Clínica Teste Ltda") aparecem em Vendas online › Vendas de teste.
+  - A API continua a v5 (`api.pagar.me/core/v5`), documentada em docs.pagar.me, que é a doc que a Stone indica para assinatura. As mudanças de 28/08/2026 (docs.pagar.me/docs/mudanças-de-apis: payables, settlements, saldo, antecipações) não atingem o que usamos. A única com efeito possível é a da cobrança reprocessada, que ganha novo id; o estorno usa o id da cobrança atual da fatura.
+  - "Stone Online" (online.stone.com.br) é outro produto: API de autorizador para quem tem antifraude, guarda de cartão e recorrência próprios. Não serve para nós.
+  - O webhook está ativo em Vendas online › Webhooks: `https://app.atenderadar.com.br/api/billing/webhook`, com autenticação e todos os eventos. A aba Eventos estava vazia mesmo com vendas de teste. Não descobrimos se a Stone simplesmente não envia avisos de vendas de teste; confirmar na 1ª venda real.
+  - Em aberto: a lista de "domínios do checkout transparente" no painel antigo não tem atenderadar.com.br. Não se sabe se ainda vale na Stone; conferir na 1ª cobrança real e só alterar com o ok do usuário.
+  - O classificador bloqueia abrir a tela de chaves no navegador; não insistir.
+- **Tour, cadastro espera a pessoa:** na leitura automática, o passo de cadastro mostra onde preencher e espera a pessoa salvar (`AUTO_TASK_MESSAGE` em `auto-actions.ts`). Se a pessoa pular com Próximo, o capítulo fica por concluir.
+- **Planos sem "dias de histórico":** a página de vendas, Planos, checkout e o catálogo do Admin não mostram mais o histórico por plano. A retenção real é igual para todos: texto 365 dias, conversas e auditoria 730, eventos 400.
+- **Mautic:** o descadastro em um clique foi conferido com o e-mail de teste #41, já despublicado. O remetente padrão da instância é ALC; e-mails do AtendeRadar precisam usar `AtendeRadar <contato@atenderadar.com.br>` (`docs/operacao/email.md`).
+- Publicado na `main` (9f10c5f); deploy OK.
 - **Novo no backlog (pedido do dono), V8 "impacto na entrada":** quando o dono da empresa (assinante, papel administrador) entra no sistema, a primeira coisa que vê precisa mostrar o valor da plataforma com números reais da empresa dele:
   - quanto dinheiro pode ter perdido (oportunidades em risco ou perdidas, em R$);
   - atendimentos ruins (sem resposta, demora, frustração, promessas sem retorno);
