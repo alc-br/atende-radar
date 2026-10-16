@@ -63,6 +63,8 @@ Sem segredos aqui: o repositório é público.
 
 ### 16/10/2026
 
+- **CI mais rápido (16/10/2026).** Os ~2.100 testes rodavam num runner só (~25 min, mais a fila do push anterior: ~45 min por deploy). Agora o job `test` é uma matriz de 5 runners divididos por projeto do Playwright (unit+api+tablet; ui-desktop 1/2 e 2/2; ui-mobile 1/2 e 2/2). Primeira execução: ~10,5 min do push ao ar. Dividir só por `--shard` (contagem de testes) deixava um runner com quase todas as telas (21 min). Type-check, lint, db:check e audit rodam só na parte 1.
+- **Regras de alerta:** nomes legíveis de tipo/canal (`src/lib/alert-labels.ts`), (?) com explicação (`src/components/ui/help-tip.tsx`) em Tipo, Severidade, Cooldown e Canais, opção E-mail sem quebrar, contadores das abas Resolvidos/Ignorados discretos (o vermelho vinha de `painel-ajustes.css` pintando todos). Teste: `tests/e2e/alert-rule-help.ui.spec.ts`.
 - **Demonstração pública removida (16/10/2026, pedido do usuário: "temos o trial").** Sem botão "Entrar como demonstração", sem `?demo=1`, sem senha pública `demo123` (não cria nem entra em conta). Sessões antigas da demo recebem 401 e o app sai da conta sozinho. A empresa `org_seed_1` continua existindo só como empresa de exemplo dos testes. "Começar teste grátis" (`?modo=cadastro`) com alguém logado no navegador sai da conta e abre o cadastro.
 - **Cadastro:** senha mínima de 8 caracteres (antes 10), campos um embaixo do outro.
 - **Teste curto para validar o fim do teste grátis:** variável `TRIAL_MINUTES` no app.env do servidor; contas criadas enquanto ela existir ganham N minutos de teste. Apagar a variável (e reiniciar) volta para 14 dias. Contas já criadas não mudam.
