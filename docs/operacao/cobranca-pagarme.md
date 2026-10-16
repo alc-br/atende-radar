@@ -58,6 +58,10 @@ No Pagar.me (API v5), cancelar uma assinatura (`DELETE /subscriptions/{id}`) é 
 - **Autenticação:** Basic, com `PAGARME_WEBHOOK_USER` e `PAGARME_WEBHOOK_PASS`.
 - **Eventos:** `subscription.*`, `invoice.*` e `charge.*` (ou todos).
 
+Os webhooks estão cadastrados só na conta **real**. A conta de **teste** não tem nenhuma entrega (conferido em 16/10/2026 com `GET /core/v5/hooks`): em `PAGARME_MODE=test` a sincronização vem da leitura ao abrir Planos e da varredura. Para ver avisos das vendas de teste, cadastre o webhook também no ambiente de teste.
+
+Manual genérico para os outros sistemas da ALC: [`docs/manual-stone.md`](../manual-stone.md).
+
 O conteúdo do evento não é confiado: o sistema extrai só o id da assinatura e relê o estado direto da API. Eventos de outros sistemas da mesma conta (sem `metadata.app = atende-radar`) recebem `200 ignored`. Eventos repetidos são detectados e registrados uma só vez.
 
 ## Chaves (painel Stone)

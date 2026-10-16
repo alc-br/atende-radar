@@ -61,6 +61,15 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 16/10/2026
+
+- **Stone conferida ao vivo (pedido do usuário: "fazer funcionar a integração da Stone"):** a integração já é a da Stone e não precisa trocar de API. As chaves da Dash Stone funcionam na API v5 em produção e teste (200), e o token de cartão é gerado de qualquer origem: a dúvida dos "domínios do checkout transparente" está resolvida. No sandbox funcionaram pedido avulso, estorno e Pix com QR Code. A conta **real** entregou o webhook `customer.created` aos 3 sistemas (AtendeRadar, Completa, ALCADEMY), todos com resposta 200 (`GET /core/v5/hooks`).
+  - **Por que a aba Eventos fica vazia nas vendas de teste:** a conta de **teste** tem zero entregas de webhook, porque o cadastro existe só na conta real. Em teste o sistema se sincroniza pela varredura de 15 min.
+  - A API "Stone Online" (online.stone.com.br, que o usuário indicou) é de autorizador: pede PCI DSS e não tem assinatura, cliente nem webhook. A doc da própria Stone manda usar a Pagar.me nesse caso.
+  - Novo **`docs/manual-stone.md`**: manual para os outros sistemas (chaves, token, assinatura, pedido avulso, Pix, estorno, webhook com conta compartilhada, testes, produção, armadilhas).
+  - Falta só a decisão do usuário: `PAGARME_MODE=live` e a 1ª venda real de valor baixo com estorno.
+- **NFS-e Padrão Nacional (backlog, card F1 no Trello):** emitir nota no pagamento e cancelar no reembolso, nos 3 sistemas. Está em levantamento, nada foi construído. O certificado e-CNPJ A1 (.p12) está com o usuário, fora do repo. Perguntas ao contador e decisões em aberto estão no card.
+
 ### 15/10/2026
 
 - **Stone x Pagar.me:** o Pagar.me virou Stone. A conta opera pela **Dash Stone** (conta.stone.com.br, Al Chipak Treinamentos, CNPJ 22.629.446/0001-12). O dash.pagar.me ficou só para consulta e mostra a conta antiga "ilivin digital" como INATIVO. Isso é esperado.
