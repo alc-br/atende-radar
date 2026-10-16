@@ -15,6 +15,12 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    # A suíte inteira num só runner levava ~25 min (um teste por vez). Dividida em 4 runners em paralelo,
+    # cada um com seu banco e seu servidor, cai para perto de 7 min. O deploy espera os 4 passarem.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -27,9 +33,11 @@ jobs:
         run: bunx prisma generate
 
       - name: "Migrações (B10): o schema.prisma tem migração para cada mudança"
+        if: matrix.shard == 1
         run: bun run db:check
 
       - name: "Type-check e lint (I1: erro de tipo já derrubou telas em produção)"
+        if: matrix.shard == 1
         run: bun run typecheck && bun run lint
 
       - name: Install browser (Chromium)
@@ -40,7 +48,7 @@ jobs:
           # Cobrança contra o SANDBOX do Pagar.me (sem as chaves, os testes de cobrança são pulados)
           PAGARME_PUBLIC_KEY_TEST: ${{ secrets.PAGARME_PUBLIC_KEY_TEST }}
           PAGARME_SECRET_KEY_TEST: ${{ secrets.PAGARME_SECRET_KEY_TEST }}
-        run: bun run test:e2e
+        run: bun run test:e2e --shard=${{ matrix.shard }}/4
 
       # Vulnerabilidades conhecidas nas dependências (base de avisos do GitHub, via bun.lock).
       # Só high/critical derrubam o deploy; low/moderate não são nem listados.
@@ -48,13 +56,14 @@ jobs:
       #   GHSA-vfj7-8cjw-p6xm  braces: sem versão corrigida; só no lint (eslint-config-next > fast-glob > micromatch)
       #   GHSA-ggr8-5vv4-36mx  deepmerge-ts: correção só na major 8; o CLI do Prisma fixa 7.1.5
       - name: "Auditoria de dependências (bun audit: falha só em high/critical)"
+        if: matrix.shard == 1
         run: bun audit --audit-level=high --ignore GHSA-vfj7-8cjw-p6xm --ignore GHSA-ggr8-5vv4-36mx
 
       - name: Upload test report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ matrix.shard }}
           path: test-results/
           retention-days: 7
 
