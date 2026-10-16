@@ -176,6 +176,8 @@ curl -s -u "$PAGARME_SECRET_KEY:" "https://api.pagar.me/core/v5/hooks?size=10"
 
 ## 10. Armadilhas já vistas
 
+- **Antifraude da conta real:** em 16/10/2026 recusou 3 de 4 cartões do próprio dono, numa compra de R$ 1,00 (`last_transaction.antifraud_response.status = reproved`, sem consultar o banco). Em produção, recusa com esse status é do antifraude, não do banco.
+- **Checkout hospedado desligado:** `payment_method: "checkout"` responde 412 "Checkout is disabled". Para cobrança por link, use `POST /paymentlinks` (link de uso único com `max_paid_sessions: 1`).
 - **"Stone Online" não é a API certa.** Ela exige PCI DSS e não tem assinatura, cliente nem webhook. Não migre para ela.
 - **Sem webhook em teste:** a Stone só avisa vendas reais; o sandbox depende da sincronização do próprio sistema.
 - **Conta compartilhada:** sem `metadata.app`, um sistema pode liberar acesso por um pagamento de outro sistema.

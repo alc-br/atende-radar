@@ -29,7 +29,7 @@ Sem segredos aqui: o repositório é público.
 - 2 chips para o teste de WhatsApp real (item 8).
 - **Backup diário + cópia no Google Drive** (escolhido em 15/10): o usuário precisa dizer qual conta do Google e qual pasta usar e autorizar o acesso. Depois disso, implementar o agendamento diário no servidor (pelo workflow de deploy) e a cópia para o Drive (ex.: rclone). Ainda não começado.
 - **Atualizar o CNPJ na Receita:** a Dash Stone mostra o aviso "Atualize seu CNPJ na Receita Federal… evitar que sua Conta Stone seja encerrada".
-- Decidir quando virar `PAGARME_MODE=live` (chaves de produção já validadas; Pagar.me só vai para produção depois do T19). Na 1ª venda real, conferir em Dash Stone › Vendas online › Webhooks › Eventos se o aviso chegou com autenticação OK.
+- ~~Decidir quando virar `PAGARME_MODE=live`~~ feito em 16/10/2026 (ver Diário) (chaves de produção já validadas; Pagar.me só vai para produção depois do T19). Na 1ª venda real, conferir em Dash Stone › Vendas online › Webhooks › Eventos se o aviso chegou com autenticação OK.
 - Revisão jurídica de privacidade/termos.
 - Provedor de IA (sobe a cobertura dos alertas; ver item 3).
 - Guardar fora do servidor uma cópia da `WA_SESSIONS_KEY` (criada pelo deploy em `app.env`; sem ela as sessões cifradas do WhatsApp e os backups delas não abrem). Ver `docs/operacao/sessoes-whatsapp.md`.
@@ -63,6 +63,12 @@ Sem segredos aqui: o repositório é público.
 
 ### 16/10/2026
 
+- **PRODUÇÃO: cobrança real ligada (16/10/2026, 17:57, pedido do usuário).** No servidor, `PAGARME_MODE=live`; backup do app.env em `app.env.bak-*-antes-live`. Prova com dinheiro real, avulso, conta Stone da empresa:
+  - Pix de R$ 1,00 pago às 18:05 → `charge.paid` / `order.paid` entregues ao AtendeRadar com 200.
+  - Cartão Visa de R$ 1,00 por link de pagamento: 3 tentativas **recusadas pelo antifraude da Stone** (`antifraud_response.status = reproved`, sem chegar ao banco); a 4ª foi aprovada às 18:08 (código 0000) e os avisos chegaram com 200. Recusas também avisam (`charge.payment_failed`).
+  - **Atenção:** o antifraude da conta real recusou o próprio dono 3 vezes. Antes de vender, olhar o nível do antifraude na Dash Stone; se cliente real for recusado, é aí.
+  - A página de pagamento hospedada pela Stone ("checkout") está desligada na conta; para cobrança avulsa por link, usar `POST /core/v5/paymentlinks`.
+  - Ainda falta: uma **assinatura real** pela tela Planos, para ver o AtendeRadar processar `invoice.paid` com dinheiro real; dá para estornar pelo botão de arrependimento. Estorno real é sempre feito pelo usuário (o agente não movimenta dinheiro).
 - **Stone conferida ao vivo (pedido do usuário: "fazer funcionar a integração da Stone"):** a integração já é a da Stone e não precisa trocar de API. As chaves da Dash Stone funcionam na API v5 em produção e teste (200), e o token de cartão é gerado de qualquer origem: a dúvida dos "domínios do checkout transparente" está resolvida. No sandbox funcionaram pedido avulso, estorno e Pix com QR Code. A conta **real** entregou o webhook `customer.created` aos 3 sistemas (AtendeRadar, Completa, ALCADEMY), todos com resposta 200 (`GET /core/v5/hooks`).
   - **Por que a aba Eventos fica vazia nas vendas de teste:** a Stone não envia webhook de venda de teste. A Dash Stone tem um único cadastro, sem seletor de ambiente (confirmado pelo usuário com prints), e a conta de teste tem zero entregas. Em teste o sistema se sincroniza pela varredura de 15 min. A rota é provada no CI (`billing-pagarme.spec.ts`, assinaturas reais do sandbox). Falta ver a Stone avisar um **pagamento** real (até agora só `customer.created`).
   - A API "Stone Online" (online.stone.com.br, que o usuário indicou) é de autorizador: pede PCI DSS e não tem assinatura, cliente nem webhook. A doc da própria Stone manda usar a Pagar.me nesse caso.
