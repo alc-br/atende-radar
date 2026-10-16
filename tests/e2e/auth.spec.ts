@@ -43,6 +43,7 @@ test.describe('B1 · cadastro cria a organização do cliente', () => {
     const anon = await anonymous()
     const ok = { name: 'Xavier', email: `v.${uid()}@cliente.test`, password: STRONG, organizationName: 'Org V', acceptTerms: true }
     expect((await anon.post('/api/auth/signup', { data: { ...ok, password: 'curta1' } })).status()).toBe(400)
+    expect((await anon.post('/api/auth/signup', { data: { ...ok, password: 'Radar7x' } })).status()).toBe(400) // 7 caracteres
     expect((await anon.post('/api/auth/signup', { data: { ...ok, password: 'somenteletrasaqui' } })).status()).toBe(400)
     expect((await anon.post('/api/auth/signup', { data: { ...ok, password: 'demo123demo123' } })).status()).toBe(400)
     expect((await anon.post('/api/auth/signup', { data: { ...ok, email: 'nao-e-email' } })).status()).toBe(400)
@@ -50,6 +51,8 @@ test.describe('B1 · cadastro cria a organização do cliente', () => {
     expect((await anon.post('/api/auth/signup', { data: { ...ok, email: 'gestor.a@test.local' } })).status()).toBe(409)
     expect((await anon.post('/api/auth/signup', { data: ok })).status()).toBe(201)
     expect((await anon.post('/api/auth/signup', { data: ok })).status()).toBe(409)
+    // 8 caracteres com letras e números bastam (não criar empecilho no cadastro)
+    expect((await anon.post('/api/auth/signup', { data: { ...ok, email: `oito.${uid()}@cliente.test`, password: 'Radar26x' } })).status()).toBe(201)
     await anon.dispose()
   })
 
@@ -115,14 +118,14 @@ test.describe('Primeira experiência · organização nova já nasce pronta para
 })
 
 test.describe('B1 · login só com credenciais válidas', () => {
-  test('conta real não aceita a senha pública de demonstração', async () => {
+  test('conta real não aceita a antiga senha pública de demonstração', async () => {
     const { email } = await signupOrg()
     const ctx = await loginAs(email, 'demo123')
     expect((await ctx.get('/api/me')).status()).toBe(401)
     await ctx.dispose()
   })
 
-  test('membro sem senha de outra organização (fora da demonstração) não entra com demo123', async () => {
+  test('membro sem senha própria (convite não aceito) não entra', async () => {
     const ctx = await loginAs('semsenha.b@test.local', 'demo123')
     expect((await ctx.get('/api/me')).status()).toBe(401)
     await ctx.dispose()
@@ -134,7 +137,7 @@ test.describe('B1 · login só com credenciais válidas', () => {
     await wrong.dispose()
   })
 
-  test('e-mail inexistente com senha qualquer não cria conta nem sessão (modo demo só com demo123 na org de demonstração)', async () => {
+  test('e-mail inexistente com senha qualquer não cria conta nem sessão', async () => {
     const ctx = await loginAs(`fantasma.${uid()}@nada.test`, 'qualquer-coisa-123')
     expect((await ctx.get('/api/me')).status()).toBe(401)
     await ctx.dispose()
@@ -307,33 +310,19 @@ test.describe('B1 · convite de membro', () => {
   })
 })
 
-test.describe('B7 · conta de demonstração é somente leitura', () => {
-  test('visitante da demo lê tudo, mas não altera nada', async () => {
-    const c = await loginAs(`visitante.${uid()}@demo.test`, 'demo123') // demo auto-criada
-    expect((await c.get('/api/dashboard')).status()).toBe(200)
-    expect((await c.get('/api/conversations')).status()).toBe(200)
-    for (const [method, path] of [['PATCH', '/api/settings'], ['POST', '/api/alert-rules'], ['POST', '/api/members'], ['POST', '/api/connections'], ['PATCH', '/api/recovery/x'], ['DELETE', '/api/teams/x']] as const) {
-      const r = await c.fetch(path, { method, data: {} })
-      expect(r.status(), `${method} ${path}`).toBe(403)
-      expect((await r.json()).error).toContain('somente leitura')
+test.describe('sem demonstração pública (16/10/2026)', () => {
+  test('senha pública antiga não cria conta nem entra na empresa de exemplo', async () => {
+    for (const email of [`visitante.${uid()}@demo.test`, 'demo@atenderadar.com']) {
+      const c = await loginAs(email, 'demo123')
+      expect((await c.get('/api/me')).status(), email).toBe(401)
+      expect((await c.get('/api/dashboard')).status(), email).toBe(401)
+      await c.dispose()
     }
-    // o guia de telas (tour) continua funcionando
-    expect((await c.patch('/api/tours', { data: { tourId: 'welcome' } })).status()).toBe(200)
-    await c.dispose()
   })
 
-  test('contas de teste da organização de demonstração com convite/senha própria continuam podendo escrever', async () => {
+  test('contas da empresa de exemplo com senha própria continuam entrando e escrevendo', async () => {
     const adm = await loginAs('admin.a@test.local')
     expect((await adm.patch('/api/settings', { data: {} })).status()).toBe(200)
     await adm.dispose()
-  })
-})
-
-test.describe('B1 · conta legada de demonstração', () => {
-  test('demo@atenderadar.com continua entrando na org de demonstração (até o B7)', async () => {
-    const c = await loginAs('demo@atenderadar.com', 'demo123')
-    const me = await (await c.get('/api/me')).json()
-    expect(me.organizationId).toBe('org_seed_1')
-    await c.dispose()
   })
 })

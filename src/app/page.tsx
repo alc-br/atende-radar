@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
-import { signIn, useSession } from 'next-auth/react'
+import { useEffect, useRef } from 'react'
+import { signOut, useSession } from 'next-auth/react'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { AppHeader } from '@/components/layout/app-header'
 import { TourOverlay } from '@/components/tour/tour-overlay'
@@ -50,20 +50,26 @@ function MainContent() {
   const setMe = useAppStore((s) => s.setMe)
   const openAuth = useAppStore((s) => s.openAuth)
 
-  // Links vindos do site (outro domínio) e do /login: ?modo=cadastro|entrar abre a tela certa; ?demo=1 entra na demonstração
+  // Links vindos do site (outro domínio) e do /login: ?modo=cadastro|entrar abre a tela certa. "Começar teste grátis"
+  // (?modo=cadastro) com alguém já logado neste navegador sai da conta antes: o cadastro é sempre de uma conta nova.
+  const pendingModo = useRef<string | null>(null)
   useEffect(() => {
     const q = new URLSearchParams(window.location.search)
     const modo = q.get('modo')
-    const demo = q.get('demo') === '1'
-    if (!modo && !demo) return
+    if (!modo && !q.has('demo')) return
     window.history.replaceState(null, '', '/')
-    if (demo) {
-      openAuth('login')
-      void signIn('credentials', { email: 'demo@atenderadar.com', password: 'demo123', redirect: false })
-    } else {
-      openAuth(modo === 'cadastro' ? 'signup' : 'login')
+    pendingModo.current = modo
+  }, [])
+  useEffect(() => {
+    if (status === 'loading' || !pendingModo.current) return
+    const modo = pendingModo.current
+    pendingModo.current = null
+    if (modo === 'cadastro' && status === 'authenticated') {
+      void signOut({ redirect: false }).then(() => openAuth('signup'))
+      return
     }
-  }, [openAuth])
+    if (status !== 'authenticated') openAuth(modo === 'cadastro' ? 'signup' : 'login')
+  }, [status, openAuth])
 
   // O Zustand store e efemero: qualquer refresh da arvore RSC (ex.: apos o
   // signIn) reinicia showLanding para o default (true). Sincroniza com a
@@ -82,7 +88,11 @@ function MainContent() {
       return
     }
     fetch('/api/me')
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        // sessão que o servidor não aceita mais (conta removida, senha trocada): sai em vez de mostrar um painel vazio
+        if (r.status === 401) void signOut({ redirect: false })
+        return r.ok ? r.json() : null
+      })
       .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName, organizationLogoUrl: d.organizationLogoUrl ?? null, organizationDeletion: d.organizationDeletion ?? null } : null))
       .catch(() => setMe(null))
   }, [status, setMe])

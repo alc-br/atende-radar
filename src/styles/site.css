@@ -318,9 +318,8 @@ html:has(.lp) {scroll-behavior: auto;}
 /* Contraste (WCAG AA): tons do pacote que ficam abaixo de 4,5:1 em texto pequeno sobre branco */
 .lp { --muito-suave: #66717d; --verde-600: #0f784b; }
 
-/* Acréscimos do sistema (não estão no pacote): acesso ao painel de demonstração abaixo do exemplo. */
+/* Acréscimos do sistema (não estão no pacote): chamada para o teste grátis abaixo do exemplo. */
 .lp .demo__acao {display: flex; justify-content: center; margin-top: 26px;}
-.lp .demo__acao .btn[disabled] {opacity: .7; cursor: wait;}
 
 /* O reset do Tailwind tira o negrito padrão dos títulos; o pacote conta com ele. */
 .lp h1, .lp h2, .lp h3, .lp h4, .lp b, .lp strong {font-weight: 700;}

@@ -50,14 +50,12 @@ test.describe('acesso', () => {
     await client.dispose()
   })
 
-  test('demonstração nunca vê a Simulação nem o Admin, nem com um e-mail de operador', async () => {
-    // e-mail listado em PLATFORM_ADMIN_EMAILS que ainda não tem conta: a senha pública cria o membro na demonstração
+  test('e-mail de operador sem conta não entra com a antiga senha pública de demonstração', async () => {
+    // e-mail listado em PLATFORM_ADMIN_EMAILS que ainda não tem conta: antes a senha pública criava o membro
     const demo = await loginAs('operador.demo@test.local', 'demo123')
-    expect((await demo.get('/api/me')).ok()).toBe(true)
-    expect((await (await demo.get('/api/me')).json()).isPlatformOperator).toBe(false)
-    expect((await demo.get('/api/admin/simulation/scenarios')).status()).toBe(403)
-    expect((await demo.post('/api/admin/simulation/run', { data: { scenarioId: 'cpf-mascarado' } })).status()).toBe(403)
-    expect((await demo.get('/api/admin')).status()).toBe(403)
+    expect((await demo.get('/api/me')).status()).toBe(401)
+    expect((await demo.get('/api/admin/simulation/scenarios')).status()).toBe(401)
+    expect((await demo.get('/api/admin')).status()).toBe(401)
     await demo.dispose()
   })
 

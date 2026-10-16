@@ -20,6 +20,12 @@ const Body = z.object({
 })
 
 const TRIAL_DAYS = 14
+// TRIAL_MINUTES (só no servidor, para testar o fim do teste sem esperar 14 dias): contas criadas enquanto estiver
+// definida ganham um teste de N minutos. Apagar a variável volta para 14 dias; contas já criadas não mudam.
+const trialMs = () => {
+  const min = Number(process.env.TRIAL_MINUTES)
+  return Number.isFinite(min) && min > 0 ? min * 60000 : TRIAL_DAYS * 86400000
+}
 
 // Cadastro público: cria a organização do cliente (vazia), o dono (admin) e a assinatura de teste.
 export async function POST(request: Request) {
@@ -50,7 +56,7 @@ export async function POST(request: Request) {
       data: { name: organizationName, displayName: organizationName, adminEmail: email, status: 'active' },
     })
     if (plan) {
-      const trialEnd = new Date(Date.now() + TRIAL_DAYS * 86400000)
+      const trialEnd = new Date(Date.now() + trialMs())
       await tx.subscription.create({
         data: { organizationId: org.id, planId: plan.id, status: 'trialing', trialEnd, currentPeriodEnd: trialEnd },
       })

@@ -3,17 +3,13 @@ import Credentials from 'next-auth/providers/credentials'
 import { db } from './db'
 import { hashPassword, verifyPassword } from './passwords'
 import { allow, exceeded, ipFromHeaders } from './rate-limit'
-import { demoOrgId, isSimulationEmail } from './sandbox'
+import { isSimulationEmail } from './sandbox'
 
 const MAX_FAILED_LOGINS = 5
 const LOCK_MINUTES = 15
-const DEMO_PASSWORD = 'demo123'
 // Por IP: muitas senhas erradas em contas diferentes (ataque de "uma senha em muitas contas") bloqueiam o IP por 15 min.
 const IP_FAILS = () => Number(process.env.LOGIN_FAILS_PER_IP || 30)
 const IP_WINDOW = 15 * 60000
-
-// Modo demonstração (até o B7 separar o ambiente demo): a senha pública só vale na organização de demonstração.
-const demoEnabled = () => process.env.DEMO_AUTH_ENABLED !== 'false'
 
 // Hash "de mentira" para gastar o mesmo tempo quando o e-mail não existe.
 const DUMMY_HASH = hashPassword('nao-e-uma-senha-de-verdade')
@@ -100,7 +96,6 @@ export const authOptions: NextAuthOptions = {
         ;(token as any).role = (user as any).role
         ;(token as any).name = (user as any).name
         ;(token as any).sv = (user as any).sv ?? 0
-        ;(token as any).demo = !!(user as any).demo
       }
       return token
     },
@@ -134,23 +129,6 @@ async function check(rawEmail: string, password: string) {
 
   if (!member) {
     verifyPassword(password, DUMMY_HASH)
-    // Demonstração: e-mail novo + senha pública cria um usuário SÓ na organização de demonstração.
-    if (demoEnabled() && password === DEMO_PASSWORD) {
-      const org = await db.organization.findUnique({ where: { id: demoOrgId() } })
-      if (!org) return ghostFailure(email)
-      const created = await db.organizationMember.create({
-        data: {
-          organizationId: org.id,
-          userId: email,
-          name: email.split('@')[0],
-          email,
-          role: 'gestor',
-          team: 'Recepção',
-          status: 'active',
-        },
-      })
-      return { id: created.id, email: created.email, name: created.name, role: created.role, sv: created.sessionVersion, demo: true }
-    }
     return ghostFailure(email)
   }
 
@@ -163,9 +141,8 @@ async function check(rawEmail: string, password: string) {
     throw new LockedError(member.lockedUntil)
   }
 
-  const ok = member.passwordHash
-    ? verifyPassword(password, member.passwordHash)
-    : demoEnabled() && member.organizationId === demoOrgId() && password === DEMO_PASSWORD
+  // sem senha própria (convite ainda não aceito) não entra; gasta o mesmo tempo de uma senha errada
+  const ok = verifyPassword(password, member.passwordHash ?? DUMMY_HASH) && !!member.passwordHash
 
   if (!ok) {
     const failed = member.failedLogins + 1
@@ -185,6 +162,5 @@ async function check(rawEmail: string, password: string) {
     where: { id: member.id },
     data: { failedLogins: 0, lockedUntil: null, lastAccessAt: new Date() },
   })
-  // entrou pela senha pública de demonstração (sem senha própria) → sessão somente leitura
-  return { id: member.id, email: member.email, name: member.name, role: member.role, sv: member.sessionVersion, demo: !member.passwordHash }
+  return { id: member.id, email: member.email, name: member.name, role: member.role, sv: member.sessionVersion }
 }

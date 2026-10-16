@@ -31,12 +31,11 @@ HDRS="$(curl -sI "$BASE/" | tr -d '\r')"
 case "$HDRS" in *[Xx]-[Ff]rame-[Oo]ptions:*DENY*) echo "ok   X-Frame-Options";; *) echo "FALHOU X-Frame-Options"; FAIL=1;; esac
 case "$HDRS" in *[Ss]trict-[Tt]ransport-[Ss]ecurity:*) echo "ok   HSTS";; *) echo "FALHOU HSTS"; FAIL=1;; esac
 
-# login de demonstração (senha pública): lê, mas não escreve
+# a antiga senha pública de demonstração não entra mais (16/10/2026)
 JAR="$(mktemp)"
 CSRF="$(curl -s -c "$JAR" "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST -d "csrfToken=$CSRF&email=demo@atenderadar.com&password=demo123&json=true" "$BASE/api/auth/callback/credentials"
-check "demo lê o painel" 200 "$(code -b "$JAR" "$BASE/api/dashboard")"
-check "demo NÃO escreve" 403 "$(code -b "$JAR" -X PATCH -H 'content-type: application/json' -d '{}' "$BASE/api/settings")"
+check "demo não entra" 401 "$(code -b "$JAR" "$BASE/api/dashboard")"
 rm -f "$JAR"
 
 # ---- site (página de vendas, artigos, páginas legais) ----

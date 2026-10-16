@@ -7,7 +7,7 @@ import { SITE_URL, splitHosts } from '@/lib/hosts'
 import { TermsCheckbox } from './terms-checkbox'
 import { toast } from 'sonner'
 import {
-  Mail, Lock, Eye, EyeOff, Loader2, User, Building2, ArrowLeft, ArrowRight, Play, Zap, Coins, CalendarCheck,
+  Mail, Lock, Eye, EyeOff, Loader2, User, Building2, ArrowLeft, ArrowRight, Zap, Coins, CalendarCheck,
   ShieldCheck, KeyRound,
 } from 'lucide-react'
 
@@ -113,12 +113,6 @@ export default function LoginPage() {
     setPassword('')
   }
 
-  const handleDemoLogin = () => {
-    setEmail('demo@atenderadar.com')
-    setPassword('demo123')
-    handleLogin('demo@atenderadar.com', 'demo123')
-  }
-
   const goHome = () => {
     if (splitHosts) {
       window.location.assign(SITE_URL) // a página inicial fica no domínio do site
@@ -168,7 +162,7 @@ export default function LoginPage() {
           className={`entrada entrada--lado${big ? ' entrada--grande' : ''}`}
           id="login-password"
           type={showPassword ? 'text' : 'password'}
-          placeholder={mode === 'signup' ? 'Mínimo de 10 caracteres' : '••••••••'}
+          placeholder={mode === 'signup' ? 'Mínimo de 8 caracteres' : '••••••••'}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -186,7 +180,7 @@ export default function LoginPage() {
         </button>
       </div>
       {mode === 'signup' && (
-        <p id="signup-password-hint" className="text-xs text-[var(--suave)]">Mínimo de 10 caracteres, com letras e números.</p>
+        <p id="signup-password-hint" className="text-xs text-[var(--suave)]">Mínimo de 8 caracteres, com letras e números.</p>
       )}
     </div>
   )
@@ -252,7 +246,7 @@ export default function LoginPage() {
                   <span className="passo-form__num" aria-hidden="true">1</span>
                   <div><h2>Crie sua conta</h2><p>Seus dados para acessar o AtendeRadar.</p></div>
                 </div>
-                <div className="grade-form">
+                <div className="grade-form grade-form--coluna">
                   <div className="campo">
                     <label htmlFor="signup-name">Nome completo</label>
                     <div className="campo-ic">
@@ -343,9 +337,6 @@ export default function LoginPage() {
               </button>
               <button className="btn btn--verde btn--xl btn--bloco" type="submit" disabled={loading}>
                 {loading ? <>{spinner}Entrando...</> : <>Entrar <ArrowRight className="ic" aria-hidden="true" /></>}
-              </button>
-              <button type="button" className="btn btn--demo btn--bloco" onClick={handleDemoLogin} disabled={loading}>
-                <span className="play" aria-hidden="true"><Play className="ic" /></span>Entrar como demonstração
               </button>
               <div className="divisor-ou">ou</div>
               <p className="convite">

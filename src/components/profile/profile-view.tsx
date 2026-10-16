@@ -338,7 +338,7 @@ export default function ProfileView() {
                   <div className="campo">
                     <label htmlFor="profile-new-password">Nova senha</label>
                     <input className="entrada" id="profile-new-password" type="password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={10} maxLength={128} autoComplete="new-password" aria-describedby="profile-new-password-hint" disabled={savingPassword} />
-                    <p id="profile-new-password-hint" className="ajuda-campo">Mínimo de 10 caracteres, com letras e números.</p>
+                    <p id="profile-new-password-hint" className="ajuda-campo">Mínimo de 8 caracteres, com letras e números.</p>
                   </div>
                   <div className="campo">
                     <label htmlFor="profile-confirm-password">Repita a nova senha</label>

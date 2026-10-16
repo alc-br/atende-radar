@@ -22,7 +22,7 @@ const COMMON = ['12345678', '123456789', '1234567890', 'password', 'senha123', '
 
 /** Regras de senha (retorna mensagem de erro em português, ou null se aceita). */
 export function passwordProblem(password: string, email?: string): string | null {
-  if (password.length < 10) return 'A senha precisa ter pelo menos 10 caracteres.'
+  if (password.length < 8) return 'A senha precisa ter pelo menos 8 caracteres.'
   if (password.length > 128) return 'A senha é longa demais (máximo 128 caracteres).'
   if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) return 'A senha precisa ter letras e números.'
   const lower = password.toLowerCase()

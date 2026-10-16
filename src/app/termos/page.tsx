@@ -44,7 +44,7 @@ export default function TermosPage() {
         <p>
           Toda conta nova começa com 14 dias de teste grátis, sem pedir cartão de crédito e sem cobrança automática no fim. Terminado o teste,
           a análise das conversas fica pausada e o cadastro de novos itens fica bloqueado até a empresa contratar um plano; os dados continuam
-          guardados. A conta de demonstração disponível no site é pública, somente para leitura, e contém dados fictícios.
+          guardados.
         </p>
 
         <h2>4. Planos e cobrança</h2>

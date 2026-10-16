@@ -361,7 +361,7 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     await c.dispose()
   })
 
-  test('só o administrador contrata; conta de demonstração não paga nada', async () => {
+  test('só o administrador contrata', async () => {
     test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
     const { c } = await newAdmin()
     const email = `gestor.${Date.now()}@cliente.test`
@@ -369,8 +369,6 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     const gestor = await loginAs(email, 'Senha-Forte-2026x')
     expect((await gestor.get('/api/billing')).status()).toBe(403)
     expect((await gestor.post('/api/billing/checkout', { data: {} })).status()).toBe(403)
-    const demo = await loginAs('demo@atenderadar.com', 'demo123')
-    expect((await demo.post('/api/billing/checkout', { data: {} })).status()).toBe(403)
-    await Promise.all([c.dispose(), gestor.dispose(), demo.dispose()])
+    await Promise.all([c.dispose(), gestor.dispose()])
   })
 })

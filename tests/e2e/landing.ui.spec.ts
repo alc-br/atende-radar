@@ -104,9 +104,10 @@ test.describe('Página de vendas', () => {
     }
   })
 
-  test('"Explorar o painel de demonstração" entra no painel de demonstração', async ({ page }) => {
-    await page.getByRole('button', { name: /Explorar o painel de demonstração/i }).click()
-    await expect(page.getByText('Visão Geral').first()).toBeVisible({ timeout: 20000 })
+  test('sem demonstração: o exemplo leva ao teste grátis', async ({ page }) => {
+    await expect(page.getByText(/painel de demonstração|Entrar como demonstração/i)).toHaveCount(0)
+    await page.locator('#demonstracao').getByRole('link', { name: /Testar grátis por 14 dias/i }).click()
+    await expect(page.getByRole('heading', { name: 'Crie sua conta' })).toBeVisible()
   })
 
   test('rodapé sem botões mortos, com o ano atual, artigos e páginas legais', async ({ page }) => {

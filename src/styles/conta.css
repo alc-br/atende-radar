@@ -152,10 +152,14 @@ font-size: 21px; font-weight: 800;
 color: var(--suave); font-size: 14px;
 }
 .ar .grade-form {
-display: grid; gap: 14px 18px; grid-template-columns: 1fr 1fr;
+display: grid; gap: 14px 18px; grid-template-columns: 1fr 1fr; align-items: start; /* campo com dica embaixo não estica o vizinho */
 }
 .ar .grade-form .todo {
 grid-column: 1 / -1;
+}
+/* cadastro: um campo embaixo do outro (lê melhor e a dica da senha não desalinha o vizinho) */
+.ar .grade-form.grade-form--coluna {
+grid-template-columns: minmax(0, 1fr);
 }
 .ar .beneficios-conta {
 display: grid; gap: 18px;
@@ -309,12 +313,6 @@ margin-top: 8px; font-size: 17px; color: var(--texto-2);
 }
 .ar .esqueceu {
 justify-self: end; font-size: 13.5px; margin-top: -6px;
-}
-.ar .btn--demo {
-height: 54px; font-size: 16px; background: color-mix(in srgb, var(--verde-50) 60%, #fff); border-color: var(--verde-100);
-}
-.ar .btn--demo .play {
-width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--verde-100); color: var(--verde-700); font-size: 14px;
 }
 .ar .divisor-ou {
 display: flex; align-items: center; gap: 14px; color: var(--suave); font-size: 13px; margin: 6px 0;

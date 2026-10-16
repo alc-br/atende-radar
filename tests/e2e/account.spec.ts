@@ -75,7 +75,7 @@ test.describe('Meu perfil', () => {
     await api.dispose()
   })
 
-  test('qualquer papel altera o próprio perfil (atendente inclusive); demonstração não altera', async () => {
+  test('qualquer papel altera o próprio perfil (atendente inclusive)', async () => {
     const admin = await loginAs('admin.a@test.local')
     const email = `perfil.member.${uid()}@test.local`
     await createUser(admin, { email, role: 'member' })
@@ -83,12 +83,6 @@ test.describe('Meu perfil', () => {
     const api = await loginAs(email, STRONG)
     expect((await api.patch('/api/profile', { data: { name: 'Atendente Renomeado' } })).status()).toBe(200)
     await api.dispose()
-
-    const demo = await loginAs('demo@atenderadar.com', 'demo123')
-    expect((await demo.patch('/api/profile', { data: { name: 'Hacker' } })).status()).toBe(403)
-    expect((await demo.post('/api/profile/password', { data: { currentPassword: 'demo123', newPassword: NEW_PASS } })).status()).toBe(403)
-    expect((await demo.delete('/api/profile/sessions')).status()).toBe(403)
-    await demo.dispose()
   })
 
   test('trocar senha: exige a atual e as regras do cadastro; derruba os outros aparelhos e mantém este', async () => {

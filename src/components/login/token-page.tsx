@@ -144,7 +144,7 @@ function Inner({ kind }: { kind: Kind }) {
                       <Lock className="ic" aria-hidden="true" />
                       <input className="entrada entrada--grande" id="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} autoComplete="new-password" aria-describedby="new-password-hint" disabled={!pronto || state === 'loading'} />
                     </div>
-                    <p id="new-password-hint" className="text-xs text-[var(--suave)]">Mínimo de 10 caracteres, com letras e números.</p>
+                    <p id="new-password-hint" className="text-xs text-[var(--suave)]">Mínimo de 8 caracteres, com letras e números.</p>
                   </div>
                   <div className="campo">
                     <label htmlFor="confirm-password">Repita a senha</label>

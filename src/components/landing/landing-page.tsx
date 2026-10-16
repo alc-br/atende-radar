@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type SyntheticEvent } from 'react'
-import { signIn } from 'next-auth/react'
 import { appLink, splitHosts } from '@/lib/hosts'
 import type { PublicPlan } from '@/lib/public-plans'
 import { PLAN_FEATURES } from '@/lib/plan-catalog'
@@ -66,16 +65,15 @@ const SEGMENTOS = [
 
 /** initialPlans: planos lidos no servidor (página /inicio); sem eles, carrega pela API no navegador. */
 export default function LandingPage({ initialPlans = null }: { initialPlans?: PublicPlan[] | null } = {}) {
-  const { setView, setShowLanding, setShowLogin, openAuth } = useAppStore()
+  const { openAuth } = useAppStore()
   const [plans, setPlans] = useState<PublicPlan[] | null>(initialPlans)
   const [plansError, setPlansError] = useState(false)
   const [anual, setAnual] = useState(false)
-  const [demoLoading, setDemoLoading] = useState(false)
   const [menuAberto, setMenuAberto] = useState(false)
   const [pronto, setPronto] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  // Com domínios separados, entrar/cadastro/demonstração abrem no app (a sessão é do domínio do app)
+  // Com domínios separados, entrar e cadastro abrem no app (a sessão é do domínio do app)
   const handleStart = (e?: MouseEvent) => {
     e?.preventDefault()
     setMenuAberto(false)
@@ -87,24 +85,6 @@ export default function LandingPage({ initialPlans = null }: { initialPlans?: Pu
     setMenuAberto(false)
     if (splitHosts) window.location.assign(appLink('/?modo=entrar'))
     else openAuth('login')
-  }
-
-  // Demonstração: entra na conta pública de demonstração (somente leitura).
-  const handleDemo = async () => {
-    setDemoLoading(true)
-    if (splitHosts) {
-      window.location.assign(appLink('/?demo=1'))
-      return
-    }
-    const result = await signIn('credentials', { email: 'demo@atenderadar.com', password: 'demo123', redirect: false })
-    setDemoLoading(false)
-    if (result?.error) {
-      openAuth('login')
-      return
-    }
-    setShowLanding(false)
-    setShowLogin(false)
-    setView('dashboard')
   }
 
   const fetchPlans = () =>
@@ -343,9 +323,9 @@ export default function LandingPage({ initialPlans = null }: { initialPlans?: Pu
               </div>
             </div>
             <div className="demo__acao" data-revelar>
-              <button type="button" className="btn btn--contorno" onClick={handleDemo} disabled={demoLoading}>
-                {demoLoading ? 'Abrindo a demonstração…' : 'Explorar o painel de demonstração'} <Ic n="seta" className="ic-seta" />
-              </button>
+              <a href={splitHosts ? appLink('/?modo=cadastro') : '#'} className="btn btn--contorno" onClick={handleStart}>
+                Testar grátis por 14 dias <Ic n="seta" className="ic-seta" />
+              </a>
             </div>
           </div>
         </section>
