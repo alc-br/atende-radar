@@ -153,7 +153,11 @@ Os eventos mais úteis:
 curl -s -u "$PAGARME_SECRET_KEY:" "https://api.pagar.me/core/v5/hooks?size=10"
 ```
 
-**Modo teste:** em 16/10/2026, a conta de **teste** tinha **nenhuma** entrega de webhook. Os webhooks cadastrados são os da conta real. Para ver avisos das vendas de teste, cadastre o webhook também no ambiente de teste. Se não fizer isso, conte com a varredura periódica.
+**Modo teste: a Stone não envia webhook de vendas de teste.** A Dash Stone tem um único cadastro de webhook, sem seletor de ambiente (só as chaves têm versão de teste), e ele vale para a conta real. Em 16/10/2026 a conta de teste tinha zero entregas, mesmo depois de 3 pedidos de teste no dia. Consequências:
+
+- Em teste, o sistema precisa se sincronizar sozinho: varredura periódica e leitura ao abrir a tela.
+- Para testar a rota do webhook, chame-a você mesmo com um evento no formato da Stone, com Basic Auth e o id de uma assinatura ou pedido real do sandbox. Como a rota relê o estado na API, o teste exercita o caminho inteiro (ex.: `tests/e2e/billing-pagarme.spec.ts`, "aviso (webhook)").
+- A prova de ponta a ponta com a própria Stone só existe em produção: uma venda real de valor baixo, estornada em seguida, e conferir em Webhooks → Eventos ou em `GET /hooks`.
 
 ## 8. Testes (sandbox)
 
@@ -173,6 +177,7 @@ curl -s -u "$PAGARME_SECRET_KEY:" "https://api.pagar.me/core/v5/hooks?size=10"
 ## 10. Armadilhas já vistas
 
 - **"Stone Online" não é a API certa.** Ela exige PCI DSS e não tem assinatura, cliente nem webhook. Não migre para ela.
+- **Sem webhook em teste:** a Stone só avisa vendas reais; o sandbox depende da sincronização do próprio sistema.
 - **Conta compartilhada:** sem `metadata.app`, um sistema pode liberar acesso por um pagamento de outro sistema.
 - **Valores em centavos.** `29900` = R$ 299,00.
 - **Token de cartão:** vale **60 s** e só pode ser usado uma vez. Gere o token só no clique de pagar.

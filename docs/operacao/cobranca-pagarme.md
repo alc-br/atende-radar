@@ -58,7 +58,7 @@ No Pagar.me (API v5), cancelar uma assinatura (`DELETE /subscriptions/{id}`) é 
 - **Autenticação:** Basic, com `PAGARME_WEBHOOK_USER` e `PAGARME_WEBHOOK_PASS`.
 - **Eventos:** `subscription.*`, `invoice.*` e `charge.*` (ou todos).
 
-Os webhooks estão cadastrados só na conta **real**. A conta de **teste** não tem nenhuma entrega (conferido em 16/10/2026 com `GET /core/v5/hooks`): em `PAGARME_MODE=test` a sincronização vem da leitura ao abrir Planos e da varredura. Para ver avisos das vendas de teste, cadastre o webhook também no ambiente de teste.
+Os webhooks estão cadastrados só na conta **real**. A conta de **teste** não tem nenhuma entrega (conferido em 16/10/2026 com `GET /core/v5/hooks`): em `PAGARME_MODE=test` a sincronização vem da leitura ao abrir Planos e da varredura. A Dash Stone não tem webhook para o ambiente de teste (um cadastro só, sem seletor), então em teste os avisos nunca chegam; a rota é testada no CI chamando-a com assinaturas reais do sandbox.
 
 Manual genérico para os outros sistemas da ALC: [`docs/manual-stone.md`](../manual-stone.md).
 
