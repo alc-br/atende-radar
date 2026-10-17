@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 import { readJson } from '@/lib/json-body'
+import { cleanDocument, cleanEmail, cleanPhone, cleanWebsite } from '@/lib/org-fields'
 import { applyReportPrefs, splitReportPrefs } from '@/lib/reports/settings-sync'
 import { applyExcludedNumbers } from '@/lib/excluded-numbers'
 import { logoUrl as uploadedLogoUrl } from '@/lib/uploads'
@@ -107,14 +108,22 @@ export async function PATCH(request: Request) {
       data.name = n
     }
     if (displayName !== undefined) data.displayName = displayName
-    if (cnpj !== undefined) data.cnpj = cnpj
     if (segment !== undefined) data.segment = segment
     if (timezone !== undefined) data.timezone = timezone
     if (currency !== undefined) data.currency = currency
     // logoUrl não é mais aceito aqui (era um endereço livre que a tela mostraria): o logotipo vai por POST /api/organization/logo
-    if (website !== undefined) data.website = website
-    if (phone !== undefined) data.phone = phone
-    if (adminEmail !== undefined) data.adminEmail = adminEmail
+    // CNPJ, site, telefone e e-mail: conferidos e guardados no formato da máscara (a tela aplica a mesma)
+    for (const [key, raw, clean] of [
+      ['cnpj', cnpj, cleanDocument],
+      ['website', website, cleanWebsite],
+      ['phone', phone, cleanPhone],
+      ['adminEmail', adminEmail, cleanEmail],
+    ] as const) {
+      if (raw === undefined) continue
+      const r = clean(raw)
+      if ('error' in r) return NextResponse.json({ error: r.error, field: key }, { status: 400 })
+      data[key] = r.value
+    }
     // relatório diário/semanal: vira o agendamento real (tela Relatórios), não fica solto no JSON
     const split = settings !== undefined && settings && typeof settings === 'object' ? splitReportPrefs(settings) : null
     if (split) {

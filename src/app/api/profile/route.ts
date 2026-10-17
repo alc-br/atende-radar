@@ -8,7 +8,7 @@ import { avatarUrl } from '@/lib/uploads'
 // Meu perfil (P7): qualquer pessoa logada vê e altera os PRÓPRIOS dados. Nunca outro membro.
 
 export async function GET() {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const m = await db.organizationMember.findUnique({ where: { id: g.auth.memberId } })
   if (!m) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
@@ -34,7 +34,7 @@ const Body = z.object({
 })
 
 export async function PATCH(request: Request) {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const parsed = Body.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {

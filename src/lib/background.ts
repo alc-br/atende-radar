@@ -47,11 +47,7 @@ export function startBackgroundJobs() {
   }, 60_000)
   timer.unref?.()
   // cobrança: renovações/recusas/cancelamentos lidos do Pagar.me a cada 15 min (cada assinatura no máx. 1x por hora)
-  // e, no mesmo passo, os avisos de fim do teste grátis (3 dias e 1 dia antes; cada um uma vez)
-  const billing = setInterval(async () => {
-    await safely('cobrança', () => billingSweep())
-    await safely('avisos de fim do teste', () => trialEndingNotices())
-  }, 15 * 60_000)
+  const billing = setInterval(() => safely('cobrança', () => billingSweep()), 15 * 60_000)
   billing.unref?.()
   // relatórios agendados: confere a cada minuto quais chegaram no horário (fuso e dias de cada relatório)
   const reports = setInterval(() => safely('relatórios agendados', () => runScheduledReports()), 60_000)
@@ -59,8 +55,10 @@ export function startBackgroundJobs() {
   // webhooks dos clientes: novas tentativas das entregas que falharam (a 1ª vai logo após o alerta)
   const webhooks = setInterval(() => safely('webhooks', () => runWebhookOutbox()), 60_000)
   webhooks.unref?.()
-  // alertas por e-mail: envia os pendentes (intervalo/silêncio) e tenta de novo os e-mails que falharam
+  // alertas por e-mail: envia os pendentes (intervalo/silêncio) e tenta de novo os e-mails que falharam; no mesmo passo,
+  // os avisos de fim do teste grátis (3 dias, 1 dia, último aviso a 6 h e "terminou"; cada um uma vez)
   const emails = setInterval(async () => {
+    await safely('avisos de fim do teste', () => trialEndingNotices())
     await safely('alertas por e-mail', () => flushAlertEmails())
     await safely('novas tentativas de e-mail', () => retryFailedEmails())
   }, 60_000)

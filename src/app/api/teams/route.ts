@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
-import { validateTeamRefs } from '@/lib/team-refs'
+import { linkSupervisorTeam, supervisorOptions, validateTeamRefs } from '@/lib/team-refs'
 import { readJson } from '@/lib/json-body'
 
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
     if (!g.ok) return g.res
     const org = { id: g.auth.orgId }
 
-    const [teams, agents] = await Promise.all([
+    const [teams, agents, supervisors] = await Promise.all([
       db.team.findMany({
         where: { organizationId: org.id },
         orderBy: { name: 'asc' },
@@ -20,11 +20,13 @@ export async function GET() {
         where: { organizationId: org.id },
         select: { id: true, name: true, team: true, status: true },
       }),
+      supervisorOptions(org.id),
     ])
 
     return NextResponse.json({
       teams: teams.map((t) => {
-        const supervisor = t.supervisorId ? agents.find((a) => a.id === t.supervisorId) : null
+        // supervisor é um membro; equipes antigas guardavam um atendente
+        const supervisor = t.supervisorId ? supervisors.find((m) => m.id === t.supervisorId) ?? agents.find((a) => a.id === t.supervisorId) : null
         const members = agents.filter((a) => a.team === t.name && a.status === 'active')
         return {
           id: t.id,
@@ -41,6 +43,8 @@ export async function GET() {
           members: members.map((m) => m.name),
         }
       }),
+      // quem pode ser supervisor (Criar equipe): membros com papel supervisor, gestor ou admin
+      supervisorOptions: supervisors.map((m) => ({ id: m.id, name: m.name, role: m.role, pending: m.status === 'invited' })),
     })
   } catch (error) {
     console.error('Teams GET error:', error)
@@ -88,6 +92,7 @@ export async function POST(request: Request) {
       },
     })
 
+    await linkSupervisorTeam(org.id, supervisorId, team.name)
     await audit(g.auth, { action: 'team.created', targetType: 'team', targetId: team.id, targetLabel: team.name })
     return NextResponse.json({ success: true, team }, { status: 201 })
   } catch (error) {

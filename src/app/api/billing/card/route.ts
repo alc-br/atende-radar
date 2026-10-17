@@ -6,7 +6,7 @@ import { readJson } from '@/lib/json-body'
 
 // Troca o cartão da cobrança automática (o novo cartão também chega como token gerado no navegador).
 export async function POST(request: Request) {
-  const g = await guard('billing.manage')
+  const g = await guard('billing.manage', { allowLocked: true })
   if (!g.ok) return g.res
   if (!allow(`card:${g.auth.orgId}`, Number(process.env.CHECKOUT_ATTEMPTS_PER_HOUR) || 8, 3_600_000)) {
     return NextResponse.json({ error: 'Muitas tentativas. Aguarde uma hora ou fale com o suporte.', code: 'too_many_attempts' }, { status: 429 })

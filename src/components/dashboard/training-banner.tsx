@@ -5,6 +5,7 @@ import { GraduationCap, ListChecks, StepForward } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { allDone, chapterStatus, chaptersFor, resumeChapter } from '@/lib/system-tour/engine'
 import { useSystemTourProgress } from '@/components/system-tour/progress-store'
+import { TRAINING_INTRO } from '@/lib/system-tour/content'
 
 // Destaque do "Tour pelo sistema" na Visão Geral: é o treinamento do sistema inteiro, para a pessoa e para cada
 // membro da equipe (cada um faz as aulas do seu papel). Mostra quantas aulas a pessoa já concluiu e some quando
@@ -29,8 +30,12 @@ export function TrainingBanner() {
   const percent = Math.round((doneCount / chapters.length) * 100)
   const manages = me.role === 'admin' || me.role === 'gestor'
 
+  const firstTime = doneCount === 0 && !resumeStatus?.started
   const start = () => {
     if (!resume || !resumeStatus) return openSystemTour()
+    // 1ª vez: antes da 1ª aula, a introdução mostra onde ficam todas as aulas e emenda na aula (o progresso só é salvo
+    // quando a aula começa)
+    if (firstTime) return runSystemTour(TRAINING_INTRO.id, 0, { chapterId: resume.id, step: resumeStatus.step })
     runSystemTour(resume.id, resumeStatus.step)
     void save({ chapterId: resume.id, step: resumeStatus.step })
   }
@@ -56,7 +61,7 @@ export function TrainingBanner() {
       <div className="treino__acoes">
         <button type="button" className="btn btn--primario" onClick={start}>
           <StepForward className="ic" aria-hidden="true" />
-          {doneCount === 0 && !resumeStatus?.started ? 'Começar o treinamento' : `Continuar: aula ${resumeIndex}`}
+          {firstTime ? 'Começar o treinamento' : `Continuar: aula ${resumeIndex}`}
         </button>
         <button type="button" className="btn btn--sm" onClick={openSystemTour}>
           <ListChecks className="ic" aria-hidden="true" />Ver as aulas

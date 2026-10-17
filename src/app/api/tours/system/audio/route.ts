@@ -1,7 +1,8 @@
 import { promises as fs } from 'node:fs'
 import { NextResponse } from 'next/server'
 import { guard, isPlatformOperator } from '@/lib/api-auth'
-import { chaptersFor, stepSpokenText } from '@/lib/system-tour/engine'
+import { chaptersFor, stepSpokenText, stepsFor } from '@/lib/system-tour/engine'
+import { TRAINING_INTRO } from '@/lib/system-tour/content'
 import { getTourAudio, tourAudioIdentity, TtsUnavailableError } from '@/lib/system-tour/tts'
 
 // Áudio da narração de um passo do "Tour pelo sistema" (src/lib/system-tour/tts.ts).
@@ -50,12 +51,14 @@ export async function GET(request: Request) {
   const stepRaw = url.searchParams.get('step') ?? ''
   if (!/^\d{1,3}$/.test(stepRaw)) return notFound()
   // Mesma filtragem por papel do conteúdo: capítulo ou passo que a pessoa não vê não existe para ela
-  const chapter = chaptersFor({ role: g.auth.role, isPlatformOperator: isPlatformOperator(g.auth) }).find((c) => c.id === chapterId)
+  const who = { role: g.auth.role, isPlatformOperator: isPlatformOperator(g.auth) }
+  // a introdução do treinamento (outra voz) não está na lista de aulas, mas tem áudio como qualquer passo
+  const chapter = chapterId === TRAINING_INTRO.id ? { ...TRAINING_INTRO, steps: stepsFor(TRAINING_INTRO, who) } : chaptersFor(who).find((c) => c.id === chapterId)
   const step = chapter?.steps[Number(stepRaw)]
   if (!step) return notFound()
   const text = stepSpokenText(step)
 
-  const identity = tourAudioIdentity(text)
+  const identity = tourAudioIdentity(text, process.env, chapter?.voice)
   // O navegador já tem este áudio (a chave depende só da voz, da versão, do formato e do texto)
   if (etagMatches(request.headers.get('if-none-match'), `"${identity.key}"`)) {
     return new NextResponse(null, { status: 304, headers: { ETag: `"${identity.key}"`, 'Cache-Control': CACHE_CONTROL } })
@@ -63,7 +66,7 @@ export async function GET(request: Request) {
 
   let audio
   try {
-    audio = await getTourAudio(text)
+    audio = await getTourAudio(text, process.env, chapter?.voice)
   } catch (e) {
     if (!(e instanceof TtsUnavailableError)) console.error('[tour-audio] falha ao gerar a narração:', e instanceof Error ? e.message : e)
     return unavailable()

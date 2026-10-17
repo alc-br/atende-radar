@@ -1,6 +1,7 @@
 import { test, expect, type APIRequestContext } from '@playwright/test'
 import { anonymous, createUser, loginAs, signupOrg } from './helpers'
 import { testDb } from './db'
+import { gatewayClient } from './gw'
 import { APPROVED, DECLINED, MASTERCARD, basic, billingData, cardToken } from './pagarme'
 
 // B8 · Cobrança recorrente com Pagar.me (checkout transparente), contra o SANDBOX real do Pagar.me — nada simulado aqui.
@@ -79,6 +80,13 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     expect((await c.post('/api/connections', { data: { name: 'Um', phoneNumber: '+5511900000101' } })).status()).toBe(201)
     expect((await c.post('/api/connections', { data: { name: 'Dois', phoneNumber: '+5511900000102' } })).status()).toBe(201)
 
+    // e-mail de ativação (recibo) ao administrador, uma vez só; a sincronização seguinte não manda "renovação paga"
+    const activated = await testDb.emailOutbox.findMany({ where: { organizationId: orgId, kind: `billing:activated:${sub.providerSubscriptionId}` } })
+    expect(activated).toHaveLength(1)
+    expect(activated[0].subject).toBe('Plano Growth ativo — pagamento confirmado')
+    expect(activated[0].body).toContain('final 0010')
+    expect(await testDb.emailOutbox.count({ where: { organizationId: orgId, kind: { startsWith: 'billing:renewal_paid:' } } })).toBe(0)
+
     const audit = await testDb.auditLog.findFirst({ where: { organizationId: orgId, action: 'subscription.changed' } })
     expect(audit?.targetLabel).toBe('Growth')
     expect(audit?.details ?? '').not.toContain('token_') // token do cartão não vai para a auditoria
@@ -154,12 +162,22 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     const actions = (await testDb.auditLog.findMany({ where: { organizationId: orgId }, select: { action: true } })).map((a) => a.action)
     expect(actions).toEqual(expect.arrayContaining(['subscription.changed', 'billing.card_updated', 'subscription.canceled']))
 
-    // período pago acabou → sem acesso para cadastrar (402 subscription_inactive)
+    // e-mails: cartão trocado e renovação cancelada
+    const kinds = async () => (await testDb.emailOutbox.findMany({ where: { organizationId: orgId, kind: { startsWith: 'billing:' } }, orderBy: { createdAt: 'asc' } })).map((m) => m.kind!.split(':')[1])
+    expect(await kinds()).toEqual(['activated', 'card_updated', 'renewal_canceled'])
+
+    // período pago acabou → empresa bloqueada: só Planos/Pagamento respondem (402 subscription_locked)
     await testDb.subscription.update({ where: { organizationId: orgId }, data: { currentPeriodEnd: new Date(Date.now() - 60_000) } })
     expect((await config(c)).subscription.status).toBe('canceled')
+    // a varredura encerra o plano e avisa por e-mail (uma vez)
+    const gw = await gatewayClient()
+    expect((await (await gw.post('/api/gateway/tick', { data: { organizationId: orgId } })).json()).endedPlans).toBe(1)
+    expect((await (await gw.post('/api/gateway/tick', { data: { organizationId: orgId } })).json()).endedPlans).toBe(0)
+    await gw.dispose()
+    expect(await kinds()).toEqual(['activated', 'card_updated', 'renewal_canceled', 'plan_ended'])
     const blocked = await c.post('/api/connections', { data: { name: 'X', phoneNumber: '+5511900000199' } })
     expect(blocked.status()).toBe(402)
-    expect((await blocked.json()).code).toBe('subscription_inactive')
+    expect((await blocked.json()).code).toBe('subscription_locked')
     await c.dispose()
   })
 
@@ -208,6 +226,8 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     const actions = (await testDb.auditLog.findMany({ where: { organizationId: orgId }, select: { action: true } })).map((a) => a.action)
     expect(actions).toContain('subscription.withdrawn')
     expect(await testDb.notification.count({ where: { organizationId: orgId, title: 'Contratação desfeita e valor estornado' } })).toBe(1)
+    const wd = await testDb.emailOutbox.findFirst({ where: { organizationId: orgId, kind: { startsWith: 'billing:withdrawn:' } } })
+    expect(wd?.subject).toBe('Contratação desfeita e estorno solicitado')
     await c.dispose()
   })
 
@@ -283,6 +303,7 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     const note = await testDb.notification.findFirst({ where: { organizationId: orgId, title: 'Renovação automática reativada' } })
     expect(note?.message).toContain('Nada foi cobrado agora')
     expect(note?.message).toContain('0010')
+    expect(await testDb.emailOutbox.count({ where: { organizationId: orgId, kind: `billing:reactivated:${sub.providerSubscriptionId}` } })).toBe(1)
 
     // de novo: já está ativa; e dá para cancelar outra vez (cancela a continuação no provedor)
     expect(await (await c.post('/api/billing/reactivate')).json()).toMatchObject({ code: 'not_canceled' })

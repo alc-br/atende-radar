@@ -9,6 +9,7 @@ import { purgeDueDeletions } from '@/lib/org-deletion'
 import { purgeProductEvents } from '@/lib/privacy'
 import { flushAlertEmails } from '@/lib/alert-email'
 import { retryFailedEmails } from '@/lib/mailer'
+import { endExpiredPlans } from '@/lib/billing/service'
 
 // Roda o motor de análise agora (mesma função que o agendador interno chama a cada minuto).
 // Serve também para um agendador externo (cron) e para os testes. Também processa a fila de webhooks. Exige o segredo do gateway.
@@ -51,5 +52,7 @@ export async function POST(request: Request) {
   const now = new Date()
   const alertEmails = await flushAlertEmails(now, orgId ?? undefined)
   const emailRetries = await retryFailedEmails(now, { organizationId: orgId ?? undefined })
-  return NextResponse.json({ ok: true, ...summary, webhooks, alertEmails, emailRetries, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
+  // planos com a renovação cancelada cujo período pago acabou (o mesmo passo da varredura de cobrança)
+  const endedPlans = await endExpiredPlans(now, orgId ?? undefined)
+  return NextResponse.json({ ok: true, ...summary, webhooks, alertEmails, emailRetries, endedPlans, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
 }

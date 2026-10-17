@@ -1,5 +1,6 @@
 'use client'
 
+import { moneyProps } from '@/lib/money-input'
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   RotateCcw,
@@ -403,7 +404,7 @@ export default function RecoveryView() {
 
   const confirmValue = () => {
     if (valueItemId) {
-      const val = parseFloat(recoveredValueInput.replace(',', '.')) || 0
+      const val = Number(recoveredValueInput) || 0
       if (val > 0) {
         void mutate(`/api/recovery/${valueItemId}`, {
           method: 'PATCH',
@@ -877,11 +878,9 @@ export default function RecoveryView() {
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
                 <Input
-                  type="text"
                   placeholder="0,00"
                   aria-label="Valor recuperado em reais"
-                  value={recoveredValueInput}
-                  onChange={(e) => setRecoveredValueInput(e.target.value)}
+                  {...moneyProps(recoveredValueInput, setRecoveredValueInput)}
                   className="pl-10"
                 />
               </div>

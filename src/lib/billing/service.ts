@@ -8,6 +8,10 @@ import {
 import { pagarme, pagarmeConfig, PagarmeError, type Address, type PagarmeConfig } from './pagarme'
 import { overageMessage, planOverage } from '@/lib/quotas'
 import { milestone } from '@/lib/product-events'
+import {
+  activatedEmail, billingEmail, cardUpdatedEmail, paymentFailedEmail, planEndedEmail, reactivatedEmail, refundFailedEmail,
+  renewalCanceledEmail, renewalPaidEmail, withdrawnEmail,
+} from './emails'
 
 // Cobrança recorrente (B8) com Pagar.me. A fonte de verdade é o provedor: toda mudança de situação passa por
 // applyProviderState(), que lê a assinatura e as faturas DIRETO da API (o conteúdo do webhook nunca é confiado).
@@ -119,6 +123,14 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
     })
     if (status !== row.status && status === 'past_due') {
       await db.notification.create({ data: { organizationId: orgId, type: 'billing', title: 'Pagamento da assinatura não confirmado', message: latestFailure ? `Motivo informado pela operadora: ${latestFailure}. Atualize o cartão em Planos.` : 'Atualize o cartão em Planos para não perder o acesso.' } })
+      await billingEmail(orgId, 'payment_failed', `${subId}:${(derived.periodEnd ?? row.currentPeriodEnd).toISOString()}`, paymentFailedEmail(row.plan.name, latestFailure))
+    }
+    // recibo das renovações pagas nos últimos 7 dias (uma vez por fatura). A 1ª fatura paga da assinatura é a da
+    // contratação e já teve o e-mail de ativação; na renovação reativada (prepaid) toda fatura paga é renovação.
+    const paid = invoices.filter((i) => i.status === 'paid' && i.paidAt).sort((a, b) => a.paidAt!.getTime() - b.paidAt!.getTime())
+    for (const inv of meta.reactivatedFrom ? paid : paid.slice(1)) {
+      if (now.getTime() - inv.paidAt!.getTime() > 7 * 86400_000) continue
+      await billingEmail(orgId, 'renewal_paid', inv.providerInvoiceId, renewalPaidEmail(row.plan.name, inv.amountCents, inv.periodEnd ?? derived.periodEnd, cardOf(providerSub).cardLast4))
     }
     return { kind: 'synced', status }
   }
@@ -153,6 +165,8 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
     }
     await db.notification.create({ data: { organizationId: orgId, type: 'billing', title: `Plano ${plan.name} ativo`, message: `Pagamento confirmado. A renovação é automática (${cycle === 'annual' ? 'anual' : 'mensal'}) no mesmo cartão.` } })
     await milestone(orgId, 'first_payment') // funil (I7): só a 1ª ativação paga conta; nunca lança erro
+    const firstPaid = invoices.filter((i) => i.status === 'paid').sort((a, b) => (a.paidAt?.getTime() ?? 0) - (b.paidAt?.getTime() ?? 0))[0]
+    await billingEmail(orgId, 'activated', subId, activatedEmail(plan.name, cycle, firstPaid?.amountCents ?? 0, derived.periodEnd, cardOf(providerSub).cardLast4))
     return { kind: 'activated', planName: plan.name }
   }
   if (providerStatus === 'canceled' || invoices.some((i) => i.status === 'failed')) {
@@ -272,9 +286,29 @@ export async function billingSweep(): Promise<number> {
     take: 500,
   })
   for (const r of rows) await syncOrganization(r.organizationId)
-  // cancelada que chegou ao fim do período pago
-  await db.subscription.updateMany({ where: { cancelAtPeriodEnd: true, status: { not: 'canceled' }, currentPeriodEnd: { lt: new Date() } }, data: { status: 'canceled' } })
+  await endExpiredPlans()
   return rows.length
+}
+
+/**
+ * Renovação cancelada que chegou ao fim do período pago: encerra e avisa os administradores (o painel fica bloqueado).
+ * Roda na varredura de cobrança e no POST /api/gateway/tick. Devolve quantas encerrou.
+ */
+export async function endExpiredPlans(now = new Date(), orgId?: string): Promise<number> {
+  const ended = await db.subscription.findMany({
+    where: { cancelAtPeriodEnd: true, status: { not: 'canceled' }, currentPeriodEnd: { lt: now }, ...(orgId ? { organizationId: orgId } : {}) },
+    select: { id: true, organizationId: true, providerSubscriptionId: true, currentPeriodEnd: true, plan: { select: { name: true } } },
+    take: 500,
+  })
+  let count = 0
+  for (const s of ended) {
+    const done = await db.subscription.updateMany({ where: { id: s.id, status: { not: 'canceled' } }, data: { status: 'canceled' } })
+    if (done.count !== 1) continue
+    await db.notification.create({ data: { organizationId: s.organizationId, type: 'billing', title: `O plano ${s.plan.name} terminou`, message: 'O período pago acabou e a renovação estava cancelada. Contrate um plano em Planos para voltar a usar o painel.' } })
+    await billingEmail(s.organizationId, 'plan_ended', `${s.providerSubscriptionId ?? s.id}:${s.currentPeriodEnd.toISOString()}`, planEndedEmail(s.plan.name))
+    count++
+  }
+  return count
 }
 
 export async function cancelAtPeriodEnd(auth: AuthContext): Promise<Fail | { ok: true; until: string }> {
@@ -291,6 +325,7 @@ export async function cancelAtPeriodEnd(auth: AuthContext): Promise<Fail | { ok:
   await db.subscription.update({ where: { organizationId: auth.orgId }, data: { cancelAtPeriodEnd: true, lastSyncedAt: new Date() } })
   await audit(auth, { action: 'subscription.canceled', targetType: 'subscription', targetId: row.providerSubscriptionId, targetLabel: row.plan.name, details: { until: row.currentPeriodEnd.toISOString() } })
   await db.notification.create({ data: { organizationId: auth.orgId, type: 'billing', title: 'Renovação automática cancelada', message: `O plano ${row.plan.name} vale até ${row.currentPeriodEnd.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Nenhuma nova cobrança será feita.` } })
+  await billingEmail(auth.orgId, 'renewal_canceled', row.providerSubscriptionId, renewalCanceledEmail(row.plan.name, row.currentPeriodEnd))
   return { ok: true, until: row.currentPeriodEnd.toISOString() }
 }
 
@@ -346,6 +381,7 @@ export async function withdraw(auth: AuthContext, now = new Date()): Promise<Fai
     await db.subscription.update({ where: { organizationId: auth.orgId }, data: { providerSubscriptionId: subId, cancelAtPeriodEnd: true, lastSyncedAt: now } })
     console.error('[billing] estorno recusado', offer.invoice.providerChargeId, e instanceof PagarmeError ? e.status : e)
     await audit(auth, { action: 'subscription.withdrawal_failed', targetType: 'subscription', targetId: subId, targetLabel: row.plan.name, details: { chargeId: offer.invoice.providerChargeId, amountCents: offer.amountCents } })
+    await billingEmail(auth.orgId, 'refund_failed', offer.invoice.providerChargeId!, refundFailedEmail(row.plan.name, offer.amountCents))
     return fail(502, 'refund_failed', 'A renovação foi cancelada, mas o estorno não foi aceito pela operadora agora. Nossa equipe vai concluir o reembolso; se preferir, escreva para contato@atenderadar.com.br.')
   }
 
@@ -359,6 +395,7 @@ export async function withdraw(auth: AuthContext, now = new Date()): Promise<Fai
       message: `O plano ${row.plan.name} foi encerrado e o estorno de ${valor} foi pedido à operadora do cartão${row.cardLast4 ? ` final ${row.cardLast4}` : ''}. O crédito aparece na fatura do cartão conforme o prazo do banco emissor.`,
     },
   })
+  await billingEmail(auth.orgId, 'withdrawn', offer.invoice.providerChargeId!, withdrawnEmail(row.plan.name, offer.amountCents, row.cardLast4))
   return { ok: true, amountCents: offer.amountCents }
 }
 
@@ -379,6 +416,7 @@ export async function replaceCard(auth: AuthContext, input: { cardToken?: string
   }
   const updated = await db.subscription.findUnique({ where: { organizationId: auth.orgId } })
   await audit(auth, { action: 'billing.card_updated', targetType: 'subscription', targetId: row.providerSubscriptionId, details: { brand: updated?.cardBrand ?? null } })
+  await billingEmail(auth.orgId, 'card_updated', `${row.providerSubscriptionId}:${Date.now()}`, cardUpdatedEmail(updated?.cardBrand ?? null, updated?.cardLast4 ?? null))
   return { ok: true, cardBrand: updated?.cardBrand ?? null, cardLast4: updated?.cardLast4 ?? null }
 }
 
@@ -462,5 +500,6 @@ export async function reactivateRenewal(auth: AuthContext): Promise<Fail | { ok:
       message: `O plano ${row.plan.name} volta a renovar sozinho. A próxima cobrança, de ${valor}, será em ${data}${updated.cardLast4 ? ` no cartão final ${updated.cardLast4}` : ''}. Nada foi cobrado agora.`,
     },
   })
+  await billingEmail(auth.orgId, 'reactivated', newId, reactivatedEmail(row.plan.name, startAt, amountCents, updated.cardLast4))
   return { ok: true, nextChargeAt: startAt.toISOString(), amountCents, cardLast4: updated.cardLast4 }
 }

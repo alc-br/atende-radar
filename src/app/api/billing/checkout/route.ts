@@ -7,7 +7,7 @@ import { readJson } from '@/lib/json-body'
 // Checkout transparente: o navegador já trocou o cartão por um token no Pagar.me; aqui chegam só o token, o plano,
 // o ciclo e os dados de cobrança. Limite de tentativas por empresa contra teste de cartões roubados.
 export async function POST(request: Request) {
-  const g = await guard('billing.manage')
+  const g = await guard('billing.manage', { allowLocked: true })
   if (!g.ok) return g.res
   const limit = Number(process.env.CHECKOUT_ATTEMPTS_PER_HOUR) || 8
   if (!allow(`checkout:${g.auth.orgId}`, limit, 3_600_000)) {

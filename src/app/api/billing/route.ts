@@ -9,7 +9,7 @@ import { effectiveStatus } from '@/lib/billing/core'
 // para o navegador gerar o token do cartão, a cobrança automática vigente e as faturas.
 // Reconsulta o Pagar.me se a última leitura tiver mais de 2 minutos (funciona mesmo sem webhook configurado).
 export async function GET() {
-  const g = await guard('billing.manage')
+  const g = await guard('billing.manage', { allowLocked: true })
   if (!g.ok) return g.res
   const cfg = pagarmeConfig()
   if (cfg) await syncOrganization(g.auth.orgId, { maxAgeMs: 120_000 })

@@ -1,5 +1,6 @@
 'use client'
 
+import { moneyProps } from '@/lib/money-input'
 import { useCallback, useEffect, useState } from 'react'
 import {
   Building2, Clock, DollarSign, QrCode, Users, FileBarChart, CheckCircle2, ArrowLeft, ArrowRight, Plus, Trash2, Zap,
@@ -335,7 +336,7 @@ export default function OnboardingView() {
                 <label htmlFor="avgTicket">Ticket médio (R$)</label>
                 <div className="campo-ic">
                   <DollarSign className="ic" aria-hidden="true" />
-                  <input className="entrada entrada--grande" id="avgTicket" type="number" placeholder="Ex.: 350" value={state.avgTicket} onChange={(e) => update({ avgTicket: e.target.value })} />
+                  <input className="entrada entrada--grande" id="avgTicket" placeholder="Ex.: 350,00" {...moneyProps(state.avgTicket, (v) => update({ avgTicket: v }))} />
                 </div>
               </div>
               <div className="campo">

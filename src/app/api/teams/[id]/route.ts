@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard, badRequest } from '@/lib/api-auth'
-import { validateTeamRefs } from '@/lib/team-refs'
+import { linkSupervisorTeam, validateTeamRefs } from '@/lib/team-refs'
 import { readJson } from '@/lib/json-body'
 
 export async function PATCH(
@@ -42,6 +42,7 @@ export async function PATCH(
     if (goals !== undefined) data.goals = JSON.stringify(goals)
 
     const updated = await db.team.update({ where: { id }, data })
+    if (supervisorId) await linkSupervisorTeam(g.auth.orgId, supervisorId, updated.name)
     await audit(g.auth, { action: 'team.updated', targetType: 'team', targetId: id, targetLabel: updated.name, details: { keys: Object.keys(data) } })
 
     return NextResponse.json({ success: true, team: updated })

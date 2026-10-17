@@ -8,7 +8,7 @@ import { UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS, avatarUrl, deleteImage, proce
 // Foto do perfil (P7): cada pessoa troca ou tira a PRÓPRIA foto. Vista pelos membros da mesma empresa (/api/media/avatar).
 
 export async function POST(request: Request) {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   if (!allow(`upload:${g.auth.memberId}`, UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS)) {
     return NextResponse.json({ error: 'Muitos envios de imagem na última hora. Tente novamente mais tarde.' }, { status: 429 })
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE() {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const m = await db.organizationMember.findUnique({ where: { id: g.auth.memberId }, select: { avatarType: true } })
   if (m?.avatarType) {

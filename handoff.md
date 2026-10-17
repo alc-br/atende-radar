@@ -61,6 +61,23 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 17/10/2026
+
+- **Teste/plano vencido bloqueia tudo (17/10/2026).** Quando o teste grátis ou o plano acaba, o painel fica só com Planos, Meu perfil e Ajuda (`locked-shell.tsx`). A API recusa o resto com 402 `subscription_locked` (`src/lib/billing/lock.ts`). Contratando, o painel volta ao recarregar.
+  - Decisões minhas: as mensagens do WhatsApp continuam chegando (nada se perde); `past_due` (cobrança falhou) não bloqueia; a faixa do teste recarrega a página na hora em que o teste acaba.
+- **E-mails de cobrança e do teste (`src/lib/billing/emails.ts`).** Vão para os admins ativos, um por evento (dedupe no EmailOutbox):
+  - teste grátis: faltando 3 dias, 1 dia, "Último aviso" faltando 6 h, e "terminou" (até 7 dias depois do fim). Testes curtos (`TRIAL_MINUTES`) usam frações do tempo. Quem já assinou não recebe;
+  - assinatura: ativada, renovação paga (recibo das faturas pagas nos últimos 7 dias, sem repetir a da ativação), pagamento falhou, renovação cancelada, reativada, arrependimento/reembolso (ou falha do reembolso), cartão trocado, plano terminou;
+  - `endExpiredPlans` (no `billingSweep`, a cada 15 min) passa para cancelado o plano cuja renovação foi cancelada e o período acabou.
+- **Treinamento:** "Começar o treinamento" abre antes uma introdução ("Antes de começar"), com a voz Azure `pt-BR-ThalitaNeural`, destacando "Treinamento do sistema" no menu. Depois segue para a 1ª aula. A introdução não salva progresso.
+- **Equipes › Criar equipe:** no seletor de supervisor há "Adicionar membro supervisor", que convida a pessoa e volta ao formulário com ela escolhida. O próprio administrador também aparece como opção.
+- **Menu lateral:** logo fixo em cima, rodapé (promo, Treinamento e Ajuda) fixo embaixo, itens rolam no meio (`.lateral__rolagem` / `.lateral__rodape`).
+- **Máscaras:** CNPJ/CPF, telefone e valores em R$ (o CEP do checkout já tinha) (`src/lib/org-fields.ts`, `money-input.ts`). O servidor valida CNPJ, telefone e site e guarda formatado.
+- **Site (Configurações):** o `https://` fica fixo na frente do campo; se a pessoa colar com http(s)://, ele sai ao deixar o campo. Grava como `https://...`.
+- **Guias rápidos de tela removidos** (pedido do dono) em Conversas, Conexões, Configurações, Membros, Equipes e Planos. "Tour desta tela" só aparece no menu do topo onde ainda há guia. O Treinamento do sistema não mudou.
+- **Relatórios agendados:** não saem para empresa bloqueada. A trava confere a situação real de agora, não o horário simulado do tick.
+- **Testes:** novos `lock-teams-masks.ui.spec.ts` e `training-intro.ui.spec.ts`. Também foram atualizados `plan-limits` (T11), `billing-pagarme` (os e-mails só são conferidos no CI, com o sandbox) e `admin-assinatura`.
+
 ### 16/10/2026
 
 - **Ajustes do teste grátis feito pelo dono (16/10/2026).**

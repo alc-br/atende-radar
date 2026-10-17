@@ -20,7 +20,7 @@ const tooLarge = () =>
 
 /** Chamados que o próprio membro abriu (os mais recentes primeiro). */
 export async function GET() {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const tickets = await db.supportTicket.findMany({
     where: { organizationId: g.auth.orgId, memberId: g.auth.memberId },
@@ -36,7 +36,7 @@ export async function GET() {
  * readJson porque a captura é um arquivo. O corpo inteiro é limitado antes de ser lido.
  */
 export async function POST(request: Request) {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const { auth } = g
 

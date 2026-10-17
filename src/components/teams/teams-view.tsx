@@ -12,11 +12,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Users, UsersRound, Plus, UserCircle, Activity } from 'lucide-react'
+import { Users, UsersRound, Plus, UserCircle, Activity, UserPlus, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/lib/store'
-import { can } from '@/lib/permissions'
+import { can, roleName } from '@/lib/permissions'
 import { tourSignal } from '@/lib/system-tour/signals'
+import { showInviteLink } from '@/lib/invite-toast'
 
 interface Team {
   id: string
@@ -29,10 +30,16 @@ interface Team {
   members: string[]
 }
 
-interface AgentOption {
+interface SupervisorOption {
   id: string
   name: string
+  role: string
+  pending: boolean
 }
+
+// Valor especial do seletor: abre o cadastro de um membro supervisor sem sair do "Criar equipe"
+const ADD_SUPERVISOR = '__novo__'
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const slugify = (name: string) =>
   name
@@ -46,28 +53,28 @@ export default function TeamsView() {
   const me = useAppStore((s) => s.me)
   const canManage = can(me?.role, 'teams.manage')
   const [teams, setTeams] = useState<Team[]>([])
-  const [agents, setAgents] = useState<AgentOption[]>([])
+  const [supervisors, setSupervisors] = useState<SupervisorOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newSupervisorId, setNewSupervisorId] = useState('')
+  // cadastro rápido de supervisor dentro do diálogo (sem membros que possam supervisionar, ou para alguém novo)
+  const [addingSupervisor, setAddingSupervisor] = useState(false)
+  const [supName, setSupName] = useState('')
+  const [supEmail, setSupEmail] = useState('')
+  const [supSaving, setSupSaving] = useState(false)
+  const canInvite = can(me?.role, 'members.manage')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [teamsRes, agentsRes] = await Promise.all([
-        fetch('/api/teams'),
-        fetch('/api/team'),
-      ])
+      const teamsRes = await fetch('/api/teams')
       if (!teamsRes.ok) throw new Error('Erro ao carregar equipes')
       const teamsData = await teamsRes.json()
       setTeams(teamsData.teams || [])
-      if (agentsRes.ok) {
-        const agentsData = await agentsRes.json()
-        setAgents((agentsData.agents || []).map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })))
-      }
+      setSupervisors(teamsData.supervisorOptions || [])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido')
     } finally {
@@ -101,6 +108,37 @@ export default function TeamsView() {
       fetchData()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao criar equipe')
+    }
+  }
+
+  const openCreate = (open: boolean) => {
+    setCreateOpen(open)
+    if (!open) { setAddingSupervisor(false); setSupName(''); setSupEmail('') }
+  }
+
+  // Convida o membro com o papel Supervisor e volta ao "Criar equipe" com ele já escolhido
+  const handleAddSupervisor = async () => {
+    if (!supName.trim() || !EMAIL_RE.test(supEmail.trim())) return
+    setSupSaving(true)
+    try {
+      const res = await fetch('/api/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: supName.trim(), email: supEmail.trim(), role: 'supervisor', team: newName.trim() || undefined }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Erro ao adicionar membro')
+      await showInviteLink(supEmail.trim(), data.inviteLink, 'Convite criado.', data.emailStatus)
+      const m = data.member as { id: string; name: string }
+      setSupervisors((list) => [{ id: m.id, name: m.name, role: 'supervisor', pending: true }, ...list])
+      setNewSupervisorId(m.id)
+      setAddingSupervisor(false)
+      setSupName('')
+      setSupEmail('')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao adicionar membro')
+    } finally {
+      setSupSaving(false)
     }
   }
 
@@ -143,11 +181,35 @@ export default function TeamsView() {
         </div>
         {canManage && (
           <div className="cab-pagina__acoes">
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <Dialog open={createOpen} onOpenChange={openCreate}>
               <DialogTrigger asChild>
                 <button type="button" className="btn btn--primario" data-tour="teams-create"><Plus className="ic" aria-hidden="true" />Criar equipe</button>
               </DialogTrigger>
               <DialogContent>
+                {addingSupervisor ? (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle>Criar equipe</DialogTitle>
+                      <DialogDescription>Adicionar membro supervisor: ele recebe um convite por e-mail para criar a senha.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4" data-testid="add-supervisor-form">
+                      <div className="space-y-2">
+                        <Label htmlFor="sup-name">Nome do supervisor</Label>
+                        <Input id="sup-name" placeholder="Nome completo" value={supName} onChange={(e) => setSupName(e.target.value)} autoFocus />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="sup-email">E-mail</Label>
+                        <Input id="sup-email" type="email" placeholder="supervisor@empresa.com" value={supEmail} onChange={(e) => setSupEmail(e.target.value)} />
+                      </div>
+                      <p className="suave text-[13px]">Função: <b>{roleName('supervisor')}</b>. Ele enxerga só a equipe dele (e o que ainda não tem atendente).</p>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setAddingSupervisor(false)}><ArrowLeft className="ic" aria-hidden="true" />Voltar</Button>
+                      <Button onClick={handleAddSupervisor} disabled={supSaving || !supName.trim() || !EMAIL_RE.test(supEmail.trim())}>Adicionar e escolher</Button>
+                    </DialogFooter>
+                  </>
+                ) : (
+                  <>
                 <DialogHeader>
                   <DialogTitle>Criar equipe</DialogTitle>
                   <DialogDescription>Adicione uma nova equipe à sua organização.</DialogDescription>
@@ -164,20 +226,38 @@ export default function TeamsView() {
                   </div>
                   <div className="space-y-2">
                     <Label>Supervisor</Label>
-                    <Select value={newSupervisorId} onValueChange={setNewSupervisorId}>
+                    <Select
+                      value={newSupervisorId}
+                      onValueChange={(v) => (v === ADD_SUPERVISOR ? setAddingSupervisor(true) : setNewSupervisorId(v))}
+                    >
                       <SelectTrigger aria-label="Selecione o supervisor"><SelectValue placeholder="Selecione o supervisor" /></SelectTrigger>
                       <SelectContent>
-                        {agents.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        {supervisors.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name} <span className="suave">· {roleName(a.role)}{a.pending ? ' (convite pendente)' : ''}</span>
+                          </SelectItem>
                         ))}
+                        {canInvite && (
+                          <SelectItem value={ADD_SUPERVISOR} data-testid="add-supervisor-option">
+                            <span className="inline-flex items-center gap-1.5 font-semibold text-[var(--verde-700)]"><UserPlus className="ic" aria-hidden="true" />Adicionar membro supervisor</span>
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
+                    {supervisors.length === 0 && (
+                      <p className="suave text-[13px]">
+                        Ainda não há membros que possam supervisionar.{' '}
+                        {canInvite && <button type="button" className="link-verde border-0 bg-transparent p-0 font-semibold" onClick={() => setAddingSupervisor(true)}>Adicionar membro supervisor</button>}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                  <Button variant="outline" onClick={() => openCreate(false)}>Cancelar</Button>
                   <Button onClick={handleCreate} disabled={!newName.trim() || !newSupervisorId}>Criar</Button>
                 </DialogFooter>
+                  </>
+                )}
               </DialogContent>
             </Dialog>
           </div>

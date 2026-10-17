@@ -4,7 +4,7 @@ import { guard } from '@/lib/api-auth'
 
 export async function GET() {
   try {
-    const g = await guard('plans.view')
+    const g = await guard('plans.view', { allowLocked: true })
     if (!g.ok) return g.res
     const plans = await db.plan.findMany({
       where: { active: true },

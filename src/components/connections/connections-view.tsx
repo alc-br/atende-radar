@@ -18,6 +18,7 @@ import {
   Activity, Clock, CircleCheck, CircleX, Info, Loader2,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils'
+import { formatPhone } from '@/lib/billing/format'
 import { Skeleton } from '@/components/ui/skeleton'
 import { QrDialog } from './qr-dialog'
 import { useAppStore } from '@/lib/store'
@@ -292,11 +293,12 @@ export default function ConnectionsView() {
               <label htmlFor="nova-conexao-numero" className="text-sm font-medium">Número do WhatsApp</label>
               <Input
                 id="nova-conexao-numero"
-                type="text"
+                type="tel"
                 inputMode="tel"
-                placeholder="Ex: 5511999998888"
+                placeholder="(11) 99999-8888"
+                maxLength={15}
                 value={newConnPhone}
-                onChange={(e) => setNewConnPhone(e.target.value)}
+                onChange={(e) => setNewConnPhone(formatPhone(e.target.value))}
               />
             </div>
             <Alert>

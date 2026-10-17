@@ -29,6 +29,8 @@ interface Me {
   organizationLogoUrl?: string | null
   /** Exclusão da empresa pedida pelo dono (null = conta normal). */
   organizationDeletion?: OrganizationDeletion | null
+  /** Empresa sem plano (teste vencido ou assinatura encerrada): só Planos/Pagamento/Perfil abrem. */
+  subscriptionLock?: { reason: 'trial_expired' | 'canceled'; since: string | null } | null
 }
 
 export interface OrganizationDeletion {
@@ -73,10 +75,11 @@ interface AppState {
   helpFrom: View | null
   openHelp: () => void
   /** Tour pelo sistema: capítulo e passo em andamento (null = fechado; a lista de capítulos é a tela 'system-tour'). */
-  systemTour: { chapterId: string; step: number } | null
+  /** then = aula que começa quando este capítulo termina (a introdução do treinamento emenda na 1ª aula). */
+  systemTour: { chapterId: string; step: number; then?: { chapterId: string; step: number } } | null
   /** Abre a lista de capítulos do tour pelo sistema (fecha o guia de tela que estiver aberto). */
   openSystemTour: () => void
-  runSystemTour: (chapterId: string, step: number) => void
+  runSystemTour: (chapterId: string, step: number, then?: { chapterId: string; step: number }) => void
   setSystemTourStep: (step: number) => void
   closeSystemTour: () => void
   /** Checkout do plano escolhido (tela própria, pagamento pelo Pagar.me). */
@@ -123,7 +126,7 @@ export const useAppStore = create<AppState>((set) => ({
   openHelp: () => set((s) => ({ helpFrom: s.currentView === 'help' ? s.helpFrom : s.currentView, currentView: 'help' })),
   systemTour: null,
   openSystemTour: () => set({ systemTour: null, activeTour: null, activeStep: 0, currentView: 'system-tour' }),
-  runSystemTour: (chapterId, step) => set({ systemTour: { chapterId, step }, activeTour: null, activeStep: 0 }),
+  runSystemTour: (chapterId, step, then) => set({ systemTour: { chapterId, step, ...(then ? { then } : {}) }, activeTour: null, activeStep: 0 }),
   setSystemTourStep: (step) => set((s) => (s.systemTour ? { systemTour: { ...s.systemTour, step } } : {})),
   closeSystemTour: () => set({ systemTour: null }),
   checkout: null,

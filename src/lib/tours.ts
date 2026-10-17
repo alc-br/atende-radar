@@ -87,21 +87,6 @@ export const TOURS: Record<string, TourStep[]> = {
     },
   ],
 
-  conversations: [
-    {
-      target: 'conversations-search',
-      title: 'Busque uma conversa',
-      body: 'Essa é a mesma busca do cabeçalho — filtra por nome do cliente, telefone ou atendente responsável.',
-      placement: 'bottom',
-    },
-    {
-      target: 'conversations-filters',
-      title: 'Filtre por qualquer critério',
-      body: 'Combine período, responsável, intenção, urgência, sentimento, etapa e mais pra chegar exatamente nas conversas que você precisa revisar.',
-      placement: 'bottom',
-    },
-  ],
-
   recovery: [
     {
       target: 'recovery-metrics',
@@ -144,75 +129,6 @@ export const TOURS: Record<string, TourStep[]> = {
       title: 'Gere ou agende relatórios',
       body: '"Gerar agora" cria uma execução imediata dos últimos 7 dias. "Configurar" ajusta o agendamento e os destinatários por e-mail de cada relatório.',
       placement: 'bottom',
-    },
-  ],
-
-  connections: [
-    {
-      target: 'connections-new',
-      title: 'Adicione uma conexão',
-      body: 'Cadastre um novo número de WhatsApp com nome e telefone pra começar a monitorar as conversas dele.',
-      placement: 'left',
-    },
-    {
-      target: 'connections-list',
-      title: 'Gerencie cada conexão',
-      body: 'Reconectar, testar, renomear, desconectar ou excluir — as ações aparecem em cada cartão. Expanda "Diagnóstico" pra ver a saúde da conexão em detalhe.',
-      placement: 'top',
-    },
-  ],
-
-  settings: [
-    {
-      target: 'settings-tabs',
-      title: 'Tudo configurável em um lugar',
-      body: 'Dados da empresa, horário comercial, SLAs de atendimento, parâmetros financeiros, parâmetros da análise, notificações, privacidade e regras de alerta — cada aba salva de forma independente com o botão Salvar no final dela.',
-      placement: 'bottom',
-    },
-  ],
-
-  members: [
-    {
-      target: 'members-add',
-      title: 'Adicione um membro',
-      body: 'Cadastre nome, e-mail, função e equipe de um novo colaborador da organização.',
-      placement: 'left',
-    },
-    {
-      target: 'members-table',
-      title: 'Gerencie funções e acesso',
-      body: 'Use o menu de ações de cada linha (ícone de três pontos) pra trocar a função do membro ou removê-lo da organização.',
-      placement: 'top',
-    },
-  ],
-
-  teams: [
-    {
-      target: 'teams-create',
-      title: 'Crie uma nova equipe',
-      body: 'Defina o nome da equipe e escolha um supervisor entre os agentes cadastrados.',
-      placement: 'left',
-    },
-    {
-      target: 'teams-list',
-      title: 'Ative ou desative equipes',
-      body: 'Cada cartão mostra o supervisor, o número de membros e permite ativar ou desativar a equipe.',
-      placement: 'top',
-    },
-  ],
-
-  plans: [
-    {
-      target: 'plans-usage',
-      title: 'Acompanhe o uso do seu plano',
-      body: 'Conversas, mensagens, agentes e conexões consumidos este mês em relação ao limite do seu plano atual.',
-      placement: 'bottom',
-    },
-    {
-      target: 'plans-compare',
-      title: 'Compare os planos',
-      body: 'Veja os limites e recursos de cada plano lado a lado, e a tabela completa de comparação logo abaixo.',
-      placement: 'top',
     },
   ],
 

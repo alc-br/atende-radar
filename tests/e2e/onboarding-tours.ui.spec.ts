@@ -26,13 +26,13 @@ test.describe('Assistente de configuração', () => {
     await etapa(page, 2)
     await page.getByRole('button', { name: 'Próximo' }).click()
     await etapa(page, 3)
-    await page.locator('#avgTicket').fill('350')
+    await page.locator('#avgTicket').fill('35000') // máscara de reais: centavos à direita
     await page.locator('#convRate').fill('20')
 
     await page.reload() // a tela volta para a Visão Geral; o assistente é reaberto por Configurações
     await openOnboarding(page, !!isMobile)
     await etapa(page, 3)
-    await expect(page.locator('#avgTicket')).toHaveValue('350')
+    await expect(page.locator('#avgTicket')).toHaveValue('350,00')
     await expect(page.locator('#convRate')).toHaveValue('20')
     await page.getByRole('button', { name: 'Voltar' }).click()
     await page.getByRole('button', { name: 'Voltar' }).click()

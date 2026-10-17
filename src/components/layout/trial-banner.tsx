@@ -7,10 +7,27 @@ import { useAppStore } from '@/lib/store'
 interface Sub {
   status: string
   trialDaysLeft: number | null
+  trialEnd: string | null
   planName: string
   conversations: { current: number; limit: number } | null
   unanalyzed: number
   paused: boolean
+}
+
+const TZ = 'America/Sao_Paulo'
+const dayKey = (d: Date) => d.toLocaleDateString('pt-BR', { timeZone: TZ })
+
+/** Último dia do teste: "em 8 minutos (às 14:30)", "hoje às 14:30" ou "amanhã às 09:00" (horário de Brasília). */
+export function trialEndsText(end: Date, now: Date): string {
+  const ms = end.getTime() - now.getTime()
+  const time = end.toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
+  if (ms < 3600_000) {
+    const min = Math.max(1, Math.ceil(ms / 60_000))
+    return `em ${min} ${min === 1 ? 'minuto' : 'minutos'} (às ${time})`
+  }
+  if (dayKey(end) === dayKey(now)) return `hoje às ${time}`
+  if (dayKey(end) === dayKey(new Date(now.getTime() + 86400_000))) return `amanhã às ${time}`
+  return `em ${end.toLocaleDateString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit' })} às ${time}`
 }
 
 // Faixa sobre o conteúdo: mostra quanto falta do teste grátis (ou que a assinatura não está ativa). Só para quem administra a assinatura.
@@ -19,6 +36,7 @@ export function TrialBanner() {
   const me = useAppStore((s) => s.me)
   const refreshTrigger = useAppStore((s) => s.refreshTrigger)
   const [sub, setSub] = useState<Sub | null>(null)
+  const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
     if (me?.role !== 'admin') return
@@ -27,12 +45,27 @@ export function TrialBanner() {
       .then((d) =>
         setSub(
           d?.subscription
-            ? { status: d.subscription.status, trialDaysLeft: d.subscription.trialDaysLeft, planName: d.subscription.plan?.name ?? 'atual', conversations: d.usage?.conversations ?? null, unanalyzed: d.analysis?.unanalyzed ?? 0, paused: !!d.analysis?.paused }
+            ? { status: d.subscription.status, trialDaysLeft: d.subscription.trialDaysLeft, trialEnd: d.subscription.trialEnd ?? null, planName: d.subscription.plan?.name ?? 'atual', conversations: d.usage?.conversations ?? null, unanalyzed: d.analysis?.unanalyzed ?? 0, paused: !!d.analysis?.paused }
             : null
         )
       )
       .catch(() => setSub(null))
   }, [me?.role, refreshTrigger])
+
+  // no último dia o texto conta os minutos; quando o teste acaba com a tela aberta, recarrega (o painel fica bloqueado
+  // e só Planos responde)
+  const endMs = sub?.status === 'trialing' && sub.trialEnd ? new Date(sub.trialEnd).getTime() : null
+  useEffect(() => {
+    if (endMs === null) return
+    const left = endMs - Date.now()
+    if (left > 86400_000 || left <= 0) return
+    const tick = window.setInterval(() => setNow(new Date()), 30_000)
+    const reload = window.setTimeout(() => window.location.reload(), left + 1500)
+    return () => {
+      window.clearInterval(tick)
+      window.clearTimeout(reload)
+    }
+  }, [endMs])
 
   if (!sub) return null
   const trialing = sub.status === 'trialing'
@@ -53,7 +86,7 @@ export function TrialBanner() {
   // T11 · reta final do teste: 3 dias ou menos (âmbar reforçado) e o último dia (vermelho)
   const daysLeft = sub.trialDaysLeft ?? 0
   const ending = trialing && !inactive && daysLeft <= 3
-  const lastDay = ending && daysLeft <= 1
+  const lastDay = ending && (endMs !== null ? endMs - now.getTime() <= 86400_000 : daysLeft <= 1)
   const danger = inactive || quotaLevel === 'exceeded' || lastDay
   // Mesmo componente "aviso" do pacote de design (painel/configuracoes.html); vermelho quando bloqueia
   return (
@@ -78,7 +111,7 @@ export function TrialBanner() {
                   ? <span data-testid="analysis-paused">Seu teste grátis terminou ou a assinatura não está ativa. A análise das conversas está pausada (as mensagens continuam sendo recebidas). Contrate um plano para retomar e continuar cadastrando.</span>
                   : 'Seu teste grátis terminou ou a assinatura não está ativa. Contrate um plano para continuar cadastrando.'
                 : ending
-                  ? <>Seu teste grátis termina <b data-testid="trial-days-left">{lastDay ? 'em até 1 dia' : `em ${daysLeft} dias`}</b>. Contrate um plano para não perder o acesso.</>
+                  ? <>Seu teste grátis termina <b data-testid="trial-days-left">{lastDay ? (endMs !== null ? trialEndsText(new Date(endMs), now) : 'hoje') : `em ${daysLeft} dias`}</b>. Contrate um plano para não perder o acesso.</>
                   : <>Teste grátis: <b data-testid="trial-days-left">{sub.trialDaysLeft} {sub.trialDaysLeft === 1 ? 'dia restante' : 'dias restantes'}</b>.</>}
             </span>
           )}

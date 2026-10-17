@@ -202,31 +202,32 @@ async function generate(cfg: TtsConfig, text: string, key: string): Promise<Tour
  * Onde o áudio deste texto fica no cache. Não depende da chave da Azure: um áudio já gerado continua sendo servido
  * mesmo sem chave configurada (ou com a Azure fora do ar), sem nenhuma chamada a ela.
  */
-function cacheSlot(text: string, env: Env): { key: string; file: string } {
+function cacheSlot(text: string, env: Env, voice?: string): { key: string; file: string } {
   const fake = env.TOUR_AUDIO_FAKE === '1' && env.NODE_ENV !== 'production'
-  const key = tourAudioKey(fake ? 'fake' : 'azure', env.AZURE_SPEECH_VOICE?.trim() || DEFAULT_VOICE, text)
+  const key = tourAudioKey(fake ? 'fake' : 'azure', voice || env.AZURE_SPEECH_VOICE?.trim() || DEFAULT_VOICE, text)
   return { key, file: fileFor(tourAudioDir(env), key) }
 }
 
-/** Chave que o texto terá agora (sem gerar nada). */
-export function tourAudioIdentity(text: string, env: Env = process.env): { key: string; format: TourAudioFormat } {
-  return { key: cacheSlot(text, env).key, format: 'mp3' }
+/** Chave que o texto terá agora (sem gerar nada). voice = voz só deste texto (senão a padrão). */
+export function tourAudioIdentity(text: string, env: Env = process.env, voice?: string): { key: string; format: TourAudioFormat } {
+  return { key: cacheSlot(text, env, voice).key, format: 'mp3' }
 }
 
 /** O áudio deste texto já está no cache? */
-export async function tourAudioCached(text: string, env: Env = process.env): Promise<boolean> {
-  return nonEmpty(cacheSlot(text, env).file)
+export async function tourAudioCached(text: string, env: Env = process.env, voice?: string): Promise<boolean> {
+  return nonEmpty(cacheSlot(text, env, voice).file)
 }
 
 /**
  * Áudio do texto: do cache quando já existe (a Azure não é chamada); senão gera (uma vez só, mesmo com pedidos simultâneos).
  * Lança TtsUnavailableError quando falta o áudio e não há TTS configurado ou a Azure recusa; outros erros = a geração falhou.
  */
-export async function getTourAudio(text: string, env: Env = process.env): Promise<TourAudio> {
-  const { key, file } = cacheSlot(text, env)
+export async function getTourAudio(text: string, env: Env = process.env, voice?: string): Promise<TourAudio> {
+  const { key, file } = cacheSlot(text, env, voice)
   const cached = (): TourAudio => ({ key, file, format: 'mp3', contentType: CONTENT_TYPES.mp3, generated: false })
   if (await nonEmpty(file)) return cached()
-  const cfg = ttsConfig(env)
+  const base = ttsConfig(env)
+  const cfg = base && voice ? { ...base, voice } : base
   if (!cfg) throw new TtsUnavailableError('Azure Speech não configurada (AZURE_SPEECH_KEY e AZURE_SPEECH_REGION)')
 
   const pending = inflight.get(key)

@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { signOut, useSession } from 'next-auth/react'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { AppHeader } from '@/components/layout/app-header'
 import { TourOverlay } from '@/components/tour/tour-overlay'
 import { TOURS } from '@/lib/tours'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, type View } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import DashboardView from '@/components/dashboard/dashboard-view'
 import AlertsView from '@/components/alerts/alerts-view'
@@ -35,10 +35,14 @@ import { APP_VERSION } from '@/lib/app-version'
 import { canOpenView } from '@/lib/permissions'
 import { TrialBanner } from '@/components/layout/trial-banner'
 import { DeletionBanner } from '@/components/layout/deletion-banner'
+import { LockedShell } from '@/components/layout/locked-shell'
 import { onAppHost } from '@/lib/hosts'
 
 // Telas sem guia automático na primeira visita (o guia continua em "Guia desta tela").
 const NO_AUTO_TOUR = new Set(['plans', 'checkout'])
+// Telas que abrem com a empresa bloqueada (sem plano) e telas que um link (#tela) pode abrir.
+const LOCK_OPEN_VIEWS = new Set<string>(['plans', 'checkout', 'profile', 'help'])
+const HASH_VIEWS = new Set<View>(['dashboard', 'alerts', 'conversations', 'recovery', 'team', 'reports', 'connections', 'settings', 'members', 'teams', 'plans', 'notifications', 'profile', 'help', 'system-tour', 'admin'])
 
 function MainContent() {
   const { currentView, selectedConversationId, selectedAgentId, mobileNavOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
@@ -85,20 +89,40 @@ function MainContent() {
   }, [status, setShowLanding, setShowLogin])
 
   // Papel real (vem do banco) para montar o menu e bloquear telas que o papel não pode abrir.
-  useEffect(() => {
-    if (status !== 'authenticated') {
-      setMe(null)
-      return
-    }
+  const loadMe = useCallback(() => {
     fetch('/api/me')
       .then((r) => {
         // sessão que o servidor não aceita mais (conta removida, senha trocada): sai em vez de mostrar um painel vazio
         if (r.status === 401) void signOut({ redirect: false })
         return r.ok ? r.json() : null
       })
-      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName, organizationLogoUrl: d.organizationLogoUrl ?? null, organizationDeletion: d.organizationDeletion ?? null } : null))
+      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName, organizationLogoUrl: d.organizationLogoUrl ?? null, organizationDeletion: d.organizationDeletion ?? null, subscriptionLock: d.subscriptionLock ?? null } : null))
       .catch(() => setMe(null))
-  }, [status, setMe])
+  }, [setMe])
+  useEffect(() => {
+    if (status !== 'authenticated') {
+      setMe(null)
+      return
+    }
+    loadMe()
+  }, [status, setMe, loadMe])
+
+  // Empresa bloqueada (sem plano): ao sair de Planos/Pagamento (ex.: "Ir para o painel" depois de pagar) confere de novo
+  // no servidor; com o plano ativo, o painel completo volta sem recarregar a página.
+  const locked = !!me?.subscriptionLock
+  useEffect(() => {
+    if (locked && !LOCK_OPEN_VIEWS.has(currentView)) loadMe()
+  }, [locked, currentView, loadMe])
+
+  // Links dos e-mails (ex.: https://app.atenderadar.com.br/#plans): abre a tela do endereço depois de entrar.
+  const setView = useAppStore((s) => s.setView)
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    const hash = window.location.hash.replace(/^#/, '')
+    if (!hash || !HASH_VIEWS.has(hash as View)) return
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    setView(hash as View)
+  }, [status, setView])
 
   useEffect(() => {
     if (status !== 'authenticated') return
@@ -113,6 +137,7 @@ function MainContent() {
   const welcomeView = useRef<string | null>(null)
   useEffect(() => {
     if (!toursLoaded || activeTour || !me) return // espera saber o papel para mostrar o tour certo
+    if (me.subscriptionLock) return // empresa bloqueada: só Planos, sem guias
     if (systemTourOpen) return // com o Tour pelo sistema aberto, os guias rápidos não abrem por cima
     if (!seenTours.includes('welcome')) {
       const id = window.setTimeout(() => {
@@ -206,6 +231,9 @@ function MainContent() {
     // No domínio do app não existe página de vendas: quem não entrou vê a tela de entrar
     return showLogin || onAppHost() ? <LoginPage /> : <LandingPage />
   }
+
+  // Sem plano (teste vencido ou assinatura encerrada): só Planos/Pagamento/Perfil/Ajuda, sem o painel
+  if (me?.subscriptionLock) return <LockedShell />
 
   // Mesma estrutura do pacote de design (painel/app.js): menu lateral fixo, véu do celular e coluna principal
   return (

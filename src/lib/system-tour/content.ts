@@ -1057,6 +1057,35 @@ const CHAPTERS: SystemTourChapter[] = [
   },
 ]
 
+/**
+ * Introdução do treinamento: um passo só, antes da 1ª aula, quando a pessoa clica em "Começar o treinamento". Mostra
+ * onde ficam todas as aulas (Treinamento do sistema, no rodapé do menu), com outra voz feminina, e emenda na 1ª aula
+ * (que começa com "Olá!"). Não é uma aula: não entra na lista nem na contagem de aulas concluídas.
+ */
+export const TRAINING_INTRO: SystemTourChapter = {
+  id: 'antes-de-comecar',
+  title: 'Antes de começar',
+  summary: 'Onde ficam todas as aulas do treinamento.',
+  views: ['dashboard'],
+  voice: 'pt-BR-ThalitaNeural',
+  steps: [
+    {
+      id: 'treinamento-no-menu',
+      kind: 'info',
+      title: 'Todas as aulas ficam em "Treinamento do sistema"',
+      target: 'sidebar-tour',
+      view: 'dashboard',
+      body: [
+        'Antes de iniciar: você pode acessar **todas as aulas** a qualquer momento pelo menu **Treinamento do sistema**, destacado aqui no rodapé do menu lateral.',
+        'Lá ficam a lista completa de aulas e as que você já concluiu. Agora vamos começar pela primeira.',
+      ],
+      narration:
+        'Antes de iniciar, uma dica rápida: você pode acessar todas as aulas a qualquer momento pelo menu Treinamento do sistema, que estou destacando aqui no rodapé do menu lateral. Lá ficam a lista completa de aulas e as que você já concluiu. Agora, vamos começar.',
+      cues: [{ at: 'Treinamento do sistema', focus: 'target' }],
+    },
+  ],
+}
+
 /** Capítulos com a narração falada de cada passo e os momentos em que o destaque acompanha a voz (narration.ts). */
 export const SYSTEM_TOUR_CHAPTERS: SystemTourChapter[] = CHAPTERS.map((c) => ({
   ...c,

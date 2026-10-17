@@ -82,5 +82,7 @@ export interface SystemTourChapter {
   requires?: Permission
   /** Só para o operador da plataforma (painel Admin). */
   platformOnly?: boolean
+  /** Voz da Azure só deste capítulo (ex.: a introdução usa outra voz feminina). Sem definição: a voz padrão. */
+  voice?: string
   steps: SystemTourStep[]
 }

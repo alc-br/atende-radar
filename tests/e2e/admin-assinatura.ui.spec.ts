@@ -102,6 +102,20 @@ test('faixa do teste nos últimos dias: aviso de que o teste termina e "Ver plan
   await c.dispose()
 })
 
+test('último dia do teste: a faixa diz quando acaba (minutos e horário), sem "em até 1 dia"', async ({ page, context }) => {
+  const { c, orgId } = await newCompany()
+  const trialEnd = new Date(Date.now() + 20 * 60_000)
+  await testDb.subscription.update({ where: { organizationId: orgId }, data: { status: 'trialing', trialEnd, currentPeriodEnd: trialEnd } })
+  for (const tourId of ['welcome', 'dashboard']) await c.patch('/api/tours', { data: { tourId } })
+  await context.addCookies((await c.storageState()).cookies)
+  await page.goto('/')
+  const banner = page.getByTestId('trial-banner')
+  await expect(banner).toHaveAttribute('data-state', 'last-day', { timeout: 20_000 })
+  const time = trialEnd.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
+  await expect(banner.getByTestId('trial-days-left')).toHaveText(new RegExp(`^em (19|20) minutos \\(às ${time}\\)$`))
+  await c.dispose()
+})
+
 test('quem não é operador da plataforma não vê o Admin', async ({ page, context }) => {
   const { c } = await newCompany()
   await context.addCookies((await c.storageState()).cookies)

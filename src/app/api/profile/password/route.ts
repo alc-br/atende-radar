@@ -13,7 +13,7 @@ const MAX_FAILS = 5
 const WINDOW_MS = 15 * 60000
 
 export async function POST(request: Request) {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const key = `password-change:${g.auth.memberId}`
   if (exceeded(key, MAX_FAILS, WINDOW_MS)) {

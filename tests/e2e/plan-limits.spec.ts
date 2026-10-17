@@ -139,9 +139,11 @@ test.describe('T11 · avisos de fim do teste grátis', () => {
     return { c, orgId, trialEnd }
   }
   const notices = (orgId: string) => testDb.notification.findMany({ where: { organizationId: orgId, type: 'billing', data: { contains: 'trial_ending' } }, orderBy: { createdAt: 'asc' } })
+  const mails = (orgId: string) => testDb.emailOutbox.findMany({ where: { organizationId: orgId, kind: { startsWith: 'billing:trial_' } }, orderBy: { createdAt: 'asc' } })
 
-  test('um aviso a 3 dias e outro a 1 dia, cada um uma vez só', async () => {
+  test('avisos a 3 dias, 1 dia, último aviso a 6 h e "terminou": cada um uma vez, no sino e por e-mail', async () => {
     const { c, orgId, trialEnd } = await trialCompany(2.5 * DAY)
+    const admin = (await testDb.organizationMember.findFirstOrThrow({ where: { organizationId: orgId, role: 'admin' } })).email
     const gw = await gatewayClient()
     const tick = async (at: Date) => {
       const r = await gw.post('/api/gateway/tick', { data: { trialNoticesAt: at.toISOString(), organizationId: orgId } })
@@ -162,8 +164,27 @@ test.describe('T11 · avisos de fim do teste grátis', () => {
     expect(list).toHaveLength(2)
     expect(list[1].title).toBe('Seu teste grátis termina em menos de 1 dia')
 
-    // depois do fim do teste não há mais aviso
-    expect(await tick(new Date(trialEnd.getTime() + 3600_000))).toBe(0)
+    // último aviso faltando 6 horas ou menos
+    const last = new Date(trialEnd.getTime() - 5 * 3600_000)
+    expect(await tick(last)).toBe(1)
+    expect(await tick(last)).toBe(0)
+    list = await notices(orgId)
+    expect(list[2].title).toBe('Último aviso: seu teste grátis termina em 5 horas')
+
+    // o fim do teste vira o aviso "terminou" (uma vez) e, passados 7 dias, nada mais
+    const after = new Date(trialEnd.getTime() + 3600_000)
+    expect(await tick(after)).toBe(1)
+    expect(await tick(after)).toBe(0)
+    expect((await notices(orgId))[3].title).toBe('Seu teste grátis terminou')
+    expect(await tick(new Date(trialEnd.getTime() + 8 * DAY))).toBe(0)
+
+    // cada aviso foi também por e-mail ao administrador, com o link para Planos
+    const sent = await mails(orgId)
+    expect(sent.map((m) => m.kind!.split(':')[1])).toEqual(['trial_3d', 'trial_1d', 'trial_6h', 'trial_ended'])
+    expect(sent.every((m) => m.toEmail === admin)).toBe(true)
+    expect(sent[2].subject).toBe('Último aviso: seu teste grátis termina em 5 horas')
+    expect(sent[2].body).toContain('/#plans')
+    expect(sent[3].subject).toBe('Seu teste grátis do AtendeRadar terminou')
 
     // o administrador vê os avisos na central de notificações
     const notifs = (await (await c.get('/api/notifications')).json()).notifications as Array<{ title: string }>
@@ -182,11 +203,43 @@ test.describe('T11 · avisos de fim do teste grátis', () => {
     expect((await (await gw.post('/api/gateway/tick', { data: { trialNoticesAt: new Date().toISOString(), organizationId: paid.orgId } })).json()).trialNotices).toBe(0)
     expect(await notices(far.orgId)).toHaveLength(0)
     expect(await notices(paid.orgId)).toHaveLength(0)
+    expect(await mails(paid.orgId)).toHaveLength(0)
+
+    // quem já contratou não recebe aviso de teste, nem o "terminou" (assinatura no provedor)
+    const sub = await trialCompany(-3600_000)
+    await testDb.subscription.update({ where: { organizationId: sub.orgId }, data: { providerSubscriptionId: `sub_${Date.now()}` } })
+    expect((await (await gw.post('/api/gateway/tick', { data: { trialNoticesAt: new Date().toISOString(), organizationId: sub.orgId } })).json()).trialNotices).toBe(0)
+    expect(await mails(sub.orgId)).toHaveLength(0)
+    await sub.c.dispose()
 
     expect((await gw.post('/api/gateway/tick', { data: { trialNoticesAt: 'ontem' } })).status()).toBe(400)
     await gw.dispose()
     await far.c.dispose()
     await paid.c.dispose()
+  })
+
+  test('teste curto (TRIAL_MINUTES): os marcos viram 60%, 40% e 20% do tempo restante', async () => {
+    const { c, orgId } = await trialCompany(10 * 60_000) // 10 minutos a partir do cadastro
+    const sub = await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })
+    const start = sub.createdAt.getTime()
+    const end = sub.trialEnd!.getTime()
+    const gw = await gatewayClient()
+    const tick = async (at: number) => (await (await gw.post('/api/gateway/tick', { data: { trialNoticesAt: new Date(at).toISOString(), organizationId: orgId } })).json()).trialNotices as number
+    expect(await tick(start + 60_000)).toBe(0) // 9 min restantes: ainda nada
+    expect(await tick(end - 5 * 60_000)).toBe(1) // 50% restante → 1º aviso
+    expect(await tick(end - 3 * 60_000)).toBe(1) // 30% → 2º
+    expect(await tick(end - 60_000)).toBe(1) // 10% → último aviso
+    expect(await tick(end + 1000)).toBe(1) // terminou
+    const list = await notices(orgId)
+    expect(list.map((n) => n.title)).toEqual([
+      'Seu teste grátis termina em 5 minutos',
+      'Seu teste grátis termina em 3 minutos',
+      'Último aviso: seu teste grátis termina em 1 minuto',
+      'Seu teste grátis terminou',
+    ])
+    expect(await mails(orgId)).toHaveLength(4)
+    await gw.dispose()
+    await c.dispose()
   })
 
   test('estender o teste vale como um teste novo: os avisos saem de novo para a data nova', async () => {

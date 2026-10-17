@@ -12,7 +12,7 @@ const SCREENS = new Set([
 ])
 
 export async function POST(request: Request) {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const j = await readJson<{ name?: unknown; view?: unknown }>(request)
   if (!j.ok) return j.res

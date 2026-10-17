@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from './auth'
 import { db } from './db'
 import { can, type Permission } from './permissions'
+import { LOCKED_MESSAGE, orgLock } from './billing/lock'
 
 export interface AuthContext {
   memberId: string
@@ -24,7 +25,7 @@ export type Guard = { ok: true; auth: AuthContext } | { ok: false; res: NextResp
  *  - a organização vem da sessão, nunca do corpo da requisição;
  *  - `permission` (opcional) → 403 se o papel não tem.
  */
-export async function guard(permission?: Permission): Promise<Guard> {
+export async function guard(permission?: Permission, opts: { allowLocked?: boolean } = {}): Promise<Guard> {
   const session = await getServerSession(authOptions)
   const memberId = (session?.user as { id?: string } | undefined)?.id
   if (!memberId) return { ok: false, res: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) }
@@ -41,10 +42,18 @@ export async function guard(permission?: Permission): Promise<Guard> {
     return { ok: false, res: NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 }) }
   }
 
-  return {
-    ok: true,
-    auth: { memberId: member.id, orgId: member.organizationId, role: member.role, email: member.email, name: member.name, emailVerified: !!member.emailVerifiedAt, team: member.team?.trim() || null },
+  const auth: AuthContext = { memberId: member.id, orgId: member.organizationId, role: member.role, email: member.email, name: member.name, emailVerified: !!member.emailVerifiedAt, team: member.team?.trim() || null }
+
+  // Empresa sem plano (teste vencido ou assinatura encerrada): só as rotas de Planos/Pagamento/Perfil passam
+  // (allowLocked). O operador da plataforma nunca é bloqueado (precisa do Admin para atender a empresa).
+  if (!opts.allowLocked && !isPlatformOperator(auth)) {
+    const lock = await orgLock(auth.orgId)
+    if (lock) {
+      return { ok: false, res: NextResponse.json({ error: LOCKED_MESSAGE[lock.reason], code: 'subscription_locked', reason: lock.reason }, { status: 402 }) }
+    }
   }
+
+  return { ok: true, auth }
 }
 
 /**

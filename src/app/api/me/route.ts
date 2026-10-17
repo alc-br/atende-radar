@@ -3,10 +3,11 @@ import { guard, isPlatformOperator } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { deletionInfo } from '@/lib/org-deletion'
 import { avatarUrl, logoUrl } from '@/lib/uploads'
+import { orgLock } from '@/lib/billing/lock'
 
 // Quem sou eu: papel atual (vem do banco, não do cookie) e se sou operador da plataforma. A interface usa isto para montar o menu.
 export async function GET() {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const { memberId, orgId, role, email, name, emailVerified, team } = g.auth
   // Nome da empresa para o seletor da barra superior
@@ -20,5 +21,7 @@ export async function GET() {
     isPlatformOperator: isPlatformOperator(g.auth),
     // exclusão da empresa pedida pelo dono: a faixa de aviso aparece para todos os membros
     organizationDeletion: org ? deletionInfo(org) : null,
+    // empresa sem plano (teste vencido ou assinatura encerrada): a interface mostra só Planos (o operador nunca é bloqueado)
+    subscriptionLock: isPlatformOperator(g.auth) ? null : await orgLock(orgId).then((l) => (l ? { reason: l.reason, since: l.since?.toISOString() ?? null } : null)),
   })
 }

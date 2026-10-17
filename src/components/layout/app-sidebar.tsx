@@ -108,6 +108,8 @@ export function AppSidebar() {
           <small>Auditor de WhatsApp</small>
         </a>
 
+        {/* Logo fixo em cima, atalhos (promo, treinamento, ajuda) fixos embaixo: só os itens do menu rolam */}
+        <div className="lateral__rolagem">
         <nav className="nav-lateral" aria-label="Principal">{mainNavItems.filter(visible).map(renderNavItem)}</nav>
 
         {admin.length > 0 && (
@@ -117,6 +119,9 @@ export function AppSidebar() {
           </>
         )}
 
+        </div>
+
+        <div className="lateral__rodape">
         {canSeeReports && (
           <div className="promo">
             <svg className="grafico" viewBox="0 0 74 40" fill="none" aria-hidden="true">
@@ -190,6 +195,7 @@ export function AppSidebar() {
             <span>Central de ajuda e guias</span>
           </span>
         </button>
+        </div>
       </aside>
       {/* Celular: fundo escurecido; tocar fecha a gaveta */}
       <div className="veu" aria-hidden="true" onClick={() => setMobileNavOpen(false)} />

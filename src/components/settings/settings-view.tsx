@@ -17,6 +17,11 @@ import { HelpTip } from '@/components/ui/help-tip'
 import { toast } from 'sonner'
 import { mutate } from '@/lib/mutation'
 import { tourSignal } from '@/lib/system-tour/signals'
+import { formatDocument, formatPhone } from '@/lib/billing/format'
+import { moneyProps } from '@/lib/money-input'
+
+/** O campo Site já mostra o https:// fixo; se a pessoa colar o endereço com http(s)://, ele sai ao deixar o campo. */
+const siteSemProtocolo = (v: string) => v.trim().replace(/^(https?:\/\/)+/i, '')
 
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 // Ordem de exibição: segunda a domingo (as chaves continuam 0 = domingo ... 6 = sábado)
@@ -123,10 +128,10 @@ export default function SettingsView() {
       if (data.organization) {
         setEmpName(data.organization.name || '')
         setEmpDisplay(data.organization.displayName || '')
-        setEmpCnpj(data.organization.cnpj || '')
+        setEmpCnpj(formatDocument(data.organization.cnpj || ''))
         setEmpSegment(data.organization.segment || '')
-        setEmpSite(data.organization.website || '')
-        setEmpPhone(data.organization.phone || '')
+        setEmpSite(siteSemProtocolo(data.organization.website || ''))
+        setEmpPhone(formatPhone(data.organization.phone || ''))
         setEmpEmail(data.organization.adminEmail || '')
         setEmpTimezone(data.organization.timezone || 'America/Sao_Paulo')
       }
@@ -183,7 +188,7 @@ export default function SettingsView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: empName, displayName: empDisplay, cnpj: empCnpj, segment: empSegment,
-          website: empSite, phone: empPhone, adminEmail: empEmail, timezone: empTimezone,
+          website: siteSemProtocolo(empSite) ? `https://${siteSemProtocolo(empSite)}` : '', phone: empPhone, adminEmail: empEmail, timezone: empTimezone,
         }),
       })
       if (!res.ok) {
@@ -363,7 +368,7 @@ export default function SettingsView() {
               </div>
               <div className="campo">
                 <label htmlFor="c-cnpj">CNPJ</label>
-                <input className="entrada mono" id="c-cnpj" inputMode="numeric" value={empCnpj} onChange={e => setEmpCnpj(e.target.value)} />
+                <input className="entrada mono" id="c-cnpj" inputMode="numeric" placeholder="00.000.000/0000-00" maxLength={18} value={empCnpj} onChange={e => setEmpCnpj(formatDocument(e.target.value))} />
               </div>
               <div className="campo">
                 <label htmlFor="c-seg">Segmento</label>
@@ -374,11 +379,14 @@ export default function SettingsView() {
               </div>
               <div className="campo">
                 <label htmlFor="c-site">Site</label>
-                <input className="entrada" id="c-site" type="url" value={empSite} onChange={e => setEmpSite(e.target.value)} />
+                <div className="entrada-prefixo">
+                  <span aria-hidden="true">https://</span>
+                  <input className="entrada" id="c-site" type="text" inputMode="url" autoComplete="url" placeholder="www.suaempresa.com.br" value={empSite} onChange={e => setEmpSite(e.target.value)} onBlur={() => setEmpSite(siteSemProtocolo(empSite))} />
+                </div>
               </div>
               <div className="campo">
                 <label htmlFor="c-tel">Telefone</label>
-                <input className="entrada" id="c-tel" type="tel" value={empPhone} onChange={e => setEmpPhone(e.target.value)} />
+                <input className="entrada" id="c-tel" type="tel" inputMode="tel" placeholder="(11) 99999-9999" maxLength={15} value={empPhone} onChange={e => setEmpPhone(formatPhone(e.target.value))} />
               </div>
               <div className="campo">
                 <label htmlFor="c-email">E-mail do administrador</label>
@@ -515,7 +523,7 @@ export default function SettingsView() {
               <div className="form-grade">
                 <div className="campo">
                   <label htmlFor="f-ticket">Ticket médio inicial (R$)</label>
-                  <input className="entrada" id="f-ticket" type="number" inputMode="decimal" value={avgTicket} onChange={e => setAvgTicket(e.target.value)} />
+                  <input className="entrada" id="f-ticket" placeholder="0,00" {...moneyProps(String(avgTicket ?? ''), setAvgTicket)} />
                 </div>
                 <div className="campo">
                   <label htmlFor="f-conv">Taxa de conversão inicial (%)</label>
@@ -529,7 +537,7 @@ export default function SettingsView() {
                 <div className="campo">
                   <label htmlFor="f-teto">Teto por oportunidade (R$)</label>
                   <p className="ajuda-campo" id="f-teto-ajuda">Nenhuma oportunidade é estimada acima deste valor. Vazio = sem teto.</p>
-                  <input className="entrada" id="f-teto" type="number" min={0} placeholder="Sem teto" aria-describedby="f-teto-ajuda" value={opportunityCeiling} onChange={e => setOpportunityCeiling(e.target.value)} />
+                  <input className="entrada" id="f-teto" placeholder="Sem teto" aria-describedby="f-teto-ajuda" {...moneyProps(String(opportunityCeiling ?? ''), setOpportunityCeiling)} />
                 </div>
                 <Opcao
                   icon={<DollarSign className="ic" />} tone="tom-verde"
@@ -559,7 +567,7 @@ export default function SettingsView() {
                         {products.map((p, i) => (
                           <tr key={i}>
                             <td><input className="entrada" aria-label={`Nome do produto ${i + 1}`} placeholder="Nome" value={p.name} onChange={e => updateProduct(i, 'name', e.target.value)} /></td>
-                            <td><input className="entrada" aria-label={`Valor do produto ${i + 1}`} type="number" value={p.value} onChange={e => updateProduct(i, 'value', e.target.value)} /></td>
+                            <td><input className="entrada" aria-label={`Valor do produto ${i + 1}`} placeholder="0,00" {...moneyProps(String(p.value ?? ''), (v) => updateProduct(i, 'value', v))} /></td>
                             <td>
                               <button className="reticencias" type="button" aria-label="Excluir" onClick={() => removeProduct(i)}>
                                 <Trash2 className="ic" aria-hidden="true" />

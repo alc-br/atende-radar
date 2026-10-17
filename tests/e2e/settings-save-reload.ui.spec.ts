@@ -4,11 +4,12 @@ import { loginAs, signupOrg } from './helpers'
 // T10 · Cada aba de Configurações que tem formulário: muda um campo, salva, recarrega a página e o valor continua lá.
 // Empresa nova (cadastro real) para não mexer na empresa de demonstração.
 
-const TABS: Array<{ tab: string; field: string; value: string }> = [
+// shown: o que o campo mostra depois (campos com máscara, ex.: reais digitados em centavos)
+const TABS: Array<{ tab: string; field: string; value: string; shown?: string }> = [
   { tab: 'Empresa', field: '#c-exibicao', value: 'Clínica Recarregada' },
   { tab: 'Horários', field: '#h-tol-antes', value: '7' },
   { tab: 'Atendimento', field: '#m-sla', value: '13' },
-  { tab: 'Financeiro', field: '#f-teto', value: '4321' },
+  { tab: 'Financeiro', field: '#f-teto', value: '432100', shown: '4.321,00' },
   { tab: 'Análise', field: '#a-termos', value: 'clareamento, faceta' },
   { tab: 'Notificações', field: '#n-ini', value: '21:45' },
   { tab: 'Privacidade', field: '#p-dpo', value: 'dpo@recarregada.test' },
@@ -43,7 +44,7 @@ test('salva e recarrega: o valor de cada aba continua lá depois de recarregar',
   await openSettings(page, isMobile)
   for (const t of TABS) {
     await page.getByRole('tab', { name: t.tab }).click()
-    await expect(page.getByRole('tabpanel', { name: t.tab }).locator(t.field)).toHaveValue(t.value, { timeout: 15000 })
+    await expect(page.getByRole('tabpanel', { name: t.tab }).locator(t.field)).toHaveValue(t.shown ?? t.value, { timeout: 15000 })
   }
 
   // e no servidor (o que o motor lê)

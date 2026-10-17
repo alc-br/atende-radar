@@ -62,8 +62,14 @@ test('teste grátis vencido sem plano: análise pausada, aviso claro; contratand
   const t = await c.tick({ onlyThisCompany: true })
   expect(t.paused).toBe('trial_expired')
   expect(t.conversations).toBe(0)
-  expect((await c.alerts()).alerts.some((a) => a.customerName === 'Teste Vencido')).toBe(false)
-  expect((await c.conversations('Teste Vencido')).length).toBe(1) // a mensagem foi recebida e guardada
+  // empresa bloqueada: o painel não responde (só Planos/Pagamento); no banco, nenhum alerta e a mensagem guardada
+  const locked = await c.admin.get('/api/alerts')
+  expect(locked.status()).toBe(402)
+  expect((await locked.json()).code).toBe('subscription_locked')
+  expect(await testDb.alert.count({ where: { organizationId: orgId } })).toBe(0)
+  expect(await testDb.conversation.count({ where: { organizationId: orgId } })).toBe(1) // a mensagem foi recebida e guardada
+  const me = await (await c.admin.get('/api/me')).json()
+  expect(me.subscriptionLock).toMatchObject({ reason: 'trial_expired' })
 
   await c.tick({ onlyThisCompany: true })
   const notices = await billingNotices(orgId, 'analysis_paused')

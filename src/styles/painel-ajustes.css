@@ -38,6 +38,17 @@
   /* Barra de rolagem fina, igual ao pacote */
   .ar .lateral::-webkit-scrollbar { width: 6px; }
   .ar .lateral::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 3px; }
+  /* Menu lateral: logo fixo em cima e o bloco de atalhos (promo, Treinamento, Ajuda) fixo embaixo; só os itens rolam.
+     Em telas muito baixas o menu inteiro volta a rolar junto (senão sobraria quase nada para os itens). */
+  .ar .lateral__rolagem { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; margin: 0 -12px; padding: 0 12px 12px; }
+  .ar .lateral__rolagem::-webkit-scrollbar { width: 6px; }
+  .ar .lateral__rolagem::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 3px; }
+  .ar .lateral__rodape { flex: 0 0 auto; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .07); }
+  .ar .lateral__rodape .promo, .ar .lateral__rodape .dica-dia { margin-top: 0; }
+  :root[data-estilo="claro"] .ar .lateral__rodape { border-top-color: var(--borda); }
+  @media (max-height: 640px) {
+    .ar .lateral__rolagem { flex: none; overflow: visible; }
+  }
 
   /* Páginas de conta (entrar, cadastro, senha, convite): o pacote só tem versão clara, com fundo claro próprio.
      No tema escuro elas continuam claras, senão o texto claro do tema escuro some no fundo claro. */
@@ -275,4 +286,12 @@
   .funcao-desc .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; color: #0c8f51; }
   .funcao-desc b { color: var(--foreground); font-weight: 600; }
   .rotulo-ajuda { display: flex; align-items: center; gap: 4px; }
+  /* Campo com prefixo fixo (Site: https://) */
+  .ar .entrada-prefixo { display: flex; align-items: stretch; }
+  .ar .entrada-prefixo > span {
+    display: flex; align-items: center; padding: 0 10px; font-size: 14px; color: var(--suave);
+    background: var(--superficie-3); border: 1px solid var(--borda-forte); border-right: 0;
+    border-radius: var(--raio-sm) 0 0 var(--raio-sm); user-select: none;
+  }
+  .ar .entrada-prefixo > .entrada { flex: 1; min-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 }

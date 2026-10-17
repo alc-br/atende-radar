@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { cleanPhone } from '@/lib/org-fields'
+import { onlyDigits } from '@/lib/billing/format'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
@@ -80,13 +82,20 @@ export async function POST(request: Request) {
       )
     }
 
-    const phoneLast4 = phoneNumber.slice(-4)
+    // número com DDD (a tela usa a máscara (11) 99999-9999); guardado como +55DDNÚMERO. Ao conectar, o WhatsApp
+    // informa o número real e ele substitui este.
+    const phone = cleanPhone(phoneNumber)
+    if ('error' in phone || !phone.value) {
+      return NextResponse.json({ error: 'Número do WhatsApp inválido. Informe o DDD e o número (10 ou 11 dígitos).' }, { status: 400 })
+    }
+    const digits = `55${onlyDigits(phone.value)}`
+    const phoneLast4 = digits.slice(-4)
 
     const connection = await db.whatsAppConnection.create({
       data: {
         organizationId: org.id,
         name,
-        phoneNumber,
+        phoneNumber: `+${digits}`,
         phoneLast4,
         status: 'qr_required',
       },

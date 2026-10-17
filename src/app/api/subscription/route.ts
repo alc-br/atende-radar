@@ -8,7 +8,7 @@ import { analysisGateStatus } from '@/lib/billing/analysis-gate'
 // A troca de plano só acontece com pagamento confirmado: pelo checkout (POST /api/billing/checkout, Pagar.me) ou, sem
 // pagamento on-line configurado, pelo pedido (POST /api/subscription/request) que o operador da plataforma ativa.
 export async function PATCH() {
-  const g = await guard('billing.manage')
+  const g = await guard('billing.manage', { allowLocked: true })
   if (!g.ok) return g.res
   return NextResponse.json(
     { error: 'A troca de plano depende de pagamento. Contrate pelo checkout na tela Planos.', code: 'payment_required' },
@@ -18,7 +18,7 @@ export async function PATCH() {
 
 export async function GET() {
   try {
-    const g = await guard('billing.manage')
+    const g = await guard('billing.manage', { allowLocked: true })
     if (!g.ok) return g.res
     const org = { id: g.auth.orgId }
 

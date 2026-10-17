@@ -22,7 +22,7 @@ const Body = z.object({
 })
 
 export async function POST(request: Request) {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const failKey = `email-change-fail:${g.auth.memberId}`
   if (exceeded(failKey, MAX_FAILS, FAIL_WINDOW_MS)) {
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
 /** Cancela a troca pendente: o link enviado deixa de valer. */
 export async function DELETE() {
-  const g = await guard()
+  const g = await guard(undefined, { allowLocked: true })
   if (!g.ok) return g.res
   const member = await db.organizationMember.findUnique({ where: { id: g.auth.memberId }, select: { id: true, email: true, pendingEmail: true } })
   if (member?.pendingEmail) {

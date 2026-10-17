@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useTheme } from 'next-themes'
 import { canOpenView } from '@/lib/permissions'
+import { TOURS } from '@/lib/tours'
 import { SITE_URL, splitHosts } from '@/lib/hosts'
 
 // Mesmas opções do pacote de design; o valor é o que a API do painel entende
@@ -207,7 +208,7 @@ export function AppHeader() {
           )}
           <DropdownMenuItem onClick={openHelp}><LifeBuoy aria-hidden="true" />Central de ajuda e suporte</DropdownMenuItem>
           <DropdownMenuItem onClick={openSystemTour}><GraduationCap aria-hidden="true" />Treinamento do sistema</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => startTour(currentView)}><CircleHelp aria-hidden="true" />Tour desta tela</DropdownMenuItem>
+          {TOURS[currentView] && <DropdownMenuItem onClick={() => startTour(currentView)}><CircleHelp aria-hidden="true" />Tour desta tela</DropdownMenuItem>}
           <DropdownMenuItem onClick={() => startTour('welcome')}><CircleHelp aria-hidden="true" />Tour de boas-vindas</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={toggleStyle}><PanelLeft aria-hidden="true" />{style === 'claro' ? 'Menu lateral escuro' : 'Menu lateral claro'}</DropdownMenuItem>

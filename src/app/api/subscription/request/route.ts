@@ -7,7 +7,7 @@ import { overageMessage, planOverage } from '@/lib/quotas'
 
 // Pedido de troca de plano. Enquanto não há cobrança automática, quem troca é a equipe (operador da plataforma).
 export async function POST(request: Request) {
-  const g = await guard('billing.manage')
+  const g = await guard('billing.manage', { allowLocked: true })
   if (!g.ok) return g.res
   const j = await readJson<{ planId?: string }>(request, { optional: true })
   if (!j.ok) return j.res

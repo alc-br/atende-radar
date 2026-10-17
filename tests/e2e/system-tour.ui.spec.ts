@@ -63,7 +63,7 @@ test('o botão fica logo acima de "Precisa de ajuda?" e abre a lista de capítul
   await expect(page.locator('[data-tour="nav-dashboard"]').first()).toBeAttached({ timeout: 15000 })
   if (isMobile) await page.getByRole('button', { name: 'Abrir menu' }).click()
 
-  const footer = page.locator('aside.lateral > button.ajuda')
+  const footer = page.locator('aside.lateral .lateral__rodape > button.ajuda')
   await expect(footer).toHaveCount(2)
   await expect(footer.nth(0)).toHaveAttribute('data-testid', 'abrir-tour-sistema')
   await expect(footer.nth(1)).toHaveAttribute('data-testid', 'abrir-ajuda')

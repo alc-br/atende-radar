@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { UserPlus, MoreHorizontal, Shield, Trash2, Users, UsersRound, Search, Send, MailX } from 'lucide-react'
 import { toast } from 'sonner'
+import { showInviteLink } from '@/lib/invite-toast'
 import { timeAgo } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { can, ROLE_DESCRIPTIONS } from '@/lib/permissions'
@@ -190,27 +191,6 @@ export default function MembersView() {
 
   // Convite pendente: reenviar (link novo; o anterior deixa de valer) ou cancelar (com confirmação).
   // emailStatus: sent | queued (sem provedor de e-mail) | failed (o provedor recusou; o sistema tenta de novo sozinho)
-  const showInviteLink = async (email: string, link: string | undefined, title: string, emailStatus?: string) => {
-    if (emailStatus === 'failed') {
-      if (link) await navigator.clipboard?.writeText(link).catch(() => {})
-      toast.error(`${title.replace(/\.$/, '')}, mas o e-mail para ${email} não foi entregue.`, {
-        description: link
-          ? `O sistema tenta enviar de novo sozinho. Se preferir, repasse o link (já copiado): ${link}`
-          : 'O sistema tenta enviar de novo sozinho.',
-        duration: 20000,
-      })
-    } else if (link) {
-      // Sem provedor de e-mail: o link precisa ser repassado à pessoa manualmente.
-      await navigator.clipboard?.writeText(link).catch(() => {})
-      toast.success(`${title} Link copiado!`, {
-        description: `Envie este link para ${email}: ${link}`,
-        duration: 20000,
-      })
-    } else {
-      toast.success(`${title} E-mail enviado para ${email}.`)
-    }
-  }
-
   const resendInvite = async (member: Member) => {
     try {
       const res = await fetch(`/api/members/${member.id}/invite`, { method: 'POST' })

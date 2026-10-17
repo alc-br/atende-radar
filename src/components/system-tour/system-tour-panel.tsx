@@ -19,7 +19,8 @@ import {
   X,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
-import { actionCue, allDone, chaptersFor, spotlightFocus, stepArea, stepSpokenText } from '@/lib/system-tour/engine'
+import { actionCue, allDone, chaptersFor, spotlightFocus, stepArea, stepSpokenText, stepsFor } from '@/lib/system-tour/engine'
+import { TRAINING_INTRO } from '@/lib/system-tour/content'
 import { onTourSignal } from '@/lib/system-tour/signals'
 import type { SpotlightFocus, SystemTourChapter } from '@/lib/system-tour/types'
 import { useSystemTourProgress } from './progress-store'
@@ -139,15 +140,19 @@ export function SystemTourPanel() {
   const systemTour = useAppStore((s) => s.systemTour)
   const me = useAppStore((s) => s.me)
   const chapters = useMemo(() => (me ? chaptersFor({ role: me.role, isPlatformOperator: me.isPlatformOperator }) : []), [me])
-  const chapter = systemTour ? chapters.find((c) => c.id === systemTour.chapterId) : undefined
-  if (!systemTour || !chapter) return null
-  return <Panel key={chapter.id} chapter={chapter} chapters={chapters} stepIndex={systemTour.step} />
+  const intro = useMemo(() => (me ? { ...TRAINING_INTRO, steps: stepsFor(TRAINING_INTRO, { role: me.role, isPlatformOperator: me.isPlatformOperator }) } : null), [me])
+  const chapter = !systemTour ? undefined : systemTour.chapterId === TRAINING_INTRO.id ? intro ?? undefined : chapters.find((c) => c.id === systemTour.chapterId)
+  if (!systemTour || !chapter || chapter.steps.length === 0) return null
+  return <Panel key={chapter.id} chapter={chapter} chapters={chapters} stepIndex={systemTour.step} then={systemTour.then} />
 }
 
-function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; chapters: SystemTourChapter[]; stepIndex: number }) {
+function Panel({ chapter, chapters, stepIndex, then }: { chapter: SystemTourChapter; chapters: SystemTourChapter[]; stepIndex: number; then?: { chapterId: string; step: number } }) {
   const setView = useAppStore((s) => s.setView)
   const currentView = useAppStore((s) => s.currentView)
   const setSystemTourStep = useAppStore((s) => s.setSystemTourStep)
+  const runSystemTour = useAppStore((s) => s.runSystemTour)
+  /** Introdução do treinamento: não salva progresso e, ao terminar, emenda na aula seguinte (then). */
+  const isIntro = chapter.id === TRAINING_INTRO.id
   const closeSystemTour = useAppStore((s) => s.closeSystemTour)
   const openSystemTour = useAppStore((s) => s.openSystemTour)
   const setMobileNavOpen = useAppStore((s) => s.setMobileNavOpen)
@@ -175,9 +180,9 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
   const goTo = useCallback(
     (next: number) => {
       setSystemTourStep(next)
-      void save({ chapterId: chapter.id, step: next })
+      if (!isIntro) void save({ chapterId: chapter.id, step: next })
     },
-    [chapter.id, save, setSystemTourStep],
+    [chapter.id, isIntro, save, setSystemTourStep],
   )
 
   const close = useCallback(() => {
@@ -193,6 +198,14 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
 
   const finish = useCallback(() => {
     speech.stop()
+    if (isIntro) {
+      // a introdução emenda direto na 1ª aula (a gaveta do celular fica como está: a aula decide)
+      if (then) {
+        runSystemTour(then.chapterId, then.step)
+        void save({ chapterId: then.chapterId, step: then.step })
+      } else openSystemTour()
+      return
+    }
     if (openedDrawer.current) setMobileNavOpen(false)
     if (demoed.current.size > 0) {
       // só "demonstrado": guarda o passo, mas o capítulo não conta como concluído
@@ -205,7 +218,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
       toast.success(everything ? 'Parabéns! Você concluiu todas as aulas do treinamento.' : `Aula "${chapter.title}" concluída.`)
     }
     openSystemTour() // volta para a lista de capítulos
-  }, [chapter.id, chapter.title, chapters, idx, openSystemTour, save, setMobileNavOpen, speech])
+  }, [chapter.id, chapter.title, chapters, idx, isIntro, openSystemTour, runSystemTour, save, setMobileNavOpen, speech, then])
 
   const next = useCallback(() => (isLast ? finish() : goTo(idx + 1)), [finish, goTo, idx, isLast])
   const prev = useCallback(() => {
@@ -426,17 +439,19 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     const t = window.setTimeout(
       () => {
         if (!autoRef.current) return
-        if (isLast) {
+        if (isLast && isIntro) {
+          finish() // a introdução segue sozinha para a 1ª aula
+        } else if (isLast) {
           stopAuto()
         } else {
           setNarrated(null)
           goTo(idx + 1)
         }
       },
-      isLast ? 0 : AUTO_ADVANCE_MS,
+      isLast && !isIntro ? 0 : AUTO_ADVANCE_MS,
     )
     return () => window.clearTimeout(t)
-  }, [autoRead, narrated, idx, advancesByArrow, isLast, goTo, stopAuto])
+  }, [autoRead, narrated, idx, advancesByArrow, isLast, isIntro, finish, goTo, stopAuto])
 
   // Leitura automática: passo de clique, o cursor aponta o item quando a voz chega no "Clique…" (ou ao fim da fala);
   // passo de cadastro, a demonstração começa quando a fala termina.
@@ -685,7 +700,11 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
             </button>
           ) : (
             <button type="button" className="btn btn--sm btn--primario" onClick={manualNext}>
-              {isLast ? (
+              {isLast && isIntro ? (
+                <>
+                  Começar a 1ª aula<ChevronRight className="ic" aria-hidden="true" />
+                </>
+              ) : isLast ? (
                 <>
                   <Check className="ic" aria-hidden="true" />Concluir aula
                 </>

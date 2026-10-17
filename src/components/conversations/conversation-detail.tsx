@@ -1,5 +1,6 @@
 'use client'
 
+import { moneyProps } from '@/lib/money-input'
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { mutate } from '@/lib/mutation'
@@ -438,7 +439,7 @@ export default function ConversationDetail() {
 
   const confirmOutcome = () => {
     if (!outcomeDialogOpen) return
-    const value = outcomeValue ? parseFloat(outcomeValue.replace(',', '.')) : undefined
+    const value = outcomeValue ? Number(outcomeValue) : undefined
     handleOutcome(outcomeDialogOpen, value)
     setOutcomeDialogOpen(null)
     setOutcomeValue('')
@@ -937,10 +938,8 @@ export default function ConversationDetail() {
               <Label htmlFor="cd-valor-venda">Valor da venda (R$)</Label>
               <Input
                 id="cd-valor-venda"
-                type="text"
                 placeholder="0,00"
-                value={outcomeValue}
-                onChange={(e) => setOutcomeValue(e.target.value)}
+                {...moneyProps(outcomeValue, setOutcomeValue)}
                 className="mt-1.5"
               />
             </div>

@@ -33,6 +33,7 @@ export function buttonLabel(url: string): string {
   if (/#connections\b|#whatsapp\b/.test(url)) return 'Ver conexões'
   if (/#support\b|suporte/i.test(url)) return 'Abrir o chamado'
   if (/#admin\b/.test(url)) return 'Abrir no Admin'
+  if (/#plans\b|#checkout\b/.test(url)) return 'Ver planos'
   return 'Abrir no AtendeRadar'
 }
 

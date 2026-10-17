@@ -7,7 +7,7 @@
 // Sem a chave da Azure: só avisa e sai com 0 (o tour funciona com a voz do navegador). Nunca imprime a chave.
 // No deploy roda depois do health check e não derruba o deploy se falhar.
 import { stepSpokenText } from '../src/lib/system-tour/engine'
-import { SYSTEM_TOUR_CHAPTERS } from '../src/lib/system-tour/content'
+import { SYSTEM_TOUR_CHAPTERS, TRAINING_INTRO } from '../src/lib/system-tour/content'
 import { getTourAudio, normalizeTtsText, tourAudioCached, ttsConfig, TtsUnavailableError } from '../src/lib/system-tour/tts'
 
 const PAUSE_MS = 400
@@ -25,12 +25,14 @@ async function main() {
   console.log(`[tour-audio-warm] provedor ${cfg.provider}, voz ${cfg.voice}, cache ${cfg.dir}`)
 
   // Textos únicos de todos os capítulos (o filtro por papel só esconde capítulos/passos; o texto é o mesmo para todos)
-  const texts = new Map<string, string>()
-  for (const chapter of SYSTEM_TOUR_CHAPTERS) {
+  // (a introdução do treinamento usa outra voz: a chave inclui a voz)
+  const texts = new Map<string, { text: string; voice?: string }>()
+  for (const chapter of [...SYSTEM_TOUR_CHAPTERS, TRAINING_INTRO]) {
     for (const step of chapter.steps) {
       const text = stepSpokenText(step)
-      const norm = normalizeTtsText(text)
-      if (norm && !texts.has(norm)) texts.set(norm, text)
+      const norm = `${chapter.voice ?? ''}
+${normalizeTtsText(text)}`
+      if (normalizeTtsText(text) && !texts.has(norm)) texts.set(norm, { text, voice: chapter.voice })
     }
   }
 
@@ -38,14 +40,14 @@ async function main() {
   let existed = 0
   let failed = 0
   let chars = 0
-  for (const text of texts.values()) {
-    if (await tourAudioCached(text)) {
+  for (const { text, voice } of texts.values()) {
+    if (await tourAudioCached(text, process.env, voice)) {
       existed++
       continue
     }
     for (let attempt = 0; ; attempt++) {
       try {
-        const audio = await getTourAudio(text)
+        const audio = await getTourAudio(text, process.env, voice)
         if (audio.generated) {
           generated++
           chars += normalizeTtsText(text).length

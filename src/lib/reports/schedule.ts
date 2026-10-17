@@ -6,6 +6,7 @@ import { reportFileName } from './render'
 import { safeTimeZone } from './types'
 import { REAL_ORGS, isIsolatedOrg } from '../sandbox'
 import { reportUnsubscribe } from '../report-unsubscribe'
+import { orgLock } from '../billing/lock'
 
 // Relatórios agendados: no horário configurado (fuso da empresa, dias da semana escolhidos) o relatório é gerado com os
 // dados reais e cada destinatário recebe UM e-mail com o resumo de todos os relatórios daquele horário e o PDF
@@ -187,6 +188,8 @@ export async function runScheduledReports(now = new Date(), orgId?: string): Pro
   for (const def of defs) {
     // o horário vale no fuso da empresa (Configurações); o fuso da definição só se a empresa não tiver um
     if (!(REPORT_TYPES as readonly string[]).includes(def.reportType) || !isDue({ ...def, timezone: def.organization.timezone || def.timezone }, now)) continue
+    // empresa sem plano (teste vencido ou assinatura encerrada): nada é gerado nem enviado; volta ao contratar
+    if (await orgLock(def.organizationId)) continue // situação de agora (o "now" pode ser simulado nos testes)
     // marca antes de gerar: se dois processos rodarem juntos, só um gera (o outro vê a linha já atualizada)
     const claimed = await db.reportDefinition.updateMany({ where: { id: def.id, lastRunAt: def.lastRunAt }, data: { lastRunAt: now } })
     if (claimed.count === 0) continue
