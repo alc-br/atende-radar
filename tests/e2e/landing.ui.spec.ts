@@ -40,7 +40,11 @@ test.describe('Página de vendas', () => {
     const { plans } = await (await request.get('/api/public/plans')).json()
     const section = page.locator('#planos')
     await expect(ctaPlanos(page)).toHaveCount(plans.length)
-    await section.getByRole('button', { name: /Anual/ }).click()
+    // a página vem pronta do servidor: o clique antes de a tela ganhar vida (hidratação) não troca o período; repete
+    await expect(async () => {
+      await section.getByRole('button', { name: /Anual/ }).click()
+      await expect(section).toContainText('cobrados por ano', { timeout: 1000 })
+    }).toPass({ timeout: 15000 })
     for (const plan of plans) {
       await expect(section).toContainText(`R$${Math.round(plan.annualPrice / 12).toLocaleString('pt-BR')}/mês`)
       await expect(section).toContainText(`R$ ${plan.annualPrice.toLocaleString('pt-BR')} cobrados por ano`)
