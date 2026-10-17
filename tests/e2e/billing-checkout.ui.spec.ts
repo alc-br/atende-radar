@@ -86,8 +86,13 @@ test.describe('B8 · checkout na tela (sandbox Pagar.me)', () => {
     await expect(done).toContainText('Pagamento aprovado', { timeout: 60_000 })
     await expect(page.getByTestId('trial-banner')).toHaveCount(0)
 
-    await done.getByRole('button', { name: 'Ir para Planos' }).click()
+    await expect(done.getByRole('button', { name: /Ir para o painel/ })).toBeVisible()
+    await done.getByRole('button', { name: 'Ver assinatura e faturas' }).click()
     await expect(page.getByTestId('subscription-status')).toHaveText('Ativa')
+    // assinante: "Subir de plano" no cartão do plano atual; cancelar e reembolso não ficam expostos no cartão
+    await expect(page.getByTestId('current-plan').getByRole('button', { name: 'Subir de plano' })).toBeVisible()
+    await expect(page.getByTestId('subscribe-cta')).toHaveCount(0)
+    await expect(page.getByTestId('current-plan').getByRole('button', { name: /Cancelar|reembolso/i })).toHaveCount(0)
     await expect(page.getByTestId('card-on-file')).toContainText('final 0010')
     await expect(page.getByTestId('invoices')).toContainText('Paga')
     await expect(page.getByTestId('plan-essencial').getByRole('button', { name: 'Plano atual' })).toBeDisabled()
@@ -101,9 +106,11 @@ test.describe('B8 · checkout na tela (sandbox Pagar.me)', () => {
     await expect(dialog).toHaveCount(0, { timeout: 60_000 })
     await expect(page.getByTestId('card-on-file')).toContainText('final 4444')
 
-    // cancelamento: confirma, para de renovar e o plano vale até o fim do período
-    await page.getByRole('button', { name: 'Cancelar renovação' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Cancelar renovação' }).click()
+    // cancelamento nos 7 dias: escolhe entre usar até o fim do período ou reembolso; aqui, usar até o fim
+    await page.getByTestId('cancel-subscription-hint').getByRole('button', { name: 'Cancelar assinatura' }).click()
+    const cancelDialog = page.getByTestId('cancel-dialog')
+    await expect(cancelDialog.getByRole('button', { name: /Encerrar agora e receber o reembolso/ })).toBeVisible()
+    await cancelDialog.getByRole('button', { name: /^Usar até .* e não renovar/ }).click()
     await expect(page.getByTestId('subscription-status')).toHaveText('Não renova', { timeout: 30_000 })
     await expect(page.getByTestId('current-plan')).toContainText('Vale até')
     await expect(page.getByRole('button', { name: 'Trocar cartão' })).toHaveCount(0)
@@ -115,7 +122,7 @@ test.describe('B8 · checkout na tela (sandbox Pagar.me)', () => {
     await confirm.getByRole('button', { name: 'Reativar renovação' }).click()
     await expect(page.getByTestId('subscription-status')).toHaveText('Ativa', { timeout: 30_000 })
     await expect(page.getByTestId('renewal-canceled')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Cancelar renovação' })).toBeVisible()
+    await expect(page.getByTestId('cancel-subscription-hint')).toBeVisible()
     await expect(page.getByTestId('invoices').getByText('Paga', { exact: true })).toHaveCount(1)
   })
 

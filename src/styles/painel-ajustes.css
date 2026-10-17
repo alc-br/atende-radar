@@ -126,3 +126,153 @@
   .canal-opcao__nome { display: block; font-weight: 500; white-space: nowrap; }
   .canal-opcao__desc { display: block; font-size: 12.5px; color: var(--texto-2); }
 }
+
+/* Guia rápido (tour-overlay.tsx), 16/10/2026: o recorte ganhou anel branco + verde com brilho (no menu escuro o
+   item destacado sumia), desliza de um alvo para o outro e pulsa quando chega; o cartão mostra o progresso. */
+@layer components {
+  .tour-spot {
+    position: fixed; z-index: 90; pointer-events: none; border-radius: 10px;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 5px #16b468, 0 0 22px 6px rgba(22, 180, 104, .55), 0 0 0 9999px rgba(15, 23, 42, .62);
+    transition: top .35s cubic-bezier(.4, 0, .2, 1), left .35s cubic-bezier(.4, 0, .2, 1), width .35s cubic-bezier(.4, 0, .2, 1), height .35s cubic-bezier(.4, 0, .2, 1);
+  }
+  .tour-spot__pulso {
+    position: absolute; inset: -5px; border-radius: 13px; border: 3px solid #16b468;
+    animation: tour-pulso 1.1s ease-out .3s 2 both;
+  }
+  @keyframes tour-pulso {
+    0% { opacity: .9; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.18); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tour-spot { transition: none; }
+    .tour-spot__pulso { animation: none; opacity: 0; }
+  }
+  .tour-card__passo {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--verde-700, #0c8f51); white-space: nowrap;
+  }
+  .tour-card__barra { display: flex; gap: 4px; margin-top: 8px; }
+  .tour-card__barra i { flex: 1; height: 4px; border-radius: 4px; background: var(--borda, #e5e7eb); transition: background .3s; }
+  .tour-card__barra i.feito { background: #16b468; }
+}
+
+/* Treinamento na Visão Geral (dashboard/training-banner.tsx): chama para o Tour pelo sistema e mostra as aulas feitas */
+@layer components {
+  .ar .treino {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px 18px; padding: 18px 20px;
+    border-color: var(--verde-300, #86efac);
+    background: linear-gradient(100deg, var(--verde-50), var(--superficie) 70%);
+  }
+  .ar .treino__ic {
+    display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px;
+    color: #fff; background: linear-gradient(180deg, #16b468, #0c8f51); font-size: 24px;
+  }
+  .ar .treino__texto h2 { font-size: 16px; font-weight: 700; }
+  .ar .treino__texto p { margin-top: 4px; font-size: 13.5px; color: var(--texto-2); max-width: 70ch; }
+  .ar .treino__progresso { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12.5px; color: var(--texto-2); }
+  .ar .treino__progresso .barra { flex: 0 1 220px; }
+  .ar .treino__progresso span { white-space: nowrap; }
+  .ar .treino__acoes { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+  .ar .treino__acoes .btn { white-space: nowrap; justify-content: center; }
+  @media (max-width: 760px) {
+    .ar .treino { grid-template-columns: auto 1fr; }
+    .ar .treino__acoes { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
+    .ar .treino__acoes .btn { flex: 1 1 auto; }
+  }
+}
+
+/* Planos e faturamento (plans-view.tsx) e pagamento concluído (checkout-view.tsx), 16/10/2026 */
+@layer components {
+  /* Chamada para assinar dentro do cartão "Plano atual" (teste grátis, teste encerrado, assinatura encerrada) */
+  .ar .plano-cta {
+    display: grid; gap: 12px; padding: 14px 16px; border-radius: var(--raio-sm, 10px);
+    border: 1px solid var(--verde-300); background: var(--verde-50);
+  }
+  .ar .plano-cta p { font-size: 13.5px; color: var(--texto-2); }
+  .ar .plano-cta__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .ar .plano-cta__acoes .btn--primario { white-space: nowrap; }
+
+  /* Link no meio do texto (cancelar, desistir): discreto, sem cara de botão */
+  .ar .link-texto {
+    padding: 0; border: 0; background: none; font: inherit; color: var(--texto-2);
+    text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+  }
+  .ar .link-texto:hover { color: var(--texto); }
+
+  /* Mensal | Anual (2 meses grátis): segmentado, o selo fica dentro do botão e não vaza */
+  .ar .ciclo-seg {
+    display: inline-flex; align-self: flex-start; gap: 4px; padding: 4px;
+    border: 1px solid var(--borda); border-radius: 12px; background: var(--superficie);
+  }
+  .ar .ciclo-seg button {
+    display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px;
+    border: 0; border-radius: 9px; background: none; white-space: nowrap;
+    font-size: 13.5px; font-weight: 600; color: var(--texto-2); cursor: pointer;
+  }
+  .ar .ciclo-seg button:hover { color: var(--texto); }
+  .ar .ciclo-seg button[aria-checked="true"] { color: #fff; background: linear-gradient(180deg, #16b468, #0c8f51); }
+  .ar .ciclo-seg button:focus-visible { outline: 2px solid var(--verde-500); outline-offset: 2px; }
+  .ar .ciclo-seg__selo {
+    padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 1.4;
+    color: var(--verde-700); background: var(--verde-50); box-shadow: inset 0 0 0 1px var(--verde-100);
+  }
+  .ar .ciclo-seg button[aria-checked="true"] .ciclo-seg__selo { color: #0c6e3f; background: #fff; box-shadow: none; }
+}
+
+/* Escolha no cancelamento dentro dos 7 dias (diálogo fica fora do .ar: portal do Radix) */
+@layer components {
+  .opcao-cancelar {
+    display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 12px 14px; text-align: left;
+    border: 1px solid var(--border); border-radius: 10px; background: transparent; cursor: pointer;
+  }
+  .opcao-cancelar:hover:not(:disabled) { border-color: #16b468; background: rgba(22, 180, 104, .06); }
+  .opcao-cancelar:disabled { opacity: .6; cursor: default; }
+  .opcao-cancelar > .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: #0c8f51; }
+  .opcao-cancelar b { display: block; font-size: 14px; font-weight: 600; }
+  .opcao-cancelar span span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted-foreground); }
+}
+
+@layer components {
+  .ar .pagamento-ok { max-width: 760px; }
+  .ar .pagamento-ok__topo { display: flex; align-items: flex-start; gap: 14px; }
+  .ar .pagamento-ok__ic {
+    display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 50%;
+    color: #fff; background: linear-gradient(180deg, #16b468, #0c8f51); font-size: 22px;
+  }
+  .ar .pagamento-ok__ic--espera { color: var(--verde-700); background: var(--verde-50); }
+  .ar .pagamento-ok__topo h1 { font-size: 20px; font-weight: 700; line-height: 1.25; }
+  .ar .pagamento-ok__topo p { margin-top: 4px; font-size: 14px; color: var(--texto-2); }
+  .ar .pagamento-ok__resumo {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; overflow: hidden;
+    border: 1px solid var(--borda); border-radius: var(--raio-sm, 10px); background: var(--borda);
+  }
+  .ar .pagamento-ok__resumo > div { padding: 10px 14px; background: var(--superficie); }
+  .ar .pagamento-ok__resumo dt { font-size: 12px; color: var(--muito-suave); }
+  .ar .pagamento-ok__resumo dd { margin-top: 2px; font-size: 14px; font-weight: 700; }
+  @media (max-width: 640px) { .ar .pagamento-ok__resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .ar .pagamento-ok__passos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 760px) { .ar .pagamento-ok__passos { grid-template-columns: 1fr; } }
+  .ar .pagamento-ok__passos button {
+    display: flex; align-items: flex-start; gap: 10px; width: 100%; height: 100%; padding: 10px 12px; text-align: left;
+    border: 1px solid var(--borda); border-radius: var(--raio-sm, 10px); background: var(--superficie-2); cursor: pointer;
+  }
+  .ar .pagamento-ok__passos button:hover { border-color: var(--verde-300); background: var(--verde-50); }
+  .ar .pagamento-ok__passos .num {
+    display: grid; place-items: center; flex: none; width: 20px; height: 20px; border-radius: 50%;
+    font-size: 11px; font-weight: 700; color: #fff; background: #16b468;
+  }
+  .ar .pagamento-ok__passos .ic { flex: none; margin-top: 2px; color: var(--verde-700); }
+  .ar .pagamento-ok__passos b { display: block; font-size: 13px; }
+  .ar .pagamento-ok__passos span span { display: block; font-size: 12px; color: var(--texto-2); }
+}
+
+/* "Adicionar membro": o que a função escolhida acessa (diálogo fora do .ar: portal do Radix) */
+@layer components {
+  .funcao-desc {
+    display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 8px;
+    font-size: 13px; line-height: 1.45; color: var(--muted-foreground); background: var(--muted);
+  }
+  .funcao-desc .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; color: #0c8f51; }
+  .funcao-desc b { color: var(--foreground); font-weight: 600; }
+  .rotulo-ajuda { display: flex; align-items: center; gap: 4px; }
+}

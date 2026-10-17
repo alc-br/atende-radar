@@ -192,6 +192,12 @@ export async function checkout(auth: AuthContext, input: CheckoutInput): Promise
   if (row.providerSubscriptionId && row.planId === plan.id && row.billingCycle === cycle && row.status === 'active' && !row.cancelAtPeriodEnd) {
     return fail(409, 'already_subscribed', `Sua empresa já assina o plano ${plan.name} neste ciclo.`)
   }
+  // Assinatura paga em vigor: só sobe de plano (mais caro, ou do mensal para o anual do mesmo plano), nunca rebaixa
+  if (row.providerSubscriptionId && row.status === 'active') {
+    const current = await db.plan.findUnique({ where: { id: row.planId } })
+    const downgrade = !!current && (plan.id === current.id ? row.billingCycle === 'annual' && cycle === 'monthly' : plan.monthlyPrice <= current.monthlyPrice)
+    if (downgrade) return fail(409, 'downgrade_not_allowed', `Sua empresa assina o plano ${current!.name}. Pela tela dá para subir de plano; para mudar para um plano menor, fale com o suporte.`)
+  }
 
   let providerSub: Json
   try {
@@ -316,7 +322,7 @@ export async function withdrawalOffer(orgId: string, now = new Date()) {
 export async function withdraw(auth: AuthContext, now = new Date()): Promise<Fail | { ok: true; amountCents: number }> {
   const cfg = pagarmeConfig()
   const offer = await withdrawalOffer(auth.orgId, now)
-  if (!cfg || !offer) return fail(409, 'withdrawal_unavailable', `O prazo de arrependimento é de ${WITHDRAWAL_DAYS} dias a partir do pagamento da contratação. Fora dele, use "Cancelar renovação": o plano vale até o fim do período pago.`)
+  if (!cfg || !offer) return fail(409, 'withdrawal_unavailable', `O prazo de arrependimento é de ${WITHDRAWAL_DAYS} dias a partir do pagamento da contratação. Fora dele, use "Cancelar assinatura": nada mais é cobrado e o plano vale até o fim do período pago.`)
   const row = await db.subscription.findUniqueOrThrow({ where: { organizationId: auth.orgId }, include: { plan: true } })
   const subId = row.providerSubscriptionId!
 

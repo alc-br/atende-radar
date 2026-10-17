@@ -36,8 +36,8 @@ export default function SystemTourView() {
             <GraduationCap className="ic" />
           </span>
           <div>
-            <h1>Tour pelo sistema</h1>
-            <p>Um manual interativo, passo a passo, com o que o seu papel usa no AtendeRadar. Você pode parar quando quiser: o progresso fica salvo.</p>
+            <h1>Treinamento do sistema</h1>
+            <p>Aulas curtas, na tela de verdade, com o que o seu papel usa no AtendeRadar. Faça no seu ritmo: o progresso de cada aula fica salvo.</p>
           </div>
         </div>
         {resume && (
@@ -56,7 +56,7 @@ export default function SystemTourView() {
             <Trophy className="ic" aria-hidden="true" />
             <div>
               <h2>Parabéns! Você concluiu o manual.</h2>
-              <p>Você passou por todos os capítulos do seu papel. Pode rever qualquer um quando quiser, e a Central de ajuda continua à disposição.</p>
+              <p>Você concluiu todas as aulas do seu papel. Pode rever qualquer um quando quiser, e a Central de ajuda continua à disposição.</p>
             </div>
           </section>
         )}
@@ -67,16 +67,16 @@ export default function SystemTourView() {
             <li>Cada passo destaca um item da tela e explica para que ele serve.</li>
             <li>Em alguns passos você clica no item destacado ou faz um cadastro de verdade; o manual segue sozinho quando percebe.</li>
             <li>Use as setas ← → do teclado para voltar e avançar, e Esc para fechar.</li>
-            <li>O botão Ouvir explica cada passo em voz alta, sem custo; a leitura automática começa sozinha ao abrir um capítulo: lê cada passo, mostra com um cursor onde clicar e espera o seu clique para seguir (nos cadastros, mostra como se faz e espera você salvar; o manual nunca cadastra sozinho).</li>
+            <li>O botão Ouvir explica cada passo em voz alta, sem custo; a leitura automática começa sozinha ao abrir uma aula: lê cada passo, mostra com um cursor onde clicar e espera o seu clique para seguir (nos cadastros, mostra como se faz e espera você salvar; o manual nunca cadastra sozinho).</li>
           </ul>
         </section>
 
         <section aria-labelledby="t-capitulos" className="grid gap-3">
           <h2 id="t-capitulos" className="text-[15px] font-bold">
-            Capítulos <span className="suave font-normal">({doneCount} de {chapters.length} concluídos)</span>
+            Aulas <span className="suave font-normal">({doneCount} de {chapters.length} concluídas)</span>
           </h2>
           {!me || !loaded ? (
-            <p className="suave" role="status">Carregando os capítulos...</p>
+            <p className="suave" role="status">Carregando as aulas...</p>
           ) : (
             <ol className="tour-sistema-lista" data-testid="system-tour-chapters">
               {chapters.map((c, i) => {
@@ -96,7 +96,7 @@ export default function SystemTourView() {
                       <div
                         className="tour-sistema__barra"
                         role="progressbar"
-                        aria-label={`Progresso do capítulo ${c.title}`}
+                        aria-label={`Progresso da aula ${c.title}`}
                         aria-valuemin={0}
                         aria-valuemax={100}
                         aria-valuenow={percent}

@@ -142,7 +142,7 @@ function Inner({ kind }: { kind: Kind }) {
                     <label htmlFor="new-password">Nova senha</label>
                     <div className="campo-ic">
                       <Lock className="ic" aria-hidden="true" />
-                      <input className="entrada entrada--grande" id="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} autoComplete="new-password" aria-describedby="new-password-hint" disabled={!pronto || state === 'loading'} />
+                      <input className="entrada entrada--grande" id="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" aria-describedby="new-password-hint" disabled={!pronto || state === 'loading'} />
                     </div>
                     <p id="new-password-hint" className="text-xs text-[var(--suave)]">Mínimo de 8 caracteres, com letras e números.</p>
                   </div>

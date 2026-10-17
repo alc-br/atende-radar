@@ -176,63 +176,57 @@ export default function CheckoutView() {
   if (done) {
     const active = done.status === 'active'
     const steps = NEXT_STEPS.filter((s) => !!me && canOpenView(me.role, s.view))
+    // Compacto, no padrão dos cartões do painel. Destino principal: o painel (primeira contratação: os próximos
+    // passos). "Ver assinatura e faturas" leva a Planos, onde ficam a fatura paga, o cartão e a próxima cobrança.
     return (
-      <div className="conta">
-        <div className="conta-cartao ativado mt-0" data-testid="checkout-done">
-          <div className="sucesso" aria-hidden="true">
-            {active && (
-              <span className="confete">
-                {[[18, 40, -50], [40, 96, 30], [60, 12, -20], [150, 6, 30], [178, 54, -40], [196, 104, 60], [10, 120, 70], [204, 24, 10], [84, 140, -30], [140, 138, 40]].map(([l, t, r]) => (
-                  <i key={`${l}-${t}`} style={{ left: l, top: t, '--r': `${r}deg` } as React.CSSProperties} />
-                ))}
-              </span>
-            )}
-            <span className="sucesso__bola">{active ? <Check className="ic" /> : <Loader2 className="ic animate-spin" />}</span>
+      <div className="pagamento-ok" data-testid="checkout-done">
+        <section className="cartao cartao--pad grid gap-5">
+          <div className="pagamento-ok__topo">
+            <span className={`pagamento-ok__ic ${active ? '' : 'pagamento-ok__ic--espera'}`} aria-hidden="true">
+              {active ? <Check className="ic" /> : <Loader2 className="ic animate-spin" />}
+            </span>
+            <div>
+              <h1>{active ? 'Pagamento aprovado' : 'Pagamento em análise'}</h1>
+              <p>
+                {active
+                  ? `O plano ${done.planName} já está ativo, com os novos limites. A renovação é automática no mesmo cartão.`
+                  : `O Pagar.me ainda está confirmando a cobrança. Esta tela atualiza sozinha; o plano ${done.planName} é ativado assim que o pagamento for aprovado.`}
+              </p>
+            </div>
           </div>
-          {active ? (
-            <>
-              <h1>Pagamento <span className="verde">aprovado</span></h1>
-              <p className="ativado__sub">O plano {done.planName} já está ativo, com os novos limites. A renovação é automática no mesmo cartão; você pode cancelar quando quiser em Planos.</p>
-            </>
-          ) : (
-            <>
-              <h1>Pagamento <span className="verde">em análise</span></h1>
-              <p className="ativado__sub">O Pagar.me ainda está confirmando a cobrança. Esta tela atualiza sozinha; o plano {done.planName} é ativado assim que o pagamento for aprovado.</p>
-            </>
-          )}
 
-          <div className="resumo-ativo">
-            <div><span className="ic-bola"><Crown className="ic" aria-hidden="true" /></span><span><small>Plano</small><b>{done.planName}</b></span></div>
-            <div><span className="ic-bola"><Wallet className="ic" aria-hidden="true" /></span><span><small>Valor</small><b className="verde">{formatCurrency(price)}<span className="text-sm font-semibold">{per}</span></b></span></div>
-            <div><span className="ic-bola"><CalendarClock className="ic" aria-hidden="true" /></span><span><small>Renovação</small><b>{cycle === 'annual' ? 'anual, automática' : 'mensal, automática'}</b></span></div>
-            <div><span className="ic-bola"><CreditCard className="ic" aria-hidden="true" /></span><span><small>Método</small><b className="menor">cartão cadastrado com segurança</b></span></div>
-          </div>
+          <dl className="pagamento-ok__resumo">
+            <div><dt>Plano</dt><dd>{done.planName}</dd></div>
+            <div><dt>Valor</dt><dd>{formatCurrency(price)}<span className="suave font-medium">{per}</span></dd></div>
+            <div><dt>Renovação</dt><dd>{cycle === 'annual' ? 'Anual, automática' : 'Mensal, automática'}</dd></div>
+            <div><dt>Pagamento</dt><dd>Cartão de crédito</dd></div>
+          </dl>
 
           {active && !isChange && steps.length === NEXT_STEPS.length && (
-            <section className="proximos" aria-labelledby="t-prox">
-              <h2 id="t-prox">Próximos passos</h2>
-              <p>Siga estes passos para começar a receber alertas e insights no AtendeRadar.</p>
-              <div className="proximos__lista">
+            <div className="grid gap-2" aria-labelledby="t-prox">
+              <h2 id="t-prox" className="text-[14px] font-bold">Próximos passos</h2>
+              <ol className="pagamento-ok__passos">
                 {steps.map((s, i) => {
                   const Icon = s.icon
-                  return [
-                    i > 0 && <ArrowRight key={`seta-${s.view}`} className="ic proximos__seta self-center" aria-hidden="true" />,
-                    <button key={s.view} type="button" className="proximo text-left" onClick={() => setView(s.view)}>
-                      <span className="num" aria-hidden="true">{i + 1}</span>
-                      <span className="ic-bola"><Icon className="ic" aria-hidden="true" /></span>
-                      <span><b>{s.title}</b><span>{s.text}</span></span>
-                    </button>,
-                  ]
+                  return (
+                    <li key={s.view}>
+                      <button type="button" onClick={() => setView(s.view)}>
+                        <span className="num" aria-hidden="true">{i + 1}</span>
+                        <Icon className="ic" aria-hidden="true" />
+                        <span><b>{s.title}</b><span>{s.text}</span></span>
+                      </button>
+                    </li>
+                  )
                 })}
-              </div>
-            </section>
+              </ol>
+            </div>
           )}
 
-          <div className="ativado__acoes">
-            <button type="button" className="btn btn--verde btn--xl" onClick={back}>Ir para Planos <ArrowRight className="ic" aria-hidden="true" /></button>
-            <button type="button" className="btn btn--contorno-forte btn--xl" onClick={() => setView('dashboard')}>Acessar painel</button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" className="btn" onClick={back}>Ver assinatura e faturas</button>
+            <button type="button" className="btn btn--primario" onClick={() => setView('dashboard')}>Ir para o painel <ArrowRight className="ic" aria-hidden="true" /></button>
           </div>
-        </div>
+        </section>
       </div>
     )
   }

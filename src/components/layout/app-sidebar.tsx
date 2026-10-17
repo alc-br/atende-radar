@@ -167,8 +167,8 @@ export function AppSidebar() {
         >
           <GraduationCap className="ic" aria-hidden="true" />
           <span>
-            <strong>Tour pelo sistema</strong>
-            <span>Manual passo a passo</span>
+            <strong>Treinamento do sistema</strong>
+            <span>Aulas passo a passo</span>
           </span>
         </button>
 

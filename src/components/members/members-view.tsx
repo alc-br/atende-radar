@@ -24,7 +24,8 @@ import { UserPlus, MoreHorizontal, Shield, Trash2, Users, UsersRound, Search, Se
 import { toast } from 'sonner'
 import { timeAgo } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
-import { can } from '@/lib/permissions'
+import { can, ROLE_DESCRIPTIONS } from '@/lib/permissions'
+import { HelpTip } from '@/components/ui/help-tip'
 import { tourSignal } from '@/lib/system-tour/signals'
 
 type Role = 'admin' | 'gestor' | 'supervisor' | 'analista' | 'member' | 'atendente' | 'viewer'
@@ -297,7 +298,16 @@ export default function MembersView() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Função</Label>
+                    <div className="rotulo-ajuda">
+                      <Label>Função</Label>
+                      <HelpTip label="cada função">
+                        <dl className="grid gap-2">
+                          {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                            <div key={value}><dt className="font-semibold">{label}</dt><dd className="text-muted-foreground">{ROLE_DESCRIPTIONS[value as Role]}</dd></div>
+                          ))}
+                        </dl>
+                      </HelpTip>
+                    </div>
                     <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>
                       <SelectTrigger aria-label="Função"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -306,6 +316,10 @@ export default function MembersView() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="funcao-desc" data-testid="role-description" aria-live="polite">
+                      <Shield className="ic" aria-hidden="true" />
+                      <span><b>{ROLE_LABELS[inviteRole]}:</b> {ROLE_DESCRIPTIONS[inviteRole]}</span>
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="invite-team">Equipe</Label>
@@ -399,7 +413,7 @@ export default function MembersView() {
                               {Object.entries(ROLE_LABELS)
                                 .filter(([value]) => value !== member.role)
                                 .map(([value, label]) => (
-                                  <DropdownMenuItem key={value} onClick={() => changeRole(member.id, value as Role)}>
+                                  <DropdownMenuItem key={value} title={ROLE_DESCRIPTIONS[value as Role]} onClick={() => changeRole(member.id, value as Role)}>
                                     <Shield className="w-4 h-4 mr-2" />Tornar {label.toLowerCase()}
                                   </DropdownMenuItem>
                                 ))}

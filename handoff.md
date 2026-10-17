@@ -63,6 +63,23 @@ Sem segredos aqui: o repositório é público.
 
 ### 16/10/2026
 
+- **Ajustes do teste grátis feito pelo dono (16/10/2026).**
+  - **Guia rápido:**
+    - o destaque ganhou um anel branco e verde que desliza entre os itens, visível também no menu escuro;
+    - "Passo X de N" fica numa linha só e há uma barra de progresso;
+    - o guia da tela não abre logo depois do de boas-vindas;
+    - Planos e Contratar não abrem guia automático.
+  - **Treinamento do sistema:** o antigo "Tour pelo sistema" foi renomeado e os capítulos agora se chamam "aulas". Há um cartão na Visão Geral (`training-banner.tsx`) com as aulas concluídas; ele diz que serve também para treinar a equipe e some quando todas as aulas terminam.
+  - **Planos:**
+    - no teste grátis, "Assinar o plano X" aparece no cartão do plano atual; quem paga vê "Subir de plano";
+    - o servidor recusa rebaixar o plano (`downgrade_not_allowed`);
+    - Mensal | Anual virou um seletor próprio, com o selo dentro do botão;
+    - cancelar ficou discreto, embaixo das faturas: dentro de 7 dias a pessoa escolhe entre usar até o fim do ciclo ou ter o reembolso; depois disso, não renova;
+    - a tela "Pagamento aprovado" ficou compacta, com os botões "Ver assinatura e faturas" e "Ir para o painel".
+  - **Membros:** cada função tem descrição (`ROLE_DESCRIPTIONS` em `permissions.ts`), e o e-mail de convite traz o nome da função em vez do slug.
+  - **Senha:** o mínimo é 8 caracteres em todas as telas.
+  - **Relatórios:** o histórico mostra o nome do relatório, não o slug.
+  - **Testes:** novos `trial-onboarding-polish.ui.spec.ts` e `role-descriptions.unit.spec.ts`. Os fluxos de cobrança com sandbox (`billing-checkout.ui`, `billing-pagarme`) só rodam no CI.
 - **CI mais rápido (16/10/2026).** Os ~2.100 testes rodavam num runner só (~25 min, mais a fila do push anterior: ~45 min por deploy). Agora o job `test` é uma matriz de 5 runners divididos por projeto do Playwright (unit+api+tablet; ui-desktop 1/2 e 2/2; ui-mobile 1/2 e 2/2). Primeira execução: ~10,5 min do push ao ar. Dividir só por `--shard` (contagem de testes) deixava um runner com quase todas as telas (21 min). Type-check, lint, db:check e audit rodam só na parte 1.
 - **Regras de alerta:** nomes legíveis de tipo/canal (`src/lib/alert-labels.ts`), (?) com explicação (`src/components/ui/help-tip.tsx`) em Tipo, Severidade, Cooldown e Canais, opção E-mail sem quebrar, contadores das abas Resolvidos/Ignorados discretos (o vermelho vinha de `painel-ajustes.css` pintando todos). Teste: `tests/e2e/alert-rule-help.ui.spec.ts`.
 - **Demonstração pública removida (16/10/2026, pedido do usuário: "temos o trial").** Sem botão "Entrar como demonstração", sem `?demo=1`, sem senha pública `demo123` (não cria nem entra em conta). Sessões antigas da demo recebem 401 e o app sai da conta sozinho. A empresa `org_seed_1` continua existindo só como empresa de exemplo dos testes. "Começar teste grátis" (`?modo=cadastro`) com alguém logado no navegador sai da conta e abre o cadastro.

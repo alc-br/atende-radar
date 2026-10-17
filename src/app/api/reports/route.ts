@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
+import { DEFAULT_REPORT_DEFINITIONS } from '@/lib/org-defaults-data'
 
 export async function GET() {
   try {
@@ -22,6 +23,10 @@ export async function GET() {
       recipients: JSON.parse(d.recipients || '[]') as string[],
       lastRun: d.lastRunAt?.toISOString() || null,
     }))
+
+    // Nome do relatório no histórico: o da definição da organização; senão o padrão; o slug só em último caso
+    const names = new Map<string, string>(DEFAULT_REPORT_DEFINITIONS.map((d) => [d.reportType, d.name]))
+    for (const d of definitions) names.set(d.reportType, d.name)
 
     // Report run history
     const runs = await db.reportRun.findMany({
@@ -45,7 +50,7 @@ export async function GET() {
       return {
         id: r.id,
         reportTypeId: r.reportType,
-        type: r.reportType,
+        type: names.get(r.reportType) ?? r.reportType,
         period,
         recipients: JSON.parse(r.recipientEmails || '[]') as string[],
         status: r.status,

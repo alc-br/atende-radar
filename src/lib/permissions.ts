@@ -46,6 +46,30 @@ export const PERMISSIONS = {
 
 export type Permission = keyof typeof PERMISSIONS
 
+/** Nome da função para pessoas (telas e e-mails): nunca o código (viewer, member...). */
+export const ROLE_NAMES: Record<Role, string> = {
+  admin: 'Administrador',
+  gestor: 'Gestor',
+  supervisor: 'Supervisor',
+  analista: 'Analista',
+  member: 'Membro',
+  atendente: 'Atendente',
+  viewer: 'Visualizador',
+}
+export const roleName = (role: string) => (isRole(role) ? ROLE_NAMES[role] : role)
+
+/** O que cada função acessa, em palavras, para quem escolhe a função de um membro. Segue a tabela PERMISSIONS acima
+ *  (tests/unit/role-descriptions.unit.spec.ts confere os pontos principais); mudou a tabela, revise o texto. */
+export const ROLE_DESCRIPTIONS: Record<Role, string> = {
+  admin: 'Acesso total: conexões do WhatsApp, membros, planos e pagamento, configurações, além de tudo que as outras funções fazem.',
+  gestor: 'Configura regras de alerta, relatórios, equipes, agentes e privacidade, e vê a auditoria. Vê conversas, membros e conexões. Não gerencia membros, conexões nem pagamento.',
+  supervisor: 'Acompanha a operação: conversas, alertas, recuperação de clientes, relatórios e desempenho dos atendentes. Vê equipes, membros e conexões. Não muda configurações.',
+  analista: 'Foco em análise: vê e gera relatórios e acompanha o desempenho dos atendentes, além da Visão Geral e dos alertas. Não abre as conversas.',
+  member: 'Acesso básico: Visão Geral, alertas e notificações, só para consulta.',
+  atendente: 'Atende: vê as conversas, trata os alertas e faz a recuperação de clientes. Não vê relatórios nem configurações.',
+  viewer: 'Só leitura: Visão Geral, alertas e relatórios, sem alterar nada.',
+}
+
 export function can(role: string | null | undefined, permission: Permission): boolean {
   return isRole(role) && (PERMISSIONS[permission] as readonly Role[]).includes(role)
 }

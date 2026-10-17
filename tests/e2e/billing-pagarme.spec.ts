@@ -136,6 +136,11 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     expect(paid.currentPeriodEnd.getTime()).toBeGreaterThan(Date.now() + 360 * 86400000)
     expect((await config(c)).invoices[0]).toMatchObject({ amount: essencial.annualPrice, status: 'paid', billingCycle: 'annual' })
 
+    // só sobe de plano: do anual para o mensal do mesmo plano é rebaixar, recusado antes de falar com o Pagar.me
+    const down = await c.post('/api/billing/checkout', { data: { planId: essencial.id, cycle: 'monthly', cardToken: 'token_abc123', ...billingData() } })
+    expect(down.status()).toBe(409)
+    expect((await down.json()).code).toBe('downgrade_not_allowed')
+
     const card = await c.post('/api/billing/card', { data: { cardToken: await cardToken(publicKey, MASTERCARD), address: billingData().address } })
     expect(card.status(), await card.text()).toBe(200)
     expect(await card.json()).toMatchObject({ cardBrand: 'Mastercard', cardLast4: '4444' })

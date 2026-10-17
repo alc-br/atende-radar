@@ -21,6 +21,10 @@ test.describe('E-mails: links das mensagens de conta', () => {
     const mails = [...(await mailsTo(email)), ...(await mailsTo(convidado))]
     const paths = mails.map((m) => new URL(linkIn(m.body)).pathname).sort()
     expect(paths).toEqual(['/accept-invite', '/reset-password', '/verify-email'])
+    // convite diz a função pelo nome e o que ela acessa (nunca o código, como "atendente" ou "viewer" entre aspas)
+    const convite = (await mailsTo(convidado))[0]
+    expect(convite.body).toContain('como "Atendente"')
+    expect(convite.body).toContain('vê as conversas')
     for (const m of mails) {
       expect(m.subject.length, m.body).toBeGreaterThan(5)
       const url = linkIn(m.body)

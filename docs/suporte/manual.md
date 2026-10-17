@@ -13,7 +13,7 @@ ativar, não é caso de suporte individual: siga `docs/operacao/incidente.md`.
 - Visão Geral, Alertas, Conversas, Recuperação, Equipe, Relatórios e Conexões.
 - Em **Administração**: Configurações, Membros, Equipes, Planos e Admin. **Admin** só aparece para o operador da
   plataforma.
-- **No rodapé:** **Tour pelo sistema** e **Precisa de ajuda?**.
+- **No rodapé:** **Treinamento do sistema** e **Precisa de ajuda?**.
 - **Menu com o nome da pessoa** (no topo):
   - Meu perfil;
   - Central de ajuda e suporte;
@@ -219,9 +219,9 @@ e Gestor:
 
 ### "Como funciona o tour?" ou "quero ver a explicação de novo"
 
-- **Tour pelo sistema:**
+- **Treinamento do sistema:**
   - fica no rodapé do menu lateral, acima de **Precisa de ajuda?**, e também no menu com o nome da pessoa;
-  - é o manual passo a passo, com capítulos só do que o papel dela usa e o progresso de cada um;
+  - são as aulas passo a passo, só do que o papel dela usa e o progresso de cada um;
   - dá para parar e continuar depois, até em outro aparelho.
 - **Tour desta tela:** no menu com o nome da pessoa, mostra o guia rápido da tela aberta.
 - **Tour de boas-vindas:** no mesmo menu, repete a apresentação inicial, que muda conforme o papel.

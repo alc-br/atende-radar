@@ -12,7 +12,7 @@ export const FAQ: { q: string; a: string }[] = [
   { q: 'O sistema detecta ou também responde?', a: 'Ele detecta. O AtendeRadar analisa as conversas e recomenda ações, mas não envia mensagens pelo seu número. Quem responde é sempre a sua equipe.' },
   {
     q: 'Como cancelo?',
-    a: 'Pelo próprio sistema, sem falar com ninguém: o administrador da conta abre Planos e clica em Cancelar renovação. As cobranças param na hora e o plano continua valendo até o fim do período já pago. Se mudar de ideia antes dessa data, dá para reativar a renovação na mesma tela. No teste grátis não há nada a cancelar, porque nenhum cartão é pedido.',
+    a: 'Pelo próprio sistema, sem falar com ninguém: o administrador da conta abre Planos e clica em Cancelar assinatura. Nada mais é cobrado e o plano continua valendo até o fim do período já pago. Nos primeiros 7 dias da contratação, dá para escolher entre usar até o fim do período ou encerrar na hora com o valor devolvido no cartão. Se mudar de ideia antes do fim do período, dá para reativar a renovação na mesma tela. No teste grátis não há nada a cancelar, porque nenhum cartão é pedido.',
   },
   {
     q: 'Tem fidelidade?',

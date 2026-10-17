@@ -197,12 +197,12 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
     if (demoed.current.size > 0) {
       // só "demonstrado": guarda o passo, mas o capítulo não conta como concluído
       void save({ chapterId: chapter.id, step: idx })
-      toast.info(`Capítulo "${chapter.title}" lido. Os cadastros foram só demonstrados: faça-os quando quiser para concluir o capítulo.`)
+      toast.info(`Aula "${chapter.title}" vista. Os cadastros foram só demonstrados: faça-os quando quiser para concluir a aula.`)
     } else {
       void save({ chapterId: chapter.id, step: idx, done: true })
       const progress = useSystemTourProgress.getState().progress
       const everything = allDone(chapters, progress)
-      toast.success(everything ? 'Parabéns! Você concluiu todos os capítulos do manual.' : `Capítulo "${chapter.title}" concluído.`)
+      toast.success(everything ? 'Parabéns! Você concluiu todas as aulas do treinamento.' : `Aula "${chapter.title}" concluída.`)
     }
     openSystemTour() // volta para a lista de capítulos
   }, [chapter.id, chapter.title, chapters, idx, openSystemTour, save, setMobileNavOpen, speech])
@@ -577,7 +577,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
         <div
           className="tour-sistema__barra"
           role="progressbar"
-          aria-label="Progresso do capítulo"
+          aria-label="Progresso da aula"
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={percent}
@@ -687,7 +687,7 @@ function Panel({ chapter, chapters, stepIndex }: { chapter: SystemTourChapter; c
             <button type="button" className="btn btn--sm btn--primario" onClick={manualNext}>
               {isLast ? (
                 <>
-                  <Check className="ic" aria-hidden="true" />Concluir capítulo
+                  <Check className="ic" aria-hidden="true" />Concluir aula
                 </>
               ) : (
                 <>

@@ -124,7 +124,9 @@ test.describe('Relatórios reais', () => {
     const c = await companyWithData()
     await c.admin.post('/api/reports/generate', { data: { reportTypeId: 'weekly', ...period() } })
     const hist = (await (await c.admin.get('/api/reports')).json()).history
-    expect(hist.some((h: { type: string; status: string }) => h.type === 'weekly' && h.status === 'completed')).toBe(true)
+    expect(hist.some((h: { reportTypeId: string; status: string }) => h.reportTypeId === 'weekly' && h.status === 'completed')).toBe(true)
+    // na tela aparece o nome do relatório, não o slug
+    expect(hist.find((h: { reportTypeId: string }) => h.reportTypeId === 'weekly').type).toBe('Relatório Semanal')
     await c.dispose()
   })
 })

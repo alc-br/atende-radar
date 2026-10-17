@@ -88,7 +88,7 @@ const CHAPTERS: SystemTourChapter[] = [
           { list: [
             'Meu perfil: trocar nome e senha e sair de todos os aparelhos.',
             'Central de ajuda e suporte.',
-            'Tour pelo sistema (este manual), Tour desta tela e Tour de boas-vindas.',
+            'Treinamento do sistema (estas aulas), Tour desta tela e Tour de boas-vindas.',
             'Tema claro ou escuro e o estilo do menu lateral.',
             'Sair.',
           ] },
@@ -97,11 +97,11 @@ const CHAPTERS: SystemTourChapter[] = [
       {
         id: 'onde-fica',
         kind: 'info',
-        title: 'Onde reabrir este manual',
+        title: 'Onde reabrir o treinamento',
         target: 'sidebar-tour',
         body: [
-          'O botão **Tour pelo sistema** fica no rodapé do menu, logo acima de **Precisa de ajuda?**. Por ele você volta à lista de capítulos e vê o que já concluiu.',
-          'Fim do primeiro capítulo. Os próximos explicam cada tela que o seu papel usa.',
+          'O botão **Treinamento do sistema** fica no rodapé do menu, logo acima de **Precisa de ajuda?**. Por ele você volta à lista de aulas e vê o que já concluiu.',
+          'Fim da primeira aula. As próximas explicam cada tela que o seu papel usa.',
         ],
       },
     ],

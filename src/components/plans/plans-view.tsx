@@ -3,14 +3,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
   Check, Crown, Zap, Rocket, MessageSquare, Users, Wifi,
-  CreditCard, ArrowRight, Sparkles, AlertTriangle, Loader2, Receipt, Download,
+  CreditCard, ArrowRight, ArrowUpCircle, Sparkles, AlertTriangle, Loader2, Receipt, Download, CalendarCheck, Undo2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
@@ -278,6 +277,14 @@ export default function PlansView() {
   // quem já assina paga o valor da contratação dele (preço novo do catálogo só vale para novas contratações)
   const currentPrice = recurring && bsub?.renewalAmount != null ? bsub.renewalAmount : subscription ? priceOf(subscription.plan, currentCycle) : 0
   const canReactivate = recurring && !!bsub?.cancelAtPeriodEnd && active && !bsub?.pending
+  // Quem já paga só sobe de plano (nunca rebaixa pela tela): planos mais caros que o atual, ou o anual do mesmo plano
+  const paying = active && recurring
+  const currentMonthly = subscription?.plan.monthlyPrice ?? 0
+  const canUpgrade = paying && !bsub?.pending && (plans.some((p) => p.monthlyPrice > currentMonthly) || currentCycle === 'monthly')
+  // Teste grátis, teste encerrado ou assinatura encerrada: o cartão do plano atual chama para assinar ali mesmo
+  const canSubscribe = online && !paying && !!subscription
+  const currentPlanFull = plans.find((p) => p.id === subscription?.plan.id) ?? null
+  const scrollToCompare = () => document.getElementById('t-compare')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   const COMPARE_ROWS: { label: string; value: (p: ApiPlan) => string | number }[] = [
     { label: 'Conversas/mês', value: (p) => p.limits.maxConversationsMonthly.toLocaleString('pt-BR') },
@@ -312,7 +319,7 @@ export default function PlansView() {
           )}
           <div className="grade grade-2">
             {/* Plano atual */}
-            <section className="cartao" data-testid="current-plan" aria-labelledby="t-plano-atual">
+            <section className="cartao flex flex-col" data-testid="current-plan" aria-labelledby="t-plano-atual">
               <div className="cartao__cab">
                 <div><h2 id="t-plano-atual"><CreditCard className="ic verde-txt" aria-hidden="true" />Plano atual</h2></div>
                 {subscription && (
@@ -321,7 +328,7 @@ export default function PlansView() {
                   </span>
                 )}
               </div>
-              <div className="cartao__corpo space-y-4">
+              <div className="cartao__corpo flex flex-1 flex-col gap-4">
                 {subscription ? (
                   <>
                     <div className="resumo-plano__nome">
@@ -370,26 +377,56 @@ export default function PlansView() {
                         </>
                       )}
                     </dl>
+                    {canSubscribe && currentPlanFull && (
+                      <ul className="lista-ok" aria-label={`O plano ${currentPlanFull.name} inclui`}>
+                        <li><Check className="ic" aria-hidden="true" /><span>Até {currentPlanFull.limits.maxConversationsMonthly.toLocaleString('pt-BR')} conversas analisadas por mês</span></li>
+                        <li><Check className="ic" aria-hidden="true" /><span>{currentPlanFull.limits.maxAgents} agentes e {currentPlanFull.limits.maxConnections} {currentPlanFull.limits.maxConnections === 1 ? 'conexão' : 'conexões'} WhatsApp</span></li>
+                        <li><Check className="ic" aria-hidden="true" /><span>{currentPlanFull.limits.maxAlertRules} regras de alerta</span></li>
+                      </ul>
+                    )}
+                    {canSubscribe && (
+                      <div className="plano-cta mt-auto" data-testid="subscribe-cta">
+                        <p>
+                          {status === 'trialing'
+                            ? subscription.trialDaysLeft != null && subscription.trialDaysLeft > 0
+                              ? `Faltam ${subscription.trialDaysLeft} ${subscription.trialDaysLeft === 1 ? 'dia' : 'dias'} de teste. Assine agora e continue sem interrupção: nada muda nos seus dados.`
+                              : 'Seu teste termina hoje. Assine agora e continue sem interrupção: nada muda nos seus dados.'
+                            : status === 'expired'
+                              ? 'Seu teste grátis terminou e a análise das conversas está pausada. Assine para voltar a analisar: seus dados continuam guardados.'
+                              : 'Sua assinatura foi encerrada. Assine de novo para voltar a analisar: seus dados continuam guardados.'}
+                        </p>
+                        <div className="plano-cta__acoes">
+                          <button type="button" className="btn btn--primario btn--lg" onClick={() => startCheckout(subscription.plan.id, 'monthly')}>
+                            Assinar o plano {subscription.plan.name}<ArrowRight className="ic" aria-hidden="true" />
+                          </button>
+                          <button type="button" className="btn btn--link" onClick={scrollToCompare}>Comparar planos</button>
+                        </div>
+                      </div>
+                    )}
                     {recurring && !bsub?.cancelAtPeriodEnd && (
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <button type="button" className="btn btn--sm flex-1" onClick={() => setCardOpen(true)}>Trocar cartão</button>
-                        <button type="button" className="btn btn--sm btn--perigo flex-1" onClick={() => setCancelOpen(true)}>Cancelar renovação</button>
+                      <div className="mt-auto flex flex-col sm:flex-row gap-2">
+                        {canUpgrade && (
+                          <button type="button" className="btn btn--primario flex-1" onClick={scrollToCompare}>
+                            <ArrowUpCircle className="ic" aria-hidden="true" />Subir de plano
+                          </button>
+                        )}
+                        <button type="button" className="btn flex-1" onClick={() => setCardOpen(true)}>Trocar cartão</button>
                       </div>
                     )}
                     {canReactivate && (
-                      <div className="space-y-2" data-testid="renewal-canceled">
+                      <div className="mt-auto space-y-2" data-testid="renewal-canceled">
                         <p className="suave text-[13px]">A renovação automática está cancelada. O plano vale até {fmtDate(subscription.currentPeriodEnd)}; até lá, você pode reativá-la sem pagar nada agora.</p>
                         <button type="button" className="btn btn--sm btn--primario w-full sm:w-auto" onClick={() => setReactivateOpen(true)}>Reativar renovação</button>
+                        {bsub?.withdrawal && (
+                          <p className="suave text-xs" data-testid="withdrawal-offer">
+                            Prefere encerrar agora? Até {fmtDateTime(bsub.withdrawal.until)} você ainda pode{' '}
+                            <button type="button" className="link-texto" onClick={() => setWithdrawOpen(true)}>desistir e receber o reembolso</button>.
+                          </p>
+                        )}
                       </div>
                     )}
-                    {bsub?.withdrawal && (
-                      <div className="space-y-2 border-t border-[var(--borda)] pt-3" data-testid="withdrawal-offer">
-                        <p className="suave text-[13px]">Direito de arrependimento: até {fmtDateTime(bsub.withdrawal.until)} você pode desistir da contratação e receber de volta o valor integral ({formatCurrency(bsub.withdrawal.amount)}) no cartão.</p>
-                        <button type="button" className="btn btn--sm w-full sm:w-auto" onClick={() => setWithdrawOpen(true)}>Desistir e receber reembolso</button>
-                      </div>
-                    )}
-                    {!recurring && online && status !== 'active' && (
-                      <p className="suave text-[13px]">Escolha um plano abaixo para contratar com cartão de crédito.</p>
+                    {!online && status !== 'active' && (
+                      <p className="suave text-[13px]">Escolha um plano abaixo e use &quot;Solicitar troca&quot;: nossa equipe combina o pagamento com você.</p>
                     )}
                   </>
                 ) : (
@@ -451,21 +488,28 @@ export default function PlansView() {
           </div>
 
           {/* Comparativo de planos */}
-          <section aria-labelledby="t-compare">
+          <section aria-labelledby="t-compare" className="scroll-mt-20">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <h2 id="t-compare" className="text-lg font-bold">Compare os planos</h2>
               {online && (
-                <ToggleGroup type="single" variant="outline" value={cycle} onValueChange={(v) => v && setCycle(v as Cycle)} aria-label="Ciclo de cobrança">
-                  <ToggleGroupItem value="monthly" className="px-4">Mensal</ToggleGroupItem>
-                  <ToggleGroupItem value="annual" className="px-4">Anual <span className="ml-1 text-xs verde-txt">2 meses grátis</span></ToggleGroupItem>
-                </ToggleGroup>
+                <div className="ciclo-seg" role="radiogroup" aria-label="Ciclo de cobrança" data-testid="plans-cycle">
+                  {(['monthly', 'annual'] as const).map((c) => (
+                    <button key={c} type="button" role="radio" aria-checked={cycle === c} onClick={() => setCycle(c)}>
+                      {c === 'monthly' ? 'Mensal' : 'Anual'}
+                      {c === 'annual' && <span className="ciclo-seg__selo">2 meses grátis</span>}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
             <div data-tour="plans-compare" className="grade grade-3 items-stretch">
               {plans.map((plan) => {
                 const showCycle: Cycle = online ? cycle : 'monthly'
                 const isCurrent = subscription?.plan.id === plan.id
-                const isPaidCurrent = paidPlanId === plan.id && (!recurring || currentCycle === showCycle)
+                // no anual, o mensal do mesmo plano seria rebaixar: fica como "Plano atual"
+                const isPaidCurrent = paidPlanId === plan.id && (!recurring || currentCycle === showCycle || showCycle === 'monthly')
+                // assinante: plano abaixo do atual não é oferecido (só subir de plano)
+                const isBelow = paying && plan.id !== subscription?.plan.id && plan.monthlyPrice <= currentMonthly
                 const isHighlight = plan.highlight
                 const includedFeatures = [
                   `Até ${plan.limits.maxConversationsMonthly.toLocaleString('pt-BR')} conversas/mês`,
@@ -475,8 +519,8 @@ export default function PlansView() {
                 ]
                 const actionLabel = !online
                   ? 'Solicitar troca'
-                  : active && recurring
-                    ? isCurrent ? `Mudar para ${showCycle === 'annual' ? 'anual' : 'mensal'}` : 'Mudar para este plano'
+                  : paying
+                    ? isCurrent ? 'Mudar para anual' : 'Subir para este plano'
                     : 'Assinar'
                 return (
                   <article
@@ -513,6 +557,8 @@ export default function PlansView() {
                         <button type="button" className="btn w-full" disabled>
                           Plano atual
                         </button>
+                      ) : isBelow ? (
+                        <p className="suave text-center text-[13px]" data-testid="plan-below">Seu plano atual já inclui mais que este.</p>
                       ) : (
                         <button
                           type="button"
@@ -574,6 +620,12 @@ export default function PlansView() {
                       </tbody>
                     </table>
                   </div>
+                )}
+                {recurring && active && !bsub?.cancelAtPeriodEnd && !bsub?.pending && (
+                  <p className="suave text-xs mt-4" data-testid="cancel-subscription-hint">
+                    Precisa parar a assinatura?{' '}
+                    <button type="button" className="link-texto" onClick={() => setCancelOpen(true)}>Cancelar assinatura</button>
+                  </p>
                 )}
               </div>
             </section>
@@ -647,23 +699,46 @@ export default function PlansView() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={cancelOpen} onOpenChange={(o) => !canceling && setCancelOpen(o)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar a renovação automática?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Nenhuma nova cobrança será feita. O plano {subscription?.plan.name} continua valendo até {fmtDate(subscription?.currentPeriodEnd ?? null)}; depois disso, o cadastro de novos itens fica bloqueado até você contratar de novo. O período já pago não é reembolsado
-              {bsub?.withdrawal ? ` (mas você ainda está no prazo de arrependimento: use "Desistir e receber reembolso" para encerrar agora com o valor integral de volta)` : ''}. Se mudar de ideia antes dessa data, é só reativar a renovação aqui em Planos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={canceling}>Manter assinatura</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); cancelRenewal() }} disabled={canceling} className="bg-destructive text-white hover:bg-destructive/90">
-              {canceling ? 'Cancelando…' : 'Cancelar renovação'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Cancelar: nos 7 dias do arrependimento a pessoa escolhe entre usar até o fim do período ou encerrar com reembolso;
+          depois disso, cancelar só para a renovação (nada é cobrado no ciclo seguinte e o plano vale até o fim do atual). */}
+      <Dialog open={cancelOpen} onOpenChange={(o) => !canceling && setCancelOpen(o)}>
+        <DialogContent className="sm:max-w-lg" data-testid="cancel-dialog">
+          <DialogHeader>
+            <DialogTitle>Cancelar a assinatura</DialogTitle>
+            <DialogDescription>
+              {bsub?.withdrawal
+                ? `A contratação foi há menos de 7 dias, então você escolhe como encerrar o plano ${subscription?.plan.name ?? ''}:`
+                : `Nada é cobrado no próximo ${currentCycle === 'annual' ? 'ano' : 'mês'}. O plano ${subscription?.plan.name ?? ''} continua ativo até ${fmtDate(subscription?.currentPeriodEnd ?? null)}; depois disso, o cadastro de novos itens fica bloqueado até você assinar de novo. Se mudar de ideia antes, é só reativar a renovação aqui em Planos.`}
+            </DialogDescription>
+          </DialogHeader>
+          {bsub?.withdrawal && (
+            <div className="grid gap-2">
+              <button type="button" className="opcao-cancelar" disabled={canceling} onClick={cancelRenewal}>
+                <CalendarCheck className="ic" aria-hidden="true" />
+                <span>
+                  <b>{canceling ? 'Cancelando…' : `Usar até ${fmtDate(subscription?.currentPeriodEnd ?? null)} e não renovar`}</b>
+                  <span>Nada mais é cobrado. O plano segue ativo até o fim do período já pago, sem reembolso.</span>
+                </span>
+              </button>
+              <button type="button" className="opcao-cancelar" disabled={canceling} onClick={() => { setCancelOpen(false); setWithdrawOpen(true) }}>
+                <Undo2 className="ic" aria-hidden="true" />
+                <span>
+                  <b>Encerrar agora e receber o reembolso</b>
+                  <span>Devolvemos {formatCurrency(bsub.withdrawal.amount)}{bsub.cardLast4 ? ` no cartão final ${bsub.cardLast4}` : ' no cartão'} e o plano termina hoje. Possível até {fmtDateTime(bsub.withdrawal.until)}.</span>
+                </span>
+              </button>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCancelOpen(false)} disabled={canceling}>Manter assinatura</Button>
+            {!bsub?.withdrawal && (
+              <Button type="button" variant="destructive" onClick={cancelRenewal} disabled={canceling}>
+                {canceling ? 'Cancelando…' : 'Cancelar renovação'}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={withdrawOpen} onOpenChange={(o) => !withdrawing && setWithdrawOpen(o)}>
         <AlertDialogContent>

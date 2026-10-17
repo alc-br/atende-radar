@@ -206,7 +206,7 @@ export function AppHeader() {
             <DropdownMenuItem onClick={() => setView('settings')}><Settings aria-hidden="true" />Configurações</DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={openHelp}><LifeBuoy aria-hidden="true" />Central de ajuda e suporte</DropdownMenuItem>
-          <DropdownMenuItem onClick={openSystemTour}><GraduationCap aria-hidden="true" />Tour pelo sistema</DropdownMenuItem>
+          <DropdownMenuItem onClick={openSystemTour}><GraduationCap aria-hidden="true" />Treinamento do sistema</DropdownMenuItem>
           <DropdownMenuItem onClick={() => startTour(currentView)}><CircleHelp aria-hidden="true" />Tour desta tela</DropdownMenuItem>
           <DropdownMenuItem onClick={() => startTour('welcome')}><CircleHelp aria-hidden="true" />Tour de boas-vindas</DropdownMenuItem>
           <DropdownMenuSeparator />

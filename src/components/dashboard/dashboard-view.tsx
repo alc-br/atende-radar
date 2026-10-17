@@ -50,6 +50,7 @@ import { formatCurrency, getIntentLabel, cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { canOpenView } from '@/lib/permissions'
 import { SetupChecklist } from './setup-checklist'
+import { TrainingBanner } from './training-banner'
 
 // ─── Tipos ───────────────────────────────────────────────────────────
 
@@ -392,6 +393,7 @@ export default function DashboardView() {
         </p>
       )}
 
+      <TrainingBanner />
       <SetupChecklist />
 
       {/* ─── Indicadores ─────────────────────────────────────────── */}

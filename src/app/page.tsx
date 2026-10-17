@@ -37,6 +37,9 @@ import { TrialBanner } from '@/components/layout/trial-banner'
 import { DeletionBanner } from '@/components/layout/deletion-banner'
 import { onAppHost } from '@/lib/hosts'
 
+// Telas sem guia automático na primeira visita (o guia continua em "Guia desta tela").
+const NO_AUTO_TOUR = new Set(['plans', 'checkout'])
+
 function MainContent() {
   const { currentView, selectedConversationId, selectedAgentId, mobileNavOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
   const { status } = useSession()
@@ -105,13 +108,20 @@ function MainContent() {
       .catch(() => setSeenTours([]))
   }, [status, setSeenTours])
 
+  // Tela onde o boas-vindas apareceu nesta visita: o guia dessa tela não abre logo em seguida (um tour emendado no
+  // outro); abre na primeira visita às outras telas. Planos não tem guia automático (fica em "Guia desta tela").
+  const welcomeView = useRef<string | null>(null)
   useEffect(() => {
     if (!toursLoaded || activeTour || !me) return // espera saber o papel para mostrar o tour certo
     if (systemTourOpen) return // com o Tour pelo sistema aberto, os guias rápidos não abrem por cima
     if (!seenTours.includes('welcome')) {
-      const id = window.setTimeout(() => startTour('welcome'), 600)
+      const id = window.setTimeout(() => {
+        welcomeView.current = currentView
+        startTour('welcome')
+      }, 600)
       return () => window.clearTimeout(id)
     }
+    if (currentView === welcomeView.current || NO_AUTO_TOUR.has(currentView)) return
     if (TOURS[currentView] && !seenTours.includes(currentView)) {
       const id = window.setTimeout(() => startTour(currentView), 600)
       return () => window.clearTimeout(id)

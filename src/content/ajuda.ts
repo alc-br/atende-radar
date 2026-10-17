@@ -28,12 +28,12 @@ export interface ArtigoAjuda {
 export const ARTIGOS_AJUDA: ArtigoAjuda[] = [
   {
     slug: 'tour-pelo-sistema',
-    titulo: 'Tour pelo sistema: o manual passo a passo',
-    resumo: 'Um passeio guiado pelas telas que o seu papel usa, com leitura em voz alta e progresso salvo.',
+    titulo: 'Treinamento do sistema: aulas passo a passo',
+    resumo: 'Aulas guiadas pelas telas que o seu papel usa, com leitura em voz alta e progresso salvo. Serve para treinar a equipe.',
     categoria: 'comecar',
-    palavras: ['manual', 'tutorial', 'treinamento', 'guia', 'passo a passo', 'aprender', 'ouvir', 'voz alta', 'leitura'],
+    palavras: ['manual', 'tour', 'aulas', 'tutorial', 'treinamento', 'guia', 'passo a passo', 'aprender', 'ouvir', 'voz alta', 'leitura'],
     corpo: [
-      { t: 'p', x: 'O **Tour pelo sistema** fica no rodapé do menu lateral, logo acima de **Precisa de ajuda?**, e também no menu com o seu nome. Ele abre uma lista de capítulos com **só o que o seu papel usa**: o atendente vê menos capítulos que o administrador.' },
+      { t: 'p', x: 'O **Treinamento do sistema** fica no rodapé do menu lateral, logo acima de **Precisa de ajuda?**, e também no menu com o seu nome. Ele abre uma lista de aulas com **só o que o seu papel usa**: o atendente vê menos aulas que o administrador.' },
       { t: 'h2', x: 'Como funciona' },
       {
         t: 'check',
@@ -45,7 +45,7 @@ export const ARTIGOS_AJUDA: ArtigoAjuda[] = [
         ],
       },
       { t: 'h2', x: 'Progresso salvo' },
-      { t: 'p', x: 'O progresso de cada capítulo fica guardado na sua conta. Na lista você vê o que já concluiu e pode **Continuar de onde parei** ou **Recomeçar** qualquer capítulo, inclusive em outro computador.' },
+      { t: 'p', x: 'O progresso de cada aula fica guardado na sua conta. Na lista você vê o que já concluiu e pode **Continuar de onde parei** ou **Recomeçar** qualquer aula, inclusive em outro computador.' },
       { t: 'h2', x: 'Leitura em voz alta' },
       { t: 'p', x: 'O botão **Ouvir** explica o passo em voz alta, em português e sem custo: a narração vai além do texto da tela e conta para que serve cada item. A voz natural é gerada uma única vez por um serviço de voz da Microsoft (só o texto do manual, nunca dados seus ou dos seus clientes) e fica guardada no AtendeRadar; se ela não estiver disponível, o sistema usa a voz do seu navegador. O botão **Ler automaticamente**, no rodapé do passo, lê cada passo e avança sozinho até o fim do capítulo. Nos passos de clique, um cursor na tela aponta o item e espera o seu clique; nos passos de cadastro (criar, salvar, convidar, conectar, pagar), ele mostra onde preencher e salvar e espera você terminar: o manual nunca cadastra nada sozinho, e o botão **Próximo** pula o cadastro. Seu clique continua valendo a qualquer momento; toque de novo no botão para pausar. Dá para pausar, parar e escolher a velocidade (de 0,8× a 2×), que fica guardada. Sem nenhuma das duas vozes, os botões não aparecem.' },
     ],

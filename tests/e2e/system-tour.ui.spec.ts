@@ -34,7 +34,7 @@ async function openSystemTour(page: Page, isMobile: boolean) {
   await expect(page.locator('[data-tour="nav-dashboard"]').first()).toBeAttached({ timeout: 15000 })
   if (isMobile) await page.getByRole('button', { name: 'Abrir menu' }).click()
   await page.getByTestId('abrir-tour-sistema').click()
-  await expect(page.locator('main').getByRole('heading', { name: 'Tour pelo sistema', level: 1 })).toBeVisible()
+  await expect(page.locator('main').getByRole('heading', { name: 'Treinamento do sistema', level: 1 })).toBeVisible()
   await expect(page.getByTestId('system-tour-chapters')).toBeVisible({ timeout: 15000 })
 }
 
@@ -70,10 +70,10 @@ test('o botão fica logo acima de "Precisa de ajuda?" e abre a lista de capítul
   const tourBox = await page.getByTestId('abrir-tour-sistema').boundingBox()
   const helpBox = await page.getByTestId('abrir-ajuda').boundingBox()
   expect(tourBox && helpBox && tourBox.y + tourBox.height <= helpBox.y + 1).toBeTruthy()
-  await expect(page.getByTestId('abrir-tour-sistema')).toContainText('Tour pelo sistema')
+  await expect(page.getByTestId('abrir-tour-sistema')).toContainText('Treinamento do sistema')
 
   await page.getByTestId('abrir-tour-sistema').click()
-  await expect(page.locator('main').getByRole('heading', { name: 'Tour pelo sistema', level: 1 })).toBeVisible()
+  await expect(page.locator('main').getByRole('heading', { name: 'Treinamento do sistema', level: 1 })).toBeVisible()
   await expect(chapterCard(page, 'primeiros-passos')).toBeVisible({ timeout: 15000 })
   await expect(chapterCard(page, 'primeiros-passos').getByRole('button', { name: 'Começar' })).toBeVisible()
 })
@@ -432,9 +432,9 @@ test.describe('leitura em voz alta', () => {
     await page.waitForTimeout(3500)
     await expect(step).toHaveText(after)
 
-    // último passo: lê, para e mostra "Concluir capítulo" (sem abrir outro capítulo)
+    // último passo: lê, para e mostra "Concluir aula" (sem abrir outro capítulo)
     const total = SYSTEM_TOUR_CHAPTERS.find((c) => c.id === 'primeiros-passos')!.steps.length
-    for (let i = 0; i < total && !(await p.getByRole('button', { name: 'Concluir capítulo' }).isVisible()); i++) {
+    for (let i = 0; i < total && !(await p.getByRole('button', { name: 'Concluir aula' }).isVisible()); i++) {
       const before = (await step.textContent()) ?? ''
       const next = p.getByRole('button', { name: 'Próximo' })
       if (await next.isVisible()) await next.click()
@@ -445,7 +445,7 @@ test.describe('leitura em voz alta', () => {
     await expect(auto).toHaveAttribute('aria-pressed', 'true')
     await expect(auto).toHaveAttribute('aria-pressed', 'false', { timeout: 15000 })
     await expect(step).toHaveText(new RegExp(`Passo ${total} de ${total}`))
-    await expect(p.getByRole('button', { name: 'Concluir capítulo' })).toBeVisible()
+    await expect(p.getByRole('button', { name: 'Concluir aula' })).toBeVisible()
   })
 
   test.describe('Ler automaticamente simula as ações', () => {

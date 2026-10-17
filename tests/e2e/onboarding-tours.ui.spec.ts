@@ -5,7 +5,7 @@ import { enter, home, openView } from './ui'
 // T5 · Assistente de configuração (7 etapas) continua de onde parou; tours: "Pular" não volta depois de recarregar
 // e passo cujo elemento não existe na tela não trava o tour.
 
-const tourCard = (page: Page) => page.locator('div.shadow-xl', { hasText: /Passo \d+ de/ })
+const tourCard = (page: Page) => page.getByTestId('tour-card')
 
 async function openOnboarding(page: Page, isMobile: boolean) {
   await home(page)

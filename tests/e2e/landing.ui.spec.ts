@@ -85,7 +85,7 @@ test.describe('Página de vendas', () => {
     await expect(faq.locator('details')).toHaveCount(FAQ.length)
     for (const [q, trecho] of [
       ['Meu WhatsApp pode ser bloqueado?', 'não podemos prometer que seja zero'],
-      ['Como cancelo?', 'Cancelar renovação'],
+      ['Como cancelo?', 'Cancelar assinatura'],
       ['Tem fidelidade?', 'Não há prazo mínimo nem multa'],
     ]) {
       const item = faq.locator('details', { has: page.locator('summary', { hasText: q }) })

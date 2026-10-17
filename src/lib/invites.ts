@@ -1,5 +1,6 @@
 import { issueToken } from './auth-tokens'
 import { appUrl, sendMail, type MailStatus } from './mailer'
+import { isRole, roleName, ROLE_DESCRIPTIONS } from './permissions'
 
 /**
  * Gera um link de convite novo (invalida os anteriores do membro) e manda o e-mail.
@@ -17,7 +18,8 @@ export async function sendInvite(
     subject: `${inviter.name} convidou você para o AtendeRadar`,
     text: `Olá, ${member.name}!
 
-${inviter.name} convidou você para o AtendeRadar como "${member.role}".
+${inviter.name} convidou você para o AtendeRadar como "${roleName(member.role)}".
+${isRole(member.role) ? `${ROLE_DESCRIPTIONS[member.role]}\n` : ''}
 Crie a sua senha e entre por este link (vale por 7 dias):
 ${link}
 `,

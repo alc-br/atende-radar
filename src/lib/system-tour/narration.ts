@@ -20,7 +20,7 @@ export const NARRATIONS: Record<string, string> = {
   'primeiros-passos/menu-usuario':
     'Clicando no seu nome, você abre o seu menu pessoal. Ali você troca o nome e a senha, e pode sair de todos os aparelhos, útil se esqueceu a conta aberta num computador da loja. Também ficam ali a Central de ajuda, os tours, a escolha entre tema claro e escuro e o botão para sair.',
   'primeiros-passos/onde-fica':
-    'Para voltar a este manual depois, use o botão Tour pelo sistema, no rodapé do menu, logo acima de Precisa de ajuda. Lá você vê a lista de capítulos e quais já concluiu. Com isso terminamos o primeiro capítulo. Os próximos mostram, uma a uma, as telas que o seu papel usa.',
+    'Para voltar ao treinamento depois, use o botão Treinamento do sistema, no rodapé do menu, logo acima de Precisa de ajuda. Lá você vê a lista de aulas e quais já concluiu. Com isso terminamos a primeira aula. As próximas mostram, uma a uma, as telas que o seu papel usa.',
 
   // ── 2. WhatsApp (Conexões) ──
   'whatsapp/abrir-conexoes':

@@ -244,7 +244,7 @@ export default function HelpView() {
           <h2 id="t-guias" className="flex items-center gap-2 text-[15px] font-bold"><Compass className="ic" aria-hidden="true" />Guias passo a passo</h2>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn btn--primario" onClick={openSystemTour}>
-              <GraduationCap className="ic" aria-hidden="true" />Tour pelo sistema
+              <GraduationCap className="ic" aria-hidden="true" />Treinamento do sistema
             </button>
             {temGuia && (
               <button type="button" className="btn btn--contorno-verde" onClick={() => abrirGuia(tourDaTela)}>
