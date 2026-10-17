@@ -33,8 +33,15 @@ const FINDING_TYPE: Record<string, string> = {
   customer_frustrated: 'customer_frustrated',
   promise_overdue: 'overdue_promise',
   promise_approaching: 'overdue_promise',
+  overdue_promise: 'overdue_promise',
+  slow_response: 'slow_response',
+  ignored_question: 'ignored_question',
+  abandoned_lead: 'abandoned_lead',
 }
-const RECOVERY_RULES = ['pending_quote', 'high_intent_no_reply', 'no_response', 'no_response_followup']
+const RECOVERY_RULES = ['pending_quote', 'high_intent_no_reply', 'no_response', 'no_response_followup', 'slow_response', 'abandoned_lead']
+// Regras que não olham uma conversa: valem para a empresa inteira (tratadas depois do laço das conversas)
+const ORG_RULES = ['connection_down', 'quota_warning']
+const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 
 export interface AnalysisSummary {
   organizations: number
@@ -258,6 +265,8 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     const waitingCompany = conv.operationalStatus === 'waiting_company'
     const waitingMinutes = waitingCompany && conv.waitingSince ? forAlerts(conv.waitingSince, now) : 0
     const waitingForScore = waitingCompany && conv.waitingSince ? forScore(conv.waitingSince, now) : 0
+    // cliente que parou de responder depois da empresa falar (relógio dos alertas): base do "Lead abandonado"
+    const customerSilentForAlerts = conv.operationalStatus === 'waiting_customer' && conv.lastOutboundAt ? forAlerts(conv.lastOutboundAt, now) : 0
     let closed = conv.closedAt != null || CLOSED_OUTCOMES.includes(conv.operationalStatus)
 
     const est = estimateOpportunity(intent, avgTicket, conversionRate, ceiling)
@@ -316,7 +325,10 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     if (!closed) {
       const lastMsgAt = msgs.length ? msgs[msgs.length - 1].occurredAt : conv.openedAt
       const customerSilentMinutes = conv.operationalStatus === 'waiting_customer' && conv.lastOutboundAt ? wall(conv.lastOutboundAt, now) : 0
-      if (wall(lastMsgAt, now) >= inactivityHours * 60) {
+      // cliente esperando a empresa: com "fora do expediente: ignora", fim de semana e feriado não contam (sem isto o
+      // cliente da sexta à noite tinha a conversa encerrada no domingo e o alerta de segunda nunca abria)
+      const silentForClose = conv.operationalStatus === 'waiting_company' ? forAlerts(lastMsgAt, now) : wall(lastMsgAt, now)
+      if (silentForClose >= inactivityHours * 60) {
         // ninguém fala há mais tempo que "Encerramento por inatividade"
         await db.conversation.update({ where: { id: conv.id }, data: { closedAt: now, operationalStatus: 'closed', waitingSince: null } })
         conv.closedAt = now
@@ -409,8 +421,11 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     // Regras da mesma causa (alert-groups.ts) formam UM alerta por conversa; repetição reabre o mesmo alerta (contador).
     const conf = cls.confidence
     const byGroup = new Map<string, Array<{ rule: (typeof rules)[number]; triggered: boolean }>>()
+    // perguntas do cliente ainda sem resposta (inclui as detectadas agora), para "Pergunta ignorada"
+    const openQuestionsNow = questions.filter((q) => q.conversationId === conv.id && q.status === 'open')
+    const oppOpen = !!opp ? opp.status === 'active' : !!est
     for (const rule of rules) {
-      if (rule.type === 'connection_down') continue
+      if (ORG_RULES.includes(rule.type)) continue
       const limit = rule.limitMinutes ?? 0
       const scopeConns = parseJson<string[]>(rule.scopeConnections, [])
       const scopeTeams = parseJson<string[]>(rule.scopeTeams, [])
@@ -423,7 +438,11 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
         case 'pending_quote': triggered = waitingCompany && intent === 'preco' && waitingMinutes >= limit && conf >= rule.minConfidence; break
         case 'high_intent_no_reply': triggered = waitingCompany && ['compra', 'agendamento', 'negociacao'].includes(intent ?? '') && waitingMinutes >= limit && conf >= rule.minConfidence; break
         case 'customer_frustrated': triggered = waitingCompany && sentiment === 'frustrated' && waitingMinutes >= limit; break
-        case 'promise_overdue': triggered = overdueOpen > 0; break
+        case 'slow_response': triggered = waitingCompany && waitingMinutes >= limit; break
+        case 'ignored_question': triggered = openQuestionsNow.some((q) => forAlerts(q.askedAt, now) >= limit); break
+        case 'abandoned_lead': triggered = oppOpen && customerSilentForAlerts >= limit && limit > 0; break
+        case 'promise_overdue':
+        case 'overdue_promise': triggered = overdueOpen > 0; break
         case 'promise_approaching': triggered = approachingOpen > 0 && convPromises.some((p) => p.status === 'open' && p.dueAt && p.dueAt >= now && minutesBetween(now, p.dueAt) <= limit); break
         default: triggered = false
       }
@@ -544,8 +563,8 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   }
 
   // --- alertas de conexão (sem conversa) ---
-  const connRule = rules.find((r) => r.type === 'connection_down')
-  if (connRule) {
+  // (toda regra do tipo vale: a padrão e as que a empresa criar, cada uma com o seu alerta por conexão)
+  for (const connRule of rules.filter((r) => r.type === 'connection_down')) {
     for (const c of connections) {
       const down = (c.status === 'disconnected' || (c.status === 'qr_required' && c.pairedAt != null)) && c.disabledAt == null
       const existing = openAlerts.find((a) => a.ruleName === connRule.name && a.conversationId == null && a.title.endsWith(`: ${c.name}`))
@@ -563,6 +582,37 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
         await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved', resolvedBy: 'auto' } }))
         summary.alertsResolved += 1
       }
+    }
+  }
+
+  // --- aviso de cota (quota_warning): conversas do mês chegando no limite do plano. Um alerta por mês; fecha sozinho se
+  // o uso voltar a ficar abaixo (ex.: troca para um plano maior). Dispensado por uma pessoa, não volta no mesmo mês.
+  for (const qr of rules.filter((r) => r.type === 'quota_warning')) {
+    const pctLimit = qr.limitMinutes && qr.limitMinutes >= 1 && qr.limitMinutes <= 100 ? qr.limitMinutes : 80
+    const usedPct = gate.limit ? (gate.used / gate.limit) * 100 : 0
+    const hit = !!gate.limit && usedPct >= pctLimit
+    const key = `cota|${qr.id}|${monthKey(now)}`
+    const last = await db.alert.findFirst({ where: { organizationId: orgId, groupKey: key }, orderBy: { createdAt: 'desc' } })
+    const lastOpen = last && OPEN_ALERT.includes(last.status) ? last : null
+    const description = `${gate.used} de ${gate.limit ?? 0} conversas do mês já foram usadas (${Math.round(usedPct)}%). Acima do limite, as conversas novas são recebidas mas não analisadas até o mês virar ou o plano mudar.`
+    if (hit && lastOpen) {
+      if (lastOpen.description !== description) await db.alert.update({ where: { id: lastOpen.id }, data: { description, lastOccurredAt: now } })
+    } else if (hit && last && last.status === 'resolved' && last.resolvedBy === 'auto') {
+      await enqueueAlertEvent('alert.updated', await db.alert.update({ where: { id: last.id }, data: { status: 'new', resolvedBy: null, occurrences: last.occurrences + 1, description, lastOccurredAt: now } }))
+      summary.alertsRepeated = (summary.alertsRepeated ?? 0) + 1
+    } else if (hit && !last) {
+      const alert = await db.alert.create({
+        data: { organizationId: orgId, ruleName: qr.name, severity: qr.severity, groupKey: key, title: `${qr.name}: ${Math.round(usedPct)}% das conversas do mês`, description, status: 'new', lastOccurredAt: now },
+      })
+      summary.alertsOpened += 1
+      await enqueueAlertEvent('alert.created', alert)
+      if (parseJson<string[]>(qr.notificationChannels, ['in_app']).includes('in_app')) {
+        await db.notification.create({ data: { organizationId: orgId, type: 'alert', title: alert.title, message: description, data: JSON.stringify({ alertId: alert.id, severity: qr.severity }) } })
+      }
+      await queueAlertEmails(qr, alert)
+    } else if (!hit && lastOpen) {
+      await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: lastOpen.id }, data: { status: 'resolved', resolvedBy: 'auto' } }))
+      summary.alertsResolved += 1
     }
   }
 

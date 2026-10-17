@@ -21,6 +21,23 @@ export interface SimOrg {
   agentIds: string[]
 }
 
+/** Data (AAAA-MM-DD) do instante em São Paulo. */
+export const spDate = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+
+/**
+ * O instante mais recente, até `base`, que cai no dia da semana e na hora dados em São Paulo (sem horário de verão
+ * desde 2019: sempre −03:00). Usado por Scenario.startAt.
+ */
+export function anchoredStart(base: Date, weekday: number, time: string): Date {
+  for (let k = 0; k < 8; k++) {
+    const ymd = spDate(new Date(base.getTime() - k * DAY))
+    const candidate = new Date(`${ymd}T${time}:00-03:00`)
+    const wd = new Date(`${ymd}T12:00:00-03:00`).getUTCDay()
+    if (wd === weekday && candidate.getTime() <= base.getTime()) return candidate
+  }
+  throw new Error(`startAt inválido (${weekday} ${time})`)
+}
+
 /** Número fictício de 11 dígitos (DDD 11, celular) para uma conexão simulada. */
 const fakePhone = () => `+55119${String(Math.floor(10_000_000 + Math.random() * 89_999_999))}`
 
@@ -30,7 +47,12 @@ export async function buildOrganization(scenario: Scenario, virtualStart: Date, 
   const runKey = randomBytes(4).toString('hex')
   const name = `[SIMULAÇÃO] ${scenario.title}`.slice(0, 120)
   const owner = `gestor.${runKey}@${SIMULATION_EMAIL_DOMAIN}`
-  const settings = { outsideRule: 'atraso', ...(scenario.settings ?? {}) }
+  const settings: Record<string, unknown> = { outsideRule: 'atraso', ...(scenario.settings ?? {}) }
+  if (scenario.holidayOnStart) {
+    // dia do início virtual (em São Paulo) como feriado, no formato da tela: "DD/MM/AAAA - Descrição"
+    const [y, m, d] = spDate(virtualStart).split('-')
+    settings.holidays = [String(settings.holidays ?? '').trim(), `${d}/${m}/${y} - Feriado (simulação)`].filter(Boolean).join('\n')
+  }
 
   const orgId = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
@@ -60,6 +82,11 @@ export async function buildOrganization(scenario: Scenario, virtualStart: Date, 
   for (const agentName of scenario.agents ?? []) {
     const r = await addAgent(sim, agentName)
     if (r.status !== 201) throw new Error(`O plano ${plan.name} não comporta ${scenario.agents!.length} atendentes (402 em "${agentName}")`)
+  }
+  if (scenario.subscription === 'canceled') {
+    // assinatura encerrada: o período pago acabou 1 dia antes do início virtual
+    const end = new Date(virtualStart.getTime() - DAY)
+    await db.subscription.update({ where: { organizationId: orgId }, data: { status: 'canceled', cancelAtPeriodEnd: true, currentPeriodStart: new Date(end.getTime() - 30 * DAY), currentPeriodEnd: end } })
   }
   if (scenario.subscription === 'trial_expired') {
     // teste grátis que terminou 1 dia antes do início virtual (depois de montar conexões e atendentes, que a cota

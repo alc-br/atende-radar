@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
 import { readJson } from '@/lib/json-body'
-import { parseRuleChannels, RULE_CHANNELS_ERROR } from '@/lib/alert-channels'
+import { ruleUpdateData, type RuleInput } from '@/lib/alert-rules'
 
 export async function PUT(
   request: Request,
@@ -16,62 +16,13 @@ export async function PUT(
     const j = await readJson(request)
     if (!j.ok) return j.res
     const body = j.body
-    const {
-      name,
-      type,
-      active,
-      severity,
-      channels,
-      cooldownMinutes,
-      limitMinutes,
-      scopeConnections,
-      scopeTeams,
-      daysAndHours,
-      recipients,
-      autoCloseMinutes,
-      exceptions,
-      minConfidence,
-    } = body as {
-      name?: string
-      type?: string
-      active?: boolean
-      severity?: string
-      channels?: string[]
-      cooldownMinutes?: number
-      limitMinutes?: number
-      scopeConnections?: string[]
-      scopeTeams?: string[]
-      daysAndHours?: Record<string, unknown>
-      recipients?: string[]
-      autoCloseMinutes?: number
-      exceptions?: string[]
-      minConfidence?: number
-    }
-
     const existing = await db.alertRule.findFirst({ where: { id, organizationId: g.auth.orgId } })
     if (!existing) {
       return NextResponse.json({ error: 'Alert rule not found' }, { status: 404 })
     }
-
-    const data: Record<string, unknown> = {}
-    if (name !== undefined) data.name = name
-    if (type !== undefined) data.type = type
-    if (active !== undefined) data.active = active
-    if (severity !== undefined) data.severity = severity
-    if (channels !== undefined) {
-      const parsed = parseRuleChannels(channels)
-      if (!parsed) return NextResponse.json({ error: RULE_CHANNELS_ERROR, code: 'invalid_channels' }, { status: 400 })
-      data.notificationChannels = JSON.stringify(parsed)
-    }
-    if (cooldownMinutes !== undefined) data.cooldownMinutes = cooldownMinutes
-    if (limitMinutes !== undefined) data.limitMinutes = limitMinutes
-    if (scopeConnections !== undefined) data.scopeConnections = JSON.stringify(scopeConnections)
-    if (scopeTeams !== undefined) data.scopeTeams = JSON.stringify(scopeTeams)
-    if (daysAndHours !== undefined) data.daysAndHours = JSON.stringify(daysAndHours)
-    if (recipients !== undefined) data.recipients = JSON.stringify(recipients)
-    if (autoCloseMinutes !== undefined) data.autoCloseMinutes = autoCloseMinutes
-    if (exceptions !== undefined) data.exceptions = JSON.stringify(exceptions)
-    if (minConfidence !== undefined) data.minConfidence = minConfidence
+    const parsed = await ruleUpdateData(g.auth.orgId, existing, body as RuleInput)
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error, code: parsed.code }, { status: parsed.status })
+    const data = parsed.data
 
     const updated = await db.alertRule.update({
       where: { id },

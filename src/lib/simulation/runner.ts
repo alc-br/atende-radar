@@ -4,7 +4,9 @@ import { analyzeOrganization, type AnalysisSummary } from '../analysis/engine'
 import { deleteSimulationOrganization } from '../org-deletion'
 import { SimulationDisabledError, simulationEnabled } from '../sandbox'
 import { purgeExpiredSimulations } from './cleanup'
-import { addAgent, addConnection, buildOrganization, type SimOrg } from './builder'
+import { addAgent, addConnection, anchoredStart, buildOrganization, type SimOrg } from './builder'
+import { createAlertRule } from '../alert-rules'
+import { excludeContactOf } from '../privacy'
 import { injectConnectionStatus, injectMessage } from './injector'
 import { check, type AssertContext } from './assert'
 import { SCENARIOS, scenarioById } from './scenarios'
@@ -38,7 +40,8 @@ export async function runScenario(scenario: Scenario, opts: RunOptions): Promise
   const started = Date.now()
   const now = opts.now ?? new Date()
   const maxAt = Math.max(0, ...scenario.steps.map((s) => s.at))
-  const t0 = new Date(now.getTime() - (maxAt + 1) * MIN)
+  const latest = new Date(now.getTime() - (maxAt + 1) * MIN)
+  const t0 = scenario.startAt ? anchoredStart(latest, scenario.startAt.weekday, scenario.startAt.time) : latest
   const at = (m: number) => new Date(t0.getTime() + m * MIN)
   const row = await db.simulationRun.create({ data: { kind: 'run', scenarioId: scenario.id, startedBy: opts.startedBy, virtualStart: t0 } })
 
@@ -48,7 +51,7 @@ export async function runScenario(scenario: Scenario, opts: RunOptions): Promise
   try {
     sim = await buildOrganization(scenario, t0, now)
     await db.simulationRun.update({ where: { id: row.id }, data: { organizationId: sim.orgId } })
-    const ctx: AssertContext = { orgId: sim.orgId, chats: new Map(), lastTick: null }
+    const ctx: AssertContext = { orgId: sim.orgId, chats: new Map(), lastTick: null, t0 }
     const refs = new Map<string, { eventId: string; externalId: string; connectionId: string }>()
     const steps = scenario.steps.map((s, i) => ({ s, i })).sort((a, b) => a.s.at - b.s.at || a.i - b.i).map((x) => x.s)
 
@@ -82,6 +85,47 @@ export async function runScenario(scenario: Scenario, opts: RunOptions): Promise
       } else if (step.kind === 'tick') {
         ctx.lastTick = await analyzeOrganization(sim.orgId, at(step.at))
         for (const e of step.expect ?? []) assertions.push({ at: step.at, ...(await check(ctx, e)) })
+      } else if (step.kind === 'rule') {
+        const r = await createAlertRule(sim.orgId, {
+          name: step.name, type: step.type, severity: step.severity, limitMinutes: step.limitMinutes, cooldownMinutes: step.cooldownMinutes,
+          channels: step.channels, scopeConnections: (step.connections ?? []).map((i) => sim!.connectionIds[i]),
+        })
+        const want = step.expectStatus ?? 201
+        assertions.push({ at: step.at, label: `criar a regra "${step.name}" (${step.type}) → ${want}`, ok: r.status === want, detail: r.ok ? `HTTP ${r.status}` : `HTTP ${r.status}: ${r.error}` })
+      } else if (step.kind === 'ruleActive') {
+        const { count } = await db.alertRule.updateMany({ where: { organizationId: sim.orgId, name: step.name }, data: { active: step.active } })
+        if (!count) throw new Error(`regra "${step.name}" não existe`)
+      } else if (step.kind === 'alertAction') {
+        const convId = step.chat === undefined ? undefined : ctx.chats.get(step.chat)
+        if (step.chat !== undefined && !convId) throw new Error(`cliente "${step.chat}" não tem conversa`)
+        const alert = await db.alert.findFirst({ where: { organizationId: sim.orgId, ruleName: step.alert, status: { in: ['new', 'acknowledged', 'in_progress'] }, ...(convId ? { conversationId: convId } : {}) } })
+        assertions.push({ at: step.at, label: `alerta "${step.alert}" aberto para tratar (${step.action})`, ok: !!alert, detail: alert ? undefined : 'nenhum alerta aberto' })
+        if (alert) {
+          // mesmos campos que as rotas /api/alerts/[id]/{dismiss,false-positive,resolve} gravam, com o horário virtual
+          // (o cooldown da regra conta a partir de updatedAt)
+          const data = step.action === 'resolve'
+            ? { status: 'resolved', resolvedBy: 'user', updatedAt: at(step.at) }
+            : { status: step.action === 'dismiss' ? 'dismissed' : 'false_positive', dismissedReason: 'Tratado na simulação', updatedAt: at(step.at) }
+          await db.alert.update({ where: { id: alert.id }, data })
+        }
+      } else if (step.kind === 'exclude') {
+        const convId = ctx.chats.get(step.chat)
+        if (!convId) throw new Error(`cliente "${step.chat}" não tem conversa`)
+        assertions.push({ at: step.at, label: `parar de monitorar ${step.chat}`, ok: await excludeContactOf(sim.orgId, convId) })
+      } else if (step.kind === 'usage') {
+        // conversas "antigas" do mês (sem mensagem do WhatsApp: o motor não as analisa, mas a cota do plano as conta)
+        await db.conversation.createMany({ data: Array.from({ length: step.conversations }, () => ({ organizationId: sim!.orgId, operationalStatus: 'closed', openedAt: at(step.at), closedAt: at(step.at) })) })
+      } else if (step.kind === 'plan') {
+        const plan = step.plan ? await db.plan.findUnique({ where: { code: step.plan } }) : null
+        if (step.plan && !plan) throw new Error(`Plano "${step.plan}" não existe no banco`)
+        await db.subscription.update({
+          where: { organizationId: sim.orgId },
+          data: {
+            ...(plan ? { planId: plan.id } : {}),
+            ...(step.status === 'canceled' ? { status: 'canceled', cancelAtPeriodEnd: true, currentPeriodEnd: at(step.at) } : {}),
+            ...(step.status === 'active' ? { status: 'active', cancelAtPeriodEnd: false, trialEnd: null, currentPeriodEnd: new Date(Date.now() + 30 * 86_400_000) } : {}),
+          },
+        })
       } else {
         const r = step.kind === 'addConnection' ? await addConnection(sim, at(step.at)) : await addAgent(sim)
         const what = step.kind === 'addConnection' ? 'conexão' : 'atendente'

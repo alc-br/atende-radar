@@ -63,6 +63,14 @@ Sem segredos aqui: o repositório é público.
 
 ### 17/10/2026
 
+- **Bateria exaustiva do simulador (17/10/2026): 50 cenários, todos verdes.** Novos em `src/lib/simulation/scenarios/`: `regras.ts`, `limites.ts`, `expediente.ts`, `jornada.ts` (lista em `docs/operacao/simulacao.md`). Cobrem regras próprias, ciclo do alerta (dispensar, falso positivo, resolver, repetir, agrupar), cota de regras e de conversas nos 3 planos (até passar do limite), assinatura cancelada/reativada, teste vencido e contratação, horário comercial (domingo, sexta à noite, tolerâncias, feriado, sábado), venda recuperada, perda declarada, LGPD, carga de 200 conversas e os 8 relatórios.
+  - **Defeitos encontrados e corrigidos:**
+    - 5 tipos de regra oferecidos em "Nova regra" nunca disparavam: Resposta lenta, Pergunta ignorada, Lead abandonado, Promessa vencida (tipo antigo) e Aviso de limite de conversas (`quota_warning`, agora "Conversas do mês perto do limite"). Implementados no motor (`engine.ts`).
+    - "Nova regra" não tinha campo de prazo: a regra de tempo criada pela tela ficava sem número e disparava na hora. Agora há o campo (minutos ou % do limite) com o padrão do tipo, e a coluna "Prazo" na tabela.
+    - A API aceitava tipo desconhecido e nome repetido (os alertas se ligam à regra pelo nome). Agora 400/409; o tipo não muda depois de criada. Validação única em `src/lib/alert-rules.ts` (tela e simulador usam a mesma).
+    - Só a 1ª regra de "Conexão desconectada" valia; agora todas.
+    - **Cliente da sexta à noite sumia:** a conversa esperando a empresa era encerrada por inatividade no domingo (48 h corridas) e o alerta de segunda nunca abria. Com "fora do expediente: ignora", a inatividade de quem espera a empresa conta só expediente.
+  - Ainda não feito: regra por equipe e os campos "dias e horários", "encerrar sozinho" e "exceções" da regra (guardados, não usados pelo motor).
 - **Teste/plano vencido bloqueia tudo (17/10/2026).** Quando o teste grátis ou o plano acaba, o painel fica só com Planos, Meu perfil e Ajuda (`locked-shell.tsx`). A API recusa o resto com 402 `subscription_locked` (`src/lib/billing/lock.ts`). Contratando, o painel volta ao recarregar.
   - Decisões minhas: as mensagens do WhatsApp continuam chegando (nada se perde); `past_due` (cobrança falhou) não bloqueia; a faixa do teste recarrega a página na hora em que o teste acaba.
 - **E-mails de cobrança e do teste (`src/lib/billing/emails.ts`).** Vão para os admins ativos, um por evento (dedupe no EmailOutbox):

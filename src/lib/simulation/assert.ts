@@ -1,5 +1,6 @@
 import { db } from '../db'
 import type { AnalysisSummary } from '../analysis/engine'
+import { buildReport } from '../reports/build'
 import type { AssertionResult, Expectation } from './types'
 
 // Asserções dos cenários. Cada uma lê o banco da empresa simulada e devolve ok/falha com o que encontrou.
@@ -11,6 +12,8 @@ export interface AssertContext {
   /** rótulo do cliente → id da conversa (preenchido pelo runner a cada mensagem injetada) */
   chats: Map<string, string>
   lastTick: AnalysisSummary | null
+  /** Início virtual do cenário: período dos relatórios conferidos. */
+  t0: Date
 }
 
 const pass = (label: string, detail?: string): Omit<AssertionResult, 'at'> => ({ label, ok: true, detail })
@@ -30,6 +33,19 @@ export function describe(e: Expectation): string {
   if ('storedText' in e) return `texto gravado de ${e.storedText}${e.contains ? ` contém "${e.contains}"` : ''}${e.notContains ? ` não contém "${e.notContains}"` : ''}`
   if ('promise' in e) return `promessa em ${e.promise}: ${e.status}`
   if ('notification' in e) return `notificação "${e.notification}"`
+  if ('occurrences' in e) return `alerta "${e.occurrences}"${e.chat ? ` em ${e.chat}` : ''} com ${e.count} ocorrência(s)`
+  if ('question' in e) return `pergunta${e.count !== undefined ? `s (${e.count})` : ''} ${e.status === 'open' ? 'em aberto' : 'respondida(s)'} em ${e.question}`
+  if ('lastTick' in e) return `último tick: ${Object.entries(e.lastTick).map(([k, v]) => `${k}=${v}`).join(', ')}`
+  if ('recoveryStatus' in e) return `recuperação de ${e.recoveryStatus}: ${e.status}`
+  if ('report' in e) {
+    const parts = [
+      ...Object.entries(e.kpi ?? {}).map(([k, v]) => `${k}=${v}`),
+      ...Object.entries(e.rows ?? {}).map(([k, v]) => `"${k}" com ${v} linha(s)`),
+      ...Object.entries(e.highlights ?? {}).map(([k, v]) => `${k}=${v}`),
+      ...(e.contains ?? []).map((c) => `contém "${c}"`),
+    ]
+    return `relatório ${e.report}: ${parts.join('; ')}`
+  }
   return `${e.openAlerts} alerta(s) em aberto na empresa`
 }
 
@@ -126,6 +142,59 @@ export async function check(ctx: AssertContext, e: Expectation): Promise<Omit<As
     if ('notification' in e) {
       const n = await db.notification.findMany({ where: { organizationId: ctx.orgId }, select: { title: true }, orderBy: { createdAt: 'desc' }, take: 50 })
       return n.some((x) => x.title.includes(e.notification)) ? pass(label) : fail(label, n.map((x) => x.title).join(' | ').slice(0, 300) || 'nenhuma notificação')
+    }
+
+    if ('occurrences' in e) {
+      const convId = await conversationOf(ctx, e.chat)
+      if (e.chat !== undefined && !convId) return fail(label, `cliente "${e.chat}" não tem conversa`)
+      const a = await db.alert.findMany({ where: { organizationId: ctx.orgId, ruleName: e.occurrences, ...(convId === undefined ? {} : { conversationId: convId }) }, select: { occurrences: true, status: true } })
+      const found = a.map((x) => `${x.status}×${x.occurrences}`).join(', ') || 'nenhum alerta'
+      return a.length === 1 && a[0].occurrences === e.count ? pass(label, found) : fail(label, found)
+    }
+
+    if ('question' in e) {
+      const convId = ctx.chats.get(e.question)
+      if (!convId) return fail(label, `cliente "${e.question}" não tem conversa`)
+      const qs = await db.openQuestion.findMany({ where: { conversationId: convId }, select: { status: true } })
+      const n = qs.filter((q) => q.status === e.status).length
+      const found = qs.map((q) => q.status).join(', ') || 'nenhuma pergunta'
+      return (e.count !== undefined ? n === e.count : n > 0) ? pass(label, found) : fail(label, found)
+    }
+
+    if ('lastTick' in e) {
+      const t = (ctx.lastTick ?? {}) as unknown as Record<string, number | undefined>
+      const wrong = Object.entries(e.lastTick).filter(([k, v]) => (t[k] ?? 0) !== v)
+      const got = Object.keys(e.lastTick).map((k) => `${k}=${t[k] ?? 0}`).join(', ')
+      return wrong.length === 0 ? pass(label, got) : fail(label, got)
+    }
+
+    if ('recoveryStatus' in e) {
+      const convId = ctx.chats.get(e.recoveryStatus)
+      if (!convId) return fail(label, `cliente "${e.recoveryStatus}" não tem conversa`)
+      const items = await db.recoveryItem.findMany({ where: { organizationId: ctx.orgId, conversationId: convId }, select: { status: true } })
+      const found = items.map((i) => i.status).join(', ') || 'nenhum item'
+      return items.some((i) => i.status === e.status) ? pass(label, found) : fail(label, found)
+    }
+
+    if ('report' in e) {
+      const r = await buildReport(ctx.orgId, e.report, new Date(ctx.t0.getTime() - 60_000), new Date(Date.now() + 60_000))
+      const problems: string[] = []
+      const kpis = r.sections.find((s) => s.key === 'kpis')?.rows ?? []
+      for (const [k, v] of Object.entries(e.kpi ?? {})) {
+        const row = kpis.find((x) => x[0] === k)
+        if (!row) problems.push(`sem o indicador "${k}"`)
+        else if (String(row[1]) !== String(v)) problems.push(`${k}=${row[1]}`)
+      }
+      for (const [heading, n] of Object.entries(e.rows ?? {})) {
+        const sec = r.sections.find((s) => s.heading === heading)
+        if (!sec) problems.push(`sem a seção "${heading}"`)
+        else if (sec.rows.length !== n) problems.push(`"${heading}" com ${sec.rows.length} linha(s)`)
+      }
+      const h = (r.highlights ?? {}) as unknown as Record<string, number>
+      for (const [k, v] of Object.entries(e.highlights ?? {})) if (h[k] !== v) problems.push(`${k}=${h[k] ?? '-'}`)
+      const text = [...r.summary, ...r.sections.flatMap((s) => s.rows.flat().map((c) => String(c ?? '')))].join(' | ')
+      for (const c of e.contains ?? []) if (!text.includes(c)) problems.push(`não contém "${c}"`)
+      return problems.length ? fail(label, problems.join('; ').slice(0, 300)) : pass(label, r.summary.join(' ').slice(0, 200))
     }
 
     const open = await db.alert.count({ where: { organizationId: ctx.orgId, status: { in: OPEN_ALERT } } })

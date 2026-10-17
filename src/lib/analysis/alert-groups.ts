@@ -1,6 +1,6 @@
 /*
  * B6 · Agrupamento de alertas. Regras que apontam a MESMA causa na mesma conversa viram um alerta só:
- *  · "resposta": cliente esperando a empresa (sem 1ª resposta, sem resposta após interação, preço sem retorno, intenção alta)
+ *  · "resposta": cliente esperando a empresa (sem 1ª resposta, sem resposta após interação, resposta lenta, preço sem retorno, intenção alta)
  *  · "promessa": promessa perto de vencer → vencida (o mesmo alerta sobe de gravidade)
  *  · "irritacao": cliente irritado
  * Outras regras (inclusive as criadas pela empresa com outro tipo) agrupam só com elas mesmas.
@@ -14,10 +14,12 @@
 export const ALERT_GROUP: Record<string, string> = {
   no_response: 'resposta',
   no_response_followup: 'resposta',
+  slow_response: 'resposta',
   pending_quote: 'resposta',
   high_intent_no_reply: 'resposta',
   promise_overdue: 'promessa',
   promise_approaching: 'promessa',
+  overdue_promise: 'promessa',
   customer_frustrated: 'irritacao',
 }
 
@@ -27,7 +29,9 @@ const SPECIFICITY: Record<string, number> = {
   pending_quote: 1,
   no_response: 2,
   no_response_followup: 3,
+  slow_response: 4,
   promise_overdue: 0,
+  overdue_promise: 0,
   promise_approaching: 1,
 }
 

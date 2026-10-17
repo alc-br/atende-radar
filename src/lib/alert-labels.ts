@@ -9,12 +9,58 @@ export const ALERT_TYPE_LABELS: Record<string, string> = {
   overdue_promise: 'Promessa vencida',
   abandoned_lead: 'Lead abandonado',
   customer_frustrated: 'Cliente frustrado',
-  quota_warning: 'Quota próxima do limite',
+  quota_warning: 'Conversas do mês perto do limite',
   no_response_followup: 'Sem resposta (follow-up)',
   high_intent_no_reply: 'Alta intenção sem resposta',
   promise_approaching: 'Promessa perto de vencer',
   promise_overdue: 'Promessa vencida',
   connection_down: 'Conexão desconectada',
+}
+
+/** Tipos oferecidos em "Nova regra" (overdue_promise é o nome antigo de promise_overdue: continua funcionando, mas não é oferecido). */
+export const SELECTABLE_RULE_TYPES = Object.keys(ALERT_TYPE_LABELS).filter((t) => t !== 'overdue_promise')
+
+/** O que o número da regra (limitMinutes) quer dizer em cada tipo: prazo em minutos, % do limite do plano ou nada. */
+export type RuleLimitKind = 'minutes' | 'percent' | 'none'
+export const RULE_LIMIT_KIND: Record<string, RuleLimitKind> = {
+  no_response: 'minutes',
+  slow_response: 'minutes',
+  no_response_followup: 'minutes',
+  ignored_question: 'minutes',
+  pending_quote: 'minutes',
+  high_intent_no_reply: 'minutes',
+  customer_frustrated: 'minutes',
+  promise_approaching: 'minutes',
+  abandoned_lead: 'minutes',
+  overdue_promise: 'none',
+  promise_overdue: 'none',
+  connection_down: 'none',
+  quota_warning: 'percent',
+}
+export const ruleLimitKind = (type: string): RuleLimitKind => RULE_LIMIT_KIND[type] ?? 'minutes'
+
+/** Valor sugerido ao escolher o tipo (o mesmo que o servidor usa quando a regra chega sem número). */
+export const RULE_DEFAULT_LIMIT: Record<string, number> = {
+  no_response: 10,
+  slow_response: 30,
+  no_response_followup: 30,
+  ignored_question: 15,
+  pending_quote: 15,
+  high_intent_no_reply: 5,
+  customer_frustrated: 5,
+  promise_approaching: 120,
+  abandoned_lead: 60,
+  overdue_promise: 0,
+  promise_overdue: 0,
+  connection_down: 0,
+  quota_warning: 80,
+}
+export const ruleDefaultLimit = (type: string) => RULE_DEFAULT_LIMIT[type] ?? 10
+
+/** Rótulo do campo numérico da regra na tela, conforme o tipo. */
+export const RULE_LIMIT_LABEL: Record<Exclude<RuleLimitKind, 'none'>, string> = {
+  minutes: 'Disparar depois de (minutos)',
+  percent: 'Avisar ao chegar em (% do limite de conversas do mês)',
 }
 
 export const ALERT_CHANNEL_LABELS: Record<string, string> = {
@@ -36,6 +82,8 @@ export const ALERT_RULE_HELP = {
     'O peso do alerta. Crítico e Alto aparecem primeiro e em destaque, para a equipe tratar antes; Atenção pede um olhar; Informativo só registra o que aconteceu.',
   cooldown:
     'Tempo de espera, em minutos, depois que alguém ignora um alerta ou marca como falso positivo: nesse intervalo o mesmo alerta não volta a aparecer naquela conversa. Evita insistir no que a equipe já decidiu. Com 0, não há espera.',
+  prazo:
+    'Quanto tempo a situação precisa durar para o alerta abrir. Ex.: em "Sem resposta" com 10, o alerta abre quando o cliente espera 10 minutos sem resposta. Conta só o expediente se em Configurações › Horários a regra fora do expediente for "ignora".',
   canais:
     'Por onde o alerta avisa. "No sistema" é o sino e a tela Alertas. "E-mail" vai para os membros que veem o alerta e deixaram o aviso por e-mail ligado em Meu perfil.',
 } as const

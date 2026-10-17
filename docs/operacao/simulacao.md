@@ -105,12 +105,50 @@ outro papel, a resposta é 403.
 | `plano-performance-carga` | performance | 10 números, 50 atendentes, 20 conversas |
 | `mensagem-duplicada` | essencial | Mesmo evento e mesma mensagem não entram duas vezes |
 | `cpf-mascarado` | essencial | CPF mascarado na entrada |
+| `regra-pergunta-ignorada` | essencial | Regra própria "Pergunta ignorada": pergunta em aberto, alerta, respondida, fecha |
+| `regra-resposta-lenta-agrupa` | essencial | "Resposta lenta" e a regra padrão viram UM alerta, que sobe para a mais grave |
+| `regra-lead-abandonado` | essencial | "Lead abandonado" antes do abandono automático; cliente volta e fecha |
+| `regra-promessa-tipo-antigo` | essencial | Regra própria do tipo antigo "Promessa vencida" |
+| `regra-escopo-numero` | gestao | Regra só de um número (escopo por conexão) |
+| `regra-desligada` | essencial | Regra desligada não dispara; religada, dispara |
+| `alerta-dispensado-cooldown` | essencial | Dispensado não volta no cooldown; depois volta |
+| `alerta-falso-positivo` | essencial | Falso positivo não volta no cooldown |
+| `alerta-resolvido-pessoa` | essencial | Resolvido sem responder o cliente: abre um alerta novo |
+| `alerta-repetido-mesma-conversa` | essencial | Problema volta: mesmo alerta com 2 ocorrências |
+| `limite-regras-plano` | essencial | Cota de regras próprias (402), nome repetido (409), tipo e % inválidos (400), prazo próprio |
+| `regra-conexao-por-numero` | gestao | Só um de 3 números cai: um alerta de conexão |
+| `cota-conversas-aviso` | essencial | Aviso ao chegar em 80% das 300 conversas do mês |
+| `cota-conversas-estourada` | essencial | 300 usadas: cliente novo não é analisado; troca para Growth e volta |
+| `cota-growth-no-limite` | gestao | 998 de 1000: 2 entram, 2 ficam sem análise |
+| `cota-performance-no-limite` | performance | 4999 de 5000: 1 entra, 1 fica sem análise |
+| `assinatura-cancelada` | gestao | Assinatura encerrada pausa a análise |
+| `assinatura-reativada` | essencial | Cancelada e contratada de novo: volta a analisar |
+| `teste-gratis-contrata` | essencial | Teste vencido e contratação |
+| `expediente-domingo-ignora` | essencial | Domingo 20:00 com "ignora": alerta só segunda 08:15 |
+| `expediente-domingo-atraso` | essencial | Domingo com "conta como atraso": alerta em 1 h |
+| `expediente-domingo-alerta` | essencial | Domingo com "alerta": alerta em 1 h |
+| `expediente-sexta-noite` | essencial | Sexta 18:40 até segunda 08:10 (sem encerrar no fim de semana) |
+| `expediente-tolerancia-fechamento` | essencial | Tolerância de 30 min depois de fechar |
+| `expediente-tolerancia-abertura` | essencial | Tolerância de 10 min antes de abrir |
+| `expediente-feriado` | essencial | Feriado cadastrado não conta |
+| `expediente-sabado-meio-periodo` | essencial | Sábado 08–12 ligado |
+| `jornada-essencial-dia` | essencial | 6 clientes (venda, perda, preço, irritado, bom dia, promessa) e os 8 relatórios |
+| `jornada-growth-equipe` | gestao | O mesmo dia com atendente, 2 números, relatórios por atendente e conexões |
+| `venda-recuperada` | essencial | Preço sem retorno → fila → "fiz o pix": venda e item recuperado |
+| `perda-declarada` | essencial | "Já comprei em outro lugar": perdida na hora |
+| `desistiu-e-voltou` | essencial | "Desisti" e "na verdade quero": não decide sozinho |
+| `contato-excluido-lgpd` | essencial | Parar de monitorar: alerta dispensado e mensagens seguintes ignoradas |
+| `carga-200-conversas` | gestao | 200 clientes em 3 números, 4 desfechos, relatório diário |
 
 **Novo cenário:**
 
 1. Crie um objeto `Scenario` em `src/lib/simulation/scenarios/*.ts`. Os tipos estão em `src/lib/simulation/types.ts`.
-   O cenário tem passos `message`, `connection`, `tick`, `addConnection` e `addAgent`, e verificações em cada `tick`
-   e no fim.
+   Passos: `message`, `connection`, `tick`, `addConnection`, `addAgent`, `rule` (cria regra pelo mesmo caminho da
+   tela), `ruleActive`, `alertAction` (dispensar/falso positivo/resolver), `exclude` (LGPD), `usage` (conversas já
+   usadas no mês) e `plan` (troca de plano ou cancelamento). Verificações em cada `tick` e no fim, incluindo
+   `report` (relatório gerado como o agendado), `question`, `occurrences`, `lastTick` e `recoveryStatus`.
+   Para horário comercial, `startAt` fixa o início num dia da semana e hora de São Paulo e `holidayOnStart` marca o
+   dia como feriado.
 2. Registre o cenário em `scenarios/index.ts`.
 3. O teste `tests/e2e/simulacao.spec.ts` roda "todos" e exige tudo verde.
 
@@ -144,11 +182,7 @@ outro papel, a resposta é 403.
 
 - **"Entrar como gestor/atendente" da empresa simulada.** Não foi feito. O login é por e-mail único, e uma sessão
   emprestada exige revisão de segurança própria. No lugar, há o retrato só leitura.
-- **Cenários ainda não escritos:**
-  - pergunta ignorada;
-  - venda recuperada;
-  - fora do expediente (ignora, atraso, alerta);
-  - limite de conversas no mês;
-  - contato excluído;
-  - carga de ~500 conversas.
+- **Regras por equipe.** O campo existe, mas o motor ainda não filtra por equipe (precisa da identidade do atendente
+  confirmada). Os campos "dias e horários", "encerrar sozinho" e "exceções" da regra também são guardados e ainda
+  não usados pelo motor.
 - **Rodar os cenários no CI.** Hoje rodam no e2e local (`tests/e2e/simulacao.spec.ts`).

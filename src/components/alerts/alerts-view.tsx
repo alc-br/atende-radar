@@ -62,7 +62,7 @@ import { formatCurrency, timeAgo, cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { mutate, fetchMutation, MUTATION_ERROR_MESSAGE } from '@/lib/mutation'
 import { RULE_CHANNELS, RULE_CHANNEL_LABELS, type RuleChannel } from '@/lib/alert-channels'
-import { ALERT_CHANNEL_LABELS, ALERT_RULE_HELP, ALERT_TYPE_LABELS } from '@/lib/alert-labels'
+import { ALERT_CHANNEL_LABELS, ALERT_RULE_HELP, ALERT_TYPE_LABELS, RULE_LIMIT_LABEL, SELECTABLE_RULE_TYPES, ruleDefaultLimit, ruleLimitKind } from '@/lib/alert-labels'
 import { HelpTip } from '@/components/ui/help-tip'
 import { tourSignal } from '@/lib/system-tour/signals'
 import { can, canOpenView } from '@/lib/permissions'
@@ -180,6 +180,14 @@ interface AlertItem {
   evidence: string | undefined
   /** B6: quantas vezes o problema aconteceu nesta conversa (alerta agrupado) e quando foi a última */
   occurrences?: number; lastOccurredAt?: string
+}
+
+/** Prazo da regra na tabela: "10 min", "80%" ou "—" (tipos sem número). */
+function ruleLimitText(rule: { type: string; limitMinutes: number | null }): string {
+  const kind = ruleLimitKind(rule.type)
+  if (kind === 'none') return '—'
+  const n = rule.limitMinutes ?? ruleDefaultLimit(rule.type)
+  return kind === 'percent' ? `${n}%` : `${n.toLocaleString('pt-BR')} min`
 }
 
 const lastSeen = (a: AlertItem) => a.lastOccurredAt || a.createdAt
@@ -303,6 +311,7 @@ export default function AlertsView() {
   const [newRuleType, setNewRuleType] = useState('')
   const [newRuleSeverity, setNewRuleSeverity] = useState('medium')
   const [newRuleCooldown, setNewRuleCooldown] = useState('30')
+  const [newRuleLimit, setNewRuleLimit] = useState('')
   const [newRuleChannels, setNewRuleChannels] = useState<RuleChannel[]>(['in_app', 'email'])
   const [creatingRule, setCreatingRule] = useState(false)
 
@@ -312,6 +321,7 @@ export default function AlertsView() {
     setNewRuleType('')
     setNewRuleSeverity('medium')
     setNewRuleCooldown('30')
+    setNewRuleLimit('')
     setNewRuleChannels(['in_app', 'email'])
     setNewRuleOpen(true)
   }
@@ -322,6 +332,7 @@ export default function AlertsView() {
     setNewRuleType(rule.type)
     setNewRuleSeverity(rule.severity)
     setNewRuleCooldown(String(rule.cooldownMinutes))
+    setNewRuleLimit(rule.limitMinutes == null ? String(ruleDefaultLimit(rule.type)) : String(rule.limitMinutes))
     setNewRuleChannels(RULE_CHANNELS.filter((c) => rule.channels.includes(c)))
     setNewRuleOpen(true)
   }
@@ -329,14 +340,26 @@ export default function AlertsView() {
   const toggleNewRuleChannel = (ch: RuleChannel, on: boolean) =>
     setNewRuleChannels((prev) => (on ? RULE_CHANNELS.filter((c) => c === ch || prev.includes(c)) : prev.filter((c) => c !== ch)))
 
+  const limitKind = newRuleType ? ruleLimitKind(newRuleType) : 'none'
+  const limitValue = parseInt(newRuleLimit, 10)
+  const limitInvalid =
+    limitKind !== 'none' && newRuleLimit.trim() !== '' &&
+    (!Number.isInteger(limitValue) || limitValue < (limitKind === 'percent' ? 1 : 0) || limitValue > (limitKind === 'percent' ? 100 : 43200))
+  const chooseRuleType = (t: string) => {
+    setNewRuleType(t)
+    setNewRuleLimit(ruleLimitKind(t) === 'none' ? '' : String(ruleDefaultLimit(t)))
+  }
+
   const handleCreateRule = async () => {
-    if (!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0) return
+    if (!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0 || limitInvalid) return
     setCreatingRule(true)
     const json = {
       name: newRuleName.trim(),
       severity: newRuleSeverity,
       cooldownMinutes: parseInt(newRuleCooldown, 10) || 30,
       channels: newRuleChannels,
+      // prazo (ou % do limite) só nos tipos que usam número; vazio = padrão do tipo
+      ...(limitKind !== 'none' && newRuleLimit.trim() !== '' ? { limitMinutes: parseInt(newRuleLimit, 10) } : {}),
     }
     try {
       if (editingRuleId) {
@@ -768,6 +791,7 @@ export default function AlertsView() {
                   <tr>
                     <th scope="col">Regra</th>
                     <th scope="col" className="hidden sm:table-cell"><span className="th-ajuda">Tipo<HelpTip label="Tipo">{ALERT_RULE_HELP.tipo}</HelpTip></span></th>
+                    <th scope="col" className="hidden md:table-cell"><span className="th-ajuda">Prazo<HelpTip label="Prazo">{ALERT_RULE_HELP.prazo}</HelpTip></span></th>
                     <th scope="col"><span className="th-ajuda">Severidade<HelpTip label="Severidade">{ALERT_RULE_HELP.severidade}</HelpTip></span></th>
                     <th scope="col" className="hidden md:table-cell"><span className="th-ajuda">Cooldown<HelpTip label="Cooldown">{ALERT_RULE_HELP.cooldown}</HelpTip></span></th>
                     <th scope="col" className="hidden lg:table-cell"><span className="th-ajuda">Canais<HelpTip label="Canais">{ALERT_RULE_HELP.canais}</HelpTip></span></th>
@@ -780,6 +804,7 @@ export default function AlertsView() {
                     <tr key={rule.id}>
                       <td><strong>{rule.name}</strong></td>
                       <td className="hidden sm:table-cell suave">{alertTypeLabels[rule.type] || rule.type}</td>
+                      <td className="hidden md:table-cell suave" data-testid="rule-limit">{ruleLimitText(rule)}</td>
                       <td>
                         <span className={cn('tag', severityTagClass(rule.severity))}>
                           {severityLabels[rule.severity] || rule.severity}
@@ -1028,11 +1053,11 @@ export default function AlertsView() {
             </div>
             <div className="space-y-2">
               <div className="rotulo-ajuda"><Label>Tipo</Label><HelpTip label="Tipo">{ALERT_RULE_HELP.tipo}</HelpTip></div>
-              <Select value={newRuleType} onValueChange={setNewRuleType} disabled={!!editingRuleId}>
+              <Select value={newRuleType} onValueChange={chooseRuleType} disabled={!!editingRuleId}>
                 <SelectTrigger aria-label="Selecione o tipo"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(alertTypeLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  {(editingRuleId && !SELECTABLE_RULE_TYPES.includes(newRuleType) ? [...SELECTABLE_RULE_TYPES, newRuleType] : SELECTABLE_RULE_TYPES).map((value) => (
+                    <SelectItem key={value} value={value}>{alertTypeLabels[value] ?? value}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1048,6 +1073,25 @@ export default function AlertsView() {
                 </SelectContent>
               </Select>
             </div>
+            {limitKind !== 'none' && (
+              <div className="space-y-2">
+                <div className="rotulo-ajuda"><Label htmlFor="nova-regra-prazo">{RULE_LIMIT_LABEL[limitKind]}</Label><HelpTip label="Prazo">{ALERT_RULE_HELP.prazo}</HelpTip></div>
+                <Input
+                  id="nova-regra-prazo"
+                  type="number"
+                  min={limitKind === 'percent' ? 1 : 0}
+                  max={limitKind === 'percent' ? 100 : 43200}
+                  value={newRuleLimit}
+                  onChange={(e) => setNewRuleLimit(e.target.value)}
+                  aria-invalid={limitInvalid || undefined}
+                />
+                {limitInvalid && (
+                  <p className="text-sm text-[var(--vermelho)]" role="alert">
+                    {limitKind === 'percent' ? 'Use de 1 a 100.' : 'Use de 0 a 43.200 minutos (30 dias).'}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <div className="rotulo-ajuda"><Label htmlFor="nova-regra-cooldown">Cooldown (minutos)</Label><HelpTip label="Cooldown">{ALERT_RULE_HELP.cooldown}</HelpTip></div>
               <Input
@@ -1081,7 +1125,7 @@ export default function AlertsView() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewRuleOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateRule} disabled={!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0 || creatingRule}>
+            <Button onClick={handleCreateRule} disabled={!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0 || limitInvalid || creatingRule}>
               {editingRuleId ? 'Salvar regra' : 'Criar regra'}
             </Button>
           </DialogFooter>

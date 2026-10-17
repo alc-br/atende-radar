@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import { guard } from '@/lib/api-auth'
-import { enforceQuota } from '@/lib/quotas'
+import { createAlertRule, type RuleInput } from '@/lib/alert-rules'
 import { readJson } from '@/lib/json-body'
-import { parseRuleChannels, RULE_CHANNELS_ERROR } from '@/lib/alert-channels'
 
 export async function GET() {
   try {
@@ -48,76 +47,14 @@ export async function POST(request: Request) {
     if (!g.ok) return g.res
     const org = { id: g.auth.orgId }
 
-    const overQuota = await enforceQuota(g.auth.orgId, 'alertRules')
-    if (overQuota) return overQuota
-
     const j = await readJson(request)
     if (!j.ok) return j.res
-    const body = j.body
-    const {
-      name,
-      type,
-      active,
-      severity,
-      channels,
-      cooldownMinutes,
-      limitMinutes,
-      scopeConnections,
-      scopeTeams,
-      daysAndHours,
-      recipients,
-      autoCloseMinutes,
-      exceptions,
-      minConfidence,
-    } = body as {
-      name?: string
-      type?: string
-      active?: boolean
-      severity?: string
-      channels?: string[]
-      cooldownMinutes?: number
-      limitMinutes?: number
-      scopeConnections?: string[]
-      scopeTeams?: string[]
-      daysAndHours?: Record<string, unknown>
-      recipients?: string[]
-      autoCloseMinutes?: number
-      exceptions?: string[]
-      minConfidence?: number
-    }
+    // mesma validação do simulador (src/lib/alert-rules.ts): cota do plano, tipo conhecido, nome único e prazo do tipo
+    const r = await createAlertRule(org.id, j.body as RuleInput)
+    if (!r.ok) return NextResponse.json({ ...(r.extra ?? {}), error: r.error, code: r.code }, { status: r.status })
+    const rule = r.rule
 
-    if (!name || !type) {
-      return NextResponse.json(
-        { error: 'name and type are required' },
-        { status: 400 }
-      )
-    }
-
-    // canais: só os que o motor entende (in_app, email); sem a lista, só no sistema
-    const parsedChannels = channels === undefined ? ['in_app'] : parseRuleChannels(channels)
-    if (!parsedChannels) return NextResponse.json({ error: RULE_CHANNELS_ERROR, code: 'invalid_channels' }, { status: 400 })
-
-    const rule = await db.alertRule.create({
-      data: {
-        organizationId: org.id,
-        name,
-        type,
-        active: active ?? true,
-        severity: severity ?? 'medium',
-        notificationChannels: JSON.stringify(parsedChannels),
-        cooldownMinutes: cooldownMinutes ?? 30,
-        limitMinutes: limitMinutes ?? null,
-        scopeConnections: JSON.stringify(scopeConnections || []),
-        scopeTeams: JSON.stringify(scopeTeams || []),
-        daysAndHours: JSON.stringify(daysAndHours || {}),
-        recipients: JSON.stringify(recipients || []),
-        autoCloseMinutes: autoCloseMinutes ?? null,
-        exceptions: JSON.stringify(exceptions || []),
-        minConfidence: minConfidence ?? 0.5,
-      },
-    })
-
-    await audit(g.auth, { action: 'alert_rule.created', targetType: 'alert_rule', targetId: rule.id, targetLabel: rule.name, details: { type: rule.type, severity: rule.severity, limitMinutes: rule.limitMinutes, channels: parsedChannels } })
+    await audit(g.auth, { action: 'alert_rule.created', targetType: 'alert_rule', targetId: rule.id, targetLabel: rule.name, details: { type: rule.type, severity: rule.severity, limitMinutes: rule.limitMinutes, channels: JSON.parse(rule.notificationChannels) as string[] } })
     return NextResponse.json({ success: true, rule }, { status: 201 })
   } catch (error) {
     console.error('Alert rules POST error:', error)
