@@ -17,7 +17,7 @@ test.describe('Tour de boas-vindas por papel', () => {
   test('atendente: roteiro dele, só com o que ele usa', async ({ page, context }) => {
     await enterAs(context, 'atendente')
     await page.goto('/')
-    const card = page.locator('div.shadow-xl', { hasText: /Passo \d+ de/ })
+    const card = page.getByTestId('tour-card')
     await expect(card).toBeVisible({ timeout: 20000 })
     await expect(card).toContainText('Bem-vindo, atendente')
     await expect(card).toContainText(/Passo 1 de 4/)
@@ -36,7 +36,7 @@ test.describe('Tour de boas-vindas por papel', () => {
   test('administrador: começa pela conexão do WhatsApp e cita a equipe e o plano', async ({ page, context }) => {
     await enterAs(context, 'admin')
     await page.goto('/')
-    const card = page.locator('div.shadow-xl', { hasText: /Passo \d+ de/ })
+    const card = page.getByTestId('tour-card')
     await expect(card).toBeVisible({ timeout: 20000 })
     await expect(card).toContainText('Bem-vindo, administrador')
     await expect(card).toContainText('WhatsApp')
@@ -45,7 +45,7 @@ test.describe('Tour de boas-vindas por papel', () => {
   test('leitura (viewer): o roteiro explica que é só leitura', async ({ page, context }) => {
     await enterAs(context, 'viewer')
     await page.goto('/')
-    const card = page.locator('div.shadow-xl', { hasText: /Passo \d+ de/ })
+    const card = page.getByTestId('tour-card')
     await expect(card).toBeVisible({ timeout: 20000 })
     await expect(card).toContainText(/leitura/i)
   })
