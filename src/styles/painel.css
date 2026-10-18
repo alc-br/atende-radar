@@ -151,7 +151,8 @@ margin-left: var(--lateral);
   display: flex; flex-direction: column;
 }
 .ar .conteudo {
-flex: 1;
+overflow-wrap: break-word;
+  flex: 1;
   width: 100%;
   min-width: 0;
   padding: 26px 28px 32px;
@@ -1528,13 +1529,14 @@ grid-column: 1 / -1;
 }
 }
 .ar .lista-alertas {
-display: grid; gap: 14px;
+display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px;
 }
 .ar .lista-alertas__total {
 text-align: center; font-size: 13px;
 }
 .ar .alerta {
-display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 18px; padding: 20px 22px; transition: opacity .2s ease, transform .2s ease;
+overflow-wrap: anywhere;
+  display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 18px; padding: 20px 22px; transition: opacity .2s ease, transform .2s ease;
 }
 .ar .alerta.saindo {
 opacity: 0; transform: translateX(12px);
@@ -1626,7 +1628,8 @@ display: flex; gap: 16px; align-items: flex-start;
 flex: 1; min-width: 0;
 }
 .ar .contato h1 {
-font-family: var(--fonte-titulo); font-size: 24px; font-weight: 800;
+overflow-wrap: anywhere;
+  font-family: var(--fonte-titulo); font-size: 24px; font-weight: 800;
 }
 .ar .contato__id {
 font-size: 15px;
@@ -1668,7 +1671,8 @@ width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; b
 background: var(--verde-50); color: var(--verde-700);
 }
 .ar .msg__balao {
-padding: 10px 16px 12px; border-radius: 12px; background: var(--superficie-3); font-size: 13.5px; line-height: 1.6;
+min-width: 0; overflow-wrap: anywhere;
+  padding: 10px 16px 12px; border-radius: 12px; background: var(--superficie-3); font-size: 13.5px; line-height: 1.6;
 }
 .ar .msg--empresa .msg__balao {
 background: #dcf7ea;
@@ -1749,7 +1753,8 @@ display: grid; gap: 8px; justify-items: start; padding: 0 14px; border-left: 1px
 padding-left: 0; border-left: 0;
 }
 .ar .perguntas {
-display: grid; gap: 10px; font-size: 13.5px;
+overflow-wrap: anywhere;
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; font-size: 13.5px;
 }
 .ar .perguntas li {
 display: flex; align-items: center; gap: 12px;
@@ -1798,7 +1803,7 @@ gap: 12px;
 }
 @media (max-width: 1200px) {
 .ar .conversa {
-grid-template-columns: 1fr;
+grid-template-columns: minmax(0, 1fr);
 }
 .ar .conversa__principal {
 position: static;

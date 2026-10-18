@@ -4,6 +4,7 @@ import path from 'node:path'
 import { db } from '../db'
 import { ingestEvent } from '../ingest'
 import { mapBaileysMessage } from './map'
+import { park, stillParked } from './park'
 import { SessionKeyError, sessionsKeyFromEnv, loadEncryptedAuthState } from './auth-store'
 import { SIMULATOR_PROVIDER, demoOrgId } from '../sandbox'
 
@@ -110,10 +111,11 @@ async function startSession(connectionId: string) {
           if (session.qrCount > MAX_UNSCANNED_QRS && !state.creds?.registered) {
             // ninguém escaneou: para de pedir QR ao WhatsApp e espera o cliente pedir de novo
             session.stopping = true
-            parked().set(connectionId, Date.now())
-            sessions().delete(connectionId)
-            try { sock.end(undefined) } catch { /* ok */ }
-            await db.whatsAppConnection.update({ where: { id: connectionId }, data: { status: 'qr_required', statusReason: 'qr_expired', qrCode: null } })
+            await park(parked(), connectionId, async () => {
+              sessions().delete(connectionId)
+              try { sock.end(undefined) } catch { /* ok */ }
+              return db.whatsAppConnection.update({ where: { id: connectionId }, data: { status: 'qr_required', statusReason: 'qr_expired', qrCode: null }, select: { updatedAt: true } })
+            })
             log(`${connectionId} QR expirou sem ser escaneado; aguardando o cliente pedir de novo`)
             return
           }
@@ -212,11 +214,7 @@ export async function reconcile() {
       await stopSession(c.id, { logout: true })
     }
     wanted.add(c.id)
-    const parkedAt = parked().get(c.id)
-    if (parkedAt) {
-      if (c.updatedAt.getTime() <= parkedAt) continue // o cliente ainda não pediu de novo
-      parked().delete(c.id)
-    }
+    if (stillParked(parked(), c.id, c.updatedAt)) continue // o cliente ainda não pediu de novo
     if (locked().has(c.id)) continue
     if (!sessions().has(c.id)) await startSession(c.id).catch((e) => log(`falha ao iniciar ${c.id}:`, e instanceof Error ? e.message : e))
   }
