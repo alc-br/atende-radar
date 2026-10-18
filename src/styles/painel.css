@@ -1765,6 +1765,13 @@ width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--laranja);
 .ar .falha {
 display: flex; align-items: center; gap: 14px;
 }
+.ar .falha small {
+overflow-wrap: anywhere;
+}
+/* grade de uma coluna (sem grid-cols) cresce até o texto mais longo e alarga a página; aqui ela pode encolher */
+.ar .conteudo .grid:not([class*="grid-cols"]) {
+grid-template-columns: minmax(0, 1fr);
+}
 .ar .falha strong {
 display: block; font-size: 13.5px;
 }

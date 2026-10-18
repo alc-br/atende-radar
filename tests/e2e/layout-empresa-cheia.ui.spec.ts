@@ -29,8 +29,10 @@ async function overflow(page: Page) {
         if (fixed) { next = child; break }
       }
       // vários filhos vazam ao mesmo tempo: segue pelo que vai mais para a direita
-      if (!next) next = [...node.children].sort((x, y) => y.getBoundingClientRect().right - x.getBoundingClientRect().right)[0] ?? null
-      if (!next || next.getBoundingClientRect().right <= root.clientWidth + 1) break
+      // (pelo que vai mais longe à direita, contando o que transborda de dentro dele)
+      const reach = (e: Element) => e.getBoundingClientRect().left + (e as HTMLElement).scrollWidth
+      if (!next) next = [...node.children].sort((x, y) => reach(y) - reach(x))[0] ?? null
+      if (!next || reach(next) <= root.clientWidth + 1) break
       node = next
       path.push(`${next.tagName.toLowerCase()}.${(next as HTMLElement).className.toString().split(' ')[0]}`)
     }
@@ -88,6 +90,7 @@ test('empresa cheia: nenhuma tela nem aba rola para os lados', async ({ page, co
   expect(total).toBeGreaterThan(5)
 
   await enter(context, c.email, c.password)
+  if (process.env.LAYOUT_WIDE_FONT) await context.addInitScript(() => document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = '*{font-family:Verdana,sans-serif!important;letter-spacing:.04em!important}'; document.head.appendChild(st) }))
   await page.goto('/')
   await expect(page.locator('[data-tour="nav-dashboard"]')).toBeAttached({ timeout: 20000 })
   const views = await page.evaluate(() => [...document.querySelectorAll('[data-tour^="nav-"]')].map((e) => e.getAttribute('data-tour')!.slice(4)))
@@ -95,8 +98,12 @@ test('empresa cheia: nenhuma tela nem aba rola para os lados', async ({ page, co
 
   const problems: string[] = []
   const check = async (where: string) => {
-    await page.waitForTimeout(600)
-    const o = await overflow(page)
+    let o: string | null = null
+    for (let i = 0; i < 4; i++) {
+      await page.waitForTimeout(500)
+      o = await overflow(page)
+      if (!o) break
+    }
     if (o) problems.push(`${where} ${o}`)
   }
   for (const v of views) {
