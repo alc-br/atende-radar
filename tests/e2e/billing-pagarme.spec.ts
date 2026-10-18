@@ -387,6 +387,27 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     await c.dispose()
   })
 
+  // o Pagar.me demora a refletir o estorno na lista de faturas: um aviso que chega nesse meio-tempo relê a fatura ainda
+  // "paga" e não pode desfazer o estorno (antes voltava para "paga" e o cliente via a fatura estornada como cobrada)
+  test('aviso (webhook) depois do estorno não volta a fatura estornada para paga', async () => {
+    test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
+    const { c, orgId } = await newAdmin()
+    expect((await c.post('/api/billing/checkout', { data: { planId: (await plan('essencial')).id, cycle: 'monthly', cardToken: await cardToken(publicKey, APPROVED), ...billingData() } })).status()).toBe(200)
+    const sub = await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })
+    const inv = await testDb.billingInvoice.findFirstOrThrow({ where: { organizationId: orgId } })
+    expect(inv.status).toBe('paid')
+    const paidAt = inv.paidAt
+    // estorno gravado do nosso lado; no Pagar.me a fatura segue "paga"
+    await testDb.billingInvoice.update({ where: { id: inv.id }, data: { status: 'refunded' } })
+    const anon = await anonymous()
+    const res = await anon.post('/api/billing/webhook', { data: { id: `hook_e2e_rf_${Date.now()}`, type: 'invoice.paid', created_at: new Date().toISOString(), data: { id: inv.providerInvoiceId, subscription: { id: sub.providerSubscriptionId } } }, headers: { Authorization: basic() } })
+    expect(res.status(), await res.text()).toBe(200)
+    expect((await res.json()).outcome).toBe('synced')
+    expect(await testDb.billingInvoice.findUniqueOrThrow({ where: { id: inv.id } })).toMatchObject({ status: 'refunded', paidAt })
+    await anon.dispose()
+    await c.dispose()
+  })
+
   test('só o administrador contrata', async () => {
     test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
     const { c } = await newAdmin()

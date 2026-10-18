@@ -95,6 +95,15 @@ export interface InvoiceRow {
   createdAt: Date
 }
 
+/**
+ * Estorno é final: a fatura que já está "refunded" no nosso banco não volta para outra situação. Logo depois do estorno o
+ * Pagar.me ainda lista a fatura como paga por um tempo, e um aviso que chega nesse meio-tempo desfaria o estorno.
+ */
+export function keepRefunded(row: InvoiceRow, currentStatus: string | null | undefined): InvoiceRow {
+  if (currentStatus !== 'refunded' || row.status === 'refunded') return row
+  return { ...row, status: 'refunded', failureMessage: null }
+}
+
 export function mapInvoice(inv: Obj): InvoiceRow {
   const charge = obj(inv.charge)
   const tx = obj(charge?.last_transaction)

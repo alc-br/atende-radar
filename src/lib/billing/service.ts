@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import type { AuthContext } from '@/lib/api-auth'
 import {
-  type BillingCycle, deriveFromProvider, effectiveStatus, friendlyPaymentError, isValidDocument, mapInvoice, onlyDigits, priceCents,
+  type BillingCycle, deriveFromProvider, effectiveStatus, friendlyPaymentError, isValidDocument, keepRefunded, mapInvoice, onlyDigits, priceCents,
   reactivationStartAt, UFS,
 } from './core'
 import { pagarme, pagarmeConfig, PagarmeError, type Address, type PagarmeConfig } from './pagarme'
@@ -95,7 +95,10 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
   const plan = meta.planId ? await db.plan.findUnique({ where: { id: meta.planId } }) : null
   const cycle: BillingCycle = meta.cycle === 'annual' ? 'annual' : 'monthly'
   const invoices = (rawInvoices ?? (await invoicesFor(cfg, subId))).map(mapInvoice)
-  for (const inv of invoices) {
+  for (const fresh of invoices) {
+    const current = await db.billingInvoice.findUnique({ where: { providerInvoiceId: fresh.providerInvoiceId }, select: { status: true, paidAt: true } })
+    const inv = keepRefunded(fresh, current?.status)
+    if (inv !== fresh) inv.paidAt = current?.paidAt ?? fresh.paidAt
     const data = { ...inv, providerSubscriptionId: inv.providerSubscriptionId || subId, organizationId: orgId, planId: plan?.id ?? null, planName: plan?.name ?? null, billingCycle: cycle }
     await db.billingInvoice.upsert({ where: { providerInvoiceId: inv.providerInvoiceId }, create: data, update: data })
   }

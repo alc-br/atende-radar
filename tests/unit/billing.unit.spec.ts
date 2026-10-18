@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import {
   isValidCpf, isValidCnpj, isValidDocument, luhnValid, cardBrand, formatCardNumber, formatExpiry, formatDocument, formatCep, formatPhone,
-  parseExpiry, priceCents, effectiveStatus, deriveFromProvider, mapInvoice, subscriptionIdFromEvent, checkBasicAuth, friendlyPaymentError,
+  parseExpiry, priceCents, effectiveStatus, deriveFromProvider, mapInvoice, keepRefunded, subscriptionIdFromEvent, checkBasicAuth, friendlyPaymentError,
   reactivationStartAt,
 } from '../../src/lib/billing/core'
 
@@ -113,6 +113,17 @@ test.describe('B8 · fatura e aviso (webhook) do Pagar.me', () => {
     expect(mapInvoice({ ...apiInvoice, status: 'canceled', charge })).toMatchObject({ status: 'refunded', paidAt: new Date('2026-10-12T01:08:27Z') })
     // cancelada antes de cobrar continua "canceled"
     expect(mapInvoice({ ...apiInvoice, status: 'canceled', charge: { id: 'ch_3', status: 'canceled', paid_amount: 0, canceled_amount: 19700 } }).status).toBe('canceled')
+  })
+
+  test('estorno é final: a fatura estornada não volta para paga quando o Pagar.me ainda a lista como paga', () => {
+    const paid = mapInvoice(apiInvoice)
+    expect(keepRefunded(paid, 'refunded')).toMatchObject({ status: 'refunded', paidAt: paid.paidAt })
+    expect(keepRefunded({ ...paid, status: 'failed', failureMessage: 'x' }, 'refunded')).toMatchObject({ status: 'refunded', failureMessage: null })
+    // sem estorno no nosso banco, vale o que o Pagar.me diz
+    expect(keepRefunded(paid, 'pending')).toBe(paid)
+    expect(keepRefunded(paid, undefined)).toBe(paid)
+    const refunded = { ...paid, status: 'refunded' }
+    expect(keepRefunded(refunded, 'refunded')).toBe(refunded)
   })
 
   test('acha a assinatura em qualquer tipo de aviso', () => {
