@@ -91,10 +91,13 @@ function resolveWindows(period: string): { curStart: number; curEnd: number; pre
   }
 }
 
-function sumOrAvg(rows: object[], field: string, mode: 'sum' | 'avg'): number {
-  if (rows.length === 0) return 0
-  const total = rows.reduce((acc: number, r) => acc + (Number((r as Record<string, unknown>)[field]) || 0), 0)
-  return mode === 'sum' ? total : total / rows.length
+/** 'avgSet': média só dos dias que têm o valor (dia sem nenhuma 1ª resposta grava 0 e não pode puxar a média para baixo). */
+function sumOrAvg(rows: object[], field: string, mode: 'sum' | 'avg' | 'avgSet'): number {
+  const values = rows.map((r) => Number((r as Record<string, unknown>)[field]) || 0)
+  const used = mode === 'avgSet' ? values.filter((v) => v > 0) : values
+  if (used.length === 0) return 0
+  const total = used.reduce((acc, v) => acc + v, 0)
+  return mode === 'sum' ? total : total / used.length
 }
 
 type DayRow = DayMetricData & { date: string }
@@ -164,14 +167,14 @@ export async function GET(request: Request) {
       return +(((curVal - prevVal) / Math.abs(prevVal)) * 100).toFixed(1)
     }
 
-    const agg = (field: string, mode: 'sum' | 'avg') => ({
+    const agg = (field: string, mode: 'sum' | 'avg' | 'avgSet') => ({
       cur: sumOrAvg(curRows, field, mode),
       prev: sumOrAvg(prevRows, field, mode),
     })
 
     const conversationsStarted = agg('conversationsStarted', 'sum')
     const customersWaiting = agg('customersWaiting', 'avg')
-    const medianFirstResponse = agg('medianFirstResponse', 'avg')
+    const medianFirstResponse = agg('medianFirstResponse', 'avgSet')
     const opportunitiesDetected = agg('opportunitiesDetected', 'sum')
     const opportunitiesAtRisk = agg('opportunitiesAtRisk', 'sum')
     const overduePromises = agg('overduePromises', 'sum')

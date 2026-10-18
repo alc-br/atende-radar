@@ -15,9 +15,16 @@ test('Nova regra: Mais opções grava equipe, dias e horários, encerrar sozinho
   await page.getByRole('tab', { name: /Regras/ }).click()
   const region = page.getByRole('region', { name: 'Regras de alerta' })
   await expect(region).toBeVisible({ timeout: 15000 })
+  // a tabela de regras rola dentro do cartão: não alarga a página (no celular isso empurrava o diálogo para fora da tela)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
 
   await page.locator('main').getByRole('button', { name: 'Nova regra', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Nova regra de alerta' })
+  const box = (await dialog.boundingBox())!
+  const vp = page.viewportSize()!
+  expect(box.x).toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width).toBeLessThanOrEqual(vp.width)
+  expect(box.y + box.height).toBeLessThanOrEqual(vp.height)
   await dialog.getByLabel('Nome').fill('Vendas em horário comercial')
   await dialog.getByRole('combobox', { name: 'Selecione o tipo' }).click()
   await page.getByRole('option', { name: 'Pergunta ignorada', exact: true }).click()

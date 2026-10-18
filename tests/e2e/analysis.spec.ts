@@ -224,6 +224,22 @@ test.describe('B6 · métricas do painel vêm dos dados reais', () => {
     expect(conv.score).toBeGreaterThanOrEqual(0)
     await c.dispose()
   })
+
+  test('1ª resposta: dia sem nenhuma resposta não puxa a média para baixo', async () => {
+    // atendida ontem ao meio-dia (São Paulo) e outra esperando agora: hoje não tem 1ª resposta e não entra como 0 min
+    const [h, m] = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()).split(':').map(Number)
+    const yesterdayNoon = h * 60 + m + 12 * 60
+    const c = await setupCompany()
+    const ontem = newChat()
+    await c.send(ontem, 'Boa tarde, tem disponível?', { minutes: yesterdayNoon, pushName: 'Ontem' })
+    await c.send(ontem, 'Temos sim!', { fromMe: true, minutes: yesterdayNoon - 6 }) // 1ª resposta em 6 min
+    await c.send(newChat(), 'Alguém?', { minutes: 30, pushName: 'Hoje Esperando' })
+    await c.tick()
+    const d = await (await c.admin.get('/api/dashboard?period=7d')).json()
+    expect(d.summary.medianFirstResponse).toBeGreaterThanOrEqual(5.5)
+    expect(d.summary.medianFirstResponse).toBeLessThanOrEqual(6.5)
+    await c.dispose()
+  })
 })
 
 test.describe('B6 · isolamento e dados antigos', () => {

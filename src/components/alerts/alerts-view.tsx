@@ -942,7 +942,7 @@ export default function AlertsView() {
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       {/* Cabeçalho */}
       <div className="cab-pagina">
         <div className="cab-pagina__titulo">
