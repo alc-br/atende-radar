@@ -6,9 +6,10 @@ import { REGRAS } from './regras'
 import { LIMITES } from './limites'
 import { EXPEDIENTE } from './expediente'
 import { JORNADA } from './jornada'
+import { FILTROS } from './filtros'
 
 /** Catálogo de cenários (ordem = ordem de execução de "rodar todos"). */
-export const SCENARIOS: Scenario[] = [...ATENDIMENTO, ...PLANOS, ...DADOS, ...REGRAS, ...LIMITES, ...EXPEDIENTE, ...JORNADA]
+export const SCENARIOS: Scenario[] = [...ATENDIMENTO, ...PLANOS, ...DADOS, ...REGRAS, ...LIMITES, ...EXPEDIENTE, ...FILTROS, ...JORNADA]
 
 export const scenarioById = (id: string): Scenario | undefined => SCENARIOS.find((s) => s.id === id)
 

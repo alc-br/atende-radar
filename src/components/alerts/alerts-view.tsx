@@ -180,6 +180,8 @@ interface AlertItem {
   evidence: string | undefined
   /** B6: quantas vezes o problema aconteceu nesta conversa (alerta agrupado) e quando foi a última */
   occurrences?: number; lastOccurredAt?: string
+  /** fechou pelo "encerrar sozinho" da regra */
+  autoClosed?: boolean
 }
 
 /** Prazo da regra na tabela: "10 min", "80%" ou "—" (tipos sem número). */
@@ -192,9 +194,36 @@ function ruleLimitText(rule: { type: string; limitMinutes: number | null }): str
 
 const lastSeen = (a: AlertItem) => a.lastOccurredAt || a.createdAt
 
+interface RuleWindowItem { days?: number[]; start?: string; end?: string }
+
 interface AlertRuleItem {
   id: string; name: string; type: string; active: boolean; severity: string
   channels: string[]; cooldownMinutes: number; limitMinutes: number | null
+  scopeConnections?: string[]; scopeTeams?: string[]; daysAndHours?: RuleWindowItem
+  autoCloseMinutes?: number | null; exceptions?: string[]
+}
+
+const WEEKDAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+// segunda primeiro, como a semana de trabalho
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** Tipos sem conversa: a regra vigia o número (queda) ou a empresa (limite do plano). */
+const RULE_FILTERS_BY_TYPE = (type: string) => ({
+  scope: type !== 'quota_warning',
+  exceptions: type !== 'quota_warning' && type !== 'connection_down',
+})
+
+/** Resumo dos filtros da regra na tabela: "Só Vendas · Seg, Ter 08:00–18:00 · encerra em 90 min · exceto VIP". */
+function ruleFiltersText(rule: AlertRuleItem, names: Map<string, string>): string {
+  const parts: string[] = []
+  const scope = [...(rule.scopeConnections ?? []), ...(rule.scopeTeams ?? [])].map((id) => names.get(id) ?? id)
+  if (scope.length) parts.push(`Só ${scope.join(', ')}`)
+  const w = rule.daysAndHours
+  if (w?.days?.length && w.start && w.end) parts.push(`${WEEKDAY_ORDER.filter((d) => w.days!.includes(d)).map((d) => WEEKDAY_SHORT[d]).join(', ')} ${w.start}–${w.end}`)
+  if (rule.autoCloseMinutes) parts.push(`encerra sozinho em ${rule.autoCloseMinutes.toLocaleString('pt-BR')} min`)
+  if (rule.exceptions?.length) parts.push(`exceto ${rule.exceptions.join(', ')}`)
+  return parts.join(' · ')
 }
 
 export default function AlertsView() {
@@ -313,7 +342,46 @@ export default function AlertsView() {
   const [newRuleCooldown, setNewRuleCooldown] = useState('30')
   const [newRuleLimit, setNewRuleLimit] = useState('')
   const [newRuleChannels, setNewRuleChannels] = useState<RuleChannel[]>(['in_app', 'email'])
+  // Mais opções (todas opcionais: vazio = vale sempre)
+  const [newRuleConnections, setNewRuleConnections] = useState<string[]>([])
+  const [newRuleTeams, setNewRuleTeams] = useState<string[]>([])
+  const [newRuleWindowOn, setNewRuleWindowOn] = useState(false)
+  const [newRuleDays, setNewRuleDays] = useState<number[]>([1, 2, 3, 4, 5])
+  const [newRuleStart, setNewRuleStart] = useState('08:00')
+  const [newRuleEnd, setNewRuleEnd] = useState('18:00')
+  const [newRuleAutoClose, setNewRuleAutoClose] = useState('')
+  const [newRuleExceptions, setNewRuleExceptions] = useState('')
+  const [ruleMoreOpen, setRuleMoreOpen] = useState(false)
+  const [ruleScopeOptions, setRuleScopeOptions] = useState<{ connections: { id: string; name: string }[]; teams: { id: string; name: string }[] }>({ connections: [], teams: [] })
   const [creatingRule, setCreatingRule] = useState(false)
+
+  // números e equipes da empresa, para escolher na regra e mostrar os nomes na tabela
+  useEffect(() => {
+    if (!canSeeRules) return
+    let alive = true
+    void Promise.all([fetch('/api/connections'), fetch('/api/teams')]).then(async ([c, t]) => {
+      const connections = c.ok ? ((await c.json()).connections ?? []) as { id: string; name: string }[] : []
+      const teams = t.ok ? ((await t.json()).teams ?? []) as { id: string; name: string }[] : []
+      if (alive) setRuleScopeOptions({ connections: connections.map(({ id, name }) => ({ id, name })), teams: teams.map(({ id, name }) => ({ id, name })) })
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [canSeeRules, refreshTrigger])
+  const scopeNames = useMemo(() => new Map([...ruleScopeOptions.connections, ...ruleScopeOptions.teams].map((x) => [x.id, x.name])), [ruleScopeOptions])
+
+  const resetRuleFilters = (rule?: AlertRuleItem) => {
+    setNewRuleConnections(rule?.scopeConnections ?? [])
+    setNewRuleTeams(rule?.scopeTeams ?? [])
+    const w = rule?.daysAndHours
+    const on = !!(w?.days?.length && w.start && w.end)
+    setNewRuleWindowOn(on)
+    setNewRuleDays(on ? w!.days! : [1, 2, 3, 4, 5])
+    setNewRuleStart(on ? w!.start! : '08:00')
+    setNewRuleEnd(on ? w!.end! : '18:00')
+    setNewRuleAutoClose(rule?.autoCloseMinutes ? String(rule.autoCloseMinutes) : '')
+    setNewRuleExceptions((rule?.exceptions ?? []).join(', '))
+    // regra com filtro: a seção já abre mostrando o que está valendo
+    setRuleMoreOpen(!!(rule?.scopeConnections?.length || rule?.scopeTeams?.length || on || rule?.autoCloseMinutes || rule?.exceptions?.length))
+  }
 
   const openNewRule = () => {
     setEditingRuleId(null)
@@ -323,6 +391,7 @@ export default function AlertsView() {
     setNewRuleCooldown('30')
     setNewRuleLimit('')
     setNewRuleChannels(['in_app', 'email'])
+    resetRuleFilters()
     setNewRuleOpen(true)
   }
 
@@ -334,6 +403,7 @@ export default function AlertsView() {
     setNewRuleCooldown(String(rule.cooldownMinutes))
     setNewRuleLimit(rule.limitMinutes == null ? String(ruleDefaultLimit(rule.type)) : String(rule.limitMinutes))
     setNewRuleChannels(RULE_CHANNELS.filter((c) => rule.channels.includes(c)))
+    resetRuleFilters(rule)
     setNewRuleOpen(true)
   }
 
@@ -345,13 +415,25 @@ export default function AlertsView() {
   const limitInvalid =
     limitKind !== 'none' && newRuleLimit.trim() !== '' &&
     (!Number.isInteger(limitValue) || limitValue < (limitKind === 'percent' ? 1 : 0) || limitValue > (limitKind === 'percent' ? 100 : 43200))
+  const filterKinds = RULE_FILTERS_BY_TYPE(newRuleType)
+  const windowError = !newRuleWindowOn ? null
+    : newRuleDays.length === 0 ? 'Escolha pelo menos um dia da semana.'
+    : !HHMM.test(newRuleStart) || !HHMM.test(newRuleEnd) ? 'Use horários no formato HH:MM (ex.: 08:00).'
+    : newRuleStart === newRuleEnd ? 'O horário de início e o de fim não podem ser iguais.'
+    : null
+  const autoCloseValue = Number(newRuleAutoClose)
+  const autoCloseInvalid = newRuleAutoClose.trim() !== '' && (!Number.isInteger(autoCloseValue) || autoCloseValue < 0 || autoCloseValue > 43200)
+  const exceptionList = [...new Set(newRuleExceptions.split(',').map((t) => t.trim()).filter(Boolean))]
+  const exceptionsInvalid = exceptionList.length > 20 || exceptionList.some((t) => t.length > 40)
+  const filtersInvalid = !!windowError || autoCloseInvalid || exceptionsInvalid
+  const toggleIn = <T,>(list: T[], v: T, on: boolean) => (on ? (list.includes(v) ? list : [...list, v]) : list.filter((x) => x !== v))
   const chooseRuleType = (t: string) => {
     setNewRuleType(t)
     setNewRuleLimit(ruleLimitKind(t) === 'none' ? '' : String(ruleDefaultLimit(t)))
   }
 
   const handleCreateRule = async () => {
-    if (!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0 || limitInvalid) return
+    if (!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0 || limitInvalid || filtersInvalid) return
     setCreatingRule(true)
     const json = {
       name: newRuleName.trim(),
@@ -360,6 +442,12 @@ export default function AlertsView() {
       channels: newRuleChannels,
       // prazo (ou % do limite) só nos tipos que usam número; vazio = padrão do tipo
       ...(limitKind !== 'none' && newRuleLimit.trim() !== '' ? { limitMinutes: parseInt(newRuleLimit, 10) } : {}),
+      // Mais opções: o tipo que não usa o filtro grava vazio (vale sempre)
+      scopeConnections: filterKinds.scope ? newRuleConnections : [],
+      scopeTeams: filterKinds.scope ? newRuleTeams : [],
+      daysAndHours: newRuleWindowOn ? { days: WEEKDAY_ORDER.filter((d) => newRuleDays.includes(d)), start: newRuleStart, end: newRuleEnd } : {},
+      autoCloseMinutes: newRuleAutoClose.trim() === '' ? null : autoCloseValue,
+      exceptions: filterKinds.exceptions ? exceptionList : [],
     }
     try {
       if (editingRuleId) {
@@ -575,6 +663,7 @@ export default function AlertsView() {
               <span className={cn('tag', status === 'resolved' ? 'tag--verde' : 'tag--cinza')}>
                 {statusLabels[status] || status}
               </span>
+              {alert.autoClosed && <span className="tag tag--cinza" data-testid="alerta-encerrado-sozinho" title="A regra deste alerta fecha sozinha depois do prazo escolhido em Mais opções">Encerrado sozinho</span>}
               <h2>{alert.title}</h2>
               <span className="alerta__quando">
                 <Clock className="ic" aria-hidden="true" />
@@ -802,7 +891,10 @@ export default function AlertsView() {
                 <tbody>
                   {rulesData.map((rule) => (
                     <tr key={rule.id}>
-                      <td><strong>{rule.name}</strong></td>
+                      <td>
+                        <strong>{rule.name}</strong>
+                        {ruleFiltersText(rule, scopeNames) && <span className="block text-xs suave" data-testid="rule-filters">{ruleFiltersText(rule, scopeNames)}</span>}
+                      </td>
                       <td className="hidden sm:table-cell suave">{alertTypeLabels[rule.type] || rule.type}</td>
                       <td className="hidden md:table-cell suave" data-testid="rule-limit">{ruleLimitText(rule)}</td>
                       <td>
@@ -1036,7 +1128,7 @@ export default function AlertsView() {
 
       {/* Nova regra */}
       <Dialog open={newRuleOpen} onOpenChange={setNewRuleOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingRuleId ? 'Editar regra de alerta' : 'Nova regra de alerta'}</DialogTitle>
             <DialogDescription>Configure quando este alerta deve ser gerado e por onde ele avisa.</DialogDescription>
@@ -1122,10 +1214,80 @@ export default function AlertsView() {
               {newRuleChannels.length === 0 && <p className="text-sm text-[var(--vermelho)]" role="alert">Escolha pelo menos um canal.</p>}
               <p className="text-xs suave">O webhook vale para todos os alertas da empresa: configure em Configurações › Webhook.</p>
             </fieldset>
+            <details className="space-y-3" data-testid="regra-mais-opcoes" open={ruleMoreOpen} onToggle={(e) => setRuleMoreOpen(e.currentTarget.open)}>
+              <summary className="cursor-pointer text-sm font-medium">Mais opções</summary>
+              <p className="text-xs suave">Tudo opcional. Em branco, a regra vale para todos os números, equipes, dias e horários.</p>
+              {filterKinds.scope && ruleScopeOptions.connections.length > 0 && (
+                <fieldset className="space-y-1">
+                  <legend className="rotulo-ajuda text-sm font-medium">Números<HelpTip label="Números">{ALERT_RULE_HELP.numeros}</HelpTip></legend>
+                  {ruleScopeOptions.connections.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={newRuleConnections.includes(c.id)} onChange={(e) => setNewRuleConnections((p) => toggleIn(p, c.id, e.target.checked))} />
+                      {c.name}
+                    </label>
+                  ))}
+                </fieldset>
+              )}
+              {filterKinds.scope && ruleScopeOptions.teams.length > 0 && (
+                <fieldset className="space-y-1">
+                  <legend className="rotulo-ajuda text-sm font-medium">Equipes<HelpTip label="Equipes">{ALERT_RULE_HELP.equipes}</HelpTip></legend>
+                  {ruleScopeOptions.teams.map((t) => (
+                    <label key={t.id} className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={newRuleTeams.includes(t.id)} onChange={(e) => setNewRuleTeams((p) => toggleIn(p, t.id, e.target.checked))} />
+                      {t.name}
+                    </label>
+                  ))}
+                </fieldset>
+              )}
+              <fieldset className="space-y-2">
+                <legend className="rotulo-ajuda text-sm font-medium">Dias e horários<HelpTip label="Dias e horários">{ALERT_RULE_HELP.diasHorarios}</HelpTip></legend>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={newRuleWindowOn} onChange={(e) => setNewRuleWindowOn(e.target.checked)} />
+                  Só abrir alerta em alguns dias e horários
+                </label>
+                {newRuleWindowOn && (
+                  <>
+                    <div className="flex flex-wrap gap-3" role="group" aria-label="Dias da semana">
+                      {WEEKDAY_ORDER.map((d) => (
+                        <label key={d} className="flex items-center gap-1 text-sm">
+                          <input type="checkbox" checked={newRuleDays.includes(d)} onChange={(e) => setNewRuleDays((p) => toggleIn(p, d, e.target.checked))} />
+                          {WEEKDAY_SHORT[d]}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="nova-regra-inicio">Das</Label>
+                        <Input id="nova-regra-inicio" type="time" value={newRuleStart} onChange={(e) => setNewRuleStart(e.target.value)} className="w-32" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="nova-regra-fim">Até</Label>
+                        <Input id="nova-regra-fim" type="time" value={newRuleEnd} onChange={(e) => setNewRuleEnd(e.target.value)} className="w-32" />
+                      </div>
+                    </div>
+                    <p className="text-xs suave">Horário da empresa. Se o fim for antes do início (ex.: 22:00 até 06:00), vale até a manhã seguinte.</p>
+                    {windowError && <p className="text-sm text-[var(--vermelho)]" role="alert">{windowError}</p>}
+                  </>
+                )}
+              </fieldset>
+              <div className="space-y-1">
+                <div className="rotulo-ajuda"><Label htmlFor="nova-regra-encerrar">Encerrar sozinho depois de (minutos)</Label><HelpTip label="Encerrar sozinho">{ALERT_RULE_HELP.encerrarSozinho}</HelpTip></div>
+                <Input id="nova-regra-encerrar" type="number" min="0" max="43200" placeholder="Em branco: só fecha quando o problema acabar" value={newRuleAutoClose} onChange={(e) => setNewRuleAutoClose(e.target.value)} aria-invalid={autoCloseInvalid || undefined} />
+                {autoCloseInvalid && <p className="text-sm text-[var(--vermelho)]" role="alert">Use de 0 a 43.200 minutos (30 dias).</p>}
+              </div>
+              {filterKinds.exceptions && (
+                <div className="space-y-1">
+                  <div className="rotulo-ajuda"><Label htmlFor="nova-regra-excecoes">Exceções (etiquetas da conversa)</Label><HelpTip label="Exceções">{ALERT_RULE_HELP.excecoes}</HelpTip></div>
+                  <Input id="nova-regra-excecoes" placeholder="Ex.: Cliente VIP, Atacado" value={newRuleExceptions} onChange={(e) => setNewRuleExceptions(e.target.value)} aria-invalid={exceptionsInvalid || undefined} />
+                  <p className="text-xs suave">Separe por vírgula. Conversa com uma dessas etiquetas fica fora da regra.</p>
+                  {exceptionsInvalid && <p className="text-sm text-[var(--vermelho)]" role="alert">Até 20 etiquetas, cada uma com até 40 caracteres.</p>}
+                </div>
+              )}
+            </details>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewRuleOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateRule} disabled={!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0 || limitInvalid || creatingRule}>
+            <Button onClick={handleCreateRule} disabled={!newRuleName.trim() || !newRuleType || newRuleChannels.length === 0 || limitInvalid || filtersInvalid || creatingRule}>
               {editingRuleId ? 'Salvar regra' : 'Criar regra'}
             </Button>
           </DialogFooter>

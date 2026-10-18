@@ -2,6 +2,7 @@ import { db } from './db'
 import { enforceQuota } from './quotas'
 import { parseRuleChannels, RULE_CHANNELS_ERROR } from './alert-channels'
 import { ALERT_TYPE_LABELS, ruleDefaultLimit, ruleLimitKind } from './alert-labels'
+import { ruleWindowError } from './analysis/rule-filters'
 
 // Criação e validação de regras de alerta, compartilhadas pela API (POST/PUT /api/alert-rules) e pelo simulador
 // (o cenário cria a regra pelo MESMO caminho da tela: cota do plano, tipo conhecido, nome único, prazo válido).
@@ -47,14 +48,37 @@ function validate(body: RuleInput, type: string): RuleResult | null {
   if (body.severity !== undefined && (typeof body.severity !== 'string' || !SEVERITIES.includes(body.severity))) return bad('Severidade inválida.', 'invalid_severity')
   if (body.cooldownMinutes !== undefined && !intOrNull(body.cooldownMinutes)) return bad('O cooldown precisa ser um número inteiro de minutos (0 ou mais).', 'invalid_cooldown')
   if (body.autoCloseMinutes !== undefined && !intOrNull(body.autoCloseMinutes)) return bad('O encerramento automático precisa ser um número inteiro de minutos.', 'invalid_auto_close')
+  if (typeof body.autoCloseMinutes === 'number' && body.autoCloseMinutes > 43_200) return bad('O encerramento automático vai até 30 dias (43.200 minutos).', 'invalid_auto_close')
   for (const k of ['scopeConnections', 'scopeTeams', 'recipients', 'exceptions'] as const) {
     if (body[k] !== undefined && !strList(body[k])) return bad(`O campo ${k} precisa ser uma lista de textos.`, 'invalid_list')
   }
+  if (Array.isArray(body.exceptions)) {
+    // linhas em branco são descartadas ao gravar (cleanList)
+    const ex = cleanList(body.exceptions)
+    if (ex.length > 20 || ex.some((t) => t.length > 40)) return bad('Exceções: até 20 etiquetas, cada uma com 1 a 40 caracteres.', 'invalid_exceptions')
+  }
+  const we = ruleWindowError(body.daysAndHours)
+  if (we) return bad(we, 'invalid_days_hours')
   if (body.minConfidence !== undefined && (typeof body.minConfidence !== 'number' || body.minConfidence < 0 || body.minConfidence > 1)) return bad('A confiança mínima vai de 0 a 1.', 'invalid_confidence')
   const le = limitError(type, body.limitMinutes)
   if (le) return bad(le, 'invalid_limit')
   return null
 }
+
+/** Números e equipes da regra precisam ser da própria empresa (id de outra empresa ou apagado não entra). */
+async function scopeError(orgId: string, body: RuleInput): Promise<RuleResult | null> {
+  const conns = Array.isArray(body.scopeConnections) ? [...new Set(body.scopeConnections as string[])] : []
+  if (conns.length && (await db.whatsAppConnection.count({ where: { organizationId: orgId, id: { in: conns } } })) !== conns.length) {
+    return bad('Algum número escolhido não existe nesta empresa.', 'invalid_scope_connections')
+  }
+  const teams = Array.isArray(body.scopeTeams) ? [...new Set(body.scopeTeams as string[])] : []
+  if (teams.length && (await db.team.count({ where: { organizationId: orgId, id: { in: teams } } })) !== teams.length) {
+    return bad('Alguma equipe escolhida não existe nesta empresa.', 'invalid_scope_teams')
+  }
+  return null
+}
+
+const cleanList = (v: unknown) => [...new Set((v as string[]).map((s) => s.trim()).filter(Boolean))]
 
 async function nameTaken(orgId: string, name: string, exceptId?: string) {
   const same = await db.alertRule.findFirst({ where: { organizationId: orgId, name, ...(exceptId ? { NOT: { id: exceptId } } : {}) }, select: { id: true } })
@@ -70,7 +94,7 @@ export async function createAlertRule(orgId: string, body: RuleInput): Promise<R
   if (typeof body.name !== 'string' || !body.name.trim() || typeof body.type !== 'string' || !body.type) return bad('Nome e tipo da regra são obrigatórios.', 'name_and_type_required')
   const type = body.type
   if (!(type in ALERT_TYPE_LABELS)) return bad('Tipo de regra desconhecido.', 'invalid_type')
-  const invalid = validate(body, type)
+  const invalid = validate(body, type) ?? (await scopeError(orgId, body))
   if (invalid) return invalid
   const name = body.name.trim()
   // os alertas guardam o nome da regra: dois nomes iguais misturariam os alertas das duas
@@ -89,12 +113,13 @@ export async function createAlertRule(orgId: string, body: RuleInput): Promise<R
       cooldownMinutes: (body.cooldownMinutes as number | null | undefined) ?? 30,
       // sem número, o padrão do tipo (antes ficava vazio = 0 min e a regra de tempo disparava na hora)
       limitMinutes: (body.limitMinutes as number | null | undefined) ?? ruleDefaultLimit(type),
-      scopeConnections: JSON.stringify(body.scopeConnections ?? []),
-      scopeTeams: JSON.stringify(body.scopeTeams ?? []),
+      scopeConnections: JSON.stringify(cleanList(body.scopeConnections ?? [])),
+      scopeTeams: JSON.stringify(cleanList(body.scopeTeams ?? [])),
       daysAndHours: JSON.stringify(body.daysAndHours ?? {}),
       recipients: JSON.stringify(body.recipients ?? []),
-      autoCloseMinutes: (body.autoCloseMinutes as number | null | undefined) ?? null,
-      exceptions: JSON.stringify(body.exceptions ?? []),
+      // 0 = não encerra sozinho
+      autoCloseMinutes: (body.autoCloseMinutes as number | null | undefined) || null,
+      exceptions: JSON.stringify(cleanList(body.exceptions ?? [])),
       minConfidence: (body.minConfidence as number | undefined) ?? 0.5,
     },
   })
@@ -104,7 +129,7 @@ export async function createAlertRule(orgId: string, body: RuleInput): Promise<R
 /** Campos a gravar no PUT (já validados). O tipo não muda depois de criada (os alertas e o agrupamento dependem dele). */
 export async function ruleUpdateData(orgId: string, existing: { id: string; type: string }, body: RuleInput): Promise<{ ok: true; data: Record<string, unknown> } | Extract<RuleResult, { ok: false }>> {
   if (body.type !== undefined && body.type !== existing.type) return { ok: false, status: 400, error: 'O tipo da regra não muda depois de criada. Crie outra regra.', code: 'type_locked' }
-  const invalid = validate(body, existing.type)
+  const invalid = validate(body, existing.type) ?? (await scopeError(orgId, body))
   if (invalid && !invalid.ok) return invalid
   if (typeof body.name === 'string' && (await nameTaken(orgId, body.name.trim(), existing.id))) return { ok: false, status: 409, error: 'Já existe uma regra com esse nome. Escolha outro.', code: 'name_taken' }
   const data: Record<string, unknown> = {}
@@ -121,9 +146,10 @@ export async function ruleUpdateData(orgId: string, existing: { id: string; type
   }
   if (body.cooldownMinutes !== undefined) data.cooldownMinutes = body.cooldownMinutes ?? 30
   if (body.limitMinutes !== undefined) data.limitMinutes = body.limitMinutes ?? ruleDefaultLimit(existing.type)
-  for (const k of ['scopeConnections', 'scopeTeams', 'recipients', 'exceptions'] as const) if (body[k] !== undefined) data[k] = JSON.stringify(body[k])
-  if (body.daysAndHours !== undefined) data.daysAndHours = JSON.stringify(body.daysAndHours)
-  if (body.autoCloseMinutes !== undefined) data.autoCloseMinutes = body.autoCloseMinutes
+  for (const k of ['scopeConnections', 'scopeTeams', 'exceptions'] as const) if (body[k] !== undefined) data[k] = JSON.stringify(cleanList(body[k]))
+  if (body.recipients !== undefined) data.recipients = JSON.stringify(body.recipients)
+  if (body.daysAndHours !== undefined) data.daysAndHours = JSON.stringify(body.daysAndHours ?? {})
+  if (body.autoCloseMinutes !== undefined) data.autoCloseMinutes = body.autoCloseMinutes || null
   if (body.minConfidence !== undefined) data.minConfidence = body.minConfidence
   return { ok: true, data }
 }

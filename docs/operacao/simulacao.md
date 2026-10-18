@@ -132,6 +132,16 @@ outro papel, a resposta é 403.
 | `expediente-tolerancia-abertura` | essencial | Tolerância de 10 min antes de abrir |
 | `expediente-feriado` | essencial | Feriado cadastrado não conta |
 | `expediente-sabado-meio-periodo` | essencial | Sábado 08–12 ligado |
+| `regra-equipe-por-numero` | gestao | Regra só de uma equipe, pela equipe dona do número |
+| `regra-equipe-por-atendente` | gestao | Regra só de uma equipe, pelo atendente confirmado (assinatura ou escolha manual) |
+| `regra-dias-e-horarios` | essencial | Regra só seg–sex 08–18: abre dentro da janela, não abre fora; aberto continua |
+| `regra-plantao-noturno` | essencial | Janela 22:00–06:00 de domingo vale até segunda de manhã |
+| `regra-encerrar-sozinho` | essencial | Fecha pelo prazo, não reabre com o mesmo problema; problema novo reabre (2 ocorrências) |
+| `regra-encerrar-sozinho-grupo` | essencial | Com a regra padrão no mesmo alerta, só encerra quando todas pedem; episódio novo reabre |
+| `regra-excecao-etiqueta` | essencial | Etiqueta da exceção tira a conversa da regra e fecha o alerta |
+| `regra-conexao-filtros` | gestao | Regra de conexão de um número só, que se encerra sozinha e volta na próxima queda |
+| `cota-encerrar-sozinho` | essencial | Aviso de limite que se encerra sozinho |
+| `regra-filtros-invalidos` | gestao | Dia, horário, equipe de fora, prazo acima de 30 dias e etiquetas inválidas: 400 |
 | `jornada-essencial-dia` | essencial | 6 clientes (venda, perda, preço, irritado, bom dia, promessa) e os 8 relatórios |
 | `jornada-growth-equipe` | gestao | O mesmo dia com atendente, 2 números, relatórios por atendente e conexões |
 | `venda-recuperada` | essencial | Preço sem retorno → fila → "fiz o pix": venda e item recuperado |
@@ -144,8 +154,11 @@ outro papel, a resposta é 403.
 
 1. Crie um objeto `Scenario` em `src/lib/simulation/scenarios/*.ts`. Os tipos estão em `src/lib/simulation/types.ts`.
    Passos: `message`, `connection`, `tick`, `addConnection`, `addAgent`, `rule` (cria regra pelo mesmo caminho da
-   tela), `ruleActive`, `alertAction` (dispensar/falso positivo/resolver), `exclude` (LGPD), `usage` (conversas já
-   usadas no mês) e `plan` (troca de plano ou cancelamento). Verificações em cada `tick` e no fim, incluindo
+   tela, com `teams`, `connections`, `daysAndHours`, `autoCloseMinutes` e `exceptions`), `ruleEdit` (mesmo caminho do
+   PUT da tela), `ruleActive`, `tag` (etiqueta na conversa), `assignAgent` (atendente escolhido à mão),
+   `confirmIdentity` (confirma a assinatura do atendente), `alertAction` (dispensar/falso positivo/resolver), `exclude`
+   (LGPD), `usage` (conversas já usadas no mês) e `plan` (troca de plano ou cancelamento). `Scenario.teams` cria
+   equipes com números e atendentes. Verificações em cada `tick` e no fim, incluindo
    `report` (relatório gerado como o agendado), `question`, `occurrences`, `lastTick` e `recoveryStatus`.
    Para horário comercial, `startAt` fixa o início num dia da semana e hora de São Paulo e `holidayOnStart` marca o
    dia como feriado.
@@ -182,7 +195,4 @@ outro papel, a resposta é 403.
 
 - **"Entrar como gestor/atendente" da empresa simulada.** Não foi feito. O login é por e-mail único, e uma sessão
   emprestada exige revisão de segurança própria. No lugar, há o retrato só leitura.
-- **Regras por equipe.** O campo existe, mas o motor ainda não filtra por equipe (precisa da identidade do atendente
-  confirmada). Os campos "dias e horários", "encerrar sozinho" e "exceções" da regra também são guardados e ainda
-  não usados pelo motor.
 - **Rodar os cenários no CI.** Hoje rodam no e2e local (`tests/e2e/simulacao.spec.ts`).

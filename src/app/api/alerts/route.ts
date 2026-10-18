@@ -83,6 +83,8 @@ export async function GET(request: Request) {
       confidence: a.confidence ?? undefined,
       createdAt: a.createdAt.toISOString(),
       occurrences: a.occurrences, // B6: quantas vezes aconteceu nesta conversa
+      // "encerrar sozinho" da regra (Alertas › Regras › Mais opções): fechou pelo prazo, não porque o problema acabou
+      autoClosed: a.status === 'resolved' && !!a.dismissedReason?.startsWith('Encerrado sozinho'),
       lastOccurredAt: (a.lastOccurredAt ?? a.createdAt).toISOString(),
       evidence: undefined, // evidence is on AuditFinding, not directly on Alert
     }))

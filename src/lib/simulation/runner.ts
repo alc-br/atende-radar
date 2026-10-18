@@ -5,7 +5,9 @@ import { deleteSimulationOrganization } from '../org-deletion'
 import { SimulationDisabledError, simulationEnabled } from '../sandbox'
 import { purgeExpiredSimulations } from './cleanup'
 import { addAgent, addConnection, anchoredStart, buildOrganization, type SimOrg } from './builder'
-import { createAlertRule } from '../alert-rules'
+import { createAlertRule, ruleUpdateData } from '../alert-rules'
+import { conversationsOfIdentities, reattributeConversations } from '../agent-identities'
+import { norm } from '../analysis/text'
 import { excludeContactOf } from '../privacy'
 import { injectConnectionStatus, injectMessage } from './injector'
 import { check, type AssertContext } from './assert'
@@ -89,9 +91,48 @@ export async function runScenario(scenario: Scenario, opts: RunOptions): Promise
         const r = await createAlertRule(sim.orgId, {
           name: step.name, type: step.type, severity: step.severity, limitMinutes: step.limitMinutes, cooldownMinutes: step.cooldownMinutes,
           channels: step.channels, scopeConnections: (step.connections ?? []).map((i) => sim!.connectionIds[i]),
+          scopeTeams: (step.teams ?? []).map((n) => sim!.teamIds.get(n) ?? n), daysAndHours: step.daysAndHours,
+          autoCloseMinutes: step.autoCloseMinutes, exceptions: step.exceptions,
         })
         const want = step.expectStatus ?? 201
         assertions.push({ at: step.at, label: `criar a regra "${step.name}" (${step.type}) → ${want}`, ok: r.status === want, detail: r.ok ? `HTTP ${r.status}` : `HTTP ${r.status}: ${r.error}` })
+      } else if (step.kind === 'ruleEdit') {
+        const existing = await db.alertRule.findFirst({ where: { organizationId: sim.orgId, name: step.name } })
+        if (!existing) throw new Error(`regra "${step.name}" não existe`)
+        const parsed = await ruleUpdateData(sim.orgId, existing, {
+          ...(step.teams ? { scopeTeams: step.teams.map((n) => sim!.teamIds.get(n) ?? n) } : {}),
+          ...(step.connections ? { scopeConnections: step.connections.map((i) => sim!.connectionIds[i]) } : {}),
+          daysAndHours: step.daysAndHours, autoCloseMinutes: step.autoCloseMinutes, exceptions: step.exceptions,
+        })
+        if (parsed.ok) await db.alertRule.update({ where: { id: existing.id }, data: parsed.data })
+        const want = step.expectStatus ?? 200
+        const got = parsed.ok ? 200 : parsed.status
+        assertions.push({ at: step.at, label: `editar a regra "${step.name}" → ${want}`, ok: got === want, detail: parsed.ok ? 'HTTP 200' : `HTTP ${parsed.status}: ${parsed.error}` })
+      } else if (step.kind === 'tag') {
+        // mesmo que PATCH /api/conversations/[id] { addTag }
+        const convId = ctx.chats.get(step.chat)
+        if (!convId) throw new Error(`cliente "${step.chat}" não tem conversa`)
+        const c = await db.conversation.findUniqueOrThrow({ where: { id: convId }, select: { tags: true } })
+        const tags = (() => { try { return JSON.parse(c.tags || '[]') as string[] } catch { return [] } })()
+        await db.conversation.update({ where: { id: convId }, data: { tags: JSON.stringify(tags.includes(step.tag) ? tags : [...tags, step.tag]), needsAnalysisAt: at(step.at) } })
+      } else if (step.kind === 'assignAgent') {
+        // mesmo que PATCH /api/conversations/[id] { agentId }: escolha manual
+        const convId = ctx.chats.get(step.chat)
+        if (!convId) throw new Error(`cliente "${step.chat}" não tem conversa`)
+        const agent = await db.agent.findFirst({ where: { organizationId: sim.orgId, name: step.agent } })
+        if (!agent) throw new Error(`atendente "${step.agent}" não existe`)
+        await db.conversation.update({ where: { id: convId }, data: { agentId: agent.id, agentAttribution: 'manual', suggestedAgentId: null, needsAnalysisAt: at(step.at) } })
+      } else if (step.kind === 'confirmIdentity') {
+        // mesmo que PATCH /api/agent-identities/[id] { action: 'confirm' } na assinatura com o nome do atendente
+        const agent = await db.agent.findFirst({ where: { organizationId: sim.orgId, name: step.agent } })
+        if (!agent) throw new Error(`atendente "${step.agent}" não existe`)
+        const ids = (await db.agentIdentity.findMany({ where: { kind: 'signature', connection: { organizationId: sim.orgId } }, select: { id: true, displayName: true } }))
+          .filter((i) => norm(i.displayName) === norm(step.agent))
+        assertions.push({ at: step.at, label: `confirmar a assinatura de ${step.agent}`, ok: ids.length > 0, detail: ids.length ? `${ids.length} identidade(s)` : 'assinatura não vista' })
+        if (ids.length) {
+          await db.agentIdentity.updateMany({ where: { id: { in: ids.map((i) => i.id) } }, data: { associationStatus: 'confirmed', agentId: agent.id, confirmedAt: at(step.at) } })
+          await reattributeConversations(sim.orgId, await conversationsOfIdentities(ids.map((i) => i.id)))
+        }
       } else if (step.kind === 'ruleActive') {
         const { count } = await db.alertRule.updateMany({ where: { organizationId: sim.orgId, name: step.name }, data: { active: step.active } })
         if (!count) throw new Error(`regra "${step.name}" não existe`)

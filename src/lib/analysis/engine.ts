@@ -15,7 +15,8 @@ import { enqueueAlertEvent } from '../webhooks'
 import { queueAlertEmails } from '../alert-email'
 import { milestone } from '../product-events'
 import { detectOutcome } from './outcome'
-import { alertGroupKey, groupHeadline, severityRank } from './alert-groups'
+import { alertGroup, alertGroupKey, groupHeadline, severityRank } from './alert-groups'
+import { conversationTeamIds, exemptByTags, groupAutoClose, inRuleWindow, inTeamScope, parseRuleWindow, type TeamLite } from './rule-filters'
 import { businessMinutesBetween, outsideRuleFrom, scheduleFrom, type HoursSettings } from './business-hours'
 import { REAL_ORGS } from '../sandbox'
 
@@ -53,6 +54,7 @@ export interface AnalysisSummary {
   outcomesDetected?: number // B6: venda/perda decidida pelas mensagens
   alertsRepeated?: number // B6: alerta reaberto (mesma conversa e causa), contador +1
   alertsEscalated?: number // B6: alerta aberto que ficou mais grave
+  alertsAutoClosed?: number // regra com "encerrar sozinho": alerta fechado pelo prazo com o problema ainda de pé
 }
 
 const parseJson = <T,>(s: string | null | undefined, fallback: T): T => {
@@ -98,11 +100,13 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   const gate = await analysisGate(orgId, now) // T11: plano vencido pausa; acima do limite do mês não analisa
   if (gate.paused) return { ...summary, paused: gate.paused }
   if (gate.skipped.size) summary.overQuota = gate.skipped.size
-  const [rules, agents, connections] = await Promise.all([
+  const [rules, agents, connections, teamRows] = await Promise.all([
     db.alertRule.findMany({ where: { organizationId: orgId, active: true } }),
     db.agent.findMany({ where: { organizationId: orgId, status: 'active' } }),
     db.whatsAppConnection.findMany({ where: { organizationId: orgId } }),
+    db.team.findMany({ where: { organizationId: orgId, active: true }, select: { id: true, name: true, connectionIds: true } }),
   ])
+  const teams: TeamLite[] = teamRows.map((t) => ({ id: t.id, name: t.name, connectionIds: parseJson<string[]>(t.connectionIds, []) }))
 
   // A tela de Configurações grava tudo na raiz de `settings` (avgTicket, convRate em %, businessHours, slaFirst, …).
   type OrgSettings = HoursSettings & { avgTicket?: string | number; convRate?: string | number; slaFirst?: string | number; slaContinuity?: string | number; abandonTime?: string | number; inactivityClose?: string | number }
@@ -116,6 +120,14 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   const biz = (a: Date, b: Date) => businessMinutesBetween(a, b, schedule)
   const forAlerts = outsideRule === 'ignora' ? biz : wall
   const forScore = outsideRule === 'atraso' ? wall : biz
+  // filtros de cada regra (rule-filters.ts): janela de dias e horários, números, equipes, exceções por etiqueta
+  const ruleFilter = new Map(rules.map((r) => [r.id, {
+    window: parseRuleWindow(r.daysAndHours),
+    connections: parseJson<string[]>(r.scopeConnections, []),
+    teams: parseJson<string[]>(r.scopeTeams, []),
+    exceptions: parseJson<string[]>(r.exceptions, []),
+  }]))
+  const ruleOpensNow = (ruleId: string) => inRuleWindow(ruleFilter.get(ruleId)!.window, now, schedule.timezone)
   // P2 · SLA e encerramento automático (Configurações › Atendimento); horas corridas.
   const slaFirst = positive(settings.slaFirst, 10)
   const slaContinuity = positive(settings.slaContinuity, 30)
@@ -424,12 +436,16 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     // perguntas do cliente ainda sem resposta (inclui as detectadas agora), para "Pergunta ignorada"
     const openQuestionsNow = questions.filter((q) => q.conversationId === conv.id && q.status === 'open')
     const oppOpen = !!opp ? opp.status === 'active' : !!est
+    const convTags = parseJson<string[]>(conv.tags, [])
+    const convTeams = conversationTeamIds(agent?.team, conv.connectionId, teams)
     for (const rule of rules) {
       if (ORG_RULES.includes(rule.type)) continue
       const limit = rule.limitMinutes ?? 0
-      const scopeConns = parseJson<string[]>(rule.scopeConnections, [])
-      const scopeTeams = parseJson<string[]>(rule.scopeTeams, [])
-      const inScope = (scopeConns.length === 0 || (conv.connectionId != null && scopeConns.includes(conv.connectionId))) && (scopeTeams.length === 0 || (agent?.team != null && scopeTeams.includes(agent.team)))
+      const f = ruleFilter.get(rule.id)!
+      // número, equipe e exceção: fora deles a regra não vale (e o alerta aberto dela fecha sozinho)
+      const inScope = (f.connections.length === 0 || (conv.connectionId != null && f.connections.includes(conv.connectionId)))
+        && inTeamScope(f.teams, convTeams, teams)
+        && !exemptByTags(convTags, f.exceptions)
 
       let triggered = false
       switch (rule.type) {
@@ -453,9 +469,9 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     for (const [key, members] of byGroup) {
       // alertas abertos deste grupo nesta conversa (o mais grave primeiro); mais de um só em dado antigo, de antes do agrupamento
       const open = (openAlertsByGroup.get(key) ?? []).sort((a, b) => severityRank(b.severity) - severityRank(a.severity) || a.createdAt.getTime() - b.createdAt.getTime())
-      const top = groupHeadline(members.filter((m) => m.triggered).map((m) => m.rule))
+      const hits = members.filter((m) => m.triggered)
 
-      if (!top) {
+      if (!hits.length) {
         // deixou de valer: o motor resolve (e marca que foi ele, para poder reabrir o mesmo alerta se voltar)
         for (const a of open) {
           await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: a.id }, data: { status: 'resolved', resolvedBy: 'auto' } }))
@@ -465,9 +481,27 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
           summary.alertsResolved += 1
         }
         openAlertsByGroup.delete(key)
+        // alerta que tinha fechado pelo prazo ("encerrar sozinho"): o problema acabou, então se voltar é repetição (+1)
+        await db.alert.updateMany({ where: { organizationId: orgId, conversationId: conv.id, groupKey: key, status: 'resolved', resolvedBy: 'timeout' }, data: { resolvedBy: 'auto' } })
         continue
       }
+      // "dias e horários": fora da janela a regra não ABRE alerta; o que já está aberto segue com todas as regras que valem
+      const top = groupHeadline((open.length ? hits : hits.filter((m) => ruleOpensNow(m.rule.id))).map((m) => m.rule))
+      if (!top) continue
       const { headline, severity, channels } = top
+
+      // "encerrar sozinho": aberto há mais que o prazo (todas as regras que valem pedem isso) → fecha, sem reabrir enquanto
+      // o mesmo problema continuar
+      const autoClose = groupAutoClose(hits.map((m) => m.rule))
+      if (open.length && autoClose != null && minutesBetween(open[0].lastOccurredAt ?? open[0].createdAt, now) >= autoClose) {
+        for (const a of open) {
+          await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: a.id }, data: { status: 'resolved', resolvedBy: 'timeout', dismissedReason: `Encerrado sozinho após ${autoClose} min (regra)` } }))
+          summary.alertsResolved += 1
+          summary.alertsAutoClosed = (summary.alertsAutoClosed ?? 0) + 1
+        }
+        openAlertsByGroup.delete(key)
+        continue
+      }
       const rule = { ...headline, severity, notificationChannels: JSON.stringify(channels) } // e-mail: gravidade e canais do grupo
       const title = `${headline.name}: ${customerName}`
 
@@ -511,6 +545,15 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
       })
       if (dismissed) continue
 
+      // Fechado pelo prazo da regra e o MESMO problema continua: não reabre. Na espera por resposta, um cliente que
+      // voltou a esperar depois do alerta abrir (a empresa respondeu no meio) é um problema novo.
+      const last = await db.alert.findFirst({ where: { organizationId: orgId, conversationId: conv.id, groupKey: key }, orderBy: { createdAt: 'desc' } })
+      if (last && last.status === 'resolved' && last.resolvedBy === 'timeout') {
+        const opened = last.lastOccurredAt ?? last.createdAt
+        const newEpisode = alertGroup(headline) === 'resposta' && !!conv.waitingSince && conv.waitingSince > opened
+        if (!newEpisode) continue
+      }
+
       const finding = FINDING_TYPE[headline.type]
         ? await db.auditFinding.create({
             data: { conversationId: conv.id, type: FINDING_TYPE[headline.type], severity, status: 'new', detectedAt: now, evidence, confidence: conf, assignedTo: agent?.name ?? null },
@@ -519,12 +562,11 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
       // Repetição na mesma conversa: o último alerta do grupo foi resolvido pelo próprio motor (a empresa respondeu e o
       // cliente voltou a esperar) → reabre o MESMO alerta com o contador +1, sem e-mail, notificação nem "alert.created".
       // Resolvido por uma pessoa ou dispensado → alerta novo (a pessoa encerrou aquele caso).
-      const last = await db.alert.findFirst({ where: { organizationId: orgId, conversationId: conv.id, groupKey: key }, orderBy: { createdAt: 'desc' } })
-      if (last && last.status === 'resolved' && last.resolvedBy === 'auto') {
+      if (last && last.status === 'resolved' && (last.resolvedBy === 'auto' || last.resolvedBy === 'timeout')) {
         const reopened = await db.alert.update({
           where: { id: last.id },
           data: {
-            status: 'new', resolvedBy: null, occurrences: last.occurrences + 1, lastOccurredAt: now, findingId: finding?.id ?? last.findingId,
+            status: 'new', resolvedBy: null, dismissedReason: null, occurrences: last.occurrences + 1, lastOccurredAt: now, findingId: finding?.id ?? last.findingId,
             ruleName: headline.name, title, severity, description: evidence, customerName, agentName: agent?.name ?? null, potentialValue: potentialValue || null, confidence: conf,
           },
         })
@@ -564,11 +606,25 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
 
   // --- alertas de conexão (sem conversa) ---
   // (toda regra do tipo vale: a padrão e as que a empresa criar, cada uma com o seu alerta por conexão)
+  // Filtros: números e equipes escolhidos (a equipe vale pelos números dela), janela de dias e horários (só abre dentro)
+  // e "encerrar sozinho" (fecha pelo prazo e não reabre enquanto a mesma queda continuar).
   for (const connRule of rules.filter((r) => r.type === 'connection_down')) {
+    const f = ruleFilter.get(connRule.id)!
+    const autoClose = groupAutoClose([connRule])
     for (const c of connections) {
-      const down = (c.status === 'disconnected' || (c.status === 'qr_required' && c.pairedAt != null)) && c.disabledAt == null
+      const inScope = (f.connections.length === 0 || f.connections.includes(c.id)) && inTeamScope(f.teams, conversationTeamIds(null, c.id, teams), teams)
+      const down = inScope && (c.status === 'disconnected' || (c.status === 'qr_required' && c.pairedAt != null)) && c.disabledAt == null
       const existing = openAlerts.find((a) => a.ruleName === connRule.name && a.conversationId == null && a.title.endsWith(`: ${c.name}`))
-      if (down && !existing) {
+      const lastTimeout = await db.alert.findFirst({ where: { organizationId: orgId, ruleName: connRule.name, conversationId: null, title: `${connRule.name}: ${c.name}`, status: 'resolved', resolvedBy: 'timeout' } })
+      if (down && existing && autoClose != null && minutesBetween(existing.lastOccurredAt ?? existing.createdAt, now) >= autoClose) {
+        await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: existing.id }, data: { status: 'resolved', resolvedBy: 'timeout', dismissedReason: `Encerrado sozinho após ${autoClose} min (regra)` } }))
+        summary.alertsResolved += 1
+        summary.alertsAutoClosed = (summary.alertsAutoClosed ?? 0) + 1
+      } else if (!down && lastTimeout) {
+        // a queda que fechou pelo prazo acabou: a próxima queda abre alerta novo
+        await db.alert.update({ where: { id: lastTimeout.id }, data: { resolvedBy: 'auto' } })
+      }
+      if (down && !existing && !lastTimeout && ruleOpensNow(connRule.id)) {
         const alert = await db.alert.create({
           data: { organizationId: orgId, ruleName: connRule.name, severity: connRule.severity, title: `${connRule.name}: ${c.name}`, description: `A conexão "${c.name}" (final ${c.phoneLast4}) está fora do ar${c.statusReason ? ` (${c.statusReason})` : ''}.`, agentName: null, status: 'new', lastOccurredAt: now },
         })
@@ -595,10 +651,20 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     const last = await db.alert.findFirst({ where: { organizationId: orgId, groupKey: key }, orderBy: { createdAt: 'desc' } })
     const lastOpen = last && OPEN_ALERT.includes(last.status) ? last : null
     const description = `${gate.used} de ${gate.limit ?? 0} conversas do mês já foram usadas (${Math.round(usedPct)}%). Acima do limite, as conversas novas são recebidas mas não analisadas até o mês virar ou o plano mudar.`
-    if (hit && lastOpen) {
+    const autoClose = groupAutoClose([qr])
+    if (hit && lastOpen && autoClose != null && minutesBetween(lastOpen.lastOccurredAt ?? lastOpen.createdAt, now) >= autoClose) {
+      // "encerrar sozinho": fecha pelo prazo; só volta se o uso cair abaixo do aviso e subir de novo
+      await enqueueAlertEvent('alert.resolved', await db.alert.update({ where: { id: lastOpen.id }, data: { status: 'resolved', resolvedBy: 'timeout', dismissedReason: `Encerrado sozinho após ${autoClose} min (regra)` } }))
+      summary.alertsResolved += 1
+      summary.alertsAutoClosed = (summary.alertsAutoClosed ?? 0) + 1
+    } else if (!hit && last && last.status === 'resolved' && last.resolvedBy === 'timeout') {
+      await db.alert.update({ where: { id: last.id }, data: { resolvedBy: 'auto' } })
+    } else if (hit && !lastOpen && !ruleOpensNow(qr.id)) {
+      // fora dos dias e horários da regra: abre (ou reabre) quando a janela chegar
+    } else if (hit && lastOpen) {
       if (lastOpen.description !== description) await db.alert.update({ where: { id: lastOpen.id }, data: { description, lastOccurredAt: now } })
     } else if (hit && last && last.status === 'resolved' && last.resolvedBy === 'auto') {
-      await enqueueAlertEvent('alert.updated', await db.alert.update({ where: { id: last.id }, data: { status: 'new', resolvedBy: null, occurrences: last.occurrences + 1, description, lastOccurredAt: now } }))
+      await enqueueAlertEvent('alert.updated', await db.alert.update({ where: { id: last.id }, data: { status: 'new', resolvedBy: null, dismissedReason: null, occurrences: last.occurrences + 1, description, lastOccurredAt: now } }))
       summary.alertsRepeated = (summary.alertsRepeated ?? 0) + 1
     } else if (hit && !last) {
       const alert = await db.alert.create({

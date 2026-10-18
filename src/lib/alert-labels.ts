@@ -84,6 +84,16 @@ export const ALERT_RULE_HELP = {
     'Tempo de espera, em minutos, depois que alguém ignora um alerta ou marca como falso positivo: nesse intervalo o mesmo alerta não volta a aparecer naquela conversa. Evita insistir no que a equipe já decidiu. Com 0, não há espera.',
   prazo:
     'Quanto tempo a situação precisa durar para o alerta abrir. Ex.: em "Sem resposta" com 10, o alerta abre quando o cliente espera 10 minutos sem resposta. Conta só o expediente se em Configurações › Horários a regra fora do expediente for "ignora".',
+  numeros:
+    'A regra vale só para as conversas destes números do WhatsApp. Nenhum marcado: todos os números.',
+  equipes:
+    'A regra vale só para as conversas destas equipes. A equipe da conversa é a do atendente (Atendentes › equipe); sem atendente, a equipe dona do número (Equipes › números). Nenhuma marcada: todas.',
+  diasHorarios:
+    'A regra só abre alerta nestes dias e horários (fuso da empresa). Um alerta que já abriu continua sendo acompanhado fora da janela e fecha sozinho quando o problema acabar.',
+  encerrarSozinho:
+    'O alerta fecha sozinho depois desse tempo aberto, mesmo que o problema continue, e não volta enquanto for o MESMO problema. Se o problema acabar e voltar, o alerta reabre. Em branco ou 0: fecha só quando o problema acabar ou alguém tratar.',
+  excecoes:
+    'Etiquetas da conversa (detalhe da conversa › etiquetas). Conversa com uma delas fica fora da regra, e o alerta dela fecha.',
   canais:
     'Por onde o alerta avisa. "No sistema" é o sino e a tela Alertas. "E-mail" vai para os membros que veem o alerta e deixaram o aviso por e-mail ligado em Meu perfil.',
 } as const

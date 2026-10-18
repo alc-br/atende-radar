@@ -49,12 +49,12 @@ const rule = (r: Pick<DefaultAlertRule, 'name' | 'type' | 'severity' | 'limitMin
 export const DEFAULT_ALERT_RULES: DefaultAlertRule[] = [
   rule({ name: 'Cliente sem primeira resposta', type: 'no_response', severity: 'critical', limitMinutes: 10, channels: ['in_app', 'email'], cooldownMinutes: 30, autoCloseMinutes: null, minConfidence: 0.5 }),
   rule({ name: 'Cliente sem resposta após interação', type: 'no_response_followup', severity: 'high', limitMinutes: 30, channels: ['in_app'], cooldownMinutes: 20, autoCloseMinutes: null, minConfidence: 0.6 }),
-  rule({ name: 'Pedido de preço sem retorno', type: 'pending_quote', severity: 'high', limitMinutes: 15, channels: ['in_app', 'email'], cooldownMinutes: 15, autoCloseMinutes: 120, minConfidence: 0.5 }),
+  rule({ name: 'Pedido de preço sem retorno', type: 'pending_quote', severity: 'high', limitMinutes: 15, channels: ['in_app', 'email'], cooldownMinutes: 15, autoCloseMinutes: null, minConfidence: 0.5 }),
   rule({ name: 'Intenção alta sem resposta', type: 'high_intent_no_reply', severity: 'critical', limitMinutes: 5, channels: ['in_app', 'email'], cooldownMinutes: 10, autoCloseMinutes: null, minConfidence: 0.7 }),
   rule({ name: 'Promessa próxima do vencimento', type: 'promise_approaching', severity: 'medium', limitMinutes: 120, channels: ['in_app'], cooldownMinutes: 60, autoCloseMinutes: null, minConfidence: 0.5 }),
-  rule({ name: 'Promessa vencida', type: 'promise_overdue', severity: 'critical', limitMinutes: 0, channels: ['in_app', 'email'], cooldownMinutes: 30, autoCloseMinutes: 1440, minConfidence: 0.5 }),
+  rule({ name: 'Promessa vencida', type: 'promise_overdue', severity: 'critical', limitMinutes: 0, channels: ['in_app', 'email'], cooldownMinutes: 30, autoCloseMinutes: null, minConfidence: 0.5 }),
   rule({ name: 'Cliente irritado', type: 'customer_frustrated', severity: 'high', limitMinutes: 5, channels: ['in_app', 'email'], cooldownMinutes: 20, autoCloseMinutes: null, minConfidence: 0.6 }),
-  rule({ name: 'Conexão desconectada', type: 'connection_down', severity: 'critical', limitMinutes: 0, channels: ['in_app', 'email'], cooldownMinutes: 5, autoCloseMinutes: 60, minConfidence: 0.9 }),
+  rule({ name: 'Conexão desconectada', type: 'connection_down', severity: 'critical', limitMinutes: 0, channels: ['in_app', 'email'], cooldownMinutes: 5, autoCloseMinutes: null, minConfidence: 0.9 }),
 ]
 
 const report = (reportType: string, name: string, description: string, schedule: string, daysOfWeek: number[], channels: string[], sendEmpty = false): DefaultReportDefinition => ({

@@ -20,7 +20,7 @@ const pass = (label: string, detail?: string): Omit<AssertionResult, 'at'> => ({
 const fail = (label: string, detail: string): Omit<AssertionResult, 'at'> => ({ label, ok: false, detail })
 
 export function describe(e: Expectation): string {
-  if ('alert' in e) return `alerta "${e.alert}"${e.chat ? ` em ${e.chat}` : ''}${e.status ? ` (${e.status})` : ''}${e.count !== undefined ? ` × ${e.count}` : ''}`
+  if ('alert' in e) return `alerta "${e.alert}"${e.chat ? ` em ${e.chat}` : ''}${e.status ? ` (${e.status}${e.resolvedBy ? ` por ${e.resolvedBy}` : ''})` : ''}${e.count !== undefined ? ` × ${e.count}` : ''}`
   if ('noAlert' in e) return `nenhum alerta "${e.noAlert}"${e.chat ? ` em ${e.chat}` : ''}`
   if ('conversation' in e) {
     const parts = Object.entries(e).filter(([k]) => k !== 'conversation').map(([k, v]) => `${k}=${v}`)
@@ -64,7 +64,7 @@ export async function check(ctx: AssertContext, e: Expectation): Promise<Omit<As
       if (chat !== undefined && !convId) return fail(label, `cliente "${chat}" não tem conversa`)
       const alerts = await db.alert.findMany({
         where: { organizationId: ctx.orgId, ruleName, ...(convId === undefined ? {} : { conversationId: convId }) },
-        select: { status: true, severity: true },
+        select: { status: true, severity: true, resolvedBy: true },
       })
       if ('noAlert' in e) {
         const hits = e.anyStatus ? alerts : alerts.filter((a) => OPEN_ALERT.includes(a.status))
@@ -74,6 +74,7 @@ export async function check(ctx: AssertContext, e: Expectation): Promise<Omit<As
       const found = `${alerts.length} alerta(s): ${alerts.map((a) => a.status).join(', ') || 'nenhum'}`
       if (e.count !== undefined ? wanted.length !== e.count : wanted.length === 0) return fail(label, found)
       if (e.severity && !wanted.every((a) => a.severity === e.severity)) return fail(label, `severidade ${wanted.map((a) => a.severity).join(', ')}`)
+      if (e.resolvedBy && !wanted.every((a) => a.resolvedBy === e.resolvedBy)) return fail(label, `fechado por ${wanted.map((a) => a.resolvedBy ?? '-').join(', ')}`)
       return pass(label, found)
     }
 

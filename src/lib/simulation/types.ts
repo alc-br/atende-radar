@@ -53,9 +53,35 @@ export type Step =
       channels?: string[]
       /** Índices das conexões da regra (vazio = todas). */
       connections?: number[]
+      /** Nomes das equipes do cenário (Scenario.teams) em que a regra vale (vazio = todas). */
+      teams?: string[]
+      /** Dias e horários em que a regra abre alerta (fuso da empresa); 0 = domingo. */
+      daysAndHours?: { days: number[]; start: string; end: string } | Record<string, never>
+      /** Encerrar sozinho: minutos com o alerta aberto. */
+      autoCloseMinutes?: number | null
+      /** Etiquetas da conversa que deixam a conversa fora da regra. */
+      exceptions?: string[]
       /** Padrão 201 (criada). */
       expectStatus?: 201 | 400 | 402 | 409
     }
+  /** Edita uma regra (pelo nome) pelo MESMO caminho da tela (PUT /api/alert-rules/[id]). */
+  | {
+      kind: 'ruleEdit'
+      at: number
+      name: string
+      teams?: string[]
+      connections?: number[]
+      daysAndHours?: { days: number[]; start: string; end: string } | Record<string, never>
+      autoCloseMinutes?: number | null
+      exceptions?: string[]
+      expectStatus?: 200 | 400
+    }
+  /** Põe uma etiqueta na conversa, como o detalhe da conversa (PATCH addTag). */
+  | { kind: 'tag'; at: number; chat: ChatLabel; tag: string }
+  /** Escolhe o atendente da conversa à mão, como o detalhe da conversa (PATCH agentId). */
+  | { kind: 'assignAgent'; at: number; chat: ChatLabel; agent: string }
+  /** Confirma a assinatura do atendente (Atendentes › identidades › Confirmar), como o admin faria. */
+  | { kind: 'confirmIdentity'; at: number; agent: string }
   /** Liga/desliga uma regra (pelo nome), como o botão "Ativa" da aba Regras. */
   | { kind: 'ruleActive'; at: number; name: string; active: boolean }
   /** Uma pessoa trata o alerta aberto da regra na conversa: dispensa, marca falso positivo ou resolve. */
@@ -69,7 +95,7 @@ export type Step =
 
 export type Expectation =
   /** Alerta da regra (nome exato) na conversa do `chat` (ou sem conversa, para regra de conexão). */
-  | { alert: string; chat?: ChatLabel; status?: 'new' | 'resolved'; count?: number; severity?: string }
+  | { alert: string; chat?: ChatLabel; status?: 'new' | 'resolved'; count?: number; severity?: string; resolvedBy?: 'auto' | 'timeout' | 'user' }
   /** Nenhum alerta (em aberto, por padrão) da regra na conversa. */
   | { noAlert: string; chat?: ChatLabel; anyStatus?: boolean }
   | {
@@ -100,7 +126,7 @@ export type Expectation =
   /** Perguntas do cliente registradas na conversa (perguntas ignoradas, B6). */
   | { question: ChatLabel; status: 'open' | 'answered'; count?: number }
   /** Números do último tick (motor). */
-  | { lastTick: { overQuota?: number; alertsRepeated?: number; alertsEscalated?: number; outcomesDetected?: number; alertsOpened?: number } }
+  | { lastTick: { overQuota?: number; alertsRepeated?: number; alertsEscalated?: number; outcomesDetected?: number; alertsOpened?: number; alertsAutoClosed?: number } }
   /** Item de recuperação da conversa na situação dada (ex.: recovered depois da venda). */
   | { recoveryStatus: ChatLabel; status: string }
   /**
@@ -127,6 +153,8 @@ export interface Scenario {
   connections?: number
   /** Atendentes cadastrados ao começar (nomes). */
   agents?: string[]
+  /** Equipes (Equipes › Nova equipe): números da equipe (índices das conexões) e atendentes dela (nomes de `agents`). */
+  teams?: Array<{ name: string; connections?: number[]; agents?: string[] }>
   /** Configurações da empresa (mesmas chaves da tela de Configurações). Padrão: fora do expediente = 'atraso'. */
   settings?: Record<string, unknown>
   steps: Step[]

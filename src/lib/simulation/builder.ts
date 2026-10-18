@@ -19,6 +19,8 @@ export interface SimOrg {
   runKey: string
   connectionIds: string[]
   agentIds: string[]
+  /** nome da equipe do cenário → id */
+  teamIds: Map<string, string>
 }
 
 /** Data (AAAA-MM-DD) do instante em São Paulo. */
@@ -74,7 +76,7 @@ export async function buildOrganization(scenario: Scenario, virtualStart: Date, 
     return org.id
   })
 
-  const sim: SimOrg = { orgId, runKey, connectionIds: [], agentIds: [] }
+  const sim: SimOrg = { orgId, runKey, connectionIds: [], agentIds: [], teamIds: new Map() }
   for (let i = 0; i < (scenario.connections ?? 1); i++) {
     const r = await addConnection(sim, virtualStart)
     if (r.status !== 201) throw new Error(`O plano ${plan.name} não comporta ${scenario.connections} conexões (402 na ${i + 1}ª)`)
@@ -82,6 +84,20 @@ export async function buildOrganization(scenario: Scenario, virtualStart: Date, 
   for (const agentName of scenario.agents ?? []) {
     const r = await addAgent(sim, agentName)
     if (r.status !== 201) throw new Error(`O plano ${plan.name} não comporta ${scenario.agents!.length} atendentes (402 em "${agentName}")`)
+  }
+  for (const t of scenario.teams ?? []) {
+    // como Equipes › Nova equipe (números da equipe) e Atendentes › equipe (o atendente guarda o NOME da equipe)
+    const connectionIds = (t.connections ?? []).map((i) => {
+      const id = sim.connectionIds[i]
+      if (!id) throw new Error(`equipe "${t.name}": conexão ${i} não existe no cenário`)
+      return id
+    })
+    const team = await db.team.create({ data: { organizationId: orgId, name: t.name, code: t.name.slice(0, 3).toUpperCase(), connectionIds: JSON.stringify(connectionIds) } })
+    sim.teamIds.set(t.name, team.id)
+    for (const agentName of t.agents ?? []) {
+      const { count } = await db.agent.updateMany({ where: { organizationId: orgId, name: agentName }, data: { team: t.name } })
+      if (!count) throw new Error(`equipe "${t.name}": atendente "${agentName}" não existe no cenário`)
+    }
   }
   if (scenario.subscription === 'canceled') {
     // assinatura encerrada: o período pago acabou 1 dia antes do início virtual
