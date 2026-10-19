@@ -2,6 +2,9 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-19
+- **Segurança (alertas do ZAP):** scripts só rodam com o nonce gerado a cada acesso (sai o `unsafe-inline` do `script-src`; script injetado no HTML é barrado); isolamento entre origens (COOP, COEP e CORP; o logo dos e-mails continua carregável por outros domínios); `/login` redireciona sem mandar a página junto; o nginx deixa de mostrar a versão. Falsos positivos do ZAP marcados com o motivo em `.zap/rules.tsv`.
+
 ## 2026-10-15
 - **Direito de arrependimento (7 dias):** em Planos, "Desistir e receber reembolso" cancela a assinatura e estorna integralmente no cartão (Pagar.me) a cobrança que abriu a contratação, se ela foi paga há menos de 7 dias. Fatura fica "Estornada", com registro de auditoria e notificação. Se o estorno falhar, a renovação é cancelada e o pedido fica para a equipe.
 - **Termos de Uso e Política de Privacidade reescritos** (versão 2026-10-15) para descrever o sistema como ele funciona: dados da empresa (razão social, CNPJ e endereço, também no rodapé do site), teste de 14 dias, preço novo só para contratações novas, troca de plano, arrependimento, encerramento da conta, prazos reais de retenção, cifragem do telefone e das sessões do WhatsApp, campos enviados ao Mautic e armazenamento no navegador.

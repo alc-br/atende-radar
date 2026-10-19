@@ -42,6 +42,50 @@ test('site: CSP em todas as páginas e nada bloqueado', async ({ page, browserNa
   await expect.poll(async () => (await violacoes()).join(' ')).toMatch(/connect-src|example\.com/)
 })
 
+test('scripts só com o nonce da requisição (sem unsafe-inline), nonce novo a cada acesso e isolamento entre origens', async ({ request, page }) => {
+  const nonceDe = (csp: string) => /'nonce-([^']+)'/.exec(csp)?.[1]
+  const scriptSrc = (csp: string) => csp.split(';').map((d) => d.trim()).find((d) => d.startsWith('script-src ')) || ''
+  const nonces: string[] = []
+  for (const caminho of ['/', '/', '/conteudos', '/conteudos/vendas-perdidas-whatsapp', '/privacidade']) {
+    const res = await request.get(caminho)
+    expect(res.status(), caminho).toBe(200)
+    const h = res.headers()
+    const csp = h['content-security-policy'] || ''
+    expect(scriptSrc(csp), caminho).not.toContain("'unsafe-inline'")
+    expect(scriptSrc(csp), caminho).toContain("'strict-dynamic'")
+    const nonce = nonceDe(csp)
+    expect(nonce, caminho).toBeTruthy()
+    // os scripts da página carregam o nonce do cabeçalho
+    expect(await res.text(), caminho).toContain(`nonce="${nonce}"`)
+    nonces.push(nonce!)
+    expect(h['cross-origin-opener-policy'], caminho).toBe('same-origin')
+    expect(h['cross-origin-embedder-policy'], caminho).toBe('require-corp')
+    expect(h['cross-origin-resource-policy'], caminho).toBe('same-site')
+  }
+  expect(new Set(nonces).size).toBe(nonces.length)
+  // o logo vai nos e-mails: pode ser carregado por outro domínio
+  expect((await request.get('/brand/favicon.png')).headers()['cross-origin-resource-policy']).toBe('cross-origin')
+  // API: CSP sem nonce e sem script inline
+  expect(scriptSrc((await request.get('/api/public/status')).headers()['content-security-policy'] || '')).not.toContain("'unsafe-inline'")
+  // /login responde o redirecionamento direto, sem a página junto
+  const login = await request.get('/login?modo=cadastro', { maxRedirects: 0 })
+  expect(login.status()).toBe(307)
+  const destino = new URL(login.headers()['location'], 'http://base.invalid') // o Next pode devolver relativo à origem
+  expect(destino.pathname + destino.search).toBe('/?modo=cadastro')
+  expect((await login.body()).byteLength).toBeLessThan(200) // antes: a página inteira (~11 KB) ia junto
+  // script inline sem o nonce, vindo no próprio HTML (como num XSS), é barrado de verdade; os do Next (com o nonce) rodam
+  const violacoes = await vigiaCsp(page)
+  await page.route('**/privacidade', async (route) => {
+    const res = await route.fetch()
+    const html = (await res.text()).replace('</body>', '<script>window.__injetado = true</script></body>')
+    await route.fulfill({ response: res, body: html })
+  })
+  await page.goto('/privacidade')
+  await expect(page.locator('h1').first()).toBeVisible({ timeout: 30_000 })
+  expect(await page.evaluate(() => (window as unknown as { __injetado?: boolean }).__injetado)).toBeUndefined()
+  await expect.poll(async () => (await violacoes()).join(' ')).toMatch(/script-src/)
+})
+
 test('painel: todas as telas do menu abrem sem nada bloqueado pela CSP', async ({ page, context, isMobile }) => {
   test.skip(!!isMobile, 'o menu lateral é o do desktop; o conteúdo das telas é o mesmo')
   test.setTimeout(240_000)

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
+import { contentSecurityPolicy, newNonce } from './lib/csp'
 import { APP_URL, SITE_HOME, SITE_URL, appHost, isSiteOnlyPage, isSitePath, siteHost, splitHosts } from './lib/hosts'
 
 // Toda rota de API exige sessão válida. Ficam públicos: /api/auth/* (login/cadastro/recuperação) e /api/public/* (catálogo da página de vendas) e /api/gateway/* (serviço do WhatsApp, autenticado por segredo próprio na rota) e /api/billing/webhook (aviso do Pagar.me, autenticação básica própria).
@@ -34,9 +35,25 @@ function routeByHost(req: NextRequest): NextResponse | null {
   return null
 }
 
+const dev = process.env.NODE_ENV !== 'production'
+const isApi = (pathname: string) => pathname === '/api' || pathname.startsWith('/api/')
+
+// "/login" existe para links antigos, para o NextAuth e para o "Sair": vai direto para a tela de entrar do app
+// (redirecionamento sem corpo; a página src/app/login fica como reserva). Repassa ?modo=cadastro|entrar|senha.
+function loginRedirect(req: NextRequest): NextResponse | null {
+  if (req.nextUrl.pathname !== '/login') return null
+  const params = new URLSearchParams(req.nextUrl.search)
+  params.delete('demo') // a demonstração pública não existe mais
+  if (!params.has('modo')) params.set('modo', 'entrar')
+  return new NextResponse(null, { status: 307, headers: { Location: `${splitHosts ? APP_URL : req.nextUrl.origin}/?${params}` } })
+}
+
 export async function proxy(req: NextRequest) {
-  const moved = routeByHost(req)
-  if (moved) return moved
+  const moved = routeByHost(req) || loginRedirect(req)
+  if (moved) {
+    moved.headers.set('Content-Security-Policy', contentSecurityPolicy({ dev }))
+    return moved
+  }
 
   if (apiNeedsSession(req.nextUrl.pathname) && !simulationToken(req)) {
     const token = await getToken({ req })
@@ -45,7 +62,19 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  const res = NextResponse.next()
+  // Páginas: nonce novo a cada requisição. O Next lê a CSP do pedido e põe o nonce nos próprios scripts; o layout
+  // repassa x-nonce ao next-themes. As APIs recebem a CSP sem nonce de next.config.ts.
+  let res: NextResponse
+  if (isApi(req.nextUrl.pathname)) res = NextResponse.next()
+  else {
+    const nonce = newNonce()
+    const csp = contentSecurityPolicy({ nonce, dev })
+    const headers = new Headers(req.headers)
+    headers.set('x-nonce', nonce)
+    headers.set('Content-Security-Policy', csp)
+    res = NextResponse.next({ request: { headers } })
+    res.headers.set('Content-Security-Policy', csp)
+  }
   // O app não deve aparecer no Google; quem aparece é o site
   if (splitHosts && (req.headers.get('host') || '').toLowerCase() === appHost) res.headers.set('X-Robots-Tag', 'noindex, nofollow')
   return res

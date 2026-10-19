@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { readFileSync } from "node:fs";
+import { contentSecurityPolicy } from "./src/lib/csp";
 
 // Versão mostrada no rodapé do painel e anexada aos chamados de suporte: a do package.json + o commit do build no CI.
 const pkgVersion = (JSON.parse(readFileSync("./package.json", "utf8")) as { version?: string }).version || "0.0.0";
@@ -11,24 +12,10 @@ const appVersion = commit ? `${pkgVersion}+${commit}` : pkgVersion;
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_APP_URL ? process.env.NEXT_PUBLIC_SITE_URL : "";
 const siteHostname = siteUrl ? new URL(siteUrl).hostname : "";
 
-// Política de conteúdo: só scripts/estilos do próprio domínio (o Next injeta scripts inline, daí 'unsafe-inline');
-// o navegador só conversa com o próprio app, com o Pagar.me (token do cartão) e com o ViaCEP. Em dev o Turbopack
-// precisa de eval e de websocket para recarregar.
+// Política de conteúdo (src/lib/csp.ts): nas páginas quem manda o cabeçalho é o proxy, com um nonce por requisição;
+// aqui fica a versão sem nonce (nenhum script inline) para as respostas das APIs.
 const dev = process.env.NODE_ENV !== "production";
-const csp = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  `connect-src 'self' https://api.pagar.me https://viacep.com.br${dev ? " ws: wss:" : ""}`,
-  "frame-src 'none'",
-  "frame-ancestors 'none'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  ...(dev ? [] : ["upgrade-insecure-requests"]),
-].join("; ");
+const apiCsp = contentSecurityPolicy({ dev });
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -53,14 +40,21 @@ const nextConfig: NextConfig = {
       {
         source: '/:path*',
         headers: [
-          { key: 'Content-Security-Policy', value: csp },
           { key: 'X-Frame-Options', value: 'DENY' }, // ninguém embute o sistema em outro site (clickjacking)
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
           { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+          // isolamento entre origens: outra aba/janela não ganha referência a esta, e o que a página carrega é só do
+          // próprio domínio (todo recurso já é 'self' pela CSP; o Pagar.me e o ViaCEP são chamados com CORS)
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'same-site' },
         ],
       },
+      // logo e ícone aparecem nos e-mails (webmail de outro domínio carrega a imagem direto do app)
+      { source: '/brand/:path*', headers: [{ key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' }] },
+      { source: '/api/:path*', headers: [{ key: 'Content-Security-Policy', value: apiCsp }] },
     ]
   },
 };
