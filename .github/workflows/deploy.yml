@@ -71,7 +71,7 @@ jobs:
         with:
           name: test-results-${{ matrix.shard }}
           path: test-results/
-          retention-days: 7
+          retention-days: 2
 
   # 1b) Em paralelo: os fluxos que vendem e cobram no Firefox, no Safari (Mac) e no iPhone.
   browsers:
@@ -103,7 +103,7 @@ jobs:
         with:
           name: test-results-browsers
           path: test-results/
-          retention-days: 7
+          retention-days: 2
 
   # 2) Só depois de os testes passarem: deploy no servidor (runner próprio).
   deploy:
