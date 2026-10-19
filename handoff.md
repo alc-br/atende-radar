@@ -36,8 +36,8 @@ Sem segredos aqui: o repositório é público.
 - ~~Definir `SUPPORT_EMAIL` no servidor~~ definida (conferido em 19/10/2026) — para receber por e-mail os chamados do "Falar com o suporte" (sem ela, os chamados ficam só no Admin › Suporte).
 - Depois que a migração cifrada estiver confirmada, apagar à mão o backup `.tar.gz` das sessões feito antes da cifra (guarda credenciais em texto puro).
 - Guardar fora do servidor uma cópia da `PHONE_ENC_KEY` (criada pelo deploy em `app.env`; sem ela os telefones completos dos clientes, no banco e nos backups, não abrem). Ver `docs/operacao/telefone-cifrado.md`.
-- Ambiente de simulação: está **ligado** em produção (`SIMULATION_ENABLED=on`, conferido em 19/10/2026; usado pela bateria 60/60). Decidir se fica ligado. Ver `docs/operacao/simulacao.md`.
-- Drop-in do systemd do I8 (supunha 4 GB): o servidor tem 11 GB de RAM (conferido em 19/10/2026); falta só decidir e aplicar.
+- ~~Ambiente de simulação~~ **desligado** em 19/10/2026 a pedido do usuário (`SIMULATION_ENABLED=off` no `app.env`, backup `app.env.bak-*-antes-simulacao-off`; as rotas respondem 404). O deploy não religa (marca `.simulation-on-2026-10-15` existe). Para usar a bateria de novo: `on` no `app.env` + restart. Ver `docs/operacao/simulacao.md`.
+- ~~Drop-in do systemd do I8~~ aplicado em 19/10/2026: a memória já estava em `memoria.conf` (15/10: 1200M/1536M, servidor de 12 GB dividido com o Mautic); novo `limites.conf` com `MemorySwapMax=0`, `TasksMax=512` e `StartLimitBurst=5` em 600 s. Conferido com `systemctl show` e app respondendo 200.
 - V7: confirmar o texto dos termos sobre arrependimento em 7 dias e mudança de preço (Admin › Planos muda só contratos novos).
 
 ## Como rodar os testes (Windows)
