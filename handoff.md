@@ -61,6 +61,16 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 19/10/2026
+
+- **Inadimplência com 7 dias de tolerância + exportação e desconexão da empresa bloqueada (pedido do usuário, 19/10/2026).** Commit `ae358ea`. Detalhes em `docs/operacao/cobranca-pagarme.md` (seções "Inadimplência" e "Empresa bloqueada") e no manual de suporte.
+  - **Renovação recusada:** `past_due` + `pastDueSince` (migração `20261019120000_past_due_grace`). 7 dias com tudo liberado (inclusive cadastrar); lembretes no 3º e 6º dia e aviso do bloqueio no 7º (sino + e-mail, uma vez cada); depois, `unpaid` → bloqueio com motivo `payment_overdue`. Trocar o cartão cobra na hora a fatura em aberto (`PATCH /charges/{id}/card`). Operadora que desiste mantém a tolerância e a tela chama para contratar de novo.
+  - **Qualquer bloqueio (teste vencido, plano encerrado, atraso):** o admin exporta todos os dados em JSON (`GET /api/organization/export`, botão no aviso do bloqueio e em Configurações › Privacidade); 2 dias depois do bloqueio os números de WhatsApp são desconectados (`statusReason plan_locked`) e o que chegar é ignorado. Texto antigo "as mensagens seguem chegando" removido.
+  - **Admin:** filtro "Inadimplentes"; receita mensal conta o anual como ano ÷ 12; marcar "Pagamento pendente" grava `pastDueSince`.
+  - **Provas:** unidade (`billing.unit.spec.ts`), API (`delinquency.spec.ts`: prazos, avisos únicos, 402, exportação sem segredos, desconexão, ingestão ignorada), tela desktop e celular (`lock-teams-masks.ui.spec.ts`: faixa com prazo, bloqueio e download do JSON) e **sandbox real do Pagar.me** (`billing-pagarme.spec.ts`: renovação recusada → cartão recusado segue inadimplente → cartão aprovado cobra na hora e volta a ativa). CI 39265773003 verde (o teste do sandbox rodou, 15 s) e deploy ok.
+  - **Em produção (só leitura):** coluna e migração presentes, app no ar. A única empresa com teste vencido há mais de 2 dias não tem números conectados: nenhuma desconexão aconteceu (0 `connection.auto_disconnected`).
+  - **Não provado:** e-mails reais saindo pelo Brevo para estes eventos novos (provado só o registro na fila de e-mails nos testes); uma renovação real recusada em produção (só no sandbox).
+
 ### 17/10/2026
 
 - **Filtros da regra de alerta valendo no motor (17/10/2026).** Alertas › Regras › Nova regra/Editar › **Mais opções** (tudo opcional; vazio = vale sempre). Funções puras em `src/lib/analysis/rule-filters.ts`, aplicadas em `engine.ts`; validação em `src/lib/alert-rules.ts`.
