@@ -84,8 +84,8 @@ export function trialEmail(stage: 'trial_3d' | 'trial_1d' | 'trial_6h' | 'trial_
   const left = leftText(trialEnd.getTime() - now.getTime())
   if (stage === 'trial_ended') {
     return {
-      subject: 'Seu teste grátis do AtendeRadar terminou',
-      body: (n) => `Olá, ${n}!\n\nO seu teste grátis do AtendeRadar terminou em ${at}. A partir de agora o painel fica bloqueado: alertas, análises, relatórios e cadastros param até você escolher um plano.\n\n${KEEP} Assim que o plano for contratado, o painel volta na hora, do ponto onde parou.\n\nEscolha o seu plano:\n${plansLink()}\n\n${SIGN}`,
+      subject: `Aviso da conta: período de teste encerrado em ${at.split(' ')[0]}`,
+      body: (n) => `Olá, ${n}!\n\nO período de teste da sua empresa no AtendeRadar terminou em ${at} (horário de Brasília) e o painel foi bloqueado: alertas, análises, relatórios e cadastros estão parados.\n\n${KEEP}\n\nO painel é liberado na hora, do ponto onde parou, quando um plano for ativado em Planos:\n${plansLink()}\n\n${SIGN}`,
     }
   }
   if (stage === 'trial_6h') {
@@ -151,8 +151,8 @@ export function providerCanceledEmail(planName: string, graceEnd: Date | null, n
 
 export function numbersDisconnectedEmail(count: number): Content {
   return {
-    subject: 'Números de WhatsApp desconectados do AtendeRadar',
-    body: (n) => `Olá, ${n}!\n\nComo o painel do AtendeRadar está bloqueado há 2 dias, desconectamos ${count === 1 ? 'o número de WhatsApp' : `os ${count} números de WhatsApp`} da sua empresa para proteger a sua privacidade. As mensagens não chegam mais ao AtendeRadar; no celular, o WhatsApp continua funcionando normalmente.\n\nSeus dados continuam guardados e você pode exportar tudo (arquivo JSON) pelo painel. Ao contratar um plano, é só ler o QR Code em Conexões para reconectar.\n${plansLink()}\n\n${SIGN}`,
+    subject: `Aviso da conta: ${count === 1 ? 'número de WhatsApp desconectado' : `${count} números de WhatsApp desconectados`}`,
+    body: (n) => `Olá, ${n}!\n\nO painel da sua empresa no AtendeRadar está bloqueado há 2 dias. Para proteger a sua privacidade, ${count === 1 ? 'o número de WhatsApp conectado foi desconectado' : `os ${count} números de WhatsApp conectados foram desconectados`} do AtendeRadar. A partir de agora as mensagens não chegam mais ao sistema; no celular, o WhatsApp continua funcionando normalmente.\n\nSeus dados continuam guardados e você pode exportar tudo (arquivo JSON) pelo painel:\n${appUrl()}\n\nQuando o painel for liberado, cada número é reconectado lendo o QR Code em Conexões.\n\n${SIGN}`,
   }
 }
 

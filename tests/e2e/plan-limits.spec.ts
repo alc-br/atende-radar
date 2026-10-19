@@ -184,7 +184,8 @@ test.describe('T11 · avisos de fim do teste grátis', () => {
     expect(sent.every((m) => m.toEmail === admin)).toBe(true)
     expect(sent[2].subject).toBe('Último aviso: seu teste grátis termina em 5 horas')
     expect(sent[2].body).toContain('/#plans')
-    expect(sent[3].subject).toBe('Seu teste grátis do AtendeRadar terminou')
+    expect(sent[3].subject).toMatch(/^Aviso da conta: período de teste encerrado em \d{2}\/\d{2}$/)
+    expect(sent[3].body).toContain('/#plans')
 
     // o administrador vê os avisos na central de notificações
     const notifs = (await (await c.get('/api/notifications')).json()).notifications as Array<{ title: string }>
