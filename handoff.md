@@ -69,7 +69,8 @@ Sem segredos aqui: o repositório é público.
   - **Admin:** filtro "Inadimplentes"; receita mensal conta o anual como ano ÷ 12; marcar "Pagamento pendente" grava `pastDueSince`.
   - **Provas:** unidade (`billing.unit.spec.ts`), API (`delinquency.spec.ts`: prazos, avisos únicos, 402, exportação sem segredos, desconexão, ingestão ignorada), tela desktop e celular (`lock-teams-masks.ui.spec.ts`: faixa com prazo, bloqueio e download do JSON) e **sandbox real do Pagar.me** (`billing-pagarme.spec.ts`: renovação recusada → cartão recusado segue inadimplente → cartão aprovado cobra na hora e volta a ativa). CI 39265773003 verde (o teste do sandbox rodou, 15 s) e deploy ok.
   - **Em produção (só leitura):** coluna e migração presentes, app no ar. A única empresa com teste vencido há mais de 2 dias não tem números conectados: nenhuma desconexão aconteceu (0 `connection.auto_disconnected`).
-  - **Não provado:** e-mails reais saindo pelo Brevo para estes eventos novos (provado só o registro na fila de e-mails nos testes); uma renovação real recusada em produção (só no sandbox).
+  - **E-mails reais pelo Brevo (provado em 19/10/2026, do servidor):** os 6 e-mails (`payment_failed`, `past_due_reminder`, `past_due_locked`, `provider_canceled`, `numbers_disconnected`, `trial_ended`), com o mesmo texto e HTML do app e assunto "[TESTE]", foram enviados para os 2 endereços de teste: Brevo respondeu 201 e registrou `delivered` para todos; os 6 chegaram na caixa de entrada do Gmail (nenhum no spam; 2 caíram na aba Promoções: teste grátis terminou e números desconectados). Remetente `nao-responda@atenderadar.com.br`, link de Planos correto. Nada gravado no banco de produção (script temporário, apagado depois).
+  - **Não provado:** uma renovação real recusada em produção (só no sandbox).
 
 ### 17/10/2026
 
