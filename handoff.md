@@ -33,11 +33,11 @@ Sem segredos aqui: o repositório é público.
 - Revisão jurídica de privacidade/termos.
 - Provedor de IA (sobe a cobertura dos alertas; ver item 3).
 - Guardar fora do servidor uma cópia da `WA_SESSIONS_KEY` (criada pelo deploy em `app.env`; sem ela as sessões cifradas do WhatsApp e os backups delas não abrem). Ver `docs/operacao/sessoes-whatsapp.md`.
-- Definir `SUPPORT_EMAIL` no servidor para receber por e-mail os chamados do "Falar com o suporte" (sem ela, os chamados ficam só no Admin › Suporte).
+- ~~Definir `SUPPORT_EMAIL` no servidor~~ definida (conferido em 19/10/2026) — para receber por e-mail os chamados do "Falar com o suporte" (sem ela, os chamados ficam só no Admin › Suporte).
 - Depois que a migração cifrada estiver confirmada, apagar à mão o backup `.tar.gz` das sessões feito antes da cifra (guarda credenciais em texto puro).
 - Guardar fora do servidor uma cópia da `PHONE_ENC_KEY` (criada pelo deploy em `app.env`; sem ela os telefones completos dos clientes, no banco e nos backups, não abrem). Ver `docs/operacao/telefone-cifrado.md`.
-- Decidir se liga o ambiente de simulação (`SIMULATION_ENABLED`, `SIMULATION_SECRET`). Ver `docs/operacao/simulacao.md`.
-- Conferir a RAM real do servidor antes de aplicar o drop-in do systemd proposto no I8 (supõe 4 GB).
+- Ambiente de simulação: está **ligado** em produção (`SIMULATION_ENABLED=on`, conferido em 19/10/2026; usado pela bateria 60/60). Decidir se fica ligado. Ver `docs/operacao/simulacao.md`.
+- Drop-in do systemd do I8 (supunha 4 GB): o servidor tem 11 GB de RAM (conferido em 19/10/2026); falta só decidir e aplicar.
 - V7: confirmar o texto dos termos sobre arrependimento em 7 dias e mudança de preço (Admin › Planos muda só contratos novos).
 
 ## Como rodar os testes (Windows)
