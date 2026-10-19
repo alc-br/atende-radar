@@ -704,6 +704,7 @@ model Subscription {
   cardBrand                     String?
   cardLast4                     String?
   lastPaymentError              String?
+  pastDueSince                  DateTime? // 1ª vez que a renovação ficou sem pagamento; tolerância de 7 dias a partir daqui
   lastSyncedAt                  DateTime?
 
   @@index([providerSubscriptionId])

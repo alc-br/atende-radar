@@ -73,6 +73,8 @@ interface Billing {
     cancelAtPeriodEnd: boolean
     pending: boolean
     lastPaymentError: string | null
+    graceEndsAt: string | null
+    providerCanceled: boolean
     renewalAmount: number | null
     withdrawal: { until: string; amount: number } | null
   } | null
@@ -100,6 +102,7 @@ const STATUS_TAGS: Record<string, string> = {
   active: 'tag--verde',
   trialing: 'tag--azul',
   past_due: 'tag--ambar',
+  unpaid: 'tag--vermelho',
 }
 
 const INVOICE_STATUS: Record<string, { label: string; tag: string }> = {
@@ -281,8 +284,13 @@ export default function PlansView() {
   const paying = active && recurring
   const currentMonthly = subscription?.plan.monthlyPrice ?? 0
   const canUpgrade = paying && !bsub?.pending && (plans.some((p) => p.monthlyPrice > currentMonthly) || currentCycle === 'monthly')
+  // Pagamento em atraso (past_due: 7 dias de tolerância; unpaid: depois deles). Enquanto a cobrança automática existir,
+  // o caminho é trocar o cartão (a fatura em aberto é cobrada na hora); se a operadora já a encerrou, contratar de novo.
+  const delinquent = status === 'past_due' || status === 'unpaid'
+  const providerCanceled = !!bsub?.providerCanceled
+  const canChangeCard = recurring && !bsub?.cancelAtPeriodEnd && !providerCanceled
   // Teste grátis, teste encerrado ou assinatura encerrada: o cartão do plano atual chama para assinar ali mesmo
-  const canSubscribe = online && !paying && !!subscription
+  const canSubscribe = online && !paying && !!subscription && !(delinquent && canChangeCard)
   const currentPlanFull = plans.find((p) => p.id === subscription?.plan.id) ?? null
   const scrollToCompare = () => document.getElementById('t-compare')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
@@ -341,10 +349,18 @@ export default function PlansView() {
                         </span>
                       </div>
                     </div>
-                    {bsub?.lastPaymentError && status === 'past_due' && (
-                      <div className="aviso aviso--ambar" role="alert">
+                    {delinquent && (
+                      <div className="aviso aviso--ambar" role="alert" data-testid="past-due-plans">
                         <span className="aviso__ic" aria-hidden="true"><AlertTriangle className="ic" /></span>
-                        <p>A última cobrança foi recusada: {bsub.lastPaymentError} Troque o cartão: as próximas tentativas de cobrança usam o cartão novo.</p>
+                        <p>
+                          {bsub?.lastPaymentError ? `A cobrança da renovação foi recusada: ${bsub.lastPaymentError}` : 'O pagamento da renovação não foi confirmado.'}{' '}
+                          {status === 'past_due'
+                            ? `Tudo continua funcionando até ${bsub?.graceEndsAt ? fmtDateTime(bsub.graceEndsAt) : 'o fim dos 7 dias de tolerância'}; depois disso, o painel é bloqueado. `
+                            : 'Os 7 dias de tolerância acabaram e o painel está bloqueado. '}
+                          {providerCanceled
+                            ? 'A operadora encerrou a cobrança automática depois das tentativas sem sucesso: contrate o plano de novo para voltar.'
+                            : 'Troque o cartão: a fatura em aberto é cobrada na hora no cartão novo e tudo volta ao normal.'}
+                        </p>
                       </div>
                     )}
                     {bsub?.pending && (
@@ -393,7 +409,9 @@ export default function PlansView() {
                               : 'Seu teste termina hoje. Assine agora e continue sem interrupção: nada muda nos seus dados.'
                             : status === 'expired'
                               ? 'Seu teste grátis terminou e a análise das conversas está pausada. Assine para voltar a analisar: seus dados continuam guardados.'
-                              : 'Sua assinatura foi encerrada. Assine de novo para voltar a analisar: seus dados continuam guardados.'}
+                              : delinquent
+                                ? 'A cobrança automática foi encerrada. Contrate o plano de novo para continuar: seus dados continuam guardados.'
+                                : 'Sua assinatura foi encerrada. Assine de novo para voltar a analisar: seus dados continuam guardados.'}
                         </p>
                         <div className="plano-cta__acoes">
                           <button type="button" className="btn btn--primario btn--lg" onClick={() => startCheckout(subscription.plan.id, 'monthly')}>
@@ -403,14 +421,14 @@ export default function PlansView() {
                         </div>
                       </div>
                     )}
-                    {recurring && !bsub?.cancelAtPeriodEnd && (
+                    {canChangeCard && (
                       <div className="mt-auto flex flex-col sm:flex-row gap-2">
                         {canUpgrade && (
                           <button type="button" className="btn btn--primario flex-1" onClick={scrollToCompare}>
                             <ArrowUpCircle className="ic" aria-hidden="true" />Subir de plano
                           </button>
                         )}
-                        <button type="button" className="btn flex-1" onClick={() => setCardOpen(true)}>Trocar cartão</button>
+                        <button type="button" className={`btn flex-1${delinquent ? ' btn--primario' : ''}`} onClick={() => setCardOpen(true)}>Trocar cartão</button>
                       </div>
                     )}
                     {canReactivate && (
@@ -444,8 +462,13 @@ export default function PlansView() {
                 {/* T11 · o que o plano deixou de analisar */}
                 {analysis?.paused ? (
                   <p className="aviso aviso--ambar" role="status" data-testid="plans-analysis-paused">
-                    {analysis.paused === 'trial_expired' ? 'Seu teste grátis terminou' : 'Sua assinatura foi encerrada'}: a análise das conversas está pausada.
-                    As mensagens continuam sendo recebidas e voltam a ser analisadas quando você contratar um plano.
+                    {analysis.paused === 'trial_expired'
+                      ? 'Seu teste grátis terminou'
+                      : analysis.paused === 'payment_overdue'
+                        ? 'O pagamento está em atraso há mais de 7 dias'
+                        : 'Sua assinatura foi encerrada'}: a análise das conversas e os relatórios estão pausados.
+                    Para proteger a sua privacidade, os números de WhatsApp são desconectados em até 2 dias e as mensagens param de chegar.
+                    Seus dados continuam guardados e podem ser exportados em Configurações › Privacidade. Contrate um plano para voltar (cada número lê o QR Code de novo).
                   </p>
                 ) : analysis && analysis.unanalyzed > 0 ? (
                   <p className="aviso aviso--ambar" role="status" data-testid="plans-quota-unanalyzed">

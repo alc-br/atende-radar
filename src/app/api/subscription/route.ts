@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
-import { effectiveStatus } from '@/lib/billing/core'
+import { effectiveStatus, graceEndsAt } from '@/lib/billing/core'
 import { countExports, currentUsage, usagePeriodStart } from '@/lib/quotas'
 import { analysisGateStatus } from '@/lib/billing/analysis-gate'
 
@@ -70,6 +70,8 @@ export async function GET() {
         trialEnd: subscription.trialEnd?.toISOString() || null,
         trialDaysLeft: subscription.status === 'trialing' && subscription.trialEnd ? Math.max(0, Math.ceil((subscription.trialEnd.getTime() - Date.now()) / 86400000)) : null,
         cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+        // inadimplência: até quando tudo segue liberado (depois, o painel bloqueia)
+        graceEndsAt: graceEndsAt(subscription)?.toISOString() ?? null,
       },
       usage: {
         conversations: { current: conversationCount, limit: subscription.plan.maxConversationsMonthly, percentage: pct(conversationCount, subscription.plan.maxConversationsMonthly) },

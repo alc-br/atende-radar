@@ -76,6 +76,9 @@ async function ingestEventInner(raw: unknown, source: 'gateway' | 'simulator'): 
   const connection = await db.whatsAppConnection.findUnique({ where: { id: evt.connectionId } })
   if (!connection) return { ok: false, status: 404, error: 'Conexão não encontrada' }
   if ((connection.provider === SIMULATOR_PROVIDER) !== (source === 'simulator')) return { ok: false, status: 404, error: 'Conexão não encontrada' }
+  // desconectada de propósito (pelo cliente ou pelo bloqueio da empresa): até o gateway fechar a sessão (em até 15 s),
+  // nada do que ainda chega é guardado, e um status atrasado não desfaz a desconexão
+  if (connection.disabledAt && connection.status === 'disconnected') return { ok: true, ignored: 'connection_disconnected' }
 
   const occurredAt = evt.occurredAt ? new Date(evt.occurredAt) : new Date()
 

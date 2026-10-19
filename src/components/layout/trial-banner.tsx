@@ -12,6 +12,7 @@ interface Sub {
   conversations: { current: number; limit: number } | null
   unanalyzed: number
   paused: boolean
+  graceEndsAt: string | null
 }
 
 const TZ = 'America/Sao_Paulo'
@@ -45,7 +46,7 @@ export function TrialBanner() {
       .then((d) =>
         setSub(
           d?.subscription
-            ? { status: d.subscription.status, trialDaysLeft: d.subscription.trialDaysLeft, trialEnd: d.subscription.trialEnd ?? null, planName: d.subscription.plan?.name ?? 'atual', conversations: d.usage?.conversations ?? null, unanalyzed: d.analysis?.unanalyzed ?? 0, paused: !!d.analysis?.paused }
+            ? { status: d.subscription.status, trialDaysLeft: d.subscription.trialDaysLeft, trialEnd: d.subscription.trialEnd ?? null, planName: d.subscription.plan?.name ?? 'atual', conversations: d.usage?.conversations ?? null, unanalyzed: d.analysis?.unanalyzed ?? 0, paused: !!d.analysis?.paused, graceEndsAt: d.subscription.graceEndsAt ?? null }
             : null
         )
       )
@@ -69,12 +70,15 @@ export function TrialBanner() {
 
   if (!sub) return null
   const trialing = sub.status === 'trialing'
-  const inactive = !['active', 'trialing'].includes(sub.status) || (trialing && (sub.trialDaysLeft ?? 0) <= 0)
+  // inadimplência dentro dos 7 dias de tolerância: tudo funciona; a faixa pede a troca do cartão e mostra o prazo
+  const pastDue = sub.status === 'past_due'
+  const graceEnd = pastDue && sub.graceEndsAt ? new Date(sub.graceEndsAt) : null
+  const inactive = !['active', 'trialing', 'past_due'].includes(sub.status) || (trialing && (sub.trialDaysLeft ?? 0) <= 0)
   // B8 · cota de conversas do mês: aviso em 80 %, 95 % e 100 %. Limite "suave": as mensagens continuam chegando; o aviso pede a troca de plano.
   const conv = sub.conversations && sub.conversations.limit > 0 ? sub.conversations : null
   const pct = conv ? Math.round((conv.current / conv.limit) * 100) : 0
   const quotaLevel: 'none' | 'warn' | 'critical' | 'exceeded' = !conv ? 'none' : pct >= 100 ? 'exceeded' : pct >= 95 ? 'critical' : pct >= 80 ? 'warn' : 'none'
-  if (!trialing && !inactive && quotaLevel === 'none') return null
+  if (!trialing && !inactive && !pastDue && quotaLevel === 'none') return null
 
   const quotaText =
     quotaLevel === 'exceeded'
@@ -87,13 +91,14 @@ export function TrialBanner() {
   const daysLeft = sub.trialDaysLeft ?? 0
   const ending = trialing && !inactive && daysLeft <= 3
   const lastDay = ending && (endMs !== null ? endMs - now.getTime() <= 86400_000 : daysLeft <= 1)
-  const danger = inactive || quotaLevel === 'exceeded' || lastDay
+  const graceLastDay = !!graceEnd && graceEnd.getTime() - now.getTime() <= 86400_000
+  const danger = inactive || quotaLevel === 'exceeded' || lastDay || graceLastDay
   // Mesmo componente "aviso" do pacote de design (painel/configuracoes.html); vermelho quando bloqueia
   return (
     <div className="px-4 pt-4 sm:px-7">
       <div
         data-testid="trial-banner"
-        data-state={inactive ? 'inactive' : lastDay ? 'last-day' : ending ? 'ending' : trialing ? 'trial' : 'quota'}
+        data-state={inactive ? 'inactive' : pastDue ? 'past-due' : lastDay ? 'last-day' : ending ? 'ending' : trialing ? 'trial' : 'quota'}
         className={
           danger
             ? 'aviso flex-col sm:flex-row sm:items-center border border-[var(--vermelho-borda)] bg-[var(--vermelho-fundo)] text-[var(--vermelho)]'
@@ -101,15 +106,24 @@ export function TrialBanner() {
         }
       >
         <span className={danger ? 'aviso__ic grid size-7 shrink-0 place-items-center rounded-full bg-[var(--vermelho)] text-white' : 'aviso__ic'}>
-          {inactive || ending || quotaLevel !== 'none' ? <AlertTriangle className="ic" aria-hidden="true" /> : <Clock className="ic" aria-hidden="true" />}
+          {inactive || pastDue || ending || quotaLevel !== 'none' ? <AlertTriangle className="ic" aria-hidden="true" /> : <Clock className="ic" aria-hidden="true" />}
         </span>
         <span className="flex flex-1 flex-col gap-1">
+          {pastDue && !inactive && (
+            <span data-testid="past-due-warning">
+              <b>O pagamento da renovação do plano {sub.planName} não foi confirmado.</b>{' '}
+              {graceEnd
+                ? <>Tudo continua funcionando até <b data-testid="grace-ends">{graceEnd.toLocaleString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' às')}</b>. </>
+                : 'Tudo continua funcionando por enquanto. '}
+              Troque o cartão em Planos: a fatura em aberto é cobrada na hora no cartão novo. Sem o pagamento, o painel é bloqueado no fim do prazo.
+            </span>
+          )}
           {(trialing || inactive) && (
             <span>
               {inactive
                 ? sub.paused
-                  ? <span data-testid="analysis-paused">Seu teste grátis terminou ou a assinatura não está ativa. A análise das conversas está pausada (as mensagens continuam sendo recebidas). Contrate um plano para retomar e continuar cadastrando.</span>
-                  : 'Seu teste grátis terminou ou a assinatura não está ativa. Contrate um plano para continuar cadastrando.'
+                  ? <span data-testid="analysis-paused">Seu teste grátis terminou ou a assinatura não está ativa. A análise das conversas está pausada e, para proteger a sua privacidade, os números de WhatsApp são desconectados em até 2 dias. Contrate um plano para retomar.</span>
+                  : 'Seu teste grátis terminou ou a assinatura não está ativa. Contrate um plano para continuar usando o AtendeRadar.'
                 : ending
                   ? <>Seu teste grátis termina <b data-testid="trial-days-left">{lastDay ? (endMs !== null ? trialEndsText(new Date(endMs), now) : 'hoje') : `em ${daysLeft} dias`}</b>. Contrate um plano para não perder o acesso.</>
                   : <>Teste grátis: <b data-testid="trial-days-left">{sub.trialDaysLeft} {sub.trialDaysLeft === 1 ? 'dia restante' : 'dias restantes'}</b>.</>}
@@ -118,7 +132,7 @@ export function TrialBanner() {
           {quotaText && <span data-testid="quota-warning">{quotaText}</span>}
         </span>
         <button type="button" className="btn btn--sm self-start sm:self-auto" onClick={() => setView('plans')}>
-          Ver planos
+          {pastDue && !inactive ? 'Trocar cartão' : 'Ver planos'}
         </button>
       </div>
     </div>

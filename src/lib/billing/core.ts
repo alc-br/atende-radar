@@ -15,16 +15,55 @@ export interface SubscriptionLike {
   trialEnd: Date | null
   cancelAtPeriodEnd: boolean
   currentPeriodEnd: Date
+  /** desde quando a renovação está sem pagamento (só com status past_due) */
+  pastDueSince?: Date | null
 }
 
-/** Situação que vale AGORA: teste grátis vencido = expired; cancelada vale até o fim do período já pago. */
+const DAY_MS = 86400_000
+
+/** Inadimplência: dias de tolerância (sistema liberado, inclusive para cadastrar) depois da renovação sem pagamento. */
+export const PAST_DUE_GRACE_DAYS = 7
+/** Empresa bloqueada (teste vencido, inadimplência ou plano encerrado): dias até desconectar os números de WhatsApp. */
+export const LOCKED_DISCONNECT_DAYS = 2
+
+/** Fim da tolerância da renovação sem pagamento, ou null quando não está inadimplente. */
+export function graceEndsAt(sub: Pick<SubscriptionLike, 'status' | 'pastDueSince'>): Date | null {
+  if (sub.status !== 'past_due' || !sub.pastDueSince) return null
+  return new Date(sub.pastDueSince.getTime() + PAST_DUE_GRACE_DAYS * DAY_MS)
+}
+
+/**
+ * Situação que vale AGORA: teste grátis vencido = expired; cancelada vale até o fim do período já pago;
+ * renovação sem pagamento há mais de PAST_DUE_GRACE_DAYS = unpaid (bloqueia como o plano encerrado).
+ */
 export function effectiveStatus(sub: SubscriptionLike, now = new Date()): string {
   if (sub.status === 'trialing' && sub.trialEnd && sub.trialEnd.getTime() <= now.getTime()) return 'expired'
   if (sub.cancelAtPeriodEnd && sub.currentPeriodEnd.getTime() <= now.getTime()) return 'canceled'
+  const grace = graceEndsAt(sub)
+  if (grace && grace.getTime() <= now.getTime()) return 'unpaid'
   return sub.status
 }
 
 export const isActiveStatus = (status: string) => status === 'active' || status === 'trialing'
+/** Pode usar tudo (inclusive cadastrar): ativa, em teste ou dentro da tolerância da inadimplência. */
+export const isUsableStatus = (status: string) => isActiveStatus(status) || status === 'past_due'
+
+export type LockReason = 'trial_expired' | 'canceled' | 'payment_overdue'
+
+/** Bloqueio que vale agora (regra pura; o banco fica em ./lock.ts), com a data em que começou. */
+export function lockOf(sub: SubscriptionLike, now = new Date()): { reason: LockReason; since: Date | null } | null {
+  const status = effectiveStatus(sub, now)
+  if (status === 'expired') return { reason: 'trial_expired', since: sub.trialEnd }
+  if (status === 'canceled') return { reason: 'canceled', since: sub.currentPeriodEnd }
+  if (status === 'unpaid') return { reason: 'payment_overdue', since: graceEndsAt(sub) }
+  return null
+}
+
+/** Dia (contado de 1) da inadimplência; 0 quando não está inadimplente. */
+export function pastDueDay(sub: Pick<SubscriptionLike, 'status' | 'pastDueSince'>, now = new Date()): number {
+  if (sub.status !== 'past_due' || !sub.pastDueSince) return 0
+  return Math.floor((now.getTime() - sub.pastDueSince.getTime()) / DAY_MS) + 1
+}
 
 export interface InvoiceLike {
   status: string // pending | paid | canceled | scheduled | failed | refunded

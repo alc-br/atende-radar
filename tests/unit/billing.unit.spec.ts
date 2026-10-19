@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import {
   isValidCpf, isValidCnpj, isValidDocument, luhnValid, cardBrand, formatCardNumber, formatExpiry, formatDocument, formatCep, formatPhone,
   parseExpiry, priceCents, effectiveStatus, deriveFromProvider, mapInvoice, keepRefunded, subscriptionIdFromEvent, checkBasicAuth, friendlyPaymentError,
-  reactivationStartAt,
+  reactivationStartAt, graceEndsAt, lockOf, isUsableStatus, pastDueDay, PAST_DUE_GRACE_DAYS,
 } from '../../src/lib/billing/core'
 
 // B8 · Cobrança recorrente (Pagar.me): regras puras, sem rede.
@@ -149,5 +149,42 @@ test.describe('B8 · fatura e aviso (webhook) do Pagar.me', () => {
     expect(friendlyPaymentError(422, { message: 'The request is invalid.', errors: { 'card.number': ['invalid'] } })).toContain('dados')
     expect(friendlyPaymentError(401, { message: 'Authorization has been denied for this request.' })).toContain('configuração')
     expect(friendlyPaymentError(500, null)).toContain('Pagar.me')
+  })
+})
+
+// Inadimplencia: 7 dias de tolerancia com tudo liberado; depois, bloqueio (unpaid / payment_overdue)
+test.describe('inadimplencia com tolerancia de 7 dias', () => {
+  const DAY = 86_400_000
+  const since = new Date('2026-11-10T12:00:00Z')
+  const sub = { status: 'past_due', trialEnd: null, cancelAtPeriodEnd: false, currentPeriodEnd: since, pastDueSince: since }
+
+  test('dentro da tolerancia segue past_due e liberado; no 7o dia vira unpaid e bloqueia', () => {
+    expect(PAST_DUE_GRACE_DAYS).toBe(7)
+    expect(graceEndsAt(sub)?.toISOString()).toBe('2026-11-17T12:00:00.000Z')
+    const inside = new Date(since.getTime() + 7 * DAY - 1)
+    expect(effectiveStatus(sub, inside)).toBe('past_due')
+    expect(isUsableStatus(effectiveStatus(sub, inside))).toBe(true)
+    expect(lockOf(sub, inside)).toBeNull()
+    const after = new Date(since.getTime() + 7 * DAY)
+    expect(effectiveStatus(sub, after)).toBe('unpaid')
+    expect(isUsableStatus('unpaid')).toBe(false)
+    expect(lockOf(sub, after)).toEqual({ reason: 'payment_overdue', since: new Date('2026-11-17T12:00:00Z') })
+  })
+
+  test('dia da inadimplencia e casos sem data', () => {
+    expect(pastDueDay(sub, since)).toBe(1)
+    expect(pastDueDay(sub, new Date(since.getTime() + 3 * DAY))).toBe(4)
+    expect(pastDueDay({ status: 'active', pastDueSince: null })).toBe(0)
+    // inadimplencia antiga, sem data gravada: sem prazo calculado (o agendador grava a data na primeira passada)
+    expect(graceEndsAt({ status: 'past_due', pastDueSince: null })).toBeNull()
+    expect(effectiveStatus({ ...sub, pastDueSince: null }, new Date('2030-01-01'))).toBe('past_due')
+  })
+
+  test('outros bloqueios guardam o motivo e a data', () => {
+    const trial = { status: 'trialing', trialEnd: since, cancelAtPeriodEnd: false, currentPeriodEnd: since, pastDueSince: null }
+    expect(lockOf(trial, new Date(since.getTime() + 1))).toEqual({ reason: 'trial_expired', since })
+    const canceled = { status: 'active', trialEnd: null, cancelAtPeriodEnd: true, currentPeriodEnd: since, pastDueSince: null }
+    expect(lockOf(canceled, new Date(since.getTime() + 1))).toEqual({ reason: 'canceled', since })
+    expect(lockOf(canceled, new Date(since.getTime() - 1))).toBeNull()
   })
 })

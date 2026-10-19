@@ -11,10 +11,10 @@ export type AuditAction =
   | 'account.email_change_requested' | 'account.email_change_canceled' | 'account.email_changed'
   | 'account.avatar_changed' | 'account.avatar_removed' | 'organization.logo_changed' | 'organization.logo_removed'
   | 'contact.phone_viewed'
-  | 'settings.updated' | 'organization.updated' | 'organization.deletion_requested' | 'organization.deletion_canceled'
+  | 'settings.updated' | 'organization.updated' | 'organization.deletion_requested' | 'organization.deletion_canceled' | 'organization.exported'
   | 'alert_rule.created' | 'alert_rule.updated'
   | 'team.created' | 'team.updated' | 'team.removed'
-  | 'connection.created' | 'connection.updated' | 'connection.removed'
+  | 'connection.created' | 'connection.updated' | 'connection.removed' | 'connection.auto_disconnected'
   | 'conversation.viewed' | 'privacy.exclude' | 'privacy.erase' | 'privacy.export'
   | 'subscription.changed' | 'subscription.canceled' | 'subscription.reactivated' | 'subscription.withdrawn' | 'subscription.withdrawal_failed' | 'plan.updated' | 'billing.card_updated' | 'report.generated' | 'report.exported'
   | 'report.sent' | 'report.retried' | 'report.unsubscribed'
@@ -77,6 +77,8 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'organization.updated': 'Alterou dados da empresa',
   'organization.deletion_requested': 'Pediu o encerramento da conta e a exclusão da empresa',
   'organization.deletion_canceled': 'Desistiu da exclusão da empresa',
+  'organization.exported': 'Exportou todos os dados da empresa (JSON)',
+  'connection.auto_disconnected': 'Números de WhatsApp desconectados automaticamente (painel bloqueado há 2 dias)',
   'alert_rule.created': 'Criou regra de alerta',
   'alert_rule.updated': 'Alterou regra de alerta',
   'team.created': 'Criou equipe',

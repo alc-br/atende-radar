@@ -8,13 +8,34 @@
 - **Troca de plano:** abre uma assinatura nova, cobrada integralmente na hora. Quando ela é paga, a anterior é cancelada no Pagar.me. Não há desconto proporcional pelo período restante.
 - **Cancelamento:** **Planos → Cancelar renovação** para as cobranças na hora. O plano vale até o fim do período pago. Depois disso, o cadastro de novos itens é bloqueado até a pessoa contratar de novo.
 - **Reativar a renovação:** depois de cancelar e antes do fim do período pago, **Planos → Reativar renovação**. Nada é cobrado na hora. Detalhes em [Reativação da renovação](#reativação-da-renovação).
-- **Troca de cartão:** **Planos → Trocar cartão**. O novo token substitui o cartão na assinatura.
-- **Cobrança recusada na renovação:** o status vira `past_due` e aparece o aviso “Pagamento pendente” com o motivo. O admin recebe uma notificação. Depois da troca de cartão, as próximas tentativas de cobrança usam o cartão novo.
+- **Troca de cartão:** **Planos → Trocar cartão**. O novo token substitui o cartão na assinatura. Se houver fatura em aberto (renovação recusada ou vencida), ela é cobrada **na hora** no cartão novo (`PATCH /charges/{id}/card` com `update_subscription: false`). Cartão novo recusado: o cartão fica salvo, a resposta é 402 `card_declined` e a empresa segue inadimplente.
+- **Cobrança recusada na renovação:** veja [Inadimplência](#inadimplência-7-dias-de-tolerância).
 - **Sincronização:**
   - Webhook (instantâneo).
   - Leitura ao abrir **Planos** (se a última tiver mais de 2 min).
   - Varredura a cada 15 min. O sistema funciona mesmo se o webhook falhar.
 - **Só quem é admin** contrata, troca o cartão, cancela ou reativa (`billing.manage`). Toda ação fica no registro de auditoria.
+
+## Inadimplência (7 dias de tolerância)
+
+Código: `src/lib/billing/core.ts` (`PAST_DUE_GRACE_DAYS`, `effectiveStatus`, `lockOf`) e `src/lib/billing/delinquency.ts`.
+
+- **Renovação recusada:** a assinatura vira `past_due` e grava `pastDueSince` (início da inadimplência). Durante **7 dias** tudo funciona, inclusive cadastrar conexões, atendentes e regras. A faixa do topo mostra o prazo ("Tudo continua funcionando até dd/mm às hh:mm") e o botão **Trocar cartão**; no último dia ela fica vermelha.
+- **Avisos (sino + e-mail aos administradores, uma vez cada):** no 3º dia, no 6º dia e no 7º (bloqueio). E-mail logo na recusa também (`payment_failed`, com o prazo).
+- **Depois dos 7 dias:** a situação calculada vira `unpaid` e a empresa é bloqueada com o motivo `payment_overdue` (402 `subscription_locked`): painel fechado (só Planos, Perfil e Ajuda), análise e relatórios pausados.
+- **Pagou (troca de cartão aprovada ou retentativa do Pagar.me):** volta para `active` e `pastDueSince` é apagado na hora.
+- **Operadora desistiu:** se, depois das tentativas, o Pagar.me cancelar a assinatura (`canceled` sem pedido do cliente), a empresa continua `past_due` até o fim dos 7 dias, recebe o aviso `provider_canceled` e a tela Planos troca o "Trocar cartão" por "Assinar o plano" (trocar o cartão de uma assinatura cancelada responde 409 `provider_canceled`).
+- **Inadimplência antiga sem `pastDueSince`:** o agendador grava a data na primeira passada (a tolerância começa a contar dali).
+- **Operador (Admin):** marcar "Pagamento pendente" grava `pastDueSince` (se ainda não houver); qualquer outra situação apaga. O filtro **Inadimplentes** em Admin → Organizações lista `past_due` e `unpaid`. A receita mensal conta o plano anual como valor do ano ÷ 12.
+
+## Empresa bloqueada: exportação e desconexão dos números
+
+Vale para qualquer bloqueio: teste grátis vencido, plano encerrado ou pagamento em atraso há mais de 7 dias.
+
+- **Exportar tudo (LGPD, portabilidade):** o admin baixa um JSON com todos os dados da empresa pelo botão **Exportar todos os dados (JSON)** no aviso do painel bloqueado ou em **Configurações → Privacidade**. Rota `GET /api/organization/export` (`organization.export`, só admin, liberada com o painel bloqueado, 6 por hora, registrada na auditoria). Não saem senhas, tokens e segredos; o texto das mensagens sai mascarado como nas telas.
+- **Desconexão automática:** **2 dias depois do bloqueio** (`LOCKED_DISCONNECT_DAYS`), os números de WhatsApp da empresa são desconectados (`status disconnected`, `statusReason plan_locked`): o gateway faz o logout e apaga as credenciais em até 15 s, e o que ainda chegar é ignorado. Fica na auditoria (`connection.auto_disconnected`), no sino e por e-mail. O cliente é avisado disso no painel, nas notificações e nos e-mails desde o bloqueio.
+- **Voltar:** ao contratar (ou pagar a fatura), o painel volta na hora; cada número lê o QR Code de novo em **Conexões → Reconectar**.
+- **Testes:** `POST /api/gateway/tick` com `{ delinquencyAt, organizationId }` roda os avisos e a desconexão como se fosse aquele instante (só fora de produção).
 
 ## Reativação da renovação
 

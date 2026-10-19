@@ -419,3 +419,85 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     await Promise.all([c.dispose(), gestor.dispose()])
   })
 })
+
+// Inadimplência de verdade no sandbox: a assinatura nasce com a cobrança recusada (cartão final 0028) e fica com a
+// fatura em aberto. Trocar o cartão cobra essa fatura NA HORA no cartão novo (PATCH /charges/{id}/card) e a empresa
+// volta a ficar em dia; com um cartão novo também recusado, o cliente fica sabendo e segue inadimplente.
+test.describe('inadimplência (sandbox): trocar o cartão paga a fatura em aberto', () => {
+  let enabled = false
+  let publicKey = ''
+  test.beforeAll(async () => {
+    const { c } = await newAdmin()
+    const cfg = await config(c)
+    enabled = cfg.enabled
+    publicKey = cfg.publicKey
+    await c.dispose()
+  })
+
+  // chamada direta ao sandbox (cria o cenário); a chave secreta só vai no cabeçalho, nunca para a saída
+  async function provider(method: string, path: string, body: unknown) {
+    const key = process.env.PAGARME_SECRET_KEY_TEST?.trim() ?? ''
+    const res = await fetch(`https://api.pagar.me/core/v5${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Basic ' + Buffer.from(`${key}:`).toString('base64') },
+      body: JSON.stringify(body),
+    })
+    const json = await res.json()
+    expect(res.ok, `${method} ${path}: ${res.status} ${JSON.stringify(json).slice(0, 300)}`).toBe(true)
+    return json as Record<string, any>
+  }
+
+  test('renovação recusada: past_due com prazo; cartão recusado não resolve; cartão aprovado cobra na hora e volta a ativa', async () => {
+    test.skip(!enabled, 'sem chaves do Pagar.me neste ambiente')
+    const { c, orgId } = await newAdmin()
+    const essencial = await plan('essencial')
+    const address = { line_1: '1000, Avenida Paulista, Bela Vista', zip_code: '01310100', city: 'São Paulo', state: 'SP', country: 'BR' }
+    const customer = await provider('POST', '/customers', {
+      name: 'Clínica Atraso Ltda', email: 'financeiro@cliente.test', document: '11222333000181', document_type: 'CNPJ', type: 'company', code: orgId,
+      phones: { mobile_phone: { country_code: '55', area_code: '11', number: '999998888' } }, address,
+    })
+    const sub = await provider('POST', '/subscriptions', {
+      customer_id: customer.id, payment_method: 'credit_card', interval: 'month', interval_count: 1, billing_type: 'prepaid', installments: 1, currency: 'BRL',
+      statement_descriptor: 'ATENDERADAR',
+      items: [{ description: 'AtendeRadar Essencial (mensal)', quantity: 1, pricing_scheme: { scheme_type: 'unit', price: Math.round(essencial.monthlyPrice * 100) } }],
+      card_token: await cardToken(publicKey, DECLINED), card: { billing_address: address },
+      metadata: { app: 'atende-radar', organizationId: orgId, planId: essencial.id, planCode: essencial.code, cycle: 'monthly' },
+    })
+    // a empresa "já assinava" esta cobrança: a renovação é que foi recusada
+    await testDb.subscription.update({
+      where: { organizationId: orgId },
+      data: { planId: essencial.id, status: 'active', trialEnd: null, billingProvider: 'pagarme', billingMode: 'test', billingCycle: 'monthly', providerCustomerId: customer.id, providerSubscriptionId: sub.id, lastSyncedAt: null, pastDueSince: null },
+    })
+
+    const before = (await config(c)).subscription
+    expect(before.status).toBe('past_due')
+    expect(before.lastPaymentError).toBeTruthy()
+    expect(before.providerCanceled).toBe(false)
+    const row = await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })
+    expect(row.pastDueSince).not.toBeNull()
+    expect(new Date(before.graceEndsAt).getTime()).toBe(row.pastDueSince!.getTime() + 7 * 86_400_000)
+    // na tolerância tudo funciona, inclusive cadastrar
+    expect((await c.post('/api/connections', { data: { name: 'Na tolerância', phoneNumber: '+5511900000301' } })).status()).toBe(201)
+
+    // cartão novo também recusado: o cliente fica sabendo e a empresa segue inadimplente
+    const declined = await c.post('/api/billing/card', { data: { cardToken: await cardToken(publicKey, DECLINED), address: billingData().address } })
+    expect(declined.status(), await declined.text()).toBe(402)
+    expect((await declined.json()).code).toBe('card_declined')
+    expect((await config(c)).subscription.status).toBe('past_due')
+
+    // cartão aprovado: a fatura em aberto é cobrada na hora e a empresa volta a ficar em dia
+    const ok = await c.post('/api/billing/card', { data: { cardToken: await cardToken(publicKey, APPROVED), address: billingData().address } })
+    expect(ok.status(), await ok.text()).toBe(200)
+    expect(await ok.json()).toMatchObject({ ok: true, cardLast4: '0010', openInvoicePaid: true })
+    const after = await testDb.subscription.findUniqueOrThrow({ where: { organizationId: orgId } })
+    expect(after).toMatchObject({ status: 'active', pastDueSince: null, lastPaymentError: null, cardLast4: '0010' })
+    const summary = await config(c)
+    expect(summary.subscription.graceEndsAt).toBeNull()
+    expect(summary.invoices[0]).toMatchObject({ status: 'paid' })
+    const audits = await testDb.auditLog.findMany({ where: { organizationId: orgId, action: 'billing.card_updated' }, orderBy: { createdAt: 'asc' } })
+    expect(JSON.parse(audits[audits.length - 1].details ?? '{}')).toMatchObject({ openInvoicePaid: true })
+
+    await provider('DELETE', `/subscriptions/${sub.id}`, { cancel_pending_invoices: true })
+    await c.dispose()
+  })
+})

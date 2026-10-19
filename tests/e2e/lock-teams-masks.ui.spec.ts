@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs'
 import { test, expect } from '@playwright/test'
 import { loginAs, signupOrg, uid } from './helpers'
 import { enter, openView } from './ui'
@@ -24,6 +25,9 @@ test.describe('acesso bloqueado quando o teste acaba', () => {
     await expect(shell).toBeVisible({ timeout: 20000 })
     await expect(shell).toHaveAttribute('data-reason', 'trial_expired')
     await expect(page.getByTestId('locked-notice')).toContainText('Seu teste grátis terminou')
+    // privacidade: o aviso conta que os números são desconectados em até 2 dias (não mais "as mensagens seguem chegando")
+    await expect(page.getByTestId('locked-text')).toContainText('desconectados automaticamente em até 2 dias')
+    await expect(page.getByTestId('locked-text')).not.toContainText('seguem chegando')
     await expect(page.locator('[data-tour="nav-dashboard"]')).toHaveCount(0)
     await expect(page.getByTestId('current-plan')).toBeVisible({ timeout: 15000 })
     await shell.getByRole('button', { name: 'Meu perfil' }).click()
@@ -36,6 +40,38 @@ test.describe('acesso bloqueado quando o teste acaba', () => {
     await page.reload()
     await expect(page.locator('[data-tour="nav-dashboard"]').first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('locked-shell')).toHaveCount(0)
+    await api.dispose()
+  })
+
+  test('pagamento em atraso: 7 dias com faixa e tudo liberado; depois, painel bloqueado com exportação dos dados', async ({ page, context }) => {
+    const { email, password, api, orgId } = await company()
+    const since = new Date(Date.now() - 2 * 86_400_000)
+    await testDb.subscription.update({ where: { organizationId: orgId }, data: { status: 'past_due', pastDueSince: since, trialEnd: null, currentPeriodEnd: since } })
+    await enter(context, email, password)
+    await page.goto('/')
+    // na tolerância: painel inteiro, faixa com o prazo e o botão para trocar o cartão
+    await expect(page.locator('[data-tour="nav-dashboard"]').first()).toBeVisible({ timeout: 20000 })
+    const warning = page.getByTestId('past-due-warning')
+    await expect(warning).toBeVisible({ timeout: 15000 })
+    await expect(warning).toContainText('Tudo continua funcionando até')
+    await expect(page.getByTestId('grace-ends')).toHaveText(/\d{2}\/\d{2}/)
+    await expect(page.getByRole('button', { name: 'Trocar cartão' }).first()).toBeVisible()
+
+    // 8 dias de atraso: bloqueado, motivo próprio, texto da desconexão e exportação de todos os dados
+    await testDb.subscription.update({ where: { organizationId: orgId }, data: { pastDueSince: new Date(Date.now() - 8 * 86_400_000) } })
+    await page.reload()
+    const shell = page.getByTestId('locked-shell')
+    await expect(shell).toBeVisible({ timeout: 20000 })
+    await expect(shell).toHaveAttribute('data-reason', 'payment_overdue')
+    await expect(page.getByTestId('locked-notice')).toContainText('em atraso há mais de 7 dias')
+    await expect(page.getByTestId('locked-text')).toContainText('desconectados automaticamente em até 2 dias')
+    const download = page.waitForEvent('download')
+    await page.getByTestId('locked-notice').getByTestId('org-export').click()
+    const file = await download
+    expect(file.suggestedFilename()).toMatch(/^atenderadar-dados-da-empresa-\d{4}-\d{2}-\d{2}\.json$/)
+    const data = JSON.parse(readFileSync(await file.path(), 'utf8'))
+    expect(data.empresa.id).toBe(orgId)
+    expect(await testDb.auditLog.count({ where: { organizationId: orgId, action: 'organization.exported' } })).toBe(1)
     await api.dispose()
   })
 })

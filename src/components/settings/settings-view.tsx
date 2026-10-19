@@ -11,6 +11,7 @@ import {
 import { AuditLog } from './audit-log'
 import { WebhookSettings } from './webhook-settings'
 import { DangerZone } from './danger-zone'
+import { OrgExport } from './org-export'
 import { useAppStore } from '@/lib/store'
 import { ALERT_RULE_HELP, alertChannelLabel, alertTypeLabel } from '@/lib/alert-labels'
 import { HelpTip } from '@/components/ui/help-tip'
@@ -842,6 +843,7 @@ export default function SettingsView() {
             </div>
             <Rodape saving={savingTab === 'privacidade'} />
           </form>
+          <OrgExport />
           <DangerZone />
         </TabsContent>
         </fieldset>

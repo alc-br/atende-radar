@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guard, isPlatformOperator } from '@/lib/api-auth'
 import { maskSensitive } from '@/lib/mask-sensitive'
-import { effectiveStatus } from '@/lib/billing/core'
+import { effectiveStatus, graceEndsAt } from '@/lib/billing/core'
 import { NOT_SIMULATION } from '@/lib/sandbox'
 import fs from 'fs'
 import path from 'path'
@@ -50,7 +50,7 @@ export async function GET() {
       db.whatsAppConnection.count({ where: real }),
       db.conversation.count({ where: { createdAt: { gte: todayStart }, ...real } }),
       db.alert.count({ where: { status: 'new', ...real } }),
-      db.subscription.findMany({ where: real, include: { plan: { select: { monthlyPrice: true } } } }),
+      db.subscription.findMany({ where: real, include: { plan: { select: { monthlyPrice: true, annualPrice: true } } } }),
       db.notification.findMany({
         where: real,
         orderBy: { createdAt: 'desc' },
@@ -66,10 +66,13 @@ export async function GET() {
       orderBy: { lastAccessAt: 'desc' },
     })
 
-    const monthlyRevenue = subscriptions.reduce(
-      (sum, s) => sum + (s.status === 'active' ? s.plan.monthlyPrice : 0),
+    // receita mensal recorrente: o plano anual entra pelo valor do ano dividido por 12 (não pelo preço mensal)
+    const monthlyRevenue = Math.round(subscriptions.reduce(
+      (sum, s) => sum + (s.status === 'active' ? (s.billingCycle === 'annual' ? s.plan.annualPrice / 12 : s.plan.monthlyPrice) : 0),
       0
-    )
+    ) * 100) / 100
+    // inadimplentes: renovação sem pagamento, ainda na tolerância (past_due) ou já bloqueadas (unpaid)
+    const delinquentOrgs = organizations.filter((o) => o.subscription && ['past_due', 'unpaid'].includes(effectiveStatus(o.subscription))).length
 
     let dbHealthy = true
     try {
@@ -96,6 +99,7 @@ export async function GET() {
         conversationsToday,
         monthlyRevenue,
         activeAlerts,
+        delinquentOrgs,
       },
       organizations: organizations.map((o) => ({
         id: o.id,
@@ -104,7 +108,7 @@ export async function GET() {
         segment: o.segment,
         plan: o.subscription?.plan.name || null,
         subscription: o.subscription
-          ? { planId: o.subscription.planId, status: effectiveStatus(o.subscription), storedStatus: o.subscription.status, currentPeriodEnd: o.subscription.currentPeriodEnd.toISOString(), trialEnd: o.subscription.trialEnd?.toISOString() ?? null, recurring: !!o.subscription.providerSubscriptionId }
+          ? { planId: o.subscription.planId, status: effectiveStatus(o.subscription), storedStatus: o.subscription.status, currentPeriodEnd: o.subscription.currentPeriodEnd.toISOString(), trialEnd: o.subscription.trialEnd?.toISOString() ?? null, recurring: !!o.subscription.providerSubscriptionId, graceEndsAt: graceEndsAt(o.subscription)?.toISOString() ?? null }
           : null,
         connections: o._count.connections,
         agents: o._count.agents,

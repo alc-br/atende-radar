@@ -129,6 +129,7 @@ const MATRIX: Row[] = [
   ['GET', '/api/organization/deletion', ALL], // faixa de aviso para todos
   ['POST', '/api/organization/deletion', ADMIN], // sem senha e nome da empresa: 400
   ['DELETE', '/api/organization/deletion', ADMIN],
+  ['GET', '/api/organization/export', ADMIN], // JSON com todos os dados da empresa
   ['GET', '/api/support', ALL],
   ['POST', '/api/support', ALL], // sem formulário: 400
   ['GET', '/api/profile', ALL],

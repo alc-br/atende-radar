@@ -1,16 +1,16 @@
 import { db } from '../db'
 import { usagePeriodStart } from '../quotas'
-import { effectiveStatus } from './core'
+import { lockOf, type LockReason } from './core'
 import { isDemoOrg } from '../sandbox'
 
 // T11 · O que o plano libera para o motor de análise:
-//  · teste grátis vencido sem plano contratado, ou assinatura cancelada (fim do período pago): a análise PAUSA
-//    (as mensagens continuam sendo recebidas e guardadas; nada é analisado nem gera alerta até contratar).
+//  · empresa bloqueada (teste grátis vencido sem plano, assinatura encerrada ou pagamento em atraso há mais de 7 dias):
+//    a análise PAUSA (nada é analisado nem gera alerta até contratar; em até 2 dias os números são desconectados).
 //  · limite de conversas do mês (maxConversationsMonthly): as conversas que passaram do limite não são analisadas
 //    (continuam guardadas). Quando o limite sobe (troca de plano), elas entram na próxima rodada.
 // Sem assinatura cadastrada ou na empresa de demonstração não há limite. Cada situação vira UMA notificação (billing).
 
-export type PauseReason = 'trial_expired' | 'canceled'
+export type PauseReason = LockReason
 
 export interface AnalysisGate {
   paused: PauseReason | null
@@ -30,9 +30,8 @@ export async function analysisGateStatus(orgId: string, now = new Date()): Promi
   const sub = await db.subscription.findUnique({ where: { organizationId: orgId }, include: { plan: { select: { name: true, maxConversationsMonthly: true } } } })
   if (!sub) return { ...OPEN, since: null, planName: null }
 
-  const status = effectiveStatus(sub, now)
-  if (status === 'expired') return { ...OPEN, paused: 'trial_expired', since: sub.trialEnd, planName: sub.plan.name }
-  if (status === 'canceled') return { ...OPEN, paused: 'canceled', since: sub.currentPeriodEnd, planName: sub.plan.name }
+  const lock = lockOf(sub, now)
+  if (lock) return { ...OPEN, paused: lock.reason, since: lock.since, planName: sub.plan.name }
 
   const limit = sub.plan.maxConversationsMonthly > 0 ? sub.plan.maxConversationsMonthly : null
   if (!limit) return { ...OPEN, since: null, planName: sub.plan.name }
@@ -44,7 +43,14 @@ export async function analysisGateStatus(orgId: string, now = new Date()): Promi
   return { paused: null, limit, used, skipped: new Set(over.map((c) => c.id)), since: null, planName: sub.plan.name }
 }
 
-async function notifyOnce(orgId: string, key: Record<string, string>, title: string, message: string) {
+const PAUSED_TEXT: Record<PauseReason, { title: string; lead: string; action: string }> = {
+  trial_expired: { title: 'Teste grátis encerrado', lead: 'Seu teste grátis terminou', action: 'Contrate um plano em Planos para retomar.' },
+  canceled: { title: 'Assinatura encerrada', lead: 'Sua assinatura foi encerrada', action: 'Contrate um plano em Planos para retomar.' },
+  payment_overdue: { title: 'Pagamento em atraso', lead: 'O pagamento da assinatura está em atraso há mais de 7 dias', action: 'Troque o cartão ou contrate um plano em Planos para retomar.' },
+}
+
+/** Notificação de cobrança que sai uma vez só por chave (comparada pelo JSON). */
+export async function notifyOnce(orgId: string, key: Record<string, string>, title: string, message: string) {
   const data = JSON.stringify(key) // mesma ordem de campos sempre: comparação exata
   const exists = await db.notification.findFirst({ where: { organizationId: orgId, type: 'billing', data }, select: { id: true } })
   if (exists) return
@@ -55,12 +61,12 @@ async function notifyOnce(orgId: string, key: Record<string, string>, title: str
 export async function analysisGate(orgId: string, now = new Date()): Promise<AnalysisGate> {
   const g = await analysisGateStatus(orgId, now)
   if (g.paused) {
-    const trial = g.paused === 'trial_expired'
+    const what = PAUSED_TEXT[g.paused]
     await notifyOnce(
       orgId,
       { kind: 'analysis_paused', reason: g.paused, since: g.since?.toISOString() ?? '' },
-      trial ? 'Teste grátis encerrado: análise pausada' : 'Assinatura encerrada: análise pausada',
-      `${trial ? 'Seu teste grátis terminou' : 'Sua assinatura foi encerrada'}. As mensagens do WhatsApp continuam sendo recebidas, mas não são analisadas e não geram alertas. Contrate um plano em Planos para retomar.`,
+      `${what.title}: análise pausada`,
+      `${what.lead}. Nada é analisado e nenhum alerta é gerado. Para proteger a sua privacidade, os números de WhatsApp são desconectados em até 2 dias e as mensagens param de chegar. Seus dados ficam guardados e podem ser exportados. ${what.action}`,
     )
   } else if (g.limit && g.skipped.size > 0) {
     await notifyOnce(

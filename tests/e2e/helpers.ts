@@ -93,6 +93,7 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['GET', '/api/organization/deletion'],
   ['POST', '/api/organization/deletion'],
   ['DELETE', '/api/organization/deletion'],
+  ['GET', '/api/organization/export'],
   ['GET', '/api/support'],
   ['POST', '/api/support'],
   ['GET', '/api/admin/support'],

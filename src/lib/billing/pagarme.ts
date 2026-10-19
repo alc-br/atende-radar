@@ -143,4 +143,11 @@ export const pagarme = {
 
   updateCard: (cfg: PagarmeConfig, id: string, cardToken: string, billingAddress: Address) =>
     call<Json>(cfg, 'PATCH', `/subscriptions/${encodeURIComponent(id)}/card`, { card_token: cardToken, card: { billing_address: billingAddress } }),
+
+  /**
+   * Cobra NA HORA uma cobrança recusada em outro cartão do cliente (o cartão novo da assinatura, pelo card_id). Provado
+   * no sandbox: a cobrança e a fatura passam a "paid" e a assinatura volta a "active"; recusado, a cobrança segue "failed".
+   */
+  updateChargeCard: (cfg: PagarmeConfig, chargeId: string, cardId: string) =>
+    call<Json>(cfg, 'PATCH', `/charges/${encodeURIComponent(chargeId)}/card`, { card_id: cardId, update_subscription: false }),
 }

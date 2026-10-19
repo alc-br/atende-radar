@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from './db'
 import { DEFAULT_RULE_NAMES } from './org-defaults'
-import { effectiveStatus, isActiveStatus } from './billing/core'
+import { effectiveStatus, isUsableStatus } from './billing/core'
 import { isDemoOrg } from './sandbox'
 
 export type QuotaKind = 'connections' | 'agents' | 'alertRules'
@@ -47,7 +47,7 @@ export async function enforceQuota(orgId: string, kind: QuotaKind): Promise<Next
   const sub = await db.subscription.findUnique({ where: { organizationId: orgId }, include: { plan: true } })
   if (!sub) return null
 
-  if (!isActiveStatus(effectiveStatus(sub))) {
+  if (!isUsableStatus(effectiveStatus(sub))) { // inadimplente dentro da tolerância de 7 dias: segue cadastrando
     return NextResponse.json(
       { error: 'A assinatura desta empresa não está ativa. Contrate um plano para continuar cadastrando.', code: 'subscription_inactive' },
       { status: 402 }

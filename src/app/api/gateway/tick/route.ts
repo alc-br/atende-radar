@@ -10,6 +10,7 @@ import { purgeProductEvents } from '@/lib/privacy'
 import { flushAlertEmails } from '@/lib/alert-email'
 import { retryFailedEmails } from '@/lib/mailer'
 import { endExpiredPlans } from '@/lib/billing/service'
+import { disconnectLockedOrgs, pastDueNotices } from '@/lib/billing/delinquency'
 
 // Roda o motor de análise agora (mesma função que o agendador interno chama a cada minuto).
 // Serve também para um agendador externo (cron) e para os testes. Também processa a fila de webhooks. Exige o segredo do gateway.
@@ -34,6 +35,14 @@ export async function POST(request: Request) {
     if (Number.isNaN(at.getTime())) return NextResponse.json({ error: 'trialNoticesAt inválido' }, { status: 400 })
     return NextResponse.json({ ok: true, trialNotices: await trialEndingNotices(at, orgId ?? undefined) })
   }
+  // Com { delinquencyAt: ISO } roda os avisos da inadimplência e a desconexão das empresas bloqueadas como se fosse
+  // aquele instante. Só fora de produção: adiantar o relógio desconectaria números antes do prazo.
+  if (body && 'delinquencyAt' in body) {
+    if (process.env.NODE_ENV === 'production') return NextResponse.json({ error: 'delinquencyAt só existe fora de produção' }, { status: 400 })
+    const at = new Date(String((body as { delinquencyAt?: unknown }).delinquencyAt))
+    if (Number.isNaN(at.getTime())) return NextResponse.json({ error: 'delinquencyAt inválido' }, { status: 400 })
+    return NextResponse.json({ ok: true, pastDueNotices: await pastDueNotices(at, orgId ?? undefined), disconnected: await disconnectLockedOrgs(at, orgId ?? undefined) })
+  }
   if (body && 'deletionsAt' in body) {
     if (process.env.NODE_ENV === 'production') return NextResponse.json({ error: 'deletionsAt só existe fora de produção' }, { status: 400 })
     const at = new Date(String((body as { deletionsAt?: unknown }).deletionsAt))
@@ -54,5 +63,8 @@ export async function POST(request: Request) {
   const emailRetries = await retryFailedEmails(now, { organizationId: orgId ?? undefined })
   // planos com a renovação cancelada cujo período pago acabou (o mesmo passo da varredura de cobrança)
   const endedPlans = await endExpiredPlans(now, orgId ?? undefined)
-  return NextResponse.json({ ok: true, ...summary, webhooks, alertEmails, emailRetries, endedPlans, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
+  // inadimplência (lembretes e bloqueio) e números das empresas bloqueadas há 2 dias
+  const pastDue = await pastDueNotices(now, orgId ?? undefined)
+  const disconnected = await disconnectLockedOrgs(now, orgId ?? undefined)
+  return NextResponse.json({ ok: true, ...summary, webhooks, alertEmails, emailRetries, endedPlans, pastDueNotices: pastDue, disconnected, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
 }

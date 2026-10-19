@@ -152,9 +152,16 @@ Primeiro, onde ele esperava o alerta:
   - O plano não muda e a empresa continua como estava. Peça para tentar outro cartão ou falar com o banco.
   - "Muitas tentativas de pagamento. Aguarde uma hora…": é a proteção contra teste de cartões. Ele precisa esperar.
 - **Na renovação:**
-  - A situação vira **Pagamento pendente** e o Administrador recebe uma notificação.
-  - Em **Planos** aparece "A última cobrança foi recusada: <motivo>…" com o pedido de trocar o cartão.
-  - Ele deve usar **Planos › Trocar cartão**. As próximas tentativas usam o cartão novo.
+  - A situação vira **Pagamento pendente** e o Administrador recebe uma notificação e um e-mail.
+  - **Durante 7 dias tudo continua funcionando** (inclusive cadastrar). A faixa do topo mostra até quando.
+    Lembretes no 3º e no 6º dia.
+  - Ele deve usar **Planos › Trocar cartão**: a fatura em aberto é **cobrada na hora** no cartão novo e tudo volta
+    ao normal. Se o cartão novo também for recusado, a tela avisa.
+  - Passados os 7 dias sem pagamento, o painel é **bloqueado** ("O pagamento da assinatura está em atraso há mais de
+    7 dias"): só Planos, Meu perfil e Ajuda. Trocar o cartão (ou contratar) libera na hora.
+  - Se a operadora já encerrou a cobrança automática depois das tentativas, Planos mostra **Assinar o plano** no lugar
+    de "Trocar cartão": ele contrata de novo.
+  - No Admin, o filtro **Inadimplentes** em Organizações lista essas empresas.
 - **"Paguei e continua em teste ou pendente":**
   - O sistema confere o pagamento sozinho ao abrir **Planos** (se a última conferência tiver mais de 2 minutos) e a
     cada 15 minutos.
@@ -187,8 +194,18 @@ Primeiro, onde ele esperava o alerta:
   - Vá em **Planos › Cancelar renovação**. Só o Administrador.
   - Para as próximas cobranças na hora; **o plano continua valendo até o fim do período pago**. A situação mostra
     "Não renova".
-  - Depois disso, o cadastro de novos itens fica bloqueado até contratar de novo. Os dados continuam lá.
+  - Depois disso, o painel é bloqueado até contratar de novo. Os dados continuam lá.
 - **Encerrar a conta e apagar tudo:** veja "Apagar os dados".
+
+### "Meu painel está bloqueado" (teste vencido, plano encerrado ou pagamento em atraso)
+
+- O Administrador vê só Planos, Meu perfil e Ajuda; os demais papéis veem o aviso para falar com o Administrador.
+- Nada é analisado e nenhum alerta ou relatório é enviado. **Os dados continuam guardados.**
+- **Exportar tudo:** o Administrador baixa um arquivo JSON com todos os dados da empresa pelo botão
+  **Exportar todos os dados (JSON)** no próprio aviso (também em Configurações › Privacidade). É direito dele.
+- **Privacidade:** 2 dias depois do bloqueio, os números de WhatsApp são **desconectados automaticamente** e as
+  mensagens param de chegar. Ao contratar, o painel volta na hora e ele lê o QR Code de novo em
+  **Conexões › Reconectar**.
 
 ### "Quero exportar ou apagar os dados"
 

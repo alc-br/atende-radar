@@ -71,6 +71,7 @@ export function DangerZone() {
           <li>A renovação da assinatura é cancelada na hora (o período já pago não é estornado). Se a contratação foi paga há menos de 7 dias, use antes <b>Desistir e receber reembolso</b> em Planos para ter o valor integral de volta.</li>
           <li>Os WhatsApp são desconectados na hora e a análise para.</li>
           <li>Você tem <b>7 dias</b> para desistir. Depois disso não há como recuperar.</li>
+          <li>Quer guardar uma cópia? Use antes <b>Exportar todos os dados (JSON)</b>, logo acima.</li>
         </ul>
         {pending ? (
           <p className="aviso aviso--ambar" data-testid="danger-zone-pending">

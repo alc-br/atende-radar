@@ -30,7 +30,7 @@ interface Me {
   /** Exclusão da empresa pedida pelo dono (null = conta normal). */
   organizationDeletion?: OrganizationDeletion | null
   /** Empresa sem plano (teste vencido ou assinatura encerrada): só Planos/Pagamento/Perfil abrem. */
-  subscriptionLock?: { reason: 'trial_expired' | 'canceled'; since: string | null } | null
+  subscriptionLock?: { reason: 'trial_expired' | 'canceled' | 'payment_overdue'; since: string | null } | null
 }
 
 export interface OrganizationDeletion {

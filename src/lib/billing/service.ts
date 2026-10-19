@@ -2,16 +2,17 @@ import { db } from '@/lib/db'
 import { audit } from '@/lib/audit'
 import type { AuthContext } from '@/lib/api-auth'
 import {
-  type BillingCycle, deriveFromProvider, effectiveStatus, friendlyPaymentError, isValidDocument, keepRefunded, mapInvoice, onlyDigits, priceCents,
-  reactivationStartAt, UFS,
+  type BillingCycle, deriveFromProvider, effectiveStatus, friendlyPaymentError, graceEndsAt, isValidDocument, keepRefunded, mapInvoice, onlyDigits,
+  priceCents, reactivationStartAt, UFS,
 } from './core'
 import { pagarme, pagarmeConfig, PagarmeError, type Address, type PagarmeConfig } from './pagarme'
 import { overageMessage, planOverage } from '@/lib/quotas'
 import { milestone } from '@/lib/product-events'
 import {
-  activatedEmail, billingEmail, cardUpdatedEmail, paymentFailedEmail, planEndedEmail, reactivatedEmail, refundFailedEmail,
+  activatedEmail, billingEmail, cardUpdatedEmail, paymentFailedEmail, planEndedEmail, providerCanceledEmail, reactivatedEmail, refundFailedEmail,
   renewalCanceledEmail, renewalPaidEmail, withdrawnEmail,
 } from './emails'
+import { notifyOnce } from './analysis-gate'
 
 // Cobrança recorrente (B8) com Pagar.me. A fonte de verdade é o provedor: toda mudança de situação passa por
 // applyProviderState(), que lê a assinatura e as faturas DIRETO da API (o conteúdo do webhook nunca é confiado).
@@ -108,25 +109,38 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
     invoices: invoices.map((i) => ({ status: i.status, dueAt: i.dueAt, cycleStart: i.periodStart, cycleEnd: i.periodEnd, createdAt: i.createdAt })),
     prepaid: !!meta.reactivatedFrom, // renovação reativada: o período atual foi pago pela assinatura anterior
   })
-  const latestFailure = [...invoices].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).find((i) => i.status === 'failed')?.failureMessage ?? null
+  const byDate = [...invoices].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  const latestFailure = byDate.find((i) => i.status === 'failed')?.failureMessage ?? null
   const now = new Date()
 
   if (row.providerSubscriptionId === subId) {
+    // cancelada pela operadora depois das tentativas sem pagamento (não a pedido do cliente): a empresa segue na
+    // tolerância da inadimplência (past_due) até ela acabar; para voltar a pagar, contrata de novo
+    const latestFailed = byDate.find((i) => i.status !== 'canceled')?.status === 'failed'
+    const providerGaveUp = derived.status === 'canceled' && !row.cancelAtPeriodEnd && (row.status === 'past_due' || latestFailed)
     // cancelada a pedido do cliente: continua valendo até o fim do período pago (effectiveStatus cuida da virada)
-    const status = derived.status === 'canceled' && row.cancelAtPeriodEnd ? 'active' : derived.status
+    const status = derived.status === 'canceled' && row.cancelAtPeriodEnd ? 'active' : providerGaveUp ? 'past_due' : derived.status
+    // início da inadimplência: conta os 7 dias de tolerância (PAST_DUE_GRACE_DAYS); some quando a fatura é paga
+    const pastDueSince = status === 'past_due' ? row.pastDueSince ?? now : null
     await db.subscription.update({
       where: { organizationId: orgId },
       data: {
         status,
+        pastDueSince,
         ...(derived.periodStart && derived.periodEnd ? { currentPeriodStart: derived.periodStart, currentPeriodEnd: derived.periodEnd } : {}),
         ...cardOf(providerSub),
         lastPaymentError: status === 'past_due' ? latestFailure ?? 'Pagamento da renovação pendente' : null,
         lastSyncedAt: now,
       },
     })
+    const graceEnd = graceEndsAt({ status, pastDueSince })
     if (status !== row.status && status === 'past_due') {
-      await db.notification.create({ data: { organizationId: orgId, type: 'billing', title: 'Pagamento da assinatura não confirmado', message: latestFailure ? `Motivo informado pela operadora: ${latestFailure}. Atualize o cartão em Planos.` : 'Atualize o cartão em Planos para não perder o acesso.' } })
-      await billingEmail(orgId, 'payment_failed', `${subId}:${(derived.periodEnd ?? row.currentPeriodEnd).toISOString()}`, paymentFailedEmail(row.plan.name, latestFailure))
+      await db.notification.create({ data: { organizationId: orgId, type: 'billing', title: 'Pagamento da assinatura não confirmado', message: `${latestFailure ? `Motivo informado pela operadora: ${latestFailure}. ` : ''}Tudo continua funcionando por 7 dias. Troque o cartão em Planos: a fatura em aberto é cobrada na hora.` } })
+      await billingEmail(orgId, 'payment_failed', `${subId}:${(derived.periodEnd ?? row.currentPeriodEnd).toISOString()}`, paymentFailedEmail(row.plan.name, latestFailure, graceEnd!))
+    }
+    if (providerGaveUp) {
+      await notifyOnce(orgId, { kind: 'provider_canceled', subscription: subId }, 'Cobrança automática encerrada pela operadora', 'Depois das tentativas sem sucesso, a operadora encerrou a cobrança automática. Para continuar usando o AtendeRadar, contrate o plano de novo em Planos.')
+      await billingEmail(orgId, 'provider_canceled', subId, providerCanceledEmail(row.plan.name, graceEnd, now))
     }
     // recibo das renovações pagas nos últimos 7 dias (uma vez por fatura). A 1ª fatura paga da assinatura é a da
     // contratação e já teve o e-mail de ativação; na renovação reativada (prepaid) toda fatura paga é renovação.
@@ -157,6 +171,7 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
         currentPeriodEnd: derived.periodEnd ?? now,
         trialEnd: null,
         cancelAtPeriodEnd: false,
+        pastDueSince: null,
         ...cardOf(providerSub),
         lastPaymentError: null,
         lastSyncedAt: now,
@@ -402,25 +417,46 @@ export async function withdraw(auth: AuthContext, now = new Date()): Promise<Fai
   return { ok: true, amountCents: offer.amountCents }
 }
 
-export async function replaceCard(auth: AuthContext, input: { cardToken?: string; address?: CheckoutInput['address'] }): Promise<Fail | { ok: true; cardBrand: string | null; cardLast4: string | null }> {
+export async function replaceCard(auth: AuthContext, input: { cardToken?: string; address?: CheckoutInput['address'] }): Promise<Fail | { ok: true; cardBrand: string | null; cardLast4: string | null; openInvoicePaid?: true }> {
   const cfg = pagarmeConfig()
   const row = await db.subscription.findUnique({ where: { organizationId: auth.orgId } })
   if (!row?.providerSubscriptionId || !cfg || row.billingMode !== cfg.mode || row.cancelAtPeriodEnd) return fail(409, 'no_recurring', 'Não há cobrança automática ativa para trocar o cartão.')
   if (!input.cardToken || !/^token_[A-Za-z0-9]+$/.test(input.cardToken)) return fail(400, 'invalid_card', 'Dados do cartão não recebidos. Preencha o cartão de novo.')
   const address = cleanAddress(input.address)
   if (typeof address === 'string') return fail(400, 'invalid_address', address)
+  const subId = row.providerSubscriptionId
+  let paidNow: boolean | null = null // null: não havia fatura em aberto
   try {
-    await pagarme.updateCard(cfg, row.providerSubscriptionId, input.cardToken, toProviderAddress(address))
-    const sub = await pagarme.getSubscription(cfg, row.providerSubscriptionId)
-    await applyProviderState(cfg, auth.orgId, sub)
+    const current = await pagarme.getSubscription(cfg, subId)
+    if (String(current.status ?? '') === 'canceled') {
+      await applyProviderState(cfg, auth.orgId, current)
+      return fail(409, 'provider_canceled', 'A cobrança automática foi encerrada pela operadora depois das tentativas sem sucesso. Contrate o plano de novo em Planos.')
+    }
+    const changed = await pagarme.updateCard(cfg, subId, input.cardToken, toProviderAddress(address))
+    // renovação em aberto (recusada): cobra a fatura na hora no cartão novo. Só trocar o cartão da assinatura não
+    // cobra de novo (o Pagar.me retentaria no cartão antigo).
+    const open = (await pagarme.listInvoices(cfg, subId)).map(mapInvoice)
+      .filter((i) => i.status !== 'canceled').sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
+    const newCardId = String(((changed.card ?? {}) as Json).id ?? '')
+    if (open && open.providerChargeId && newCardId && (open.status === 'failed' || (open.status === 'pending' && open.dueAt && open.dueAt.getTime() < Date.now()))) {
+      const charge = await pagarme.updateChargeCard(cfg, open.providerChargeId, newCardId).catch((e) => {
+        if (e instanceof PagarmeError) return null // cartão novo recusado: a fatura continua em aberto
+        throw e
+      })
+      paidNow = String(charge?.status ?? '') === 'paid'
+    }
+    await applyProviderState(cfg, auth.orgId, await pagarme.getSubscription(cfg, subId))
   } catch (e) {
     if (e instanceof PagarmeError) return fail(e.status >= 500 || e.status === 0 ? 502 : 402, 'card_declined', friendlyPaymentError(e.status, e.body))
     throw e
   }
   const updated = await db.subscription.findUnique({ where: { organizationId: auth.orgId } })
-  await audit(auth, { action: 'billing.card_updated', targetType: 'subscription', targetId: row.providerSubscriptionId, details: { brand: updated?.cardBrand ?? null } })
-  await billingEmail(auth.orgId, 'card_updated', `${row.providerSubscriptionId}:${Date.now()}`, cardUpdatedEmail(updated?.cardBrand ?? null, updated?.cardLast4 ?? null))
-  return { ok: true, cardBrand: updated?.cardBrand ?? null, cardLast4: updated?.cardLast4 ?? null }
+  await audit(auth, { action: 'billing.card_updated', targetType: 'subscription', targetId: subId, details: { brand: updated?.cardBrand ?? null, ...(paidNow === null ? {} : { openInvoicePaid: paidNow }) } })
+  await billingEmail(auth.orgId, 'card_updated', `${subId}:${Date.now()}`, cardUpdatedEmail(updated?.cardBrand ?? null, updated?.cardLast4 ?? null))
+  if (paidNow === false) {
+    return fail(402, 'card_declined', 'O cartão novo foi salvo, mas a cobrança da fatura em aberto não foi aprovada. Confira os dados ou use outro cartão.')
+  }
+  return { ok: true, cardBrand: updated?.cardBrand ?? null, cardLast4: updated?.cardLast4 ?? null, ...(paidNow ? { openInvoicePaid: true } : {}) }
 }
 
 /**

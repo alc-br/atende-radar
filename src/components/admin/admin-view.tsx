@@ -60,6 +60,7 @@ interface AdminSubscription {
   currentPeriodEnd: string
   trialEnd: string | null
   recurring: boolean
+  graceEndsAt?: string | null
 }
 
 interface AdminOrganization {
@@ -118,6 +119,7 @@ interface AdminData {
     conversationsToday: number
     monthlyRevenue: number
     activeAlerts: number
+    delinquentOrgs?: number
   }
   organizations: AdminOrganization[]
   plans: AdminPlan[]
@@ -169,6 +171,10 @@ const formatBytes = (bytes: number) => {
   if (mb < 1024) return `${mb.toFixed(1)} MB`
   return `${(mb / 1024).toFixed(2)} GB`
 }
+
+// situação que o servidor calcula (além das que o operador grava): unpaid = 7 dias de tolerância vencidos, painel bloqueado
+const SUB_STATUS_VIEW: Record<string, string> = { unpaid: 'Bloqueada por atraso no pagamento' }
+const DELINQUENT = new Set(['past_due', 'unpaid'])
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Ativa',
@@ -328,7 +334,9 @@ export default function AdminView() {
   const filteredOrganizations = useMemo(() => {
     return organizations.filter((org) => {
       const matchesSearch = org.name.toLowerCase().includes(orgSearch.toLowerCase())
-      const matchesStatus = orgStatusFilter === 'todas' || org.status === orgStatusFilter
+      const matchesStatus =
+        orgStatusFilter === 'todas' ||
+        (orgStatusFilter === 'inadimplentes' ? DELINQUENT.has(org.subscription?.status ?? '') : org.status === orgStatusFilter)
       return matchesSearch && matchesStatus
     })
   }, [organizations, orgSearch, orgStatusFilter])
@@ -520,6 +528,7 @@ export default function AdminView() {
                     <SelectItem value="active">Ativa</SelectItem>
                     <SelectItem value="suspended">Suspensa</SelectItem>
                     <SelectItem value="inactive">Inativa</SelectItem>
+                    <SelectItem value="inadimplentes">Inadimplentes ({data?.kpis.delinquentOrgs ?? 0})</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -796,7 +805,7 @@ export default function AdminView() {
                     <h3 id="t-assinatura" className="font-semibold">Assinatura</h3>
                     <p className="text-muted-foreground">
                       {selectedOrg.subscription
-                        ? `${SUB_STATUS_LABELS[selectedOrg.subscription.status] || selectedOrg.subscription.status} · ${selectedOrg.subscription.storedStatus === 'trialing' && selectedOrg.subscription.trialEnd ? `teste até ${formatDate(selectedOrg.subscription.trialEnd)}` : `válida até ${formatDate(selectedOrg.subscription.currentPeriodEnd)}`}`
+                        ? `${SUB_STATUS_LABELS[selectedOrg.subscription.status] || SUB_STATUS_VIEW[selectedOrg.subscription.status] || selectedOrg.subscription.status} · ${selectedOrg.subscription.storedStatus === 'trialing' && selectedOrg.subscription.trialEnd ? `teste até ${formatDate(selectedOrg.subscription.trialEnd)}` : selectedOrg.subscription.status === 'past_due' && selectedOrg.subscription.graceEndsAt ? `tolerância até ${formatDate(selectedOrg.subscription.graceEndsAt)}` : `válida até ${formatDate(selectedOrg.subscription.currentPeriodEnd)}`}`
                         : 'Sem assinatura cadastrada.'}
                     </p>
                     {selectedOrg.subscription?.recurring && (

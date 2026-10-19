@@ -12,6 +12,7 @@ export type BillingEmailEvent =
   | 'trial_3d' | 'trial_1d' | 'trial_6h' | 'trial_ended'
   | 'activated' | 'renewal_paid' | 'payment_failed' | 'renewal_canceled' | 'reactivated'
   | 'withdrawn' | 'refund_failed' | 'plan_ended' | 'card_updated'
+  | 'past_due_reminder' | 'past_due_locked' | 'provider_canceled' | 'numbers_disconnected'
 
 /** "17/10 às 14:30" no horário de Brasília. */
 export function whenText(d: Date): string {
@@ -69,7 +70,11 @@ export async function billingEmail(orgId: string, event: BillingEmailEvent, key:
   }
 }
 
-const KEEP = 'Seus dados, regras e históricos continuam guardados, e as mensagens do WhatsApp conectado continuam chegando.'
+/** O que acontece com a empresa bloqueada (teste vencido, plano encerrado ou pagamento em atraso). */
+export const KEEP =
+  'Seus dados, regras e históricos continuam guardados, e você pode exportar tudo (arquivo JSON) pelo painel, mesmo com ele bloqueado. ' +
+  'Para proteger a sua privacidade e a da sua empresa, os números de WhatsApp conectados são desconectados automaticamente em até 2 dias depois do bloqueio: a partir daí as mensagens param de chegar. ' +
+  'Ao contratar de novo, é só ler o QR Code para reconectar cada número.'
 const SIGN = '— Equipe AtendeRadar'
 
 // ---------- teste grátis ----------
@@ -80,7 +85,7 @@ export function trialEmail(stage: 'trial_3d' | 'trial_1d' | 'trial_6h' | 'trial_
   if (stage === 'trial_ended') {
     return {
       subject: 'Seu teste grátis do AtendeRadar terminou',
-      body: (n) => `Olá, ${n}!\n\nO seu teste grátis do AtendeRadar terminou em ${at}. A partir de agora o painel fica bloqueado: alertas, análises, relatórios e cadastros param até você escolher um plano.\n\n${KEEP} Assim que o plano for contratado, tudo volta a funcionar na hora, do ponto onde parou.\n\nEscolha o seu plano:\n${plansLink()}\n\n${SIGN}`,
+      body: (n) => `Olá, ${n}!\n\nO seu teste grátis do AtendeRadar terminou em ${at}. A partir de agora o painel fica bloqueado: alertas, análises, relatórios e cadastros param até você escolher um plano.\n\n${KEEP} Assim que o plano for contratado, o painel volta na hora, do ponto onde parou.\n\nEscolha o seu plano:\n${plansLink()}\n\n${SIGN}`,
     }
   }
   if (stage === 'trial_6h') {
@@ -112,10 +117,42 @@ export function renewalPaidEmail(planName: string, amountCents: number, periodEn
   }
 }
 
-export function paymentFailedEmail(planName: string, reason: string | null): Content {
+export function paymentFailedEmail(planName: string, reason: string | null, graceEnd: Date): Content {
   return {
     subject: 'Não conseguimos cobrar a renovação do AtendeRadar',
-    body: (n) => `Olá, ${n}!\n\nA cobrança da renovação do plano ${planName} não foi aprovada${reason ? ` (motivo informado pela operadora: ${reason})` : ''}.\n\nO acesso continua por enquanto e a operadora tenta de novo nos próximos dias. Para resolver de vez, atualize o cartão em Planos:\n${plansLink()}\n\n${SIGN}`,
+    body: (n) => `Olá, ${n}!\n\nA cobrança da renovação do plano ${planName} não foi aprovada${reason ? ` (motivo informado pela operadora: ${reason})` : ''}.\n\nTudo continua funcionando normalmente até ${whenText(graceEnd)} (7 dias de tolerância). Para resolver, troque o cartão em Planos: a fatura em aberto é cobrada na hora no cartão novo.\n${plansLink()}\n\nSe o pagamento não for feito até lá, o painel é bloqueado e a análise para. ${KEEP}\n\n${SIGN}`,
+  }
+}
+
+/** Lembrete da inadimplência (dias 3 e 6 da tolerância). */
+export function pastDueReminderEmail(planName: string, graceEnd: Date, now: Date): Content {
+  const left = leftText(graceEnd.getTime() - now.getTime())
+  return {
+    subject: `Pagamento em atraso: o AtendeRadar será bloqueado em ${left}`,
+    body: (n) => `Olá, ${n}!\n\nA renovação do plano ${planName} continua sem pagamento. Tudo segue funcionando até ${whenText(graceEnd)} (horário de Brasília), daqui a ${left}.\n\nTroque o cartão em Planos: a fatura em aberto é cobrada na hora no cartão novo e nada é interrompido.\n${plansLink()}\n\nSe o pagamento não for feito até lá, o painel é bloqueado e a análise para. ${KEEP}\n\n${SIGN}`,
+  }
+}
+
+export function pastDueLockedEmail(planName: string): Content {
+  return {
+    subject: 'Painel do AtendeRadar bloqueado por falta de pagamento',
+    body: (n) => `Olá, ${n}!\n\nA renovação do plano ${planName} ficou 7 dias sem pagamento e o painel do AtendeRadar foi bloqueado: alertas, análises, relatórios e cadastros pararam.\n\n${KEEP}\n\nPara voltar, troque o cartão (a fatura em aberto é cobrada na hora) ou contrate um plano em Planos:\n${plansLink()}\n\n${SIGN}`,
+  }
+}
+
+/** A operadora encerrou a cobrança automática depois das tentativas sem sucesso. */
+export function providerCanceledEmail(planName: string, graceEnd: Date | null, now: Date): Content {
+  const open = !!graceEnd && graceEnd.getTime() > now.getTime()
+  return {
+    subject: 'A cobrança automática do AtendeRadar foi encerrada',
+    body: (n) => `Olá, ${n}!\n\nDepois das tentativas sem sucesso, a cobrança automática do plano ${planName} foi encerrada pela operadora do cartão. O cartão salvo não será mais cobrado.\n\n${open ? `Tudo continua funcionando até ${whenText(graceEnd!)}. ` : ''}Para continuar usando o AtendeRadar, contrate o plano de novo em Planos:\n${plansLink()}\n\n${KEEP}\n\n${SIGN}`,
+  }
+}
+
+export function numbersDisconnectedEmail(count: number): Content {
+  return {
+    subject: 'Números de WhatsApp desconectados do AtendeRadar',
+    body: (n) => `Olá, ${n}!\n\nComo o painel do AtendeRadar está bloqueado há 2 dias, desconectamos ${count === 1 ? 'o número de WhatsApp' : `os ${count} números de WhatsApp`} da sua empresa para proteger a sua privacidade. As mensagens não chegam mais ao AtendeRadar; no celular, o WhatsApp continua funcionando normalmente.\n\nSeus dados continuam guardados e você pode exportar tudo (arquivo JSON) pelo painel. Ao contratar um plano, é só ler o QR Code em Conexões para reconectar.\n${plansLink()}\n\n${SIGN}`,
   }
 }
 

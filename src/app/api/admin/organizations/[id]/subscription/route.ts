@@ -41,6 +41,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // V7/T11 · o operador pode rebaixar mesmo com o uso acima do plano novo (negociação, transição), mas recebe o aviso
   const over = newPlan && newPlan.id !== existing?.planId ? await planOverage(id, newPlan) : []
 
+  // inadimplência: os 7 dias de tolerância contam a partir de quando o operador marca "pagamento pendente"
+  if (body.status) data.pastDueSince = body.status === 'past_due' ? existing?.pastDueSince ?? new Date() : null
   if (!existing && !body.planId) return badRequest('Empresa sem assinatura: informe o plano')
   const sub = existing
     ? await db.subscription.update({ where: { organizationId: id }, data, include: { plan: true } })

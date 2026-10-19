@@ -1,6 +1,7 @@
 import { analyzeAll, analyzeOrganization } from './analysis/engine'
 import { startWhatsApp } from './whatsapp/manager'
 import { billingSweep } from './billing/service'
+import { disconnectLockedOrgs, pastDueNotices } from './billing/delinquency'
 import { trialEndingNotices } from './billing/trial'
 import { runScheduledReports } from './reports/schedule'
 import { runWebhookOutbox } from './webhooks'
@@ -59,6 +60,9 @@ export function startBackgroundJobs() {
   // os avisos de fim do teste grátis (3 dias, 1 dia, último aviso a 6 h e "terminou"; cada um uma vez)
   const emails = setInterval(async () => {
     await safely('avisos de fim do teste', () => trialEndingNotices())
+    // inadimplência: lembretes (3º e 6º dia) e bloqueio no 7º; empresas bloqueadas há 2 dias têm os números desconectados
+    await safely('avisos da inadimplência', () => pastDueNotices())
+    await safely('desconexão das empresas bloqueadas', () => disconnectLockedOrgs())
     await safely('alertas por e-mail', () => flushAlertEmails())
     await safely('novas tentativas de e-mail', () => retryFailedEmails())
   }, 60_000)

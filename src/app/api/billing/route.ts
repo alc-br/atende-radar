@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { guard } from '@/lib/api-auth'
 import { pagarmeConfig } from '@/lib/billing/pagarme'
 import { syncOrganization, withdrawalOffer } from '@/lib/billing/service'
-import { effectiveStatus } from '@/lib/billing/core'
+import { effectiveStatus, graceEndsAt } from '@/lib/billing/core'
 
 // Resumo da cobrança para a tela Planos: se o pagamento on-line está ligado (e em qual ambiente), a chave PÚBLICA
 // para o navegador gerar o token do cartão, a cobrança automática vigente e as faturas.
@@ -22,6 +22,15 @@ export async function GET() {
 
   // Valor que a assinatura vigente cobra de fato: o da fatura dela (o preço do catálogo pode ter mudado depois da
   // contratação e só vale para contratações novas). Renovação reativada ainda sem fatura: o da última fatura paga.
+  // inadimplência em que a operadora já encerrou a cobrança automática (depois das tentativas): trocar o cartão não
+  // adianta mais; a tela chama para contratar de novo (aviso gravado por applyProviderState)
+  const providerCanceled =
+    !!sub?.providerSubscriptionId && ['past_due', 'unpaid'].includes(effectiveStatus(sub)) &&
+    !!(await db.notification.findFirst({
+      where: { organizationId: g.auth.orgId, type: 'billing', data: JSON.stringify({ kind: 'provider_canceled', subscription: sub.providerSubscriptionId }) },
+      select: { id: true },
+    }))
+
   const chargeOf = sub?.providerSubscriptionId
     ? invoices.find((i) => i.providerSubscriptionId === sub.providerSubscriptionId && i.status !== 'canceled') ??
       invoices.find((i) => i.status === 'paid' && i.billingCycle === sub.billingCycle)
@@ -44,6 +53,9 @@ export async function GET() {
           cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
           pending: !!sub.pendingProviderSubscriptionId,
           lastPaymentError: sub.lastPaymentError,
+          // inadimplência: até quando tudo segue liberado
+          graceEndsAt: graceEndsAt(sub)?.toISOString() ?? null,
+          providerCanceled,
           renewalAmount: chargeOf ? chargeOf.amountCents / 100 : null,
           // direito de arrependimento: desistir com estorno integral até esta data
           withdrawal: offer ? { until: offer.until.toISOString(), amount: offer.amountCents / 100 } : null,
