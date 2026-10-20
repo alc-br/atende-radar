@@ -186,6 +186,14 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     const { c, orgId } = await newAdmin()
     const essencial = await plan('essencial')
     expect((await c.post('/api/billing/checkout', { data: { planId: essencial.id, cycle: 'monthly', cardToken: await cardToken(publicKey, APPROVED), ...billingData() } })).status()).toBe(200)
+    // NFS-e: o tomador é quem pagou (dados do checkout) e a nota da contratação sai (Sistema Nacional falso nos testes)
+    expect(await testDb.billingCustomer.findUniqueOrThrow({ where: { organizationId: orgId } })).toMatchObject({
+      name: 'Clínica Teste Ltda', email: 'financeiro@cliente.test', documentType: 'CNPJ', document: '11222333000181', zipCode: '01310100', street: 'Avenida Paulista', number: '1000', neighborhood: 'Bela Vista', city: 'São Paulo', state: 'SP',
+    })
+    const paidInvoice = await testDb.billingInvoice.findFirstOrThrow({ where: { organizationId: orgId, status: 'paid' } })
+    const gw = await gatewayClient()
+    const nota = async () => (await gw.post('/api/gateway/tick', { data: {} }), (await testDb.nfseDocument.findUnique({ where: { billingInvoiceId: paidInvoice.id } }))?.status)
+    await expect.poll(nota, { timeout: 30_000 }).toBe('issued')
     const offer = (await config(c)).subscription.withdrawal
     expect(offer.amount).toBe(essencial.monthlyPrice)
     expect(new Date(offer.until).getTime()).toBeGreaterThan(Date.now() + 6.9 * 86400000)
@@ -228,6 +236,10 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     expect(await testDb.notification.count({ where: { organizationId: orgId, title: 'Contratação desfeita e valor estornado' } })).toBe(1)
     const wd = await testDb.emailOutbox.findFirst({ where: { organizationId: orgId, kind: { startsWith: 'billing:withdrawn:' } } })
     expect(wd?.subject).toBe('Contratação desfeita e estorno solicitado')
+    // NFS-e da contratação cancelada pelo reembolso
+    await expect.poll(nota, { timeout: 30_000 }).toBe('canceled')
+    expect((await testDb.nfseDocument.findUniqueOrThrow({ where: { billingInvoiceId: paidInvoice.id } })).cancelMotivo).toBe('naoPrestado')
+    await gw.dispose()
     await c.dispose()
   })
 

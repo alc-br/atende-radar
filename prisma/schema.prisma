@@ -50,6 +50,7 @@ model Organization {
   classificationFeedbacks ClassificationFeedback[]
   auditLogs               AuditLog[]
   billingInvoices         BillingInvoice[]
+  billingCustomer         BillingCustomer?
   supportTickets          SupportTicket[]
 
   @@index([isSimulation, simulationExpiresAt])
@@ -735,6 +736,69 @@ model BillingInvoice {
 
   @@index([organizationId, createdAt])
   @@index([providerSubscriptionId])
+}
+
+// Dados de quem paga (tomador da nota fiscal), guardados no checkout e na troca de cartão. Sem dados de cartão.
+model BillingCustomer {
+  organizationId String       @id
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String
+  documentType   String // CPF | CNPJ
+  document       String
+  zipCode        String
+  street         String
+  number         String
+  complement     String?
+  neighborhood   String
+  city           String
+  state          String
+  ibge           String? // código IBGE do município, consultado pelo CEP
+  updatedAt      DateTime     @updatedAt
+}
+
+// NFS-e Padrão Nacional de cada fatura paga (src/lib/nfse). Documento fiscal: não é apagado com a empresa (sem relação
+// em cascata) e guarda o retrato do tomador e o XML. Situação: pending → issuing → issued; rejeição/queda → failed
+// (nova tentativa com espera); reembolso → cancel_pending → canceling → canceled | cancel_failed; reembolsada antes
+// de emitir → skipped.
+model NfseDocument {
+  id                String    @id @default(cuid())
+  organizationId    String
+  billingInvoiceId  String    @unique
+  providerInvoiceId String
+  ambiente          String // restrita | producao
+  status            String    @default("pending")
+  serie             Int
+  nDps              Int?
+  dpsId             String?   @unique
+  amountCents       Int
+  competencia       DateTime
+  descricao         String
+  tomadorJson       String?
+  chave             String?   @unique
+  numero            String?
+  dpsXml            String?
+  nfseXml           String?
+  eventoXml         String?
+  attempts          Int       @default(0)
+  nextAttemptAt     DateTime  @default(now())
+  lastError         String?
+  issuedAt          DateTime?
+  cancelMotivo      String? // erro | naoPrestado | outros (código do evento 101101)
+  cancelReason      String?
+  cancelRequestedAt DateTime?
+  canceledAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([organizationId, createdAt])
+}
+
+// Numeração das DPS por ambiente e série ("restrita:1"): o número é reservado e gravado antes do envio.
+model NfseSequence {
+  id   String @id
+  last Int    @default(0)
 }
 
 // Avisos (webhooks) recebidos do provedor de pagamento: idempotência e diagnóstico. Sem dados de cartão.

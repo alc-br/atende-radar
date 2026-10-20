@@ -19,10 +19,12 @@ import {
   LifeBuoy,
   Package,
   FlaskConical,
+  FileText,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ProductAnalyticsPanel } from '@/components/admin/product-analytics'
 import { SupportTickets } from './support-tickets'
+import { NfsePanel } from './nfse-panel'
 import { PlanCatalog } from './plan-catalog'
 import { SimulationPanel, useSimulationAvailable } from './simulation-panel'
 
@@ -410,6 +412,7 @@ export default function AdminView() {
           <TabsTrigger value="system"><Server className="ic" aria-hidden="true" />Sistema</TabsTrigger>
           <TabsTrigger value="product"><BarChart3 className="ic" aria-hidden="true" />Produto</TabsTrigger>
           <TabsTrigger value="support"><LifeBuoy className="ic" aria-hidden="true" />Suporte</TabsTrigger>
+          <TabsTrigger value="nfse"><FileText className="ic" aria-hidden="true" />Notas fiscais</TabsTrigger>
           {simulationAvailable && <TabsTrigger value="simulation"><FlaskConical className="ic" aria-hidden="true" />Simulação</TabsTrigger>}
         </TabsList>
 
@@ -745,6 +748,11 @@ export default function AdminView() {
         {/* ── Suporte (chamados de "Falar com o suporte") ─────────── */}
         <TabsContent value="support">
           <SupportTickets />
+        </TabsContent>
+
+        {/* ── Notas fiscais (NFS-e Padrão Nacional): fila de emissão e cancelamento ── */}
+        <TabsContent value="nfse">
+          <NfsePanel />
         </TabsContent>
 
         {simulationAvailable && (

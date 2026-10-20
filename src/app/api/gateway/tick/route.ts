@@ -11,6 +11,7 @@ import { flushAlertEmails } from '@/lib/alert-email'
 import { retryFailedEmails } from '@/lib/mailer'
 import { endExpiredPlans } from '@/lib/billing/service'
 import { disconnectLockedOrgs, pastDueNotices } from '@/lib/billing/delinquency'
+import { processNfse } from '@/lib/nfse/service'
 
 // Roda o motor de análise agora (mesma função que o agendador interno chama a cada minuto).
 // Serve também para um agendador externo (cron) e para os testes. Também processa a fila de webhooks. Exige o segredo do gateway.
@@ -66,5 +67,7 @@ export async function POST(request: Request) {
   // inadimplência (lembretes e bloqueio) e números das empresas bloqueadas há 2 dias
   const pastDue = await pastDueNotices(now, orgId ?? undefined)
   const disconnected = await disconnectLockedOrgs(now, orgId ?? undefined)
-  return NextResponse.json({ ok: true, ...summary, webhooks, alertEmails, emailRetries, endedPlans, pastDueNotices: pastDue, disconnected, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
+  // NFS-e: fila de emissão e cancelamento (desligada com NFSE_AMBIENTE=off)
+  const nfse = await processNfse(now)
+  return NextResponse.json({ ok: true, ...summary, nfse, webhooks, alertEmails, emailRetries, endedPlans, pastDueNotices: pastDue, disconnected, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
 }

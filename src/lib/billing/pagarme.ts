@@ -77,6 +77,8 @@ export interface CustomerInput {
 export const pagarme = {
   createCustomer: (cfg: PagarmeConfig, input: CustomerInput) => call<{ id: string }>(cfg, 'POST', '/customers', input),
 
+  getCustomer: (cfg: PagarmeConfig, id: string) => call<Json>(cfg, 'GET', `/customers/${encodeURIComponent(id)}`),
+
   createSubscription: (cfg: PagarmeConfig, input: {
     customerId: string
     cardToken: string

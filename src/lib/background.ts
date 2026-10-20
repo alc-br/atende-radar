@@ -12,6 +12,7 @@ import { flushAlertEmails } from './alert-email'
 import { retryFailedEmails } from './mailer'
 import { purgeExpiredSimulations } from './simulation/cleanup'
 import { mauticEnabled, syncAllMembersToMautic } from './mautic'
+import { processNfse } from './nfse/service'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -50,6 +51,9 @@ export function startBackgroundJobs() {
   // cobrança: renovações/recusas/cancelamentos lidos do Pagar.me a cada 15 min (cada assinatura no máx. 1x por hora)
   const billing = setInterval(() => safely('cobrança', () => billingSweep()), 15 * 60_000)
   billing.unref?.()
+  // NFS-e: emite as notas das faturas pagas e cancela as das reembolsadas (novas tentativas com espera crescente)
+  const nfse = setInterval(() => safely('notas fiscais', () => processNfse()), 60_000)
+  nfse.unref?.()
   // relatórios agendados: confere a cada minuto quais chegaram no horário (fuso e dias de cada relatório)
   const reports = setInterval(() => safely('relatórios agendados', () => runScheduledReports()), 60_000)
   reports.unref?.()

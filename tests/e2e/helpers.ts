@@ -101,6 +101,10 @@ export const PROTECTED_ROUTES: Array<[method: 'GET' | 'POST' | 'PATCH' | 'PUT' |
   ['PATCH', '/api/admin/support/x'],
   ['POST', '/api/admin/support/x/reply'],
   ['GET', '/api/admin/support/x/screenshot'],
+  ['GET', '/api/admin/nfse'],
+  ['POST', '/api/admin/nfse'],
+  ['POST', '/api/admin/nfse/x'],
+  ['GET', '/api/admin/nfse/x/xml'],
   ['GET', '/api/admin/plans'],
   ['PATCH', '/api/admin/plans/x'],
 ]

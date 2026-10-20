@@ -2,6 +2,9 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-20
+- **NFS-e Padrão Nacional (pronta, desligada):** cada fatura paga (contratação e renovação) gera a nota no Sistema Nacional com o certificado A1. O reembolso (arrependimento ou estorno) cancela a nota sozinho. Falhas ficam numa fila com nova tentativa automática e não emitem em dobro. Em **Admin → Notas fiscais**: configuração e certificado, lista, motivo de cada falha, nova tentativa, cancelamento manual com motivo e download dos XML. Fica desligada até o contador confirmar código de serviço e impostos. Detalhes e o que está provado em `docs/operacao/nfse.md`.
+
 ## 2026-10-19
 - **Segurança (alertas do ZAP):** scripts só rodam com o nonce gerado a cada acesso (sai o `unsafe-inline` do `script-src`; script injetado no HTML é barrado); isolamento entre origens (COOP, COEP e CORP; o logo dos e-mails continua carregável por outros domínios); `/login` redireciona sem mandar a página junto; o nginx deixa de mostrar a versão. Falsos positivos do ZAP marcados com o motivo em `.zap/rules.tsv`.
 

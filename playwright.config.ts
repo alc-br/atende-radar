@@ -64,6 +64,12 @@ export default defineConfig({
       // Ambiente de simulação (S1): ligado só nos testes (em produção fica off); segredo de teste do Bearer
       SIMULATION_ENABLED: 'on',
       SIMULATION_SECRET: 'simulation-secret-test-only-0123456789',
+      // NFS-e: Sistema Nacional falso (sem rede, certificado gerado na hora; src/lib/nfse/fake.ts), restrita, CNPJ de teste
+      NFSE_AMBIENTE: 'restrita',
+      NFSE_FAKE: '1',
+      NFSE_DESDE: '2020-01-01T00:00:00Z',
+      NFSE_CNPJ: '22629446000112',
+      NFSE_MUNICIPIO: '4119509',
       // Narração do tour: TTS falso (MP3 de silêncio, sem rede) e cache descartável em .tmp/ (tests/e2e/tour-audio-env.ts)
       ...TOUR_AUDIO_TEST_ENV,
       // Foto/logotipo em .tmp/uploads-e2e e chave FIXA de teste do telefone cifrado (tests/e2e/media-env.ts)

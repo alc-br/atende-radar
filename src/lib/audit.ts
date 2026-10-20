@@ -21,6 +21,7 @@ export type AuditAction =
   | 'webhook.created' | 'webhook.updated' | 'webhook.secret_rotated' | 'webhook.removed'
   | 'agent_identity.confirmed' | 'agent_identity.changed' | 'agent_identity.ignored' | 'agent_identity.undone'
   | 'simulation.run' | 'simulation.inject' | 'simulation.tick' | 'simulation.clean' | 'simulation.viewed'
+  | 'nfse.run' | 'nfse.retry' | 'nfse.cancel_requested'
 
 export interface AuditEntryInput {
   action: AuditAction
@@ -97,6 +98,9 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'subscription.withdrawal_failed': 'Pediu o arrependimento, mas o estorno foi recusado pela operadora',
   'subscription.reactivated': 'Reativou a renovação da assinatura',
   'plan.updated': 'Editou um plano do catálogo (operador da plataforma)',
+  'nfse.run': 'Processou a fila de notas fiscais (operador da plataforma)',
+  'nfse.retry': 'Tentou de novo uma nota fiscal com falha (operador da plataforma)',
+  'nfse.cancel_requested': 'Pediu o cancelamento de uma nota fiscal (operador da plataforma)',
   'billing.card_updated': 'Trocou o cartão da assinatura',
   'report.generated': 'Gerou relatório',
   'report.exported': 'Exportou dados',

@@ -92,6 +92,10 @@ const MATRIX: Row[] = [
   ['PATCH', '/api/admin/support/x', []],
   ['POST', '/api/admin/support/x/reply', []],
   ['GET', '/api/admin/support/x/screenshot', []],
+  ['GET', '/api/admin/nfse', []], // notas fiscais: só o operador da plataforma
+  ['POST', '/api/admin/nfse', []],
+  ['POST', '/api/admin/nfse/x', []],
+  ['GET', '/api/admin/nfse/x/xml', []],
   ['GET', '/api/admin/plans', []], // V7 · catálogo de planos: só o operador da plataforma
   ['PATCH', '/api/admin/plans/x', []],
   // ambiente de simulação (S1): só o operador da plataforma (ou Bearer SIMULATION_SECRET) — simulacao.spec.ts

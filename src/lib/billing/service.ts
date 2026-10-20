@@ -13,6 +13,7 @@ import {
   renewalCanceledEmail, renewalPaidEmail, withdrawnEmail,
 } from './emails'
 import { notifyOnce } from './analysis-gate'
+import { kickNfse, saveBillingCustomer, updateBillingAddress } from '@/lib/nfse/service'
 
 // Cobrança recorrente (B8) com Pagar.me. A fonte de verdade é o provedor: toda mudança de situação passa por
 // applyProviderState(), que lê a assinatura e as faturas DIRETO da API (o conteúdo do webhook nunca é confiado).
@@ -103,6 +104,8 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
     const data = { ...inv, providerSubscriptionId: inv.providerSubscriptionId || subId, organizationId: orgId, planId: plan?.id ?? null, planName: plan?.name ?? null, billingCycle: cycle }
     await db.billingInvoice.upsert({ where: { providerInvoiceId: inv.providerInvoiceId }, create: data, update: data })
   }
+  // NFS-e: fatura paga gera nota; reembolsada (inclusive pelo painel do Pagar.me) cancela a nota
+  kickNfse()
   const providerStatus = String(providerSub.status ?? '')
   const derived = deriveFromProvider({
     providerStatus,
@@ -253,6 +256,8 @@ export async function checkout(auth: AuthContext, input: CheckoutInput): Promise
       metadata: { app: APP_TAG, organizationId: auth.orgId, planId: plan.id, planCode: plan.code, cycle },
     })
     await db.subscription.update({ where: { organizationId: auth.orgId }, data: { providerCustomerId: customer.id } })
+    // tomador da NFS-e: os mesmos dados enviados ao Pagar.me
+    await saveBillingCustomer(auth.orgId, { name, email, documentType: doc.type, document: doc.digits, address })
   } catch (e) {
     if (e instanceof PagarmeError) {
       console.error('[billing] checkout recusado', e.status, JSON.stringify(e.body)?.slice(0, 300))
@@ -404,6 +409,7 @@ export async function withdraw(auth: AuthContext, now = new Date()): Promise<Fai
   }
 
   await db.billingInvoice.update({ where: { id: offer.invoice.id }, data: { status: 'refunded' } })
+  kickNfse() // a NFS-e da contratação é cancelada
   await db.subscription.update({ where: { organizationId: auth.orgId }, data: { status: 'canceled', cancelAtPeriodEnd: false, currentPeriodEnd: now, lastPaymentError: null, lastSyncedAt: now } })
   const valor = (offer.amountCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   await audit(auth, { action: 'subscription.withdrawn', targetType: 'subscription', targetId: subId, targetLabel: row.plan.name, details: { chargeId: offer.invoice.providerChargeId, amountCents: offer.amountCents, mode: cfg.mode } })
@@ -433,6 +439,7 @@ export async function replaceCard(auth: AuthContext, input: { cardToken?: string
       return fail(409, 'provider_canceled', 'A cobrança automática foi encerrada pela operadora depois das tentativas sem sucesso. Contrate o plano de novo em Planos.')
     }
     const changed = await pagarme.updateCard(cfg, subId, input.cardToken, toProviderAddress(address))
+    await updateBillingAddress(auth.orgId, address)
     // renovação em aberto (recusada): cobra a fatura na hora no cartão novo. Só trocar o cartão da assinatura não
     // cobra de novo (o Pagar.me retentaria no cartão antigo).
     const open = (await pagarme.listInvoices(cfg, subId)).map(mapInvoice)

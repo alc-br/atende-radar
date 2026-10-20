@@ -39,6 +39,10 @@ Sem segredos aqui: o repositório é público.
 - ~~Ambiente de simulação~~ **desligado** em 19/10/2026 a pedido do usuário (`SIMULATION_ENABLED=off` no `app.env`, backup `app.env.bak-*-antes-simulacao-off`; as rotas respondem 404). O deploy não religa (marca `.simulation-on-2026-10-15` existe). Para usar a bateria de novo: `on` no `app.env` + restart. Ver `docs/operacao/simulacao.md`.
 - ~~Drop-in do systemd do I8~~ aplicado em 19/10/2026: a memória já estava em `memoria.conf` (15/10: 1200M/1536M, servidor de 12 GB dividido com o Mautic); novo `limites.conf` com `MemorySwapMax=0`, `TasksMax=512` e `StartLimitBurst=5` em 600 s. Conferido com `systemctl show` e app respondendo 200.
 - V7: confirmar o texto dos termos sobre arrependimento em 7 dias e mudança de preço (Admin › Planos muda só contratos novos).
+- **NFS-e (card F1), pronta e desligada:**
+  - **Contador:** confirmar o código de tributação nacional (padrão `010501`), o ISS em Piraquara sem retenção e o percentual total do Simples (`NFSE_P_TOT_TRIB_SN`, padrão 6,00).
+  - **Prova completa:** escolher como provar a emissão de ponta a ponta. Ou a Prefeitura de Piraquara adere à produção restrita (hoje dá E0037), ou o contador autoriza uma 1ª nota real de valor baixo, cancelada logo depois.
+  - **Ligar:** só depois de 03/11/2026 (NT 009 em produção). Passos em `docs/operacao/nfse.md`.
 
 ## Como rodar os testes (Windows)
 
@@ -61,6 +65,29 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 20/10/2026
+
+- **NFS-e Padrão Nacional (pedido do usuário: "emite quando contrata, se tem reembolso cancela"; o contador não respondeu, "pode construir no ambiente de testes").** Tudo em `docs/operacao/nfse.md`.
+  - **Código:**
+    - `src/lib/nfse/`: XML da DPS e do cancelamento (leiaute 1.01 com `finNFSe` da NT 009), assinatura RSA-SHA1/C14N, cliente mTLS, configuração `NFSE_*` e um Sistema Nacional falso para testes que confere a assinatura.
+    - Fila em `service.ts`: número reservado antes do envio, consulta da DPS antes de reenviar e 6 tentativas.
+    - Migração `20261020120000_nfse` com `BillingCustomer`, `NfseDocument` e `NfseSequence`.
+    - Tela Admin → Notas fiscais e rotas `/api/admin/nfse*` (só operador).
+  - **Provado contra a produção restrita real:**
+    - mTLS com o certificado A1;
+    - DPS e cancelamento aceitos no esquema e na assinatura;
+    - a emissão para em E0037: Piraquara sem convênio na restrita. Outros municípios dão E0084 ou E0207, por dados de teste.
+  - **Não provado:** nota autorizada de ponta a ponta. Ver Pendências.
+  - **Provas automáticas:**
+    - unidade: `nfse.unit.spec.ts`;
+    - API: `nfse.spec.ts`;
+    - tela, desktop e celular: `nfse.ui.spec.ts`;
+    - sandbox do Pagar.me: `billing-pagarme.spec.ts`, em que a contratação emite a nota e o arrependimento a cancela.
+  - **Certificado:** `.p12` só fora do repositório (`D:\ALC\certificado-digital\2026\`, e no servidor em `/opt/atende-radar/shared/nfse/` quando ligar). A senha fica só em arquivo local e no `app.env`. Válido até 16/10/2027.
+  - **NT 009:**
+    - em 30/10 sai a 2ª entrega na restrita, que pode exigir campos novos do Simples. Rodar a sonda de novo.
+    - em 03/11 a NT 009 entra em produção. Antes disso, a produção deve recusar o `finNFSe`.
+
 ### 19/10/2026
 
 - **Alertas do ZAP corrigidos (pedido do usuário, 19/10/2026).** Commits `f35a114`, `9086e2e`, `528ec89`. Varredura de 19/10 tinha 11 avisos no site e 8 no app; a de 20/10 (run 39349428455) deu **0 FAIL e 0 WARN** nos dois domínios.
@@ -71,7 +98,7 @@ Sem segredos aqui: o repositório é público.
   - **`.zap/rules.tsv`:** falsos positivos e informativos ignorados, cada um com o motivo.
   - **Provas:** `csp.ui.spec.ts` (nonce no cabeçalho e no HTML, nonce único por acesso, cabeçalhos de isolamento, `/login` sem corpo, script injetado no HTML barrado) em Chromium, Firefox, Safari e iPhone; suíte completa local 2184 ok; CI verde e deploy. Em produção: cabeçalhos conferidos com curl, nonces diferentes a cada acesso, `crossOriginIsolated` verdadeiro no navegador, site e login sem erro no console.
   - **Testes frágeis corrigidos no caminho:** WebKit recarrega a página depois de bloquear o script injetado (o teste limpa a interceptação); máscara do CNPJ no celular disputava com o carregamento dos dados (o teste repete a digitação).
-- **NFS-e (card F1):** continua sem código. O certificado A1 agora está em `D:\ALC\certificado-digital\2026\` (`.p12` + `.cer`). Bloqueios: respostas do contador (código de tributação, alíquota, prazo de cancelamento) e a senha do `.p12` gravada pelo usuário fora do chat.
+- **NFS-e (card F1):** (em 19/10) continua sem código. O certificado A1 agora está em `D:\ALC\certificado-digital\2026\` (`.p12` + `.cer`). Bloqueios: respostas do contador (código de tributação, alíquota, prazo de cancelamento) e a senha do `.p12` gravada pelo usuário fora do chat.
 
 - **Inadimplência com 7 dias de tolerância + exportação e desconexão da empresa bloqueada (pedido do usuário, 19/10/2026).** Commit `ae358ea`. Detalhes em `docs/operacao/cobranca-pagarme.md` (seções "Inadimplência" e "Empresa bloqueada") e no manual de suporte.
   - **Renovação recusada:** `past_due` + `pastDueSince` (migração `20261019120000_past_due_grace`). 7 dias com tudo liberado (inclusive cadastrar); lembretes no 3º e 6º dia e aviso do bloqueio no 7º (sino + e-mail, uma vez cada); depois, `unpaid` → bloqueio com motivo `payment_overdue`. Trocar o cartão cobra na hora a fatura em aberto (`PATCH /charges/{id}/card`). Operadora que desiste mantém a tolerância e a tela chama para contratar de novo.
