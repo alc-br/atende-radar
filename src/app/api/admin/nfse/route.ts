@@ -6,7 +6,7 @@ import { audit } from '@/lib/audit'
 import { certificate, nfseConfig } from '@/lib/nfse/config'
 import { MAX_ATTEMPTS, processNfse } from '@/lib/nfse/service'
 
-const STATUSES = ['pending', 'issuing', 'issued', 'failed', 'cancel_pending', 'canceling', 'canceled', 'cancel_failed', 'skipped']
+const STATUSES = ['pending', 'issuing', 'issued', 'failed', 'cancel_pending', 'canceling', 'canceled', 'cancel_failed', 'cancel_expired', 'skipped']
 
 /** Notas fiscais (NFS-e) de todas as empresas, para o operador: configuração, contagem por situação e a lista. */
 export async function GET(request: Request) {

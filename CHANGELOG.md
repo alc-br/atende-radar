@@ -4,6 +4,7 @@ Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no
 
 ## 2026-10-20
 - **NFS-e Padrão Nacional (pronta, desligada):** cada fatura paga (contratação e renovação) gera a nota no Sistema Nacional com o certificado A1. O reembolso (arrependimento ou estorno) cancela a nota sozinho. Falhas ficam numa fila com nova tentativa automática e não emitem em dobro. Em **Admin → Notas fiscais**: configuração e certificado, lista, motivo de cada falha, nova tentativa, cancelamento manual com motivo e download dos XML. Fica desligada até o contador confirmar código de serviço e impostos. Detalhes e o que está provado em `docs/operacao/nfse.md`.
+- **NFS-e: prazo de cancelamento.** Por orientação da contabilidade, a nota só é cancelada dentro do mês de competência. O reembolso que chega depois disso deixa a nota como "Reembolso fora do prazo" em Admin → Notas fiscais, para a contabilidade resolver. A nota passa a informar o NBS 1.1506.21.00 (SaaS).
 
 ## 2026-10-19
 - **Segurança (alertas do ZAP):** scripts só rodam com o nonce gerado a cada acesso (sai o `unsafe-inline` do `script-src`; script injetado no HTML é barrado); isolamento entre origens (COOP, COEP e CORP; o logo dos e-mails continua carregável por outros domínios); `/login` redireciona sem mandar a página junto; o nginx deixa de mostrar a versão. Falsos positivos do ZAP marcados com o motivo em `.zap/rules.tsv`.

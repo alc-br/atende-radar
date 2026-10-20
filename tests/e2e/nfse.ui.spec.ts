@@ -10,7 +10,7 @@ import { enter } from './ui'
 
 test.describe.configure({ mode: 'serial' })
 
-async function notaDe(tomador: string, status: string) {
+async function notaDe(tomador: string, status: string, paidAt = new Date(Date.now() - 60_000)) {
   const organizationName = `Empresa NF ${uid()}`
   const { email } = await signupOrg({ organizationName })
   const m = await testDb.organizationMember.findFirstOrThrow({ where: { email } })
@@ -23,7 +23,7 @@ async function notaDe(tomador: string, status: string) {
   const inv = await testDb.billingInvoice.create({
     data: {
       organizationId: m.organizationId, providerInvoiceId: `in_nfui_${uid()}${uid()}`, providerSubscriptionId: `sub_nfui_${uid()}`, providerChargeId: `ch_${uid()}`,
-      planName: 'Pro', billingCycle: 'monthly', amountCents: 9700, status: 'paid', paidAt: new Date(Date.now() - 60_000),
+      planName: 'Pro', billingCycle: 'monthly', amountCents: 9700, status: 'paid', paidAt,
       periodStart: new Date(), periodEnd: new Date(Date.now() + 30 * 86400_000),
     },
   })
@@ -101,4 +101,32 @@ test('falha de emissão aparece com o motivo do governo e "Tentar novamente agor
   await expect(dialog.getByRole('button', { name: 'Cancelar esta nota' })).toHaveCount(0)
   await dialog.getByRole('button', { name: 'Tentar novamente agora' }).click()
   await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'Nova tentativa pedida.' })).toBeVisible()
+})
+
+test('nota de mês anterior: sem botão de cancelar; reembolsada, aparece como fora do prazo', async ({ page, context, isMobile }) => {
+  const { organizationName, invoiceId } = await notaDe('Cliente Prazo Ltda', 'issued', new Date(Date.now() - 40 * 86400_000))
+  await enter(context, 'platform@test.local')
+  const painel = await abrirNotas(page, isMobile)
+  await painel.getByRole('button', { name: organizationName }).click()
+  const dialog = page.getByRole('dialog', { name: `Nota de ${organizationName}` })
+  await expect(dialog.getByTestId('nfse-status')).toContainText('Emitida')
+  await expect(dialog).toContainText('O prazo de cancelamento acabou')
+  await expect(dialog.getByRole('button', { name: 'Cancelar esta nota' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  await testDb.billingInvoice.update({ where: { id: invoiceId }, data: { status: 'refunded' } })
+  const gw = await gatewayClient()
+  await expect.poll(async () => {
+    await gw.post('/api/gateway/tick', { data: {} })
+    return (await testDb.nfseDocument.findUnique({ where: { billingInvoiceId: invoiceId } }))?.status
+  }, { timeout: 30_000, intervals: [300, 500, 1000] }).toBe('cancel_expired')
+  await gw.dispose()
+
+  await painel.getByRole('button', { name: 'Fora do prazo' }).click()
+  await expect(painel).toContainText('reembolso')
+  await painel.getByRole('button', { name: organizationName }).click()
+  await expect(dialog.getByTestId('nfse-status')).toContainText('Reembolso fora do prazo')
+  await expect(dialog.getByRole('alert')).toContainText('Não pode mais ser cancelada')
+  await expect(dialog.getByRole('alert')).toContainText('Fale com a contabilidade')
+  await expect(dialog.getByRole('button', { name: 'Tentar novamente agora' })).toHaveCount(0)
 })

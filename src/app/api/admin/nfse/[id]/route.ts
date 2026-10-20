@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: Params) {
   if (action === 'cancel') {
     if (typeof motivo !== 'string' || !(motivo in CANCEL_REASONS)) return NextResponse.json({ error: 'Motivo inválido' }, { status: 400 })
     const r = await requestCancel(id, motivo as CancelMotivo, typeof texto === 'string' ? texto : '')
-    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.error.startsWith('Só') ? 409 : 400 })
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.error.startsWith('Só') || r.error.startsWith('Fora do prazo') ? 409 : 400 })
     await audit(g.auth, { action: 'nfse.cancel_requested', targetType: 'nfse', targetId: id, targetLabel: doc.chave ?? undefined, details: { motivo } })
     kickNfse()
     return NextResponse.json({ ok: true })

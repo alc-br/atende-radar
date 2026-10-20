@@ -2,6 +2,7 @@
 // Fluxo: fatura paga (contratação ou renovação) → nota pendente → emitida. Fatura reembolsada → cancelamento da nota
 // (ou "dispensada", se ainda não tinha saído). Tudo passa por uma fila com novas tentativas; o número da DPS é reservado
 // e gravado ANTES do envio, então um reenvio nunca gera nota em dobro (se a 1ª chegou lá, a consulta pela DPS acha).
+// Cancelamento só dentro do mês de competência (./prazo.ts); reembolso depois disso vira "cancel_expired" para a contabilidade.
 import { db } from '@/lib/db'
 import { pagarme, pagarmeConfig } from '@/lib/billing/pagarme'
 import { onlyDigits } from '@/lib/billing/core'
@@ -10,6 +11,7 @@ import { signXml } from './sign'
 import * as real from './client'
 import * as fake from './fake'
 import { certificate, nfseConfig, type NfseConfig } from './config'
+import { cancelavel, foraDoPrazo } from './prazo'
 import type { EmissaoOk, EventoOk, Falha } from './client'
 
 export const VER_APLIC = 'AtendeRadar-1.0'
@@ -142,11 +144,11 @@ function descricao(inv: { planName: string | null; billingCycle: string | null; 
  * Cria as notas pendentes das faturas pagas (a partir de NFSE_DESDE) e marca para cancelar as das faturas reembolsadas.
  * Idempotente. Em produção, só faturas cobradas com as chaves reais do Pagar.me.
  */
-export async function enqueueNfse(now = new Date()): Promise<{ created: number; toCancel: number; skipped: number; error?: string }> {
+export async function enqueueNfse(now = new Date()): Promise<{ created: number; toCancel: number; skipped: number; expired: number; error?: string }> {
   const c = nfseConfig()
-  if (!c.ok) return { created: 0, toCancel: 0, skipped: 0, ...(c.off ? {} : { error: c.error }) }
+  if (!c.ok) return { created: 0, toCancel: 0, skipped: 0, expired: 0, ...(c.off ? {} : { error: c.error }) }
   const cfg = c.cfg
-  if (cfg.ambiente === 'producao' && pagarmeConfig()?.mode !== 'live') return { created: 0, toCancel: 0, skipped: 0, error: 'NFS-e em produção exige o Pagar.me com chaves reais (PAGARME_MODE=live)' }
+  if (cfg.ambiente === 'producao' && pagarmeConfig()?.mode !== 'live') return { created: 0, toCancel: 0, skipped: 0, expired: 0, error: 'NFS-e em produção exige o Pagar.me com chaves reais (PAGARME_MODE=live)' }
 
   const paid = await db.billingInvoice.findMany({
     where: { status: 'paid', paidAt: { gte: cfg.desde, lte: now }, amountCents: { gt: 0 }, organization: { isSimulation: false } },
@@ -171,13 +173,20 @@ export async function enqueueNfse(now = new Date()): Promise<{ created: number; 
     }
   }
 
-  // reembolsos: nota emitida → cancelar; nota que ainda não saiu → dispensada
+  // reembolsos: nota emitida → cancelar (se ainda no mês de competência); nota que ainda não saiu → dispensada
   const refunded = await db.billingInvoice.findMany({ where: { status: 'refunded' }, select: { id: true }, take: 2000 })
   const docs = await db.nfseDocument.findMany({ where: { billingInvoiceId: { in: refunded.map((r) => r.id) }, status: { in: ['issued', 'pending', 'failed'] } } })
   let toCancel = 0
   let skipped = 0
+  let expired = 0
   for (const d of docs) {
-    if (d.status === 'issued') {
+    if (d.status === 'issued' && !cancelavel(d.competencia, now)) {
+      const r = await db.nfseDocument.updateMany({
+        where: { id: d.id, status: 'issued' },
+        data: { status: 'cancel_expired', cancelRequestedAt: now, lastError: `Fatura reembolsada. ${foraDoPrazo(d.competencia)}` },
+      })
+      expired += r.count
+    } else if (d.status === 'issued') {
       const r = await db.nfseDocument.updateMany({
         where: { id: d.id, status: 'issued' },
         data: { status: 'cancel_pending', cancelMotivo: 'naoPrestado', cancelReason: 'Contratação desfeita pelo cliente com reembolso integral do pagamento', cancelRequestedAt: now, attempts: 0, nextAttemptAt: now, lastError: null },
@@ -188,7 +197,7 @@ export async function enqueueNfse(now = new Date()): Promise<{ created: number; 
       skipped += r.count
     }
   }
-  return { created, toCancel, skipped }
+  return { created, toCancel, skipped, expired }
 }
 
 const backoff = (attempts: number, now: Date) => new Date(now.getTime() + BACKOFF_MIN[Math.min(attempts - 1, BACKOFF_MIN.length - 1)] * 60_000)
@@ -277,9 +286,14 @@ async function issueOne(docId: string, cfg: NfseConfig, now: Date): Promise<'iss
   }
 }
 
-async function cancelOne(docId: string, cfg: NfseConfig, now: Date): Promise<'canceled' | 'cancel_failed'> {
+async function cancelOne(docId: string, cfg: NfseConfig, now: Date): Promise<'canceled' | 'cancel_failed' | 'cancel_expired'> {
   const a = api(cfg)
   const doc = await db.nfseDocument.findUniqueOrThrow({ where: { id: docId } })
+  // o mês virou com o cancelamento ainda na fila (ou falhando): não manda mais
+  if (!cancelavel(doc.competencia, now)) {
+    await db.nfseDocument.update({ where: { id: docId }, data: { status: 'cancel_expired', lastError: foraDoPrazo(doc.competencia) } })
+    return 'cancel_expired'
+  }
   const fail = async (msg: string) => {
     await db.nfseDocument.update({ where: { id: docId }, data: { status: 'cancel_failed', attempts: doc.attempts + 1, nextAttemptAt: backoff(doc.attempts + 1, now), lastError: msg.slice(0, 2000) } })
     return 'cancel_failed' as const
@@ -310,7 +324,7 @@ const g = globalThis as { __nfseRunning?: boolean }
 
 /** Um passo da fila: cria o que falta, emite e cancela o que venceu. Não roda em paralelo consigo mesmo. */
 export async function processNfse(now = new Date()) {
-  const out = { created: 0, issued: 0, canceled: 0, failed: 0, cancelFailed: 0, skipped: 0, error: undefined as string | undefined }
+  const out = { created: 0, issued: 0, canceled: 0, failed: 0, cancelFailed: 0, skipped: 0, expired: 0, error: undefined as string | undefined }
   const c = nfseConfig()
   if (!c.ok) return { ...out, error: c.off ? undefined : c.error }
   if (g.__nfseRunning) return out
@@ -319,6 +333,7 @@ export async function processNfse(now = new Date()) {
     const q = await enqueueNfse(now)
     out.created = q.created
     out.skipped = q.skipped
+    out.expired = q.expired
     out.error = q.error
     // emissões/cancelamentos interrompidos (servidor reiniciado no meio): voltam para a fila e começam pela consulta
     const stuck = new Date(now.getTime() - 10 * 60_000)
@@ -342,6 +357,7 @@ export async function processNfse(now = new Date()) {
       } else {
         const r = await cancelOne(d.id, c.cfg, now)
         if (r === 'canceled') out.canceled++
+        else if (r === 'cancel_expired') out.expired++
         else out.cancelFailed++
       }
     }
@@ -374,6 +390,8 @@ export async function requestCancel(id: string, motivo: CancelMotivo, texto: str
   if (!(motivo in CANCEL_REASONS)) return { ok: false, error: 'Motivo inválido' }
   if (t.length < 15 || t.length > 255) return { ok: false, error: 'Descreva o motivo com 15 a 255 caracteres' }
   const now = new Date()
+  const doc = await db.nfseDocument.findUnique({ where: { id }, select: { competencia: true } })
+  if (doc && !cancelavel(doc.competencia, now)) return { ok: false, error: foraDoPrazo(doc.competencia) }
   const r = await db.nfseDocument.updateMany({
     where: { id, status: 'issued' },
     data: { status: 'cancel_pending', cancelMotivo: motivo, cancelReason: t, cancelRequestedAt: now, attempts: 0, nextAttemptAt: now, lastError: null },

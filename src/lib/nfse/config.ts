@@ -36,6 +36,9 @@ export function nfseConfig(env: Record<string, string | undefined> = process.env
   if (cTribNac.length !== 6) return { ok: false, off: false, error: 'NFSE_CTRIB_NAC deve ter 6 dígitos' }
   const pTot = Number((env.NFSE_P_TOT_TRIB_SN || '6.00').replace(',', '.'))
   if (!(pTot >= 0 && pTot <= 100)) return { ok: false, off: false, error: 'NFSE_P_TOT_TRIB_SN inválido' }
+  // NBS 1.1506.21.00 (SaaS), indicada pela contabilidade para os códigos 1.03 e 1.05. NFSE_CNBS vazio = não informa.
+  const cNbs = (env.NFSE_CNBS ?? '115062100').replace(/\D/g, '') || null
+  if (cNbs && cNbs.length !== 9) return { ok: false, off: false, error: 'NFSE_CNBS deve ter 9 dígitos' }
   const cnpj = (env.NFSE_CNPJ || '').replace(/\D/g, '')
   const municipio = (env.NFSE_MUNICIPIO || '').replace(/\D/g, '')
   if (cnpj.length !== 14) return { ok: false, off: false, error: 'NFSE_CNPJ ausente ou inválido' }
@@ -54,7 +57,7 @@ export function nfseConfig(env: Record<string, string | undefined> = process.env
       serie,
       cTribNac,
       cTribMun: env.NFSE_CTRIB_MUN?.trim() || null,
-      cNbs: env.NFSE_CNBS?.replace(/\D/g, '') || null,
+      cNbs,
       pTotTribSN: pTot.toFixed(2),
       desde,
     },

@@ -178,6 +178,39 @@ test('cancelamento recusado fica como falha; operador cancela manualmente com mo
   await op.dispose()
 })
 
+test('reembolso depois do mês de competência: a nota não é cancelada e fica para a contabilidade', async () => {
+  // orientação da contabilidade: cancelamento só dentro do mês de competência (src/lib/nfse/prazo.ts)
+  const org = await orgComTomador('Empresa NFSE-FORA-PRAZO Ltda')
+  const inv = await faturaPaga(org, { paidAt: new Date(Date.now() - 40 * 86400_000) })
+  const doc = await ate(inv.id, 'issued')
+  const op = await loginAs('platform@test.local')
+  // operador também não consegue pedir o cancelamento
+  const manual = await op.post(`/api/admin/nfse/${doc.id}`, { data: { action: 'cancel', motivo: 'erro', texto: 'Nota emitida com valor errado' } })
+  expect(manual.status()).toBe(409)
+  expect((await manual.json()).error).toContain('Fora do prazo')
+
+  await testDb.billingInvoice.update({ where: { id: inv.id }, data: { status: 'refunded' } })
+  const fora = await ate(inv.id, 'cancel_expired')
+  expect(fora.lastError).toContain('Fatura reembolsada. Fora do prazo')
+  expect(fora.eventoXml).toBeNull()
+  expect(fora.canceledAt).toBeNull()
+  const list = await (await op.get('/api/admin/nfse?status=cancel_expired')).json()
+  expect(list.docs.map((d: { id: string }) => d.id)).toContain(doc.id)
+  expect(list.counts.cancel_expired).toBeGreaterThan(0)
+
+  // cancelamento que estava na fila quando o mês virou: não é enviado
+  const inv2 = await faturaPaga(org)
+  const doc2 = await ate(inv2.id, 'issued')
+  await testDb.nfseDocument.update({
+    where: { id: doc2.id },
+    data: { status: 'cancel_pending', cancelMotivo: 'naoPrestado', cancelReason: 'Reembolso integral ao cliente', nextAttemptAt: new Date(Date.now() - 1000), competencia: new Date(Date.now() - 40 * 86400_000) },
+  })
+  const virou = await ate(inv2.id, 'cancel_expired')
+  expect(virou.lastError).toContain('Fora do prazo')
+  expect(virou.eventoXml).toBeNull()
+  await op.dispose()
+})
+
 test('admin de empresa cliente não vê nem mexe nas notas', async () => {
   const c = await loginAs('admin.a@test.local')
   expect((await c.get('/api/admin/nfse')).status()).toBe(403)

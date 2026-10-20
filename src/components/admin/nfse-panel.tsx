@@ -6,6 +6,7 @@ import { Download, FileText, Play, RotateCcw, XCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { fetchMutation, MUTATION_ERROR_MESSAGE } from '@/lib/mutation'
+import { cancelavel, mesCompetencia } from '@/lib/nfse/prazo'
 
 // Notas fiscais (NFS-e Padrão Nacional) para o operador: como está configurado, a fila (emissão e cancelamento),
 // o motivo de cada falha, nova tentativa, cancelamento manual e os XML. A emissão em si é automática (src/lib/nfse).
@@ -63,9 +64,10 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   canceling: { label: 'Cancelando', tone: 'tag--ambar' },
   canceled: { label: 'Cancelada', tone: 'tag--roxo' },
   cancel_failed: { label: 'Falha no cancelamento', tone: 'tag--vermelho' },
+  cancel_expired: { label: 'Reembolso fora do prazo', tone: 'tag--vermelho' },
   skipped: { label: 'Dispensada', tone: 'tag--cinza' },
 }
-const FILTROS = [['', 'Todas'], ['failed', 'Falhas'], ['issued', 'Emitidas'], ['canceled', 'Canceladas'], ['pending', 'Na fila']] as const
+const FILTROS = [['', 'Todas'], ['failed', 'Falhas'], ['issued', 'Emitidas'], ['canceled', 'Canceladas'], ['pending', 'Na fila'], ['cancel_expired', 'Fora do prazo']] as const
 const MOTIVOS = [['erro', 'Erro na emissão'], ['naoPrestado', 'Serviço não prestado'], ['outros', 'Outros']] as const
 const MOTIVO_LABEL: Record<string, string> = Object.fromEntries(MOTIVOS)
 
@@ -130,6 +132,7 @@ export function NfsePanel() {
   const cfg = data?.config
   const contagem = data?.counts ?? {}
   const falhas = (contagem.failed ?? 0) + (contagem.cancel_failed ?? 0)
+  const foraPrazo = contagem.cancel_expired ?? 0
   const textoOk = texto.trim().length >= 15 && texto.trim().length <= 255
 
   return (
@@ -141,10 +144,11 @@ export function NfsePanel() {
             {(contagem.issued ?? 0) === 1 ? '1 emitida' : `${contagem.issued ?? 0} emitidas`}
             {' · '}{(contagem.canceled ?? 0) === 1 ? '1 cancelada' : `${contagem.canceled ?? 0} canceladas`}
             {' · '}{falhas === 1 ? '1 com falha' : `${falhas} com falha`}
+            {foraPrazo > 0 && <span className="text-destructive">{' · '}{foraPrazo === 1 ? '1 reembolso fora do prazo de cancelamento' : `${foraPrazo} reembolsos fora do prazo de cancelamento`}</span>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="abas" role="group" aria-label="Filtrar notas">
+          <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar notas">
             {FILTROS.map(([v, label]) => (
               <button key={v || 'all'} type="button" className={`btn btn--sm ${filtro === v ? 'btn--escuro' : ''}`} aria-pressed={filtro === v} onClick={() => setFiltro(v)}>
                 {label}
@@ -206,7 +210,7 @@ export function NfsePanel() {
                       <button type="button" className="forte text-left hover:underline" onClick={(e) => { e.stopPropagation(); setSel(d); setCancelando(false) }}>
                         {d.organizationName}
                       </button>
-                      {d.lastError && (d.status === 'failed' || d.status === 'cancel_failed') && <p className="text-xs text-destructive line-clamp-2">{d.lastError}</p>}
+                      {d.lastError && (d.status === 'failed' || d.status === 'cancel_failed' || d.status === 'cancel_expired') && <p className="text-xs text-destructive line-clamp-2">{d.lastError}</p>}
                     </td>
                     <td className="hidden md:table-cell suave">{d.tomador?.nome ?? '—'}</td>
                     <td className="whitespace-nowrap">{brl(d.amountCents)}</td>
@@ -237,7 +241,7 @@ export function NfsePanel() {
                 </div>
                 {sel.lastError && (
                   <div className="rounded-lg border border-destructive p-3" role="alert">
-                    <p className="font-bold">Último erro{sel.attempts ? ` (tentativa ${sel.attempts} de ${data?.maxAttempts ?? 6})` : ''}</p>
+                    <p className="font-bold">{sel.status === 'cancel_expired' ? 'Não pode mais ser cancelada' : `Último erro${sel.attempts ? ` (tentativa ${sel.attempts} de ${data?.maxAttempts ?? 6})` : ''}`}</p>
                     <p className="break-words">{sel.lastError}</p>
                     {(sel.status === 'failed' || sel.status === 'cancel_failed') && sel.attempts < (data?.maxAttempts ?? 6) && (
                       <p className="text-xs text-muted-foreground">Nova tentativa automática a partir de {fmtDateTime(sel.nextAttemptAt)}.</p>
@@ -267,7 +271,10 @@ export function NfsePanel() {
                   </Button>
                 )}
 
-                {sel.status === 'issued' && !cancelando && (
+                {sel.status === 'issued' && !cancelavel(new Date(sel.competencia)) && (
+                  <p className="text-xs text-muted-foreground">O prazo de cancelamento acabou: a nota é da competência de {mesCompetencia(new Date(sel.competencia))} e só podia ser cancelada dentro desse mês. Fale com a contabilidade.</p>
+                )}
+                {sel.status === 'issued' && cancelavel(new Date(sel.competencia)) && !cancelando && (
                   <Button type="button" variant="outline" className="w-full" disabled={salvando} onClick={() => setCancelando(true)}>
                     <XCircle className="ic" aria-hidden="true" />Cancelar esta nota
                   </Button>

@@ -40,8 +40,11 @@ Sem segredos aqui: o repositório é público.
 - ~~Drop-in do systemd do I8~~ aplicado em 19/10/2026: a memória já estava em `memoria.conf` (15/10: 1200M/1536M, servidor de 12 GB dividido com o Mautic); novo `limites.conf` com `MemorySwapMax=0`, `TasksMax=512` e `StartLimitBurst=5` em 600 s. Conferido com `systemctl show` e app respondendo 200.
 - V7: confirmar o texto dos termos sobre arrependimento em 7 dias e mudança de preço (Admin › Planos muda só contratos novos).
 - **NFS-e (card F1), pronta e desligada:**
-  - **Contador:** confirmar o código de tributação nacional (padrão `010501`), o ISS em Piraquara sem retenção e o percentual total do Simples (`NFSE_P_TOT_TRIB_SN`, padrão 6,00).
-  - **Prova completa:** escolher como provar a emissão de ponta a ponta. Ou a Prefeitura de Piraquara adere à produção restrita (hoje dá E0037), ou o contador autoriza uma 1ª nota real de valor baixo, cancelada logo depois.
+  - **Contabilidade respondeu em 20/10** (resumo em `docs/operacao/nfse.md`, seção "Orientação da contabilidade"). Falta o dono decidir com ela:
+    - código de serviço e CNAE: 1.03.01 + 6190-6/01 (Anexo III) ou 1.05.01 + 6311-9/00 (Anexo III com fator R). A contabilidade inclui o CNAE no CNPJ;
+    - se os 2,17% informados são só o ISS ou o total do Simples (o campo `NFSE_P_TOT_TRIB_SN` é o total);
+    - reembolso parcial (sem resposta).
+  - **Prova completa:** a emissão é no padrão nacional; não há nada a pedir à prefeitura (o E0037 só existe na produção restrita). O caminho é, com o aval do dono e da contabilidade, uma 1ª nota real de valor baixo em produção, cancelada no mesmo mês.
   - **Ligar:** só depois de 03/11/2026 (NT 009 em produção). Passos em `docs/operacao/nfse.md`.
 
 ## Como rodar os testes (Windows)
@@ -66,6 +69,13 @@ Sem segredos aqui: o repositório é público.
 ## Diário
 
 ### 20/10/2026
+
+- **NFS-e: orientação da contabilidade aplicada.**
+  - Cancelamento só dentro do mês de competência (horário de Brasília). Um reembolso depois disso não cancela a nota: ela fica "Reembolso fora do prazo" (`cancel_expired`) para a contabilidade. O botão "Cancelar esta nota" some depois do mês e há um filtro "Fora do prazo". O código está em `src/lib/nfse/prazo.ts`.
+  - NBS `115062100` (1.1506.21.00) por padrão.
+  - Sondado de novo na produção restrita com o NBS e com os códigos 010501 e 010301: esquema e assinatura aceitos, mesma recusa de cadastro (E0037/E0084).
+  - Na tela do celular, os filtros das notas se sobrepunham com 6 botões. Agora eles quebram linha.
+  - Testes: unidade (virada de mês e de ano em Brasília), API (reembolso fora do prazo, cancelamento na fila quando o mês vira, cancelamento manual recusado com 409) e tela (desktop e celular).
 
 - **NFS-e Padrão Nacional (pedido do usuário: "emite quando contrata, se tem reembolso cancela"; o contador não respondeu, "pode construir no ambiente de testes").** Tudo em `docs/operacao/nfse.md`.
   - **Código:**

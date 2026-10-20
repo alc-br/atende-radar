@@ -4,6 +4,7 @@ import { buildCancel, buildDps, brDateTime, cleanText, dpsId, type DpsInput } fr
 import { loadCertificate, signXml, verifyXml } from '../../src/lib/nfse/sign'
 import { certificate, nfseConfig } from '../../src/lib/nfse/config'
 import { gz64, mensagens, ungz64 } from '../../src/lib/nfse/client'
+import { cancelavel, fimPrazoCancelamento, foraDoPrazo, mesCompetencia } from '../../src/lib/nfse/prazo'
 
 // NFS-e Padrão Nacional: XML da DPS e do cancelamento, assinatura e configuração. O envio de verdade foi provado contra
 // a produção restrita do governo (docs/operacao/nfse.md); aqui fica o que não depende de rede.
@@ -121,7 +122,9 @@ test('configuração: desligada por padrão, exige NFSE_DESDE, CNPJ e certificad
   expect(nfseConfig(min)).toMatchObject({ ok: false, error: expect.stringContaining('NFSE_CERT_FILE') })
   expect(nfseConfig({ ...min, NFSE_FAKE: '1' })).toMatchObject({ ok: false, error: expect.stringContaining('restrita') })
   const ok = nfseConfig({ ...min, NFSE_CERT_FILE: '/x.p12', NFSE_CERT_PASSWORD: 'y' })
-  expect(ok.ok && ok.cfg).toMatchObject({ ambiente: 'producao', serie: 1, cTribNac: '010501', pTotTribSN: '6.00' })
+  expect(ok.ok && ok.cfg).toMatchObject({ ambiente: 'producao', serie: 1, cTribNac: '010501', cNbs: '115062100', pTotTribSN: '6.00' })
+  expect(nfseConfig({ ...min, NFSE_CERT_FILE: '/x.p12', NFSE_CERT_PASSWORD: 'y', NFSE_CNBS: '' })).toMatchObject({ ok: true, cfg: { cNbs: null } })
+  expect(nfseConfig({ ...min, NFSE_CERT_FILE: '/x.p12', NFSE_CERT_PASSWORD: 'y', NFSE_CNBS: '1.1506.21' })).toMatchObject({ ok: false, error: expect.stringContaining('NFSE_CNBS') })
 })
 
 test('API: corpo em gzip+base64 e erros com chaves em maiúsculas ou minúsculas', () => {
@@ -129,4 +132,21 @@ test('API: corpo em gzip+base64 e erros com chaves em maiúsculas ou minúsculas
   expect(mensagens({ erros: [{ Codigo: 'E0037', Descricao: 'x', Complemento: 'y' }] }, 'erros', 'erro')).toEqual([{ codigo: 'E0037', descricao: 'x', complemento: 'y' }])
   expect(mensagens({ erro: [{ codigo: 'E1831', descricao: 'z' }] }, 'erros', 'erro')).toEqual([{ codigo: 'E1831', descricao: 'z' }])
   expect(mensagens({ erro: { codigo: 'E2404', descricao: 'w' } }, 'erros', 'erro')).toEqual([{ codigo: 'E2404', descricao: 'w' }])
+})
+
+test('prazo de cancelamento: só dentro do mês de competência, no horário de Brasília', () => {
+  // paga em 31/10 às 23:30 de Brasília (01/11 02:30 UTC): competência outubro, cancela até 31/10 23:59:59 de Brasília
+  const comp = new Date('2026-11-01T02:30:00Z')
+  expect(mesCompetencia(comp)).toBe('outubro/2026')
+  expect(fimPrazoCancelamento(comp).toISOString()).toBe('2026-11-01T03:00:00.000Z')
+  expect(cancelavel(comp, new Date('2026-11-01T02:59:59Z'))).toBe(true)
+  expect(cancelavel(comp, new Date('2026-11-01T03:00:00Z'))).toBe(false)
+  // paga em 01/11 00:10 de Brasília: competência novembro, cancela o mês todo
+  const nov = new Date('2026-11-01T03:10:00Z')
+  expect(mesCompetencia(nov)).toBe('novembro/2026')
+  expect(cancelavel(nov, new Date('2026-11-30T23:00:00Z'))).toBe(true)
+  expect(cancelavel(nov, new Date('2026-12-01T03:00:00Z'))).toBe(false)
+  // virada de ano
+  expect(fimPrazoCancelamento(new Date('2026-12-15T12:00:00Z')).toISOString()).toBe('2027-01-01T03:00:00.000Z')
+  expect(foraDoPrazo(comp)).toContain('competência de outubro/2026')
 })
