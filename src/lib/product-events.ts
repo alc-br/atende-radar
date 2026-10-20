@@ -20,6 +20,11 @@ export async function milestone(organizationId: string, name: MilestoneName, at 
   if (reached.has(key)) return false
   try {
     if (await isSimulationOrg(organizationId)) return false // empresa simulada (S1) não entra no funil
+    // depois de um reinício o cache está vazio: olha o banco antes, para o Prisma não sujar o log com o P2002 esperado
+    if (await db.productMilestone.findUnique({ where: { organizationId_name: { organizationId, name } }, select: { name: true } })) {
+      reached.add(key)
+      return false
+    }
     await db.productMilestone.create({ data: { organizationId, name, reachedAt: at } })
     reached.add(key)
     return true

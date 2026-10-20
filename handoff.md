@@ -97,7 +97,15 @@ Sem segredos aqui: o repositório é público.
     - "daqui a pouco te respondo".
     No conjunto cego, a cobertura de intenção alta foi de 56% para 61% e a de promessa de 87% para 93%, sem perder precisão.
   - **Camada de IA** (pedido do dono, depois do go-live): card no Pós-MVP, https://trello.com/c/y6M0gPex. Módulo isolado e desligável; a IA só sugere, o CI mede e uma pessoa aprova.
-  - Próximos passos: perguntas sem resposta (lote de 17:02, confere às 17:34); 2º atendente ("Ana"); repetir o teste das perguntas depois do deploy; "Fechado, pode mandar o pix" para ver se a venda fecha a Recuperação; queda da conexão (dono).
+  - **Também provado no ar, depois do deploy do `18b8024` (17:27):**
+    - o WhatsApp reconecta sozinho em 6 s depois do reinício do deploy;
+    - perguntas sem resposta após o SLA de 30 min: "qnto fica o pacote com 3 sessoes", "Aceita cartão / ?" e "Posso ir de maquiagem" seguido de "?" em mensagem separada (a correção nova); "Ok obrigada" e o "?" sozinho não contam;
+    - a resposta assinada "Att, Ana" marca as 4 perguntas como respondidas, resolve os alertas e cria a identidade "Ana" ao lado de "Carlos" (vários atendentes no mesmo número);
+    - foto sem legenda entra como imagem sem texto, e foto com legenda guarda o texto;
+    - reação 👍 é ignorada, sem erro;
+    - "Fechado! Já fiz o pix…" fecha a conversa como venda ("venda-detectada"), a oportunidade como ganha e a Recuperação como "recovered" (automático).
+  - Log: depois de cada reinício, o Prisma imprimia um `prisma:error` (P2002) inofensivo ao regravar um marco do funil que já existia. Agora o código olha o banco antes (`src/lib/product-events.ts`).
+  - **Placar:** 6 de 8 monitoramentos provados no ar. Faltam "Sem resposta após interação" (não isolável com 1 cliente; coberto no CI) e "Conexão desconectada" (depende do dono).
 
 - **Teste grátis de volta a 14 dias em produção.** O `TRIAL_MINUTES=10` estava no `app.env` desde 16/10 (teste do fim do período grátis) e fazia todo cadastro novo ganhar 10 minutos. Removido, com backup `app.env.bak-*-antes-trial14`, e serviço reiniciado; conferido que o processo não tem mais a variável. A conta de teste do WhatsApp do dono (org `cmvh2ldr…`, "ALC") voltou a ter 14 dias desde o cadastro (até 03/11 16:22), com backup do banco `prod-*-antes-trial14.db`. Outra conta "ALC" de 17/10 segue com o teste de 10 minutos vencido. Antes de vender, conferir que não há `TRIAL_MINUTES` no `app.env`.
 
