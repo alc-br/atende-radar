@@ -87,6 +87,11 @@ Sem segredos aqui: o repositório é público.
   - **NT 009:**
     - em 30/10 sai a 2ª entrega na restrita, que pode exigir campos novos do Simples. Rodar a sonda de novo.
     - em 03/11 a NT 009 entra em produção. Antes disso, a produção deve recusar o `finNFSe`.
+  - **Corrigido no caminho:**
+    - **Troca de cartão que paga a fatura em aberto:** no CI, o sandbox do Pagar.me devolveu a fatura ainda recusada logo depois da cobrança aprovada. A tela dizia "pago" e a empresa ficava inadimplente até a próxima sincronização. Agora o sistema relê o Pagar.me por até 8 s.
+    - **`qr.ui.spec.ts`:** disputa no teste (o pedido de QR novo da tela chegava depois do "conectado" simulado). O teste agora espera esse pedido.
+    - **`bun audit`:** ignora GHSA-86w9-cpqp-85rv (`node-forge`, sem versão corrigida). A falha está na verificação de assinatura do forge, que não usamos.
+  - **Deploy:** CI verde e deploy feito em 20/10/2026 (run 39436021806, commit a4dc8fd). A NFS-e foi para produção **desligada** (`NFSE_AMBIENTE` não definido = `off`).
 
 ### 19/10/2026
 
