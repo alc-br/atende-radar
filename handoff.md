@@ -73,7 +73,7 @@ Sem segredos aqui: o repositório é público.
 ### 20/10/2026
 
 - **Teste real do WhatsApp (item 8), em andamento.**
-  - Montagem: o número da empresa (final 1515) está conectado ao AtendeRadar em produção, na conta de teste `calegarichipak+testecomchips@` (org `cmvh2ldr…`). O cliente (final 3324) e a empresa mandam mensagens pelo Evolution da ALC: instâncias `wa-5541991193324` (cliente) e `alc` (empresa). A chave fica em `D:\ALCerramentas\evolution\stack\.evolution_env` e é lida só por script, nunca impressa. Mensagens só entre esses dois números.
+  - Montagem: o número da empresa (final 1515) está conectado ao AtendeRadar em produção, na conta de teste do dono (org `cmvh2ldr…`). O cliente (final 3324) e a empresa mandam mensagens pelo Evolution da ALC: instâncias do cliente (`wa-…3324`) e da empresa (`alc`). A chave fica no `.evolution_env` da stack do Evolution (manual em `D:/ALC/ferramentas/evolution/`) e é lida só por script, nunca impressa. Mensagens só entre esses dois números.
   - **Provado no ar** (horários de Brasília, conferidos no banco de produção, só leitura):
     - a mensagem chega em ~1 s, a conversa é criada com intenção "preço" e status "aguardando empresa", e o telefone fica cifrado (só os 4 últimos);
     - "Cliente sem primeira resposta" abre aos 10 min (16:43:56), com notificação e item na Recuperação;
