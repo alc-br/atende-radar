@@ -19,7 +19,11 @@ test('Gerar QR mostra o QR do WhatsApp e avisa quando conectar', async ({ page, 
   await page.locator('[data-tour="nav-connections"]').click()
 
   const card = page.locator('div', { has: page.getByText(name, { exact: true }) }).filter({ has: page.getByRole('button', { name: /Gerar QR/ }) }).last()
+  // ao abrir, a tela pede um QR novo (status volta a "qr_required"); o celular "lê" o QR só depois disso, senão o
+  // pedido atrasado desfaz a conexão simulada abaixo
+  const reconnect = page.waitForResponse((r) => r.url().endsWith(`/api/connections/${conn}`) && r.request().method() === 'PATCH')
   await card.getByRole('button', { name: /Gerar QR/ }).click()
+  expect((await reconnect).ok()).toBe(true)
 
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByRole('heading', { name: 'Conectar o WhatsApp' })).toBeVisible()
