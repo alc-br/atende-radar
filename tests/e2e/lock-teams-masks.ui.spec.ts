@@ -120,9 +120,12 @@ test.describe('máscaras dos dados da empresa', () => {
     await openView(page, 'settings', !!isMobile)
     const cnpj = page.locator('#c-cnpj')
     await expect(cnpj).toBeVisible({ timeout: 15000 })
-    await cnpj.fill('')
-    await cnpj.pressSequentially('11222333000181')
-    await expect(cnpj).toHaveValue('11.222.333/0001-81')
+    // a tela pode terminar de carregar os dados da empresa no meio da digitação e repor o campo: digita de novo
+    await expect(async () => {
+      await cnpj.fill('')
+      await cnpj.pressSequentially('11222333000181')
+      await expect(cnpj).toHaveValue('11.222.333/0001-81', { timeout: 2000 })
+    }).toPass({ timeout: 20000 })
     const tel = page.locator('#c-tel')
     await tel.fill('')
     await tel.pressSequentially('11987654321')

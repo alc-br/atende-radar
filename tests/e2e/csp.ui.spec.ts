@@ -84,6 +84,8 @@ test('scripts só com o nonce da requisição (sem unsafe-inline), nonce novo a 
   await expect(page.locator('h1').first()).toBeVisible({ timeout: 30_000 })
   expect(await page.evaluate(() => (window as unknown as { __injetado?: boolean }).__injetado)).toBeUndefined()
   await expect.poll(async () => (await violacoes()).join(' ')).toMatch(/script-src/)
+  // o WebKit recarrega a página depois do bloqueio: a interceptação ainda pendente não deve derrubar o teste
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
 })
 
 test('painel: todas as telas do menu abrem sem nada bloqueado pela CSP', async ({ page, context, isMobile }) => {
