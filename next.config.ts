@@ -49,7 +49,7 @@ const nextConfig: NextConfig = {
           // próprio domínio (todo recurso já é 'self' pela CSP; o Pagar.me e o ViaCEP são chamados com CORS)
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
           { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
-          { key: 'Cross-Origin-Resource-Policy', value: 'same-site' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
         ],
       },
       // logo e ícone aparecem nos e-mails (webmail de outro domínio carrega a imagem direto do app)

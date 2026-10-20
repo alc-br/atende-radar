@@ -60,7 +60,7 @@ test('scripts só com o nonce da requisição (sem unsafe-inline), nonce novo a 
     nonces.push(nonce!)
     expect(h['cross-origin-opener-policy'], caminho).toBe('same-origin')
     expect(h['cross-origin-embedder-policy'], caminho).toBe('require-corp')
-    expect(h['cross-origin-resource-policy'], caminho).toBe('same-site')
+    expect(h['cross-origin-resource-policy'], caminho).toBe('same-origin')
   }
   expect(new Set(nonces).size).toBe(nonces.length)
   // o logo vai nos e-mails: pode ser carregado por outro domínio
