@@ -15,6 +15,14 @@ test.describe('o que é pergunta', () => {
     'Dá pra ir amanhã às 10? 🙏',
     'Onde fica a clínica',
     'Como faço para pagar',
+    // pontuação esquecida ou fora do lugar (teste ao vivo de 20/10/2026)
+    'Aceita cartão\n?',
+    'O valor é 180 mesmo\n?',
+    'qnto fica o pacote com 3 sessoes',
+    'Posso ir de maquiagem',
+    'consigo parcelar em 3x',
+    'e pra levar alguma coisa',
+    'vcs conseguem me encaixar hoje',
   ]
   const NO = [
     'Bom dia',
@@ -27,6 +35,11 @@ test.describe('o que é pergunta', () => {
     'Oi, tudo bem? Queria agendar',
     'Qualquer coisa te aviso',
     '',
+    'Posso sim',
+    'Consigo sim, obrigada',
+    'Pode ser amanhã',
+    'Oi\n?',
+    'Preciso ir embora agora',
   ]
   for (const t of YES) test(`"${t}" é pergunta`, () => expect(isQuestion(t)).toBe(true))
   for (const t of NO) test(`"${t}" não é pergunta`, () => expect(isQuestion(t)).toBe(false))
@@ -41,6 +54,19 @@ test.describe('pergunta sem resposta além do SLA', () => {
   const wall = (a: Date, b: Date) => Math.max(0, (b.getTime() - a.getTime()) / 60000)
   const opts = (nowMin: number, elapsed = wall) => ({ now: at(nowMin), slaFirstMinutes: 10, slaContinuityMinutes: 30, elapsed })
   const msg = (id: string, direction: 'inbound' | 'outbound', min: number, text: string): QuestionMessage => ({ id, direction, text, occurredAt: at(min) })
+
+  test('"?" sozinho logo depois de outra mensagem do cliente conta a mensagem de cima como pergunta', () => {
+    const r = detectIgnoredQuestions([msg('a', 'inbound', 0, 'O valor é 180 mesmo'), msg('b', 'inbound', 1, '?')], opts(15))
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ messageId: 'a', text: 'O valor é 180 mesmo', waitedMinutes: 15 })
+  })
+
+  test('"?" sozinho depois da empresa, depois de cumprimento ou de outra pergunta não cria pergunta nova', () => {
+    expect(detectIgnoredQuestions([msg('a', 'outbound', 0, 'Olá!'), msg('b', 'inbound', 1, '?')], opts(60))).toEqual([])
+    expect(detectIgnoredQuestions([msg('a', 'inbound', 0, 'Oi, tudo bem'), msg('b', 'inbound', 1, '?')], opts(60))).toEqual([])
+    const r = detectIgnoredQuestions([msg('a', 'inbound', 0, 'Quanto custa?'), msg('b', 'inbound', 1, '??')], opts(60))
+    expect(r.map((q) => q.messageId)).toEqual(['a'])
+  })
 
   test('sem resposta e dentro do SLA → nada ainda', () => {
     expect(detectIgnoredQuestions([msg('a', 'inbound', 0, 'Quanto custa?')], opts(5))).toEqual([])

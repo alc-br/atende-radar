@@ -7,7 +7,8 @@ export interface ExtractedPromise {
 
 // Marcadores de promessa da empresa ("já te retorno", "vou verificar", "te envio"...).
 const PROMISE = [
-  /\bte (retorno|aviso|mando|envio|ligo|falo|passo|chamo)\b/,
+  /\bte (retorno|aviso|mando|envio|ligo|falo|passo|chamo|digo|respondo|confirmo)\b/,
+  /\bdaqui a pouco (te )?(respondo|retorno|aviso|mando|envio|falo|passo)\b/, /\bja (verifico|vejo|confirmo|checo)\b/,
   /\bte dou (um |uma )?(retorno|posicao|resposta)\b/,
   /\bvou (verificar|confirmar|ver|checar|consultar|falar com|perguntar|te)\b/,
   /\bretorno (em|ate|hoje|amanha)\b/,

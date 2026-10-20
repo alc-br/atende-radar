@@ -3,6 +3,12 @@ import { norm, normChat } from './text'
 // B6 · Perguntas ignoradas: pergunta do cliente que ficou sem resposta da empresa além do SLA.
 // Funções puras (testadas em tests/unit); o motor grava o resultado em OpenQuestion.
 
+// Verbos de ação que, depois de "posso", "consigo", "é pra"…, fazem a frase pedir resposta
+const ACTION_VERBS = [
+  'ir', 'vir', 'levar', 'trazer', 'usar', 'pagar', 'parcelar', 'dividir', 'chegar', 'passar', 'pegar', 'retirar', 'buscar', 'trocar',
+  'remarcar', 'reagendar', 'cancelar', 'agendar', 'marcar', 'escolher', 'fazer', 'entrar', 'estacionar', 'comer', 'beber', 'tomar',
+].join('|')
+
 // Começo de frase que já é pergunta mesmo sem "?" (texto já passado por normChat: minúsculas, sem acento, "vc" → "voce")
 const INTERROGATIVE_START = new RegExp(
   '^(' + [
@@ -12,6 +18,9 @@ const INTERROGATIVE_START = new RegExp(
     'que horas', 'que dia', 'ate que horas',
     'voces (tem|fazem|aceitam|atendem|trabalham|abrem|entregam|vendem|parcelam)',
     'tem como', 'teria como', 'da para', 'e possivel', 'aceita', 'aceitam', 'tem (vaga|horario|disponivel|desconto|estacionamento)',
+    // pedido de permissão/possibilidade sem "?" ("posso ir de maquiagem", "consigo parcelar em 3x", "e pra levar alguma coisa")
+    `(posso|consigo|podemos|conseguimos|da para eu|tem que|e para) (${ACTION_VERBS})`,
+    `(voces )?(podem|conseguem|consegue) (${ACTION_VERBS}|me (atender|encaixar|mandar|enviar|passar))`,
   ].join('|') + ')\\b'
 )
 // Cumprimento/conversa fiada com "?" não pede resposta de verdade ("tudo bem?", "oi??")
@@ -23,7 +32,8 @@ const SMALL_TALK = /^((oi|ola|alo|e ai|bom dia|boa tarde|boa noite|opa)[\s,!.]*)
  */
 export function isQuestion(text: string | null | undefined): boolean {
   if (!norm(text)) return false
-  const sentences = String(text).split(/\n+|(?<=[?!.])\s+/)
+  // "?" sozinho na linha de baixo vale para a frase de cima ("O valor é 180 mesmo\n?")
+  const sentences = String(text).replace(/\s*\n+\s*(\?+)\s*(?=\n|$)/g, '$1').split(/\n+|(?<=[?!.])\s+/)
   return sentences.some((s) => {
     const raw = norm(s)
     if (!raw) return false
@@ -75,13 +85,18 @@ export function detectIgnoredQuestions(messages: QuestionMessage[], opts: Detect
       companySpoke = true
       continue
     }
-    if (!isQuestion(m.text)) continue
+    // "?" mandado sozinho logo depois de outra mensagem do cliente pergunta o que ele acabou de escrever
+    // ("Posso ir de maquiagem" + "?"): conta a mensagem anterior, uma vez só. "?" depois da empresa é cobrança, não pergunta.
+    const prev = msgs[i - 1]
+    const lonelyMark = /^\?+$/.test(norm(m.text)) && prev?.direction === 'inbound' && !!norm(prev.text) && !isQuestion(prev.text) && !SMALL_TALK.test(normChat(prev.text))
+    const q = lonelyMark ? prev : m
+    if (!lonelyMark && !isQuestion(m.text)) continue
     const reply = msgs.slice(i + 1).find((x) => x.direction === 'outbound' && x.occurredAt >= m.occurredAt)
     const until = reply ? reply.occurredAt : opts.now
-    const waited = opts.elapsed(m.occurredAt, until)
+    const waited = opts.elapsed(q.occurredAt, until)
     const sla = companySpoke ? opts.slaContinuityMinutes : opts.slaFirstMinutes
     if (waited < sla) continue
-    out.push({ messageId: m.id, text: (m.text ?? '').trim().slice(0, 280), askedAt: m.occurredAt, answeredBy: reply?.id ?? null, waitedMinutes: Math.round(waited) })
+    out.push({ messageId: q.id, text: (q.text ?? '').trim().slice(0, 280), askedAt: q.occurredAt, answeredBy: reply?.id ?? null, waitedMinutes: Math.round(waited) })
   }
   return out
 }

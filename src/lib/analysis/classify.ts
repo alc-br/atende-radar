@@ -28,17 +28,20 @@ const INTENTS: Array<[string, RegExp[]]> = [
     /pode mandar (o |a )?(link|pix|boleto|chave|dados)/, /link de pagamento/, /como pago/, /como faco (para )?(pagar|comecar|contratar|comprar|fechar)/,
     /\bfechado\b/, /\bfechou\b/, /\bdecidi (fazer|comprar|fechar|contratar)/, /\b(eu|a gente|nos) (fecho|fecha|fechamos)\b/, /(quero|gostaria de|vou) fazer a (matricula|compra|encomenda)/,
     /\b(me )?separa (para mim )?\d/, /\bme separa\b/, /\bseparar para mim\b/, /\bpasso (ai |la )?(para |hoje )?(pegar|buscar|retirar)\b/,
+    // "vou querer", "quero 2", "me manda o pix/link" (pedido para pagar, não pergunta de preço)
+    /\bvou querer\b/, /\bquero (\d+|duas?|dois|tres|esse|essa|esses|essas)\b(?! (dias|horas|minutos|meses|anos|vezes))/, /\b(me )?manda(r)? (o |a )?(pix|link|chave|boleto|dados (para|do) pagamento)\b/,
   ]],
   ['negociacao', [/negoci/, /faz por/, /melhor preco/, /abaixa/, /fecha por/, /consegue melhorar/, /\bproposta\b/, /\bse (fizer|fizerem|fazer) .{0,40}\b(fecho|fecha|fechamos|levo)\b/]],
   ['agendamento', [
     /agendar/, /marcar/, /reagendar/, /consulta (marcada|agendada)/, /\bvisitar\b/, /visita tecnica/, /\breservar\b/, /(quero|queria|gostaria de|vou) matricul/,
     new RegExp(String.raw`\btem (vaga|horario|hora)\b${CARGO}`), new RegExp(String.raw`\bvaga\b${CARGO} para\b`), /\bencaixe\b/, /\bencaixar\b/,
+    /\b(marca|reserva|agenda) (para mim|um horario|uma hora|uma vaga)\b/, /\btem disponibilidade\b/, /\bhorarios?\b.{0,15}\b(livres?|disponive(l|is)|vagos?)\b/,
     /\b(podem|pode|consegue|conseguem) me atender (no |na |nesse |nessa |esse |essa )?(sabado|domingo|amanha|hoje|segunda|terca|quarta|quinta|sexta|feriado|de manha|a tarde|a noite|as \d)/,
   ]],
   // "ninguém responde" é irritação com a espera (vai para o sentimento), não o assunto da conversa
   ['reclamacao', [ABSURDO, /pessim/, /horrivel/, /nao gostei/, /(?<!nao (estou|e) )reclam/, /insatisf/, /descaso/, /inaceitavel/, /procon/, /reclame aqui/]],
   ['disponibilidade', [/disponivel/, /estoque/]],
-  ['preco', [/preco/, /\bvalor(es)?\b/, /\bquanto\b(?! tempo)/, /orcamento/, /custa/, /desconto/, /parcel/, /\bpix\b/, /formas? de pagamento/, /\binvestimento\b/, /\bcobram?\b/, /\bcota(r|cao|coes)\b/]],
+  ['preco', [/preco/, /\bvalor(es)?\b/, /\bquanto\b(?! tempo)/, /orcamento/, /custa/, /desconto/, /parcel/, /\bpix\b/, /formas? de pagamento/, /\binvestimento\b/, /\bcobram?\b/, /\bcota(r|cao|coes)\b/, /\be caro\b/, /\bprecinho\b/, /\br\$\s*\?/]],
   ['suporte', [/problema/, /\berro\b/, /nao funciona/, /\bajuda\b/, /duvida/, /travou/]],
   ['pos_venda', [/garantia/, /\btroca\b/, /nota fiscal/, /depois da compra/, /pos[- ]venda/]],
   ['consulta', [/onde fica/, /endereco/, /como funciona/, /informac/, /gostaria de saber/, /horario de funcionamento/]],
@@ -76,6 +79,9 @@ const FRUSTRATED = [
   /\bja (perguntei|pedi|cobrei|liguei|mandei mensagem|falei|avisei|expliquei)\b.{0,40}\b(e nada|e ninguem|e nao|e ate agora|sem resposta|nao (me )?(respond|retorn|resolv)|ninguem|(\d+|duas|tres|varias|mil) vezes|de novo|mais de uma vez|antes)/,
   /era para (ser|ter|estar) (entreg|instal|feit|pront|cheg)/, /(parou|quebrou|estragou|deu problema|voltou a dar) de novo/, /\bperdi (tudo|o dia|meu tempo)/, /cara na porta/,
   /(procurar|ir para) outr[ao] (lugar|loja|clinica|oficina|empresa)/,
+  // desistência, xingamento leve e cobrança irônica ("sério que ninguém vai responder", "e aí, vão responder?")
+  /(?<!\bnao )\b(vou desistir|desisto)\b/, /\bnunca mais (compro|volto|venho|faco|peco|indico)\b/, /palhacada/, /\bridicul/, /^\s*af+\b/, /\bpqp\b/, /[\u{1F620}\u{1F621}\u{1F92C}\u{1F624}]/u,
+  /\b(muito|tao|super|mt) (lent|demorad)/, /\bserio que (ninguem|voces nao|nao vao)\b/, /\b(voces )?(vao|vai) (me )?responder\b.{0,10}\?/,
 ]
 // Mensagem que é só cobrança de resposta: "?", "oi??", "alô?"
 const NUDGE = /^\s*(oi|ola|alo|e ai|alguem|bom dia|boa tarde|boa noite)?\s*\?+\s*$/i
