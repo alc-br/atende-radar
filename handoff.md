@@ -63,6 +63,16 @@ Sem segredos aqui: o repositório é público.
 
 ### 19/10/2026
 
+- **Alertas do ZAP corrigidos (pedido do usuário, 19/10/2026).** Commits `f35a114`, `9086e2e`, `528ec89`. Varredura de 19/10 tinha 11 avisos no site e 8 no app; a de 20/10 (run 39349428455) deu **0 FAIL e 0 WARN** nos dois domínios.
+  - **CSP com nonce:** `src/lib/csp.ts` monta a política; o proxy (`src/proxy.ts`) gera um nonce por requisição e o Next o aplica aos próprios scripts; `script-src` sem `unsafe-inline`, com `strict-dynamic`. Toda página passou a ser dinâmica (o layout lê `x-nonce`). As APIs recebem a CSP sem nonce pelo `next.config.ts`. O `style-src` mantém `unsafe-inline` (React/Radix/sonner criam estilo em tempo de execução): regra 10055 ignorada com o motivo.
+  - **Isolamento entre origens:** COOP `same-origin`, COEP `require-corp`, CORP `same-origin`; `/brand/*` com CORP `cross-origin` (logo dos e-mails).
+  - **`/login`:** redireciona direto no proxy (antes mandava a página inteira, ~11 KB; agora 45 bytes).
+  - **nginx do servidor:** `server_tokens off` em `/etc/nginx/nginx.conf` (backup `nginx.conf.bak-20261019201425`); vale também para o Mautic. Regra 10036 passa a barrar.
+  - **`.zap/rules.tsv`:** falsos positivos e informativos ignorados, cada um com o motivo.
+  - **Provas:** `csp.ui.spec.ts` (nonce no cabeçalho e no HTML, nonce único por acesso, cabeçalhos de isolamento, `/login` sem corpo, script injetado no HTML barrado) em Chromium, Firefox, Safari e iPhone; suíte completa local 2184 ok; CI verde e deploy. Em produção: cabeçalhos conferidos com curl, nonces diferentes a cada acesso, `crossOriginIsolated` verdadeiro no navegador, site e login sem erro no console.
+  - **Testes frágeis corrigidos no caminho:** WebKit recarrega a página depois de bloquear o script injetado (o teste limpa a interceptação); máscara do CNPJ no celular disputava com o carregamento dos dados (o teste repete a digitação).
+- **NFS-e (card F1):** continua sem código. O certificado A1 agora está em `D:\ALC\certificado-digital6\` (`.p12` + `.cer`). Bloqueios: respostas do contador (código de tributação, alíquota, prazo de cancelamento) e a senha do `.p12` gravada pelo usuário fora do chat.
+
 - **Inadimplência com 7 dias de tolerância + exportação e desconexão da empresa bloqueada (pedido do usuário, 19/10/2026).** Commit `ae358ea`. Detalhes em `docs/operacao/cobranca-pagarme.md` (seções "Inadimplência" e "Empresa bloqueada") e no manual de suporte.
   - **Renovação recusada:** `past_due` + `pastDueSince` (migração `20261019120000_past_due_grace`). 7 dias com tudo liberado (inclusive cadastrar); lembretes no 3º e 6º dia e aviso do bloqueio no 7º (sino + e-mail, uma vez cada); depois, `unpaid` → bloqueio com motivo `payment_overdue`. Trocar o cartão cobra na hora a fatura em aberto (`PATCH /charges/{id}/card`). Operadora que desiste mantém a tolerância e a tela chama para contratar de novo.
   - **Qualquer bloqueio (teste vencido, plano encerrado, atraso):** o admin exporta todos os dados em JSON (`GET /api/organization/export`, botão no aviso do bloqueio e em Configurações › Privacidade); 2 dias depois do bloqueio os números de WhatsApp são desconectados (`statusReason plan_locked`) e o que chegar é ignorado. Texto antigo "as mensagens seguem chegando" removido.
