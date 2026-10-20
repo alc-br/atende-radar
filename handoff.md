@@ -22,11 +22,11 @@ Sem segredos aqui: o repositório é público.
 | 5 | E-mails (relatórios agendados) | ✅ no ar |
 | 6 | Resiliência (simulado de restauração) | ✅ no ar |
 | 7 | Segurança (ZAP, força bruta no login, sessão) + CSP | ✅ no ar (CSP conferida no ar em 14/10) |
-| 8 | WhatsApp real | ⏳ depende de 2 chips do usuário |
+| 8 | WhatsApp real | 🔄 em andamento desde 20/10 (2 números do dono via Evolution): 6 de 8 monitoramentos provados no ar; ver Diário 20/10 |
 
 ## Pendências que só o usuário resolve
 
-- 2 chips para o teste de WhatsApp real (item 8).
+- ~~2 chips para o teste de WhatsApp real~~ entregues em 20/10. Falta o dono **derrubar a conexão** (WhatsApp › Aparelhos conectados › desconectar o AtendeRadar) e reconectar pelo QR, para provar o alerta "Conexão desconectada".
 - **Backup diário + cópia no Google Drive** (escolhido em 15/10): o usuário precisa dizer qual conta do Google e qual pasta usar e autorizar o acesso. Depois disso, implementar o agendamento diário no servidor (pelo workflow de deploy) e a cópia para o Drive (ex.: rclone). Ainda não começado.
 - **Atualizar o CNPJ na Receita:** a Dash Stone mostra o aviso "Atualize seu CNPJ na Receita Federal… evitar que sua Conta Stone seja encerrada".
 - ~~Decidir quando virar `PAGARME_MODE=live`~~ feito em 16/10/2026 (ver Diário) (chaves de produção já validadas; Pagar.me só vai para produção depois do T19). Na 1ª venda real, conferir em Dash Stone › Vendas online › Webhooks › Eventos se o aviso chegou com autenticação OK.
@@ -71,6 +71,33 @@ Sem segredos aqui: o repositório é público.
 ## Diário
 
 ### 20/10/2026
+
+- **Teste real do WhatsApp (item 8), em andamento.**
+  - Montagem: o número da empresa (final 1515) está conectado ao AtendeRadar em produção, na conta de teste `calegarichipak+testecomchips@` (org `cmvh2ldr…`). O cliente (final 3324) e a empresa mandam mensagens pelo Evolution da ALC: instâncias `wa-5541991193324` (cliente) e `alc` (empresa). A chave fica em `D:\ALCerramentas\evolution\stack\.evolution_env` e é lida só por script, nunca impressa. Mensagens só entre esses dois números.
+  - **Provado no ar** (horários de Brasília, conferidos no banco de produção, só leitura):
+    - a mensagem chega em ~1 s, a conversa é criada com intenção "preço" e status "aguardando empresa", e o telefone fica cifrado (só os 4 últimos);
+    - "Cliente sem primeira resposta" abre aos 10 min (16:43:56), com notificação e item na Recuperação;
+    - aos 15 min o mesmo alerta vira "Pedido de preço sem retorno";
+    - a resposta da empresa resolve o alerta sozinha em ~17 s;
+    - "Intenção alta sem resposta" abre aos 5 min do pedido de agendamento (o mesmo alerta reabre com contador 2);
+    - "Cliente irritado" abre ~20 s depois de "Absurdo!!! Ninguém responde…";
+    - a promessa "te retorno em 5 minutos" vira "Promessa próxima do vencimento" na hora e "Promessa vencida" no prazo (gravidade crítica e notificação "Mais grave");
+    - a mensagem que cumpre a promessa marca ela como cumprida e resolve o alerta;
+    - a assinatura `*Carlos*:` vira identidade de atendente (Equipe › Identidades), ao lado de "WhatsApp Web" e "Número inteiro";
+    - "?" mandado sozinho reabre "Cliente irritado", o que está certo: é cobrança.
+  - Item de Recuperação fica aberto depois da resposta. Isso é **intencional**: ele só fecha com venda ou perda detectada, ou pela equipe.
+  - **Não isolável com 1 cliente:** "Sem resposta após interação" (30 min). Com o mesmo cliente, ele fica sempre atrás de "preço" ou "intenção alta", que têm prioridade no mesmo alerta. Está coberto pelos testes automáticos. Para provar no ar, precisa de um 3º número ou de uma conversa sem preço nem agendamento.
+  - **Depende do dono:** "Conexão desconectada" (ver Pendências).
+  - **Furos achados e corrigidos** (commit `18b8024`, nova bateria `tests/unit/variacoes.unit.spec.ts` no CI):
+    - pergunta com "?" na linha de baixo ou em mensagem separada;
+    - "posso…", "consigo…" e "é pra…" sem "?";
+    - "vou querer", "quero 2", "me manda o pix/link" e "marca pra mim";
+    - "é caro?" e "precinho";
+    - "desisto", "aff", "pqp", 😡 e "vão responder?";
+    - "daqui a pouco te respondo".
+    No conjunto cego, a cobertura de intenção alta foi de 56% para 61% e a de promessa de 87% para 93%, sem perder precisão.
+  - **Camada de IA** (pedido do dono, depois do go-live): card no Pós-MVP, https://trello.com/c/y6M0gPex. Módulo isolado e desligável; a IA só sugere, o CI mede e uma pessoa aprova.
+  - Próximos passos: perguntas sem resposta (lote de 17:02, confere às 17:34); 2º atendente ("Ana"); repetir o teste das perguntas depois do deploy; "Fechado, pode mandar o pix" para ver se a venda fecha a Recuperação; queda da conexão (dono).
 
 - **Teste grátis de volta a 14 dias em produção.** O `TRIAL_MINUTES=10` estava no `app.env` desde 16/10 (teste do fim do período grátis) e fazia todo cadastro novo ganhar 10 minutos. Removido, com backup `app.env.bak-*-antes-trial14`, e serviço reiniciado; conferido que o processo não tem mais a variável. A conta de teste do WhatsApp do dono (org `cmvh2ldr…`, "ALC") voltou a ter 14 dias desde o cadastro (até 03/11 16:22), com backup do banco `prod-*-antes-trial14.db`. Outra conta "ALC" de 17/10 segue com o teste de 10 minutos vencido. Antes de vender, conferir que não há `TRIAL_MINUTES` no `app.env`.
 
