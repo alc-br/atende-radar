@@ -41,11 +41,13 @@ Sem segredos aqui: o repositório é público.
 - V7: confirmar o texto dos termos sobre arrependimento em 7 dias e mudança de preço (Admin › Planos muda só contratos novos).
 - **NFS-e (card F1), pronta e desligada:**
   - **Contabilidade respondeu em 20/10** (resumo em `docs/operacao/nfse.md`, seção "Orientação da contabilidade"). Falta o dono decidir com ela:
-    - código de serviço e CNAE: 1.03.01 + 6190-6/01 (Anexo III) ou 1.05.01 + 6311-9/00 (Anexo III com fator R). A contabilidade inclui o CNAE no CNPJ;
-    - se os 2,17% informados são só o ISS ou o total do Simples (o campo `NFSE_P_TOT_TRIB_SN` é o total);
+    - código de serviço e CNAE: 1.03.01 + 6190-6/01 (Anexo III) ou 1.05.01 + 6311-9/00 (Anexo III com fator R: com folha e pró-labore abaixo de 28% do faturamento, cai no Anexo V). A contabilidade inclui o CNAE no CNPJ. No sistema, trocar o código é só mudar `NFSE_CTRIB_NAC` (padrão `010501`);
+    - se os 2,17% informados são só o ISS ou o total do Simples (o campo `NFSE_P_TOT_TRIB_SN` é o total; estimativa nossa: ~6,8% se 2,17% for só o ISS);
     - reembolso parcial (sem resposta).
   - **Prova completa:** a emissão é no padrão nacional; não há nada a pedir à prefeitura (o E0037 só existe na produção restrita). O caminho é, com o aval do dono e da contabilidade, uma 1ª nota real de valor baixo em produção, cancelada no mesmo mês.
-  - **Ligar:** só depois de 03/11/2026 (NT 009 em produção). Passos em `docs/operacao/nfse.md`.
+  - **30/10/2026:** 2ª entrega da NT 009 na produção restrita. Rodar a sonda de novo, porque pode exigir campos novos do Simples (`regApIBSCBSSN`, `cAtvSN`, `indDest`).
+  - **Ligar:** só depois de 03/11/2026 (NT 009 em produção), com as decisões acima e o CNAE incluído. Passos em `docs/operacao/nfse.md`.
+  - **Pendente da contabilidade (outros sistemas):** imunidade da apostila em PDF e venda para o exterior aguardam a consultoria dela (Completa/ALCADEMY).
 
 ## Como rodar os testes (Windows)
 
@@ -76,6 +78,8 @@ Sem segredos aqui: o repositório é público.
   - Sondado de novo na produção restrita com o NBS e com os códigos 010501 e 010301: esquema e assinatura aceitos, mesma recusa de cadastro (E0037/E0084).
   - Na tela do celular, os filtros das notas se sobrepunham com 6 botões. Agora eles quebram linha.
   - Testes: unidade (virada de mês e de ano em Brasília), API (reembolso fora do prazo, cancelamento na fila quando o mês vira, cancelamento manual recusado com 409) e tela (desktop e celular).
+  - **Deploy:** commit 1a54e57, CI run 39467264282 com os 7 jobs verdes e deploy ok. Em produção, conferido no servidor: nenhuma variável `NFSE_` no `app.env` (emissão desligada) e o serviço ativo. O card F1 no Trello foi atualizado.
+  - **Correção do usuário:** a emissão é no padrão nacional, então não há nada a pedir à Prefeitura de Piraquara. A opção "Piraquara aderir à produção restrita" saiu da documentação.
 
 - **NFS-e Padrão Nacional (pedido do usuário: "emite quando contrata, se tem reembolso cancela"; o contador não respondeu, "pode construir no ambiente de testes").** Tudo em `docs/operacao/nfse.md`.
   - **Código:**
