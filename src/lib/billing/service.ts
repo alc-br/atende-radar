@@ -453,6 +453,14 @@ export async function replaceCard(auth: AuthContext, input: { cardToken?: string
       paidNow = String(charge?.status ?? '') === 'paid'
     }
     await applyProviderState(cfg, auth.orgId, await pagarme.getSubscription(cfg, subId))
+    // cobrança aprovada, mas a leitura logo em seguida pode ainda trazer a fatura recusada (o Pagar.me demora a
+    // refletir): relê por alguns segundos para a empresa não ficar inadimplente depois de pagar
+    for (let i = 0; paidNow && i < 8; i++) {
+      const s = await db.subscription.findUnique({ where: { organizationId: auth.orgId }, select: { status: true } })
+      if (s?.status !== 'past_due' && s?.status !== 'unpaid') break
+      await new Promise((r) => setTimeout(r, 1000))
+      await applyProviderState(cfg, auth.orgId, await pagarme.getSubscription(cfg, subId))
+    }
   } catch (e) {
     if (e instanceof PagarmeError) return fail(e.status >= 500 || e.status === 0 ? 502 : 402, 'card_declined', friendlyPaymentError(e.status, e.body))
     throw e
