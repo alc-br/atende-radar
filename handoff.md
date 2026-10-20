@@ -72,6 +72,8 @@ Sem segredos aqui: o repositório é público.
 
 ### 20/10/2026
 
+- **Teste grátis de volta a 14 dias em produção.** O `TRIAL_MINUTES=10` estava no `app.env` desde 16/10 (teste do fim do período grátis) e fazia todo cadastro novo ganhar 10 minutos. Removido, com backup `app.env.bak-*-antes-trial14`, e serviço reiniciado; conferido que o processo não tem mais a variável. A conta de teste do WhatsApp do dono (org `cmvh2ldr…`, "ALC") voltou a ter 14 dias desde o cadastro (até 03/11 16:22), com backup do banco `prod-*-antes-trial14.db`. Outra conta "ALC" de 17/10 segue com o teste de 10 minutos vencido. Antes de vender, conferir que não há `TRIAL_MINUTES` no `app.env`.
+
 - **NFS-e: orientação da contabilidade aplicada.**
   - Cancelamento só dentro do mês de competência (horário de Brasília). Um reembolso depois disso não cancela a nota: ela fica "Reembolso fora do prazo" (`cancel_expired`) para a contabilidade. O botão "Cancelar esta nota" some depois do mês e há um filtro "Fora do prazo". O código está em `src/lib/nfse/prazo.ts`.
   - NBS `115062100` (1.1506.21.00) por padrão.
