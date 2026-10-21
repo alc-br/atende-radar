@@ -154,6 +154,7 @@ model Conversation {
   updatedAt         DateTime                     @updatedAt
   messages          Message[]
   classifications   ConversationClassification[]
+  aiClassification  AiClassification?
   findings          AuditFinding[]
   opportunities     RevenueOpportunity[]
   alerts            Alert[]
@@ -206,6 +207,23 @@ model ConversationClassification {
   createdAt          DateTime     @default(now())
 
   @@index([conversationId])
+}
+
+// Item 8 · resposta do classificador por IA (Claude) guardada por conversa: só chama de novo quando o texto muda
+// (inputHash). Guarda só os rótulos, nunca o texto da conversa. Ligado por AI_CLASSIFIER=claude (docs/operacao/ia.md).
+model AiClassification {
+  conversationId String       @id
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  organizationId String
+  inputHash      String
+  resultJson     String
+  model          String
+  inputTokens    Int          @default(0)
+  outputTokens   Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, updatedAt])
 }
 
 model AuditFinding {

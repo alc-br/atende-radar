@@ -18,6 +18,12 @@ jobs:
           BACKUP_REQUIRE_DB: 'true'
         run: /usr/local/bin/bun scripts/backup-db.ts
 
+      # T16 · cópia fora do servidor: o backup acima, cifrado pelo rclone, numa pasta do Google Drive do dono
+      # (docs/operacao/backup-drive.md). Falha abre a mesma issue de alerta.
+      - name: Cópia cifrada no Google Drive
+        working-directory: /opt/atende-radar/current
+        run: bash scripts/backup-drive.sh
+
       # I3/T16 · este job roda NO servidor (runner próprio): confere o espaço em disco onde ficam o app, o banco e os backups.
       # Falha (e abre a issue abaixo) com 85 % ou mais em uso.
       - name: Espaço em disco do servidor

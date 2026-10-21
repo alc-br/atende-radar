@@ -16,10 +16,10 @@ Código: `src/lib/nfse/` (`xml.ts`, `sign.ts`, `client.ts`, `config.ts`, `servic
   - Vem dos dados do checkout, guardados em `BillingCustomer`: nome, CPF ou CNPJ, e-mail e endereço. O código IBGE do município sai do CEP (ViaCEP).
   - Clientes antigos, sem esse registro, são lidos do cliente no Pagar.me.
   - A troca de cartão atualiza o endereço.
-- **Serviço:** `NFSE_CTRIB_NAC` (padrão `010501`, licenciamento de programas) e NBS `NFSE_CNBS` (padrão `115062100`, ou seja 1.1506.21.00, SaaS). O ISS é devido no município do prestador, sem retenção. A empresa é ME/EPP do Simples Nacional: não informa alíquota e informa o total de tributos em `NFSE_P_TOT_TRIB_SN`. A descrição é "Licença de uso do software AtendeRadar (SaaS), plano X, assinatura mensal/anual - período de … a …".
+- **Serviço:** `NFSE_CTRIB_NAC` (padrão `010501`, licenciamento de programas) e NBS `NFSE_CNBS` (padrão `115062100`, ou seja 1.1506.21.00, SaaS). O ISS é devido no município do prestador, sem retenção. A empresa é ME/EPP do Simples Nacional: não informa alíquota e informa o total de tributos em `NFSE_P_TOT_TRIB_SN`. A descrição é o texto da atividade definido pelo dono em 21/10/2026 ("Tratamento e processamento contínuo de dados empresariais. Prestação de serviços de tratamento e processamento automatizado de dados empresariais, incluindo …"), seguido de "Serviço AtendeRadar, plano X, assinatura mensal/anual - período de … a …" (`src/lib/nfse/service.ts`).
 - **Numeração:** a DPS recebe série `NFSE_SERIE` e número sequencial (`NfseSequence`, por ambiente e série). O número é **reservado e gravado antes do envio**. Uma DPS rejeitada mantém o número e o reaproveita na nova tentativa.
 - **Competência:** a data em que o pagamento foi aprovado (confirmado pela contabilidade).
-- **Reembolso:**
+- **Reembolso (regra do dono, 21/10/2026):** não existe reembolso parcial. Pedido em até 7 dias da contratação: reembolso integral e a nota é cancelada. Depois de 7 dias, não há reembolso (a tela não oferece e a API recusa).
   - Nota já emitida, com fatura `refunded` (arrependimento em 7 dias ou estorno), **dentro do mês de competência**: ela é **cancelada** sozinha. O cancelamento usa o evento 101101 com motivo 2 ("serviço não prestado") e o texto "Contratação desfeita pelo cliente com reembolso integral do pagamento".
   - Nota já emitida, com reembolso **depois do mês de competência**: a nota **não pode mais ser cancelada**, porque o imposto já foi apurado (orientação da contabilidade). Ela fica como **Reembolso fora do prazo** (`cancel_expired`) para a contabilidade resolver. Um cancelamento que ainda estava na fila quando o mês virou também para aí, sem ser enviado. O mês é contado no horário de Brasília (`src/lib/nfse/prazo.ts`).
   - Nota ainda não emitida: fica **dispensada** (`skipped`).
@@ -56,7 +56,7 @@ Código: `src/lib/nfse/` (`xml.ts`, `sign.ts`, `client.ts`, `config.ts`, `servic
 | `NFSE_CERT_FILE` | caminho do `.p12` no servidor: `/opt/atende-radar/shared/nfse/certificado.p12` |
 | `NFSE_CERT_PASSWORD` | senha do `.p12`. Só no `app.env`, nunca no repositório nem no chat. |
 | `NFSE_SERIE` | 1 a 49999 (faixa de aplicativo próprio), padrão 1 |
-| `NFSE_CTRIB_NAC` | código de tributação nacional (6 dígitos), padrão `010501`; **confirmar com o contador** |
+| `NFSE_CTRIB_NAC` | código de tributação nacional (6 dígitos), padrão `010501` (1.05.01, CNAE 6311-9/00, decidido em 21/10/2026) |
 | `NFSE_CNBS` | NBS (9 dígitos), padrão `115062100` (1.1506.21.00, SaaS, indicada pela contabilidade). Vazio = não informa. |
 | `NFSE_CTRIB_MUN` | código municipal, se a contabilidade pedir |
 | `NFSE_P_TOT_TRIB_SN` | percentual total de tributos do Simples, padrão `6.00`. **Confirmar com a contabilidade** e atualizar quando a faixa mudar com o faturamento. |
@@ -121,16 +121,16 @@ Respostas da contabilidade (Katia Rocha) às perguntas enviadas pelo dono.
 - CPF ou CNPJ de quem paga: identificar sempre (o checkout já exige).
 - Venda parcelada: a nota sai pelo valor total. O AtendeRadar cobra por fatura, e cada fatura gera uma nota pelo valor cobrado.
 
-**Ainda falta decidir (dono e contabilidade):**
-
-- **Código de serviço e CNAE.** A contabilidade listou três caminhos e vai incluir o CNAE escolhido no CNPJ:
+**Decidido pelo dono em 21/10/2026:** CNAE **6311-9/00** com o código **1.05.01** (`NFSE_CTRIB_NAC=010501`, já é o padrão). A contabilidade inclui o CNAE no CNPJ. Os caminhos que ela tinha listado:
   - 1.03.01 (processamento de dados) com CNAE 6190-6/01: Anexo III;
   - 1.05.01 (licenciamento de uso) com CNAE 6311-9/00: Anexo III **com fator R**;
   - CNAE 6203-1/00: Anexo III **com fator R**.
   - "Com fator R" quer dizer: se a folha (com pró-labore) for menor que 28% do faturamento, a receita cai no Anexo V, com imposto bem maior. Isso pesa na escolha.
   - O sistema usa `010501` (1.05.01) por padrão; trocar é só mudar `NFSE_CTRIB_NAC`. A produção restrita aceitou os dois formatos (010501 e 010301).
+**Ainda falta decidir (dono e contabilidade):**
+
 - **Percentual de tributos na nota.** A contabilidade informou "2,17% com base no faturamento atual", em resposta à pergunta do ISS. Falta confirmar se 2,17% é só a parte do ISS ou o total do Simples. O campo da nota (`NFSE_P_TOT_TRIB_SN`) é o **total**. Esse percentual muda quando o faturamento muda de faixa.
-- **Reembolso parcial:** sem resposta.
+- ~~Reembolso parcial~~: não existe (decisão do dono, 21/10/2026).
 - **Cliente no exterior** e **imunidade da apostila em PDF:** a contabilidade aguarda a consultoria. Isso é dos outros sistemas (Completa e ALCADEMY), não do AtendeRadar.
 
 **Outros sistemas (fora deste repositório):**

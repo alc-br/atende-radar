@@ -12,7 +12,7 @@ export interface Classification {
   urgency: 'low' | 'normal' | 'high' | 'critical'
   sentiment: 'neutral' | 'positive' | 'frustrated' | 'anxious' | 'confused'
   confidence: number
-  /** 'heuristic' = regras de palavras (sem IA). Um provedor de IA pode devolver 'llm' com o mesmo formato. */
+  /** 'heuristic' = regras de palavras (sem IA); 'llm' = Claude (ai-classify.ts), com o mesmo formato. */
   source: 'heuristic' | 'llm'
 }
 
@@ -46,7 +46,7 @@ const INTENTS: Array<[string, RegExp[]]> = [
   ['pos_venda', [/garantia/, /\btroca\b/, /nota fiscal/, /depois da compra/, /pos[- ]venda/]],
   ['consulta', [/onde fica/, /endereco/, /como funciona/, /informac/, /gostaria de saber/, /horario de funcionamento/]],
 ]
-const STAGE_BY_INTENT: Record<string, string> = {
+export const STAGE_BY_INTENT: Record<string, string> = {
   preco: 'price',
   agendamento: 'qualification',
   disponibilidade: 'qualification',

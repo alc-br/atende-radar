@@ -13,7 +13,9 @@ export function formatPhone(last4: string): string {
   return `(**) *****-${last4}`
 }
 
-export function timeAgo(dateStr: string): string {
+/** "5min atrás", "3h atrás"... Sem data (nunca aconteceu), "—". */
+export function timeAgo(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
   const now = Date.now()
   const date = new Date(dateStr).getTime()
   const diffMs = now - date

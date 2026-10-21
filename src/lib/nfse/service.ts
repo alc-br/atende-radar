@@ -134,10 +134,16 @@ async function resolveTomador(orgId: string, cfg: NfseConfig): Promise<Tomador |
 
 const fmtDate = (d: Date | null | undefined) => (d ? d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '')
 
+// Texto da atividade do CNAE 6311-9/00, definido pelo dono em 21/10/2026 (vai em toda nota, seguido do plano e do período).
+const SERVICO =
+  'Tratamento e processamento contínuo de dados empresariais. Prestação de serviços de tratamento e processamento automatizado de dados empresariais, ' +
+  'incluindo análise contínua de comunicações comerciais, identificação de padrões de atendimento, produção de indicadores de desempenho, ' +
+  'emissão de relatórios gerenciais, diagnósticos e alertas por meio de infraestrutura tecnológica própria. Serviço'
+
 function descricao(inv: { planName: string | null; billingCycle: string | null; periodStart: Date | null; periodEnd: Date | null }): string {
   const ciclo = inv.billingCycle === 'annual' ? 'anual' : 'mensal'
   const periodo = inv.periodStart && inv.periodEnd ? ` - período de ${fmtDate(inv.periodStart)} a ${fmtDate(inv.periodEnd)}` : ''
-  return `Licença de uso do software AtendeRadar (SaaS), plano ${inv.planName ?? 'contratado'}, assinatura ${ciclo}${periodo}.`
+  return `${SERVICO} AtendeRadar, plano ${inv.planName ?? 'contratado'}, assinatura ${ciclo}${periodo}.`
 }
 
 /**

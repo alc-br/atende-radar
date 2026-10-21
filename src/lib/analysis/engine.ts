@@ -1,5 +1,6 @@
 import { db } from '../db'
 import { classifyMessages, type AnalysisMessage } from './classify'
+import { aiClassifyMany } from './ai-classify'
 import { extractPromise } from './promises'
 import { decideAgent } from './agents'
 import { attributionFor, conversationsOfIdentities, reattributeConversations, recordSightings, refreshIdentityStats, refreshSuggestions } from '../agent-identities'
@@ -177,6 +178,11 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
   }
   const activeAgentIds = new Set(agents.map((a) => a.id))
   const touchedIdentities = new Set<string>()
+  // Item 8 · com AI_CLASSIFIER=claude, o Claude classifica antes do laço (em paralelo, com cache); sem IA o mapa vem vazio.
+  const toAnalysis = (ms: Array<{ direction: string; text: string | null; occurredAt: Date }>): AnalysisMessage[] =>
+    ms.map((m) => ({ direction: m.direction === 'inbound' ? 'inbound' : 'outbound', text: maskSensitive(m.text), occurredAt: m.occurredAt }))
+  const aiSettings = settings as { aiSegment?: string; aiTerms?: string }
+  const aiCls = await aiClassifyMany(orgId, conversations.map((c) => ({ id: c.id, messages: toAnalysis(c.messages) })), { segment: aiSettings.aiSegment, terms: aiSettings.aiTerms }, now)
 
   for (const conv of conversations) {
     summary.conversations += 1
@@ -196,7 +202,7 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
     // --- classificação (respeita correções manuais) ---
     // Se o texto já foi apagado pela retenção, mantém a classificação que existia (não reclassifica em branco).
     const hasText = analysisMsgs.some((m) => m.direction === 'inbound' && m.text)
-    const cls = hasText ? classifyMessages(analysisMsgs) : { ...classifyMessages([]), intent: conv.primaryIntent, stage: conv.inferredStage, urgency: conv.urgency as 'low' | 'normal' | 'high' | 'critical', sentiment: conv.sentiment as 'neutral' | 'positive' | 'frustrated' | 'anxious' | 'confused', confidence: conv.confidence }
+    const cls = hasText ? aiCls.get(conv.id) ?? classifyMessages(analysisMsgs) : { ...classifyMessages([]), intent: conv.primaryIntent, stage: conv.inferredStage, urgency: conv.urgency as 'low' | 'normal' | 'high' | 'critical', sentiment: conv.sentiment as 'neutral' | 'positive' | 'frustrated' | 'anxious' | 'confused', confidence: conv.confidence }
     // Correção humana vence sempre: pela correção registrada (valor já gravado na conversa) ou pela classificação
     // marcada como corrigida (caminho antigo "classification:<id>", que não mexia na conversa).
     const correctedLabel = new Map(classifications.filter((c) => c.conversationId === conv.id && c.reviewedStatus === 'corrected').map((c) => [c.classificationType, c.label]))
@@ -213,10 +219,10 @@ export async function analyzeOrganization(orgId: string, now = new Date()): Prom
       const existing = classifications.find((c) => c.conversationId === conv.id && c.classificationType === type)
       if (!existing) {
         await db.conversationClassification.create({
-          data: { conversationId: conv.id, classificationType: type, label, confidence: cls.confidence, source: cls.source, rationale: 'Regras de palavras (sem IA)' },
+          data: { conversationId: conv.id, classificationType: type, label, confidence: cls.confidence, source: cls.source, rationale: cls.source === 'llm' ? 'Claude (IA)' : 'Regras de palavras (sem IA)' },
         })
-      } else if (existing.reviewedStatus === 'pending' && (existing.label !== label || existing.confidence !== cls.confidence)) {
-        await db.conversationClassification.update({ where: { id: existing.id }, data: { label, confidence: cls.confidence } })
+      } else if (existing.reviewedStatus === 'pending' && (existing.label !== label || existing.confidence !== cls.confidence || existing.source !== cls.source)) {
+        await db.conversationClassification.update({ where: { id: existing.id }, data: { label, confidence: cls.confidence, source: cls.source, rationale: cls.source === 'llm' ? 'Claude (IA)' : 'Regras de palavras (sem IA)' } })
       }
     }
 

@@ -1,5 +1,6 @@
 import { db } from '../db'
 import { maskSensitive } from '../mask-sensitive'
+import { aiEnabled } from '../analysis/ai-classify'
 import { moneyBR as money, REPORT_TITLES, type CellFormat, type CellValue, type ReportContent, type ReportHighlights, type ReportSection, type ReportType } from './types'
 
 export { REPORT_TYPES, REPORT_TITLES } from './types'
@@ -190,7 +191,7 @@ export async function buildReport(orgId: string, type: ReportType, start: Date, 
         ['Com atendente identificado', `${withAgent} (${pct(withAgent, convs.length)})`],
         ['Confiança média da classificação', convs.length ? round(mean(convs.map((c) => c.confidence)), 2) : 0],
         ['Correções manuais feitas', feedbacks],
-        ['Método de classificação', 'Regras de palavras (heurística), sem IA'],
+        ['Método de classificação', aiEnabled() ? 'Claude (IA), com as regras de palavras quando a IA não responde' : 'Regras de palavras (heurística), sem IA'],
       ],
     })
   }

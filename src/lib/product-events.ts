@@ -105,8 +105,8 @@ export interface AiUsageInput {
 }
 
 /**
- * Registra uma chamada a provedor de IA. Hoje NÃO há provedor (a análise é por regras: classify.ts, source 'heuristic');
- * quando houver, cada chamada passa por aqui e o custo aparece no Admin › Produto.
+ * Registra uma chamada a provedor de IA (hoje: classificação pelo Claude, analysis/ai-classify.ts, só com AI_CLASSIFIER=claude).
+ * Cada chamada passa por aqui e o custo aparece no Admin › Produto.
  */
 export async function recordAiUsage(u: AiUsageInput): Promise<void> {
   try {

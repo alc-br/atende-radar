@@ -22,29 +22,27 @@ Sem segredos aqui: o repositório é público.
 | 5 | E-mails (relatórios agendados) | ✅ no ar |
 | 6 | Resiliência (simulado de restauração) | ✅ no ar |
 | 7 | Segurança (ZAP, força bruta no login, sessão) + CSP | ✅ no ar (CSP conferida no ar em 14/10) |
-| 8 | WhatsApp real | 🔄 7 de 8 monitoramentos provados no ar (21/10); falta "Conexão desconectada", que depende do dono; ver Diário 20 e 21/10 |
+| 8 | WhatsApp real | ✅ 8 de 8 monitoramentos provados no ar (21/10: o dono derrubou a conexão, chegou o e-mail e o aviso na central); ver Diário 20 e 21/10 |
 
 ## Pendências que só o usuário resolve
 
 - ~~**Medição (21/10): assinatura real de R$ 1**~~ feito em 21/10 (ver Diário). Modo de teste desligado e Essencial de volta a R$ 299.
-- ~~2 chips para o teste de WhatsApp real~~ entregues em 20/10. Falta o dono **derrubar a conexão** (WhatsApp › Aparelhos conectados › desconectar o AtendeRadar) e reconectar pelo QR, para provar o alerta "Conexão desconectada".
-- **Backup diário + cópia no Google Drive** (escolhido em 15/10): o usuário precisa dizer qual conta do Google e qual pasta usar e autorizar o acesso. Depois disso, implementar o agendamento diário no servidor (pelo workflow de deploy) e a cópia para o Drive (ex.: rclone). Ainda não começado.
-- **Atualizar o CNPJ na Receita:** a Dash Stone mostra o aviso "Atualize seu CNPJ na Receita Federal… evitar que sua Conta Stone seja encerrada".
+- ~~2 chips para o teste de WhatsApp real~~ entregues em 20/10; ~~derrubar a conexão~~ feito em 21/10 (e-mail e central de avisos chegaram). Falta só reconectar pelo QR quando quiser.
+- ~~**Backup diário + cópia no Google Drive**~~ feito em 21/10/2026: cópia diária cifrada (rclone crypt) na pasta do dono, dentro do job de backup. Ver `docs/operacao/backup-drive.md`. As senhas do crypt estão no arquivo local de chaves do dono; sem elas os backups do Drive não abrem.
+- **Atualizar o CNPJ na Receita** (o dono está resolvendo com a Stone, 21/10): a Dash Stone mostra o aviso "Atualize seu CNPJ na Receita Federal… evitar que sua Conta Stone seja encerrada".
 - ~~Decidir quando virar `PAGARME_MODE=live`~~ feito em 16/10/2026 (ver Diário) (chaves de produção já validadas; Pagar.me só vai para produção depois do T19). Na 1ª venda real, conferir em Dash Stone › Vendas online › Webhooks › Eventos se o aviso chegou com autenticação OK.
-- Revisão jurídica de privacidade/termos.
-- Provedor de IA (sobe a cobertura dos alertas; ver item 3).
-- Guardar fora do servidor uma cópia da `WA_SESSIONS_KEY` (criada pelo deploy em `app.env`; sem ela as sessões cifradas do WhatsApp e os backups delas não abrem). Ver `docs/operacao/sessoes-whatsapp.md`.
+- ~~Revisão jurídica de privacidade/termos~~ revisado e OK pelo dono em 21/10/2026.
+- Provedor de IA (sobe a cobertura dos alertas; ver item 3): **Claude**, escolhido em 21/10/2026. **Pronto e desligado** (`docs/operacao/ia.md`). Para ligar, o dono decide: (a) o modelo (Opus 5.5, ~US$ 0,0065 por chamada, ou Haiku 5.5, ~40× mais barato e errou 1 de 5); (b) a nova versão da Política de Privacidade (hoje ela promete que as conversas não vão para IA de terceiros).
+- ~~Guardar fora do servidor uma cópia da `WA_SESSIONS_KEY`~~ feito pelo dono (21/10/2026). (criada pelo deploy em `app.env`; sem ela as sessões cifradas do WhatsApp e os backups delas não abrem). Ver `docs/operacao/sessoes-whatsapp.md`.
 - ~~Definir `SUPPORT_EMAIL` no servidor~~ definida (conferido em 19/10/2026) — para receber por e-mail os chamados do "Falar com o suporte" (sem ela, os chamados ficam só no Admin › Suporte).
-- Depois que a migração cifrada estiver confirmada, apagar à mão o backup `.tar.gz` das sessões feito antes da cifra (guarda credenciais em texto puro).
-- Guardar fora do servidor uma cópia da `PHONE_ENC_KEY` (criada pelo deploy em `app.env`; sem ela os telefones completos dos clientes, no banco e nos backups, não abrem). Ver `docs/operacao/telefone-cifrado.md`.
+- ~~Apagar o backup das sessões feito antes da cifra~~: conferido em 21/10/2026, não existe nenhum. Todos os backups `wa-sessions-*` do servidor estão cifrados (cabeçalho ARENC1, nenhum arquivo em texto puro); nada a apagar.
+- ~~Guardar fora do servidor uma cópia da `PHONE_ENC_KEY`~~ feito pelo dono (21/10/2026). (criada pelo deploy em `app.env`; sem ela os telefones completos dos clientes, no banco e nos backups, não abrem). Ver `docs/operacao/telefone-cifrado.md`.
 - ~~Ambiente de simulação~~ **desligado** em 19/10/2026 a pedido do usuário (`SIMULATION_ENABLED=off` no `app.env`, backup `app.env.bak-*-antes-simulacao-off`; as rotas respondem 404). O deploy não religa (marca `.simulation-on-2026-10-15` existe). Para usar a bateria de novo: `on` no `app.env` + restart. Ver `docs/operacao/simulacao.md`.
 - ~~Drop-in do systemd do I8~~ aplicado em 19/10/2026: a memória já estava em `memoria.conf` (15/10: 1200M/1536M, servidor de 12 GB dividido com o Mautic); novo `limites.conf` com `MemorySwapMax=0`, `TasksMax=512` e `StartLimitBurst=5` em 600 s. Conferido com `systemctl show` e app respondendo 200.
 - V7: confirmar o texto dos termos sobre arrependimento em 7 dias e mudança de preço (Admin › Planos muda só contratos novos).
 - **NFS-e (card F1), pronta e desligada:**
-  - **Contabilidade respondeu em 20/10** (resumo em `docs/operacao/nfse.md`, seção "Orientação da contabilidade"). Falta o dono decidir com ela:
-    - código de serviço e CNAE: 1.03.01 + 6190-6/01 (Anexo III) ou 1.05.01 + 6311-9/00 (Anexo III com fator R: com folha e pró-labore abaixo de 28% do faturamento, cai no Anexo V). A contabilidade inclui o CNAE no CNPJ. No sistema, trocar o código é só mudar `NFSE_CTRIB_NAC` (padrão `010501`);
-    - se os 2,17% informados são só o ISS ou o total do Simples (o campo `NFSE_P_TOT_TRIB_SN` é o total; estimativa nossa: ~6,8% se 2,17% for só o ISS);
-    - reembolso parcial (sem resposta).
+  - **Decidido pelo dono em 21/10:** CNAE 6311-9/00 com código 1.05.01 (`NFSE_CTRIB_NAC=010501`, o padrão), descrição da atividade na nota (`src/lib/nfse/service.ts`) e sem reembolso parcial: até 7 dias, reembolso integral e nota cancelada; depois disso, sem reembolso. Resumo em `docs/operacao/nfse.md`.
+  - **Falta (dono e contabilidade):** se os 2,17% informados são só o ISS ou o total do Simples (o campo `NFSE_P_TOT_TRIB_SN` é o total; estimativa nossa: ~6,8% se 2,17% for só o ISS); a contabilidade incluir o CNAE 6311-9/00 no CNPJ.
   - **Prova completa:** a emissão é no padrão nacional; não há nada a pedir à prefeitura (o E0037 só existe na produção restrita). O caminho é, com o aval do dono e da contabilidade, uma 1ª nota real de valor baixo em produção, cancelada no mesmo mês.
   - **30/10/2026:** 2ª entrega da NT 009 na produção restrita. Rodar a sonda de novo, porque pode exigir campos novos do Simples (`regApIBSCBSSN`, `cAtvSN`, `indDest`).
   - **Ligar:** só depois de 03/11/2026 (NT 009 em produção), com as decisões acima e o CNAE incluído. Passos em `docs/operacao/nfse.md`.
@@ -72,6 +70,14 @@ Sem segredos aqui: o repositório é público.
 ## Diário
 
 ### 21/10/2026
+
+- **Pedidos do dono de 21/10 (lote de 8 itens):**
+  - **Faixa "WhatsApp desconectado":** número que já foi pareado e caiu mostra uma faixa vermelha no topo de todas as telas, com "Reconectar". Ela some sozinha quando o número volta. "Última sinc: 20747d atrás" (data vazia) agora mostra "—". Teste `tests/e2e/conexao-faixa.ui.spec.ts`.
+  - **NFS-e:** descrição da atividade (CNAE 6311-9/00) na nota; regra do reembolso registrada em `docs/operacao/nfse.md`, que o código já seguia (só até 7 dias, integral, nota cancelada).
+  - **Cópia do backup no Google Drive:** feita e provada (envio, download, `integrity_check` = ok). Detalhes em `docs/operacao/backup-drive.md`. A tela de consentimento do projeto Google se chama "n8n" (projeto já existente da ALC, porque o limite de projetos estava cheio).
+  - **Backup das sessões de antes da cifra:** não existe nenhum; nada a apagar.
+  - **Claude:** classificação por IA pronta e **desligada** (`docs/operacao/ia.md`). Provada com a chave real: 5 de 5 no Opus 5.5. O motor chamou, gravou no cache, não chamou de novo na rodada seguinte, e o limite diário e o registro de custo funcionaram. A chave vai para o `app.env` do servidor, mas `AI_CLASSIFIER` fica sem valor até o dono decidir o modelo e a nova Política de Privacidade.
+  - Suíte completa antes do lote do Claude: 2450 passaram, 0 falharam.
 
 - **Medição: teste de aceite com compra real feito.**
   - O dono assinou o Essencial de R$ 1 às 14:44. A 1ª tentativa, às 14:07, foi recusada pelo banco do cartão (código 46, "Conta encerrada").

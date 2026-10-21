@@ -35,6 +35,7 @@ import { APP_VERSION } from '@/lib/app-version'
 import { canOpenView } from '@/lib/permissions'
 import { TrialBanner } from '@/components/layout/trial-banner'
 import { DeletionBanner } from '@/components/layout/deletion-banner'
+import { ConnectionBanner } from '@/components/layout/connection-banner'
 import { EmailVerifyBanner } from '@/components/layout/email-verify-banner'
 import { LockedShell } from '@/components/layout/locked-shell'
 import { onAppHost } from '@/lib/hosts'
@@ -246,6 +247,7 @@ function MainContent() {
       <div className="principal">
         <AppHeader />
         <DeletionBanner />
+        <ConnectionBanner />
         <EmailVerifyBanner />
         <TrialBanner />
         <main className="conteudo">{renderView()}</main>
