@@ -54,9 +54,9 @@ export default function PrivacidadePage() {
         <h3>Conversas analisadas</h3>
         <p>
           Quando a empresa conecta um número de WhatsApp, o sistema recebe as mensagens desse número (texto, data e hora, nome e telefone do
-          contato e quem respondeu) para gerar as análises. As análises são feitas pelo próprio AtendeRadar, nos nossos servidores; o conteúdo
-          das conversas não é enviado a serviços de inteligência artificial de terceiros. O AtendeRadar não envia mensagens pelo número da
-          empresa.
+          contato e quem respondeu) para gerar as análises. Os prazos, os alertas e a nota de cada conversa são calculados nos nossos
+          servidores. Para classificar a conversa (o assunto do cliente, o tom e a urgência), o texto das últimas mensagens vai ao Claude,
+          serviço de inteligência artificial da Anthropic (seção 4). O AtendeRadar não envia mensagens pelo número da empresa.
         </p>
         <h3>Visitas ao site e ao sistema</h3>
         <p>
@@ -109,10 +109,26 @@ export default function PrivacidadePage() {
             (hash SHA-256, que não permite ler o dado), para saber se vieram de um anúncio. Sem a permissão, nada disso é enviado;
           </li>
           <li>
+            <strong>Anthropic</strong> (Claude, inteligência artificial): classificação das conversas, como suboperadora. Recebe só o texto
+            das últimas mensagens de cada conversa (até 40), marcado como &ldquo;cliente&rdquo; ou &ldquo;empresa&rdquo;, com CPF e números de
+            cartão mascarados e sem o nome e o telefone cadastrados do contato, junto com o segmento e os termos do setor que a empresa cadastrou.
+            Devolve só a classificação, que é o que guardamos. Pelo contrato de uso da API, a Anthropic não usa esse conteúdo para treinar os
+            seus modelos;
+          </li>
+          <li>
             <strong>Provedor de infraestrutura</strong>: servidores onde o sistema, o banco de dados e as cópias de segurança ficam hospedados;
+          </li>
+          <li>
+            <strong>Google Drive</strong>: guarda uma cópia de segurança diária fora do servidor, cifrada antes do envio, de modo que o Google
+            não consegue ler o conteúdo;
           </li>
           <li>Autoridades públicas, quando houver obrigação legal ou ordem judicial.</li>
         </ul>
+        <p>
+          A Anthropic e o Google ficam nos Estados Unidos, e o provedor de infraestrutura pode ficar fora do Brasil. Essa transferência
+          internacional é feita só para prestar o serviço, com os cuidados previstos na LGPD (art. 33), como contratos com cláusulas de
+          proteção de dados.
+        </p>
         <p>
           A narração em voz do manual do sistema é gerada a partir do texto do próprio manual; nenhum dado de pessoas ou de empresas é enviado
           para isso.
@@ -171,7 +187,7 @@ export default function PrivacidadePage() {
           <li>Credenciais de conexão do WhatsApp guardadas cifradas no servidor;</li>
           <li>Acesso restrito por função dentro de cada conta e separação dos dados entre empresas;</li>
           <li>Registro de auditoria das ações sensíveis, como exclusão de dados e mudanças de acesso;</li>
-          <li>Cópias de segurança do banco de dados.</li>
+          <li>Cópias de segurança diárias do banco de dados, com uma cópia cifrada fora do servidor.</li>
         </ul>
 
         <h2>8. Seus direitos</h2>

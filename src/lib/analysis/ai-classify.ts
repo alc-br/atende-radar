@@ -54,7 +54,7 @@ export function aiEnabled(): boolean {
   return process.env.AI_CLASSIFIER === 'claude' && !!process.env.ANTHROPIC_API_KEY
 }
 
-const aiModel = () => process.env.AI_MODEL || 'claude-opus-5-5'
+const aiModel = () => process.env.AI_MODEL || 'claude-haiku-5-5'
 
 /** Transcrição curta: só as últimas mensagens com texto, marcadas por quem falou. */
 export function transcript(messages: AnalysisMessage[]): string {

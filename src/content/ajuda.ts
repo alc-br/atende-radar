@@ -82,7 +82,7 @@ export const ARTIGOS_AJUDA: ArtigoAjuda[] = [
     categoria: 'entender',
     palavras: ['score', 'pontuação', 'nota', 'qualidade', 'velocidade', 'sla', 'prazo de resposta'],
     corpo: [
-      { t: 'p', x: 'Cada conversa recebe uma nota de **0 a 100**. Ela não é um palpite de inteligência artificial: são regras simples e iguais para todas as conversas. A nota só passa a contar nas médias quando a conversa tem **pelo menos 2 mensagens**.' },
+      { t: 'p', x: 'Cada conversa recebe uma nota de **0 a 100**. Ela é calculada por regras simples e iguais para todas as conversas; só o tom do cliente vem da classificação feita pelo Claude, a inteligência artificial que lê a conversa. A nota só passa a contar nas médias quando a conversa tem **pelo menos 2 mensagens**.' },
       { t: 'h2', x: 'O que pesa na nota' },
       {
         t: 'check',

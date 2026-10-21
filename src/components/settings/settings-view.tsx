@@ -631,8 +631,9 @@ export default function SettingsView() {
             <div className="aviso aviso--ambar mb-5" role="note">
               <span className="aviso__ic" aria-hidden="true"><CircleAlert className="ic" /></span>
               <p>
-                Hoje a análise usa <b>regras de atendimento (palavras e prazos)</b>, sem inteligência artificial. Os ajustes desta aba
-                ainda <b>não têm efeito</b> e serão usados quando a análise por IA for ativada.
+                O assunto, o tom e a urgência de cada conversa são classificados pelo <b>Claude</b> (inteligência artificial da Anthropic),
+                usando o <b>segmento</b> e os <b>termos do setor</b> desta aba. Prazos, alertas e nota seguem as regras de atendimento. CPF e
+                cartão são sempre mascarados antes do envio; os demais ajustes desta aba ainda <b>não têm efeito</b>.
               </p>
             </div>
             <div className="form-grade">

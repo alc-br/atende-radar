@@ -2,7 +2,7 @@
 // A tela mostra o texto curto (content.ts); a voz EXPLICA: o que é, para que serve e por que importa para quem vende e
 // atende pelo WhatsApp. Regras: segunda pessoa, frases curtas, sem markdown, emojis ou siglas que a voz leria mal
 // (escreva por extenso), até NARRATION_MAX caracteres. Mudar um texto gera um áudio novo (a chave do cache é o texto).
-// Descreva só o que o sistema faz hoje (sem IA ligada; e-mail só com provedor configurado).
+// Descreva só o que o sistema faz hoje (classificação pelo Claude; e-mail só com provedor configurado).
 import type { NarrationCue } from './types'
 
 export const NARRATIONS: Record<string, string> = {
@@ -50,7 +50,7 @@ export const NARRATIONS: Record<string, string> = {
   'visao-geral/equipe':
     'Esta tabela compara os atendentes entre si: volume de conversas, tempo de resposta e nota. Serve para reconhecer quem está indo bem e para orientar quem precisa de ajuda, sempre com dados. Atenção: só aparecem aqui as pessoas cujas identidades no WhatsApp foram confirmadas, o que você aprende no capítulo Equipe.',
   'visao-geral/nota':
-    'Cada conversa ganha uma nota de zero a cem, calculada por regras simples, sem inteligência artificial. A velocidade da primeira resposta pesa trinta por cento, comparada com o tempo de resposta combinado nas Configurações. Atender uma oportunidade a tempo, não deixar pendências e o tom do cliente valem vinte por cento cada. Recuperar uma venda em risco vale os dez restantes. Por exemplo: responder em dois minutos e cumprir o que prometeu já garante boa parte da nota.',
+    'Cada conversa ganha uma nota de zero a cem, calculada por regras simples. A velocidade da primeira resposta pesa trinta por cento, comparada com o tempo de resposta combinado nas Configurações. Atender uma oportunidade a tempo, não deixar pendências e o tom do cliente valem vinte por cento cada. Recuperar uma venda em risco vale os dez restantes. Por exemplo: responder em dois minutos e cumprir o que prometeu já garante boa parte da nota.',
 
   // ── 4. Alertas ──
   'alertas/abrir':
@@ -84,7 +84,7 @@ export const NARRATIONS: Record<string, string> = {
   'conversas/detalhe':
     'Ao abrir uma conversa, você vê o raciocínio do sistema. A classificação diz o que o cliente quer e com que urgência. Perguntas em aberto e promessas mostram o que ficou devendo. As falhas apontam o que deu errado. E a composição da nota e o cálculo do valor explicam cada número. O botão Como calculamos mostra a conta do valor: o ticket médio da empresa multiplicado pela chance de fechar.',
   'conversas/corrigir':
-    'A análise usa regras de palavras e de tempo, então às vezes erra. Quando isso acontecer, corrija: você pode mudar a intenção, a urgência e o responsável, e confirmar a venda ou a perda. Confirmar vendas é especialmente útil, porque deixa os números de faturamento mais próximos da realidade. Em Mais opções ficam o envio para a recuperação e a marcação de revisada.',
+    'A classificação é feita por inteligência artificial, então às vezes erra. Quando isso acontecer, corrija: você pode mudar a intenção, a urgência e o responsável, e confirmar a venda ou a perda. Confirmar vendas é especialmente útil, porque deixa os números de faturamento mais próximos da realidade. Em Mais opções ficam o envio para a recuperação e a marcação de revisada.',
 
   // ── 6. Recuperação ──
   'recuperacao/abrir':
@@ -150,7 +150,7 @@ export const NARRATIONS: Record<string, string> = {
   'configuracoes/abas':
     'Cada aba cuida de um assunto. Em Atendimento fica o tempo de resposta combinado: dez minutos para a primeira resposta e trinta para continuar a conversa, se você não mudar. Em Financeiro ficam o ticket médio, a taxa de conversão e um teto por conversa, que alimentam o valor em risco. Ajuste esses números à sua realidade: se o seu ticket médio é de trezentos reais, o padrão de mil e quinhentos vai exagerar o valor em risco.',
   'configuracoes/limites':
-    'Uma transparência importante: a aba Análise guarda preferências para quando a análise por inteligência artificial for ligada, mas hoje ela não muda o resultado. Em Notificações você controla os alertas por e-mail: o resumo, que junta vários alertas num e-mail só para não lotar a caixa de entrada, e o horário de silêncio. Os alertas críticos podem chegar mesmo no silêncio. A lista de destinatários fica guardada para uso futuro: hoje o e-mail vai para quem enxerga o alerta.',
+    'Na aba Análise, o segmento e os termos do setor ajudam a inteligência artificial a entender as conversas do seu negócio. Em Notificações você controla os alertas por e-mail: o resumo, que junta vários alertas num e-mail só para não lotar a caixa de entrada, e o horário de silêncio. Os alertas críticos podem chegar mesmo no silêncio. A lista de destinatários fica guardada para uso futuro: hoje o e-mail vai para quem enxerga o alerta.',
   'configuracoes/webhook':
     'O webhook é um aviso automático para outro sistema seu: quando um alerta é criado ou resolvido, o Atende Radar avisa, por exemplo, o seu sistema de vendas. Já a Auditoria registra quem mudou o quê e quando, para você nunca ficar sem saber por que uma configuração mudou.',
   'configuracoes/salvar':

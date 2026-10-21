@@ -1,6 +1,6 @@
 // Conteúdo do "Tour pelo sistema" (manual interativo). Só texto e roteiro: o motor fica em src/components/system-tour.
-// Regra de ouro: descrever o que o sistema FAZ hoje. Não há IA ligada (a análise usa regras de palavras e tempos) e o
-// e-mail só sai quando o servidor tem um provedor configurado.
+// Regra de ouro: descrever o que o sistema FAZ hoje. A classificação (assunto, tom, urgência) é do Claude, com as regras de
+// palavras quando a IA não responde; prazos, alertas e nota são regras. O e-mail só sai quando o servidor tem um provedor configurado.
 //
 // Como escrever um passo:
 // - kind 'info'  → explica; avança com "Próximo" (ou seta →).
@@ -284,12 +284,12 @@ const CHAPTERS: SystemTourChapter[] = [
         title: 'Como a nota é calculada',
         view: 'dashboard',
         body: [
-          'Cada conversa recebe uma nota de 0 a 100 feita com **regras simples e explicáveis**, sem inteligência artificial. Ela soma cinco partes:',
+          'Cada conversa recebe uma nota de 0 a 100 feita com **regras simples e explicáveis**. Ela soma cinco partes:',
           { list: [
             'Velocidade (30%): o tempo da primeira resposta, comparado com o seu SLA.',
             'Oportunidades (20%): se uma oportunidade de venda foi atendida a tempo.',
             'Pendências (20%): cliente esperando e promessas não cumpridas.',
-            'Qualidade (20%): o tom do cliente, por palavras como as de frustração.',
+            'Qualidade (20%): o tom do cliente, lido pela inteligência artificial na conversa.',
             'Recuperação (10%): se uma oportunidade em risco foi recuperada.',
           ] },
           'Os tempos de SLA são os da tela Configurações, aba Atendimento (padrão: 10 e 30 minutos).',
@@ -483,7 +483,7 @@ const CHAPTERS: SystemTourChapter[] = [
         title: 'Corrigir a análise',
         view: 'conversations',
         body: [
-          'A análise usa regras de palavras e tempos, então às vezes erra. No detalhe você pode **alterar a intenção**, **alterar a urgência**, **mudar o responsável**, **confirmar venda** ou **confirmar perda**.',
+          'A classificação é feita por inteligência artificial e às vezes erra. No detalhe você pode **alterar a intenção**, **alterar a urgência**, **mudar o responsável**, **confirmar venda** ou **confirmar perda**.',
           'Em **Mais opções** ficam "Enviar para recuperação" e "Marcar como revisada". Administrador e gestor também têm o menu **Privacidade** (veja o capítulo de LGPD).',
         ],
       },
@@ -829,7 +829,7 @@ const CHAPTERS: SystemTourChapter[] = [
         title: 'Análise e notificações',
         view: 'settings',
         body: [
-          'A aba **Análise** guarda preferências para quando a análise por inteligência artificial for ligada; hoje ela não muda o resultado.',
+          'Na aba **Análise**, o **segmento** e os **termos do setor** ajudam a inteligência artificial a entender as conversas do seu negócio.',
           'Em **Notificações** ficam o resumo e o horário de silêncio dos alertas por e-mail. A lista de **Destinatários** fica guardada para uso futuro: hoje o e-mail de alerta vai para os membros que veem o alerta.',
         ],
       },

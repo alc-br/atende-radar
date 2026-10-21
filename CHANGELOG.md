@@ -4,7 +4,7 @@ Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no
 
 ## 2026-10-21
 - **Faixa "WhatsApp desconectado":** quando um número que já estava conectado cai, todas as telas mostram uma faixa vermelha no topo, com o botão "Reconectar". Ela some sozinha quando o número volta. Conexão sem sincronização mostra "—" em vez de "20747d atrás".
-- **Classificação por IA (Claude), pronta e desligada:** com `AI_CLASSIFIER=claude`, as conversas que mudaram são classificadas pelo Claude (intenção, sentimento, urgência), com cache por conversa, limite por rodada e por dia, custo em Admin › Produto e as regras de palavras quando a IA falha. Ligar exige antes uma nova Política de Privacidade. Detalhes em `docs/operacao/ia.md`.
+- **Classificação por IA (Claude Haiku 5.5), ligada:** as conversas que mudaram são classificadas pelo Claude (intenção, sentimento, urgência), com cache por conversa, limite por rodada e por dia, custo em Admin › Produto e as regras de palavras quando a IA falha. A Política de Privacidade passou a citar a Anthropic e o Google Drive (backup cifrado), e os textos que diziam "sem IA" foram trocados. Detalhes em `docs/operacao/ia.md`.
 - **Backup fora do servidor:** cópia diária cifrada no Google Drive, dentro do job de backup (`docs/operacao/backup-drive.md`).
 - **NFS-e:** a nota descreve a atividade (tratamento e processamento contínuo de dados empresariais, CNAE 6311-9/00).
 - **Medição de visitas e vendas (GTM, GA4 e Meta), no site e no app:**
