@@ -77,15 +77,15 @@ test.describe('Tours', () => {
     await page.goto('/')
     const card = tourCard(page)
     await expect(card).toBeVisible({ timeout: 20000 })
-    await expect(card).toContainText(/Bem-vindo/)
+    await expect(card).toContainText(/Boas-vindas/)
     await card.getByRole('button', { name: 'Pular tour' }).click()
-    await expect(page.getByText(/Bem-vindo, /)).toHaveCount(0)
+    await expect(page.getByText(/Boas-vindas/)).toHaveCount(0)
     await expect.poll(async () => ((await (await api.get('/api/tours')).json()).seen as string[]).includes('welcome')).toBe(true)
 
     await page.reload()
     await expect(page.locator('main').getByRole('heading', { name: /Vis[ãa]o Geral/i }).first()).toBeVisible({ timeout: 20000 })
     await page.waitForTimeout(2500) // o tour abre ~600 ms depois de carregar
-    await expect(page.getByText(/Bem-vindo, /)).toHaveCount(0)
+    await expect(page.getByText(/Boas-vindas/)).toHaveCount(0)
     await api.dispose()
   })
 
@@ -97,7 +97,12 @@ test.describe('Tours', () => {
     await page.goto('/')
     await expect(page.getByRole('alert').filter({ hasText: 'Erro ao carregar a Visão Geral' })).toBeVisible({ timeout: 20000 })
 
+    // o guia da Visão Geral não abre sozinho (é a tela de entrada): abre pelo menu "Tour desta tela"
     const card = tourCard(page)
+    await page.waitForTimeout(1500)
+    await expect(card).toHaveCount(0)
+    await page.locator('[data-tour="header-help"]').click()
+    await page.getByRole('menuitem', { name: 'Tour desta tela' }).click()
     // no desktop o 1º passo (seletor de período, no topo) existe; no celular o tour pode já começar pulando passos
     if (!isMobile) await expect(card).toBeVisible({ timeout: 10000 })
     else await page.waitForTimeout(1500)

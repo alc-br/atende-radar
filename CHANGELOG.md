@@ -10,6 +10,7 @@ Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no
   - **Privacidade:** a Política de Privacidade foi atualizada (versão 2026-10-21).
   - Detalhes em `docs/operacao/medicao.md`.
 - **"Começar teste grátis" abre o cadastro:** no domínio do app, o botão do site abria a tela de entrar ("Bem-vindo de volta") em vez do cadastro.
+- **Tour de boas-vindas pelo nome:** o primeiro passo diz "Boas-vindas, <primeiro nome>!" em vez de "Bem-vindo, administrador!". O guia da Visão Geral não abre mais sozinho; fica no menu, em "Tour desta tela".
 - **Faixa "Confirme o seu e-mail":** quem ainda não confirmou o e-mail de acesso vê um aviso no painel, com o endereço e o botão "Reenviar e-mail" (link novo; o anterior deixa de valer; até 3 por hora).
 
 ## 2026-10-20

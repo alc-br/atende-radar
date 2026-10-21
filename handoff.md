@@ -26,7 +26,7 @@ Sem segredos aqui: o repositório é público.
 
 ## Pendências que só o usuário resolve
 
-- **Medição (21/10): fazer a assinatura real de R$ 1** do teste de aceite (`docs/operacao/medicao.md`): DebugView do GA4 + Eventos de teste da Meta (código `TEST22662`), depois estornar pelo Dash Stone e **tirar `GA4_DEBUG` e `META_TEST_EVENT_CODE` do `app.env`** (backup `app.env.bak-*-antes-teste-medicao`) e reiniciar. Segredos já cadastrados e no servidor. As tags do GTM são da ALC. **Essencial mensal de novo em R$ 1,00 no banco (21/10, 11:19, backup `prod-202610211119-antes-preco-teste-medicao.db`): voltar para R$ 299 depois do teste** (`update Plan set monthlyPrice=299.0 where code='essencial'`, com backup antes).
+- ~~**Medição (21/10): assinatura real de R$ 1**~~ feito em 21/10 (ver Diário). Modo de teste desligado e Essencial de volta a R$ 299.
 - ~~2 chips para o teste de WhatsApp real~~ entregues em 20/10. Falta o dono **derrubar a conexão** (WhatsApp › Aparelhos conectados › desconectar o AtendeRadar) e reconectar pelo QR, para provar o alerta "Conexão desconectada".
 - **Backup diário + cópia no Google Drive** (escolhido em 15/10): o usuário precisa dizer qual conta do Google e qual pasta usar e autorizar o acesso. Depois disso, implementar o agendamento diário no servidor (pelo workflow de deploy) e a cópia para o Drive (ex.: rclone). Ainda não começado.
 - **Atualizar o CNPJ na Receita:** a Dash Stone mostra o aviso "Atualize seu CNPJ na Receita Federal… evitar que sua Conta Stone seja encerrada".
@@ -73,6 +73,18 @@ Sem segredos aqui: o repositório é público.
 
 ### 21/10/2026
 
+- **Medição: teste de aceite com compra real feito.**
+  - O dono assinou o Essencial de R$ 1 às 14:44. A 1ª tentativa, às 14:07, foi recusada pelo banco do cartão (código 46, "Conta encerrada").
+  - O `purchase` foi enviado ao GA4 e à Meta com `ga4:ok meta:ok`, levando a origem `utm_source=teste`.
+  - **GA4:** visto no DebugView às 14:44:02.
+  - **Meta:** "Compra" do navegador e do servidor com o mesmo `event_id`, as duas "Desduplicado".
+    - A lista de Eventos de teste só mostra o que chega com a sessão de teste aberta, por isso reenviei a mesma compra (mesmo id) com a tela aberta.
+    - Com a sessão fechada, a Meta processa normalmente e avisa "does not match an active Test Events session".
+  - **Limpeza:**
+    - O dono cancelou e estornou pelo próprio AtendeRadar (arrependimento): fatura `refunded` e assinatura cancelada na Pagar.me.
+    - `GA4_DEBUG` e `META_TEST_EVENT_CODE` tirados do `app.env` (backup `app.env-202610211451-antes-tirar-teste-medicao`) e serviço reiniciado.
+    - Essencial de volta a R$ 299 (backup `prod-202610211451-antes-preco-299.db`).
+- **Tour:** o boas-vindas cumprimenta pelo primeiro nome ("Boas-vindas, Ana!"), não mais pelo papel. O guia da Visão Geral não abre sozinho e fica em "Tour desta tela". Os passos do boas-vindas ficam memorizados no `TourOverlay`: recriados a cada render, faziam a gaveta do celular entrar em loop ("Maximum update depth").
 - **WhatsApp real: "Sem resposta após interação" provado (7 de 8).** O alerta abriu às 08:20, 30 min de expediente contados a partir de 07:50. A tolerância antes do horário (`DEFAULT_TOLERANCE_BEFORE=10`) faz a janela ir de 07:50 a 18:30. Ele não entrou na Recuperação, o que está certo: a conversa não tinha oportunidade de venda. Falta só "Conexão desconectada" (dono).
 - **Medição: GTM, GA4 e Meta no site e no app** (`docs/operacao/medicao.md`).
   - O que entrou:
@@ -86,7 +98,7 @@ Sem segredos aqui: o repositório é público.
   - O deploy grava os IDs públicos no `app.env`. Os segredos ainda não existem: até o dono cadastrar, o log mostra `ga4:sem-id` / `meta:sem-id`.
   - Não há `generate_lead` porque não existe formulário de lead.
   - Política de Privacidade na versão 2026-10-21 (seção 5, cookies).
-  - **No ar (deploys 39603439104 e 39606447366):** `gtm.js?id=GTM-P43TS3SF` no site e no app, com o padrão de consentimento antes. O dono cadastrou e trocou os segredos às 13:14 UTC (o primeiro segredo do GA4 apareceu no chat e foi trocado). O token da Meta está provado: um `CompleteRegistration` de teste foi recebido na aba Eventos de teste. O GA4 passou na validação (`/debug/mp/collect` sem erro). O contêiner publicado pela ALC já tem a tag do GA4 e o pixel. `GA4_DEBUG=1` e `META_TEST_EVENT_CODE=TEST22662` estão ligados no `app.env` para o teste de R$ 1.
+  - **No ar (deploys 39603439104 e 39606447366):** `gtm.js?id=GTM-P43TS3SF` no site e no app, com o padrão de consentimento antes. O dono cadastrou e trocou os segredos às 13:14 UTC (o primeiro segredo do GA4 apareceu no chat e foi trocado). O token da Meta está provado: um `CompleteRegistration` de teste foi recebido na aba Eventos de teste. O GA4 passou na validação (`/debug/mp/collect` sem erro). O contêiner publicado pela ALC já tem a tag do GA4 e o pixel. `GA4_DEBUG` e `META_TEST_EVENT_CODE` foram ligados para o teste de R$ 1 e desligados depois dele (21/10, 14:51).
   - Local (Windows, worktree): os testes de `/api/admin/simulation/orgs/<id>/*` dão 404, mas no CI passam. É do ambiente local.
 
 ### 20/10/2026

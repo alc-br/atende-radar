@@ -38,6 +38,13 @@ test.describe('tour de boas-vindas por papel', () => {
     expect(welcomeStepsFor('gestor', false).some((s) => s.target === 'nav-admin')).toBe(false)
   })
 
+  test('o 1º passo cumprimenta pelo primeiro nome, não pelo papel', () => {
+    expect(welcomeStepsFor('admin', false, '  Anderson Chipak ')[0].title).toBe('Boas-vindas, Anderson! 1º passo: conectar o WhatsApp')
+    expect(welcomeStepsFor('admin', false, '')[0].title).toBe('Boas-vindas! 1º passo: conectar o WhatsApp')
+    for (const role of ROLES) expect(welcomeStepsFor(role, true, 'Ana').map((s) => s.title).join(' ')).not.toMatch(/Bem-vindo/)
+    expect(welcomeStepsFor('admin', false, 'Ana')[1].title).not.toMatch(/Boas-vindas/) // só o 1º passo
+  })
+
   test('papel desconhecido cai num roteiro genérico seguro', () => {
     expect(welcomeStepsFor('inventado', false).length).toBeGreaterThanOrEqual(3)
   })

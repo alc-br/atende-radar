@@ -15,7 +15,7 @@ test.describe('teste grátis: primeiros minutos', () => {
     await page.goto('/')
     const card = page.getByTestId('tour-card')
     await expect(card).toBeVisible({ timeout: 20000 })
-    await expect(card).toContainText(/Bem-vindo/)
+    await expect(card).toContainText(/Boas-vindas/)
 
     // anel do destaque (branco + verde) sobre o alvo e "Passo X de N" numa linha só
     const spot = page.getByTestId('tour-spot')

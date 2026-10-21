@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test'
 import { createUser, loginAs, uid } from './helpers'
 
-// Cada pessoa nova vê o tour DO PAPEL DELA na primeira entrada (e só uma vez).
+// Cada pessoa nova vê o tour DO PAPEL DELA na primeira entrada (e só uma vez), cumprimentada pelo primeiro nome.
 async function enterAs(context: import('@playwright/test').BrowserContext, role: string) {
   const adm = await loginAs('admin.a@test.local')
   const email = `tour.${role}.${uid()}@test.local`
-  await createUser(adm, { email, role })
+  await createUser(adm, { email, role, name: `Ana Teste ${role}` })
   await adm.dispose()
   const api = await loginAs(email, 'Senha-Forte-2026x')
   await context.addCookies((await api.storageState()).cookies)
@@ -19,7 +19,8 @@ test.describe('Tour de boas-vindas por papel', () => {
     await page.goto('/')
     const card = page.getByTestId('tour-card')
     await expect(card).toBeVisible({ timeout: 20000 })
-    await expect(card).toContainText('Bem-vindo, atendente')
+    await expect(card).toContainText('Boas-vindas, Ana!')
+    await expect(card).toContainText('suas conversas')
     await expect(card).toContainText(/Passo 1 de 4/)
     // percorre o tour inteiro sem nenhum passo "pulado" por alvo inexistente
     for (let i = 1; i < 4; i++) {
@@ -27,10 +28,11 @@ test.describe('Tour de boas-vindas por papel', () => {
       await expect(card).toContainText(new RegExp(`Passo ${i + 1} de 4`))
     }
     await card.getByRole('button', { name: 'Concluir' }).click()
-    await expect(page.getByText('Bem-vindo, atendente')).toHaveCount(0)
+    await expect(page.getByText('Boas-vindas, Ana!')).toHaveCount(0)
     await page.reload()
     await page.waitForTimeout(2500)
-    await expect(page.getByText('Bem-vindo, atendente')).toHaveCount(0) // o boas-vindas só aparece uma vez
+    await expect(page.getByText('Boas-vindas, Ana!')).toHaveCount(0) // o boas-vindas só aparece uma vez
+    await expect(page.getByTestId('tour-card')).toHaveCount(0) // e o guia da Visão Geral não abre sozinho
   })
 
   test('administrador: começa pela conexão do WhatsApp e cita a equipe e o plano', async ({ page, context }) => {
@@ -38,7 +40,8 @@ test.describe('Tour de boas-vindas por papel', () => {
     await page.goto('/')
     const card = page.getByTestId('tour-card')
     await expect(card).toBeVisible({ timeout: 20000 })
-    await expect(card).toContainText('Bem-vindo, administrador')
+    await expect(card).toContainText('Boas-vindas, Ana! 1º passo: conectar o WhatsApp')
+    await expect(card).not.toContainText('Bem-vindo, administrador')
     await expect(card).toContainText('WhatsApp')
   })
 

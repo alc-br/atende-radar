@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useAppStore } from '@/lib/store'
 import { TOURS, welcomeStepsFor } from '@/lib/tours'
 import { Button } from '@/components/ui/button'
@@ -22,8 +22,15 @@ export function TourOverlay() {
   // Tour novo começa sem destaque (a posição guardada é de outro tour); entre passos do mesmo tour, desliza.
   const rect = spot && activeTour && spot.at.startsWith(`${activeTour}:`) ? spot.rect : null
   const stepKey = `${activeTour}:${activeStep}`
-  // O tour de boas-vindas depende do papel; os demais são por tela.
-  const steps = activeTour === 'welcome' ? welcomeStepsFor(me?.role, !!me?.isPlatformOperator) : activeTour ? TOURS[activeTour] || [] : []
+  // O tour de boas-vindas depende do papel e do nome; os demais são por tela. Memorizado: passo novo a cada render faria
+  // os efeitos abaixo (gaveta do celular, medição) rodarem sem parar.
+  const role = me?.role
+  const operator = !!me?.isPlatformOperator
+  const name = me?.name
+  const steps = useMemo(
+    () => (activeTour === 'welcome' ? welcomeStepsFor(role, operator, name) : activeTour ? TOURS[activeTour] || [] : []),
+    [activeTour, role, operator, name]
+  )
   const step = steps[activeStep]
 
   const measure = useCallback(() => {

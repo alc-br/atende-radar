@@ -39,8 +39,9 @@ import { EmailVerifyBanner } from '@/components/layout/email-verify-banner'
 import { LockedShell } from '@/components/layout/locked-shell'
 import { onAppHost } from '@/lib/hosts'
 
-// Telas sem guia automático na primeira visita (o guia continua em "Guia desta tela").
-const NO_AUTO_TOUR = new Set(['plans', 'checkout'])
+// Telas sem guia automático na primeira visita (o guia continua em "Tour desta tela"). A Visão Geral é a tela de entrada:
+// o guia dela abrindo sozinho logo depois do boas-vindas era tour demais.
+const NO_AUTO_TOUR = new Set(['dashboard', 'plans', 'checkout'])
 // Telas que abrem com a empresa bloqueada (sem plano) e telas que um link (#tela) pode abrir.
 const LOCK_OPEN_VIEWS = new Set<string>(['plans', 'checkout', 'profile', 'help'])
 const HASH_VIEWS = new Set<View>(['dashboard', 'alerts', 'conversations', 'recovery', 'team', 'reports', 'connections', 'settings', 'members', 'teams', 'plans', 'notifications', 'profile', 'help', 'system-tour', 'admin'])
