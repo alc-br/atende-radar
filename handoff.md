@@ -26,7 +26,7 @@ Sem segredos aqui: o repositório é público.
 
 ## Pendências que só o usuário resolve
 
-- **Medição (21/10): cadastrar os 2 segredos** `GA4_API_SECRET` e `META_CAPI_TOKEN` como *secrets* do GitHub (`gh secret set …`, comandos em `docs/operacao/medicao.md`). Depois, fazer a assinatura real de R$ 1 do teste de aceite (DebugView + Eventos de teste da Meta) e estornar pelo Dash Stone. As tags do GTM são da ALC.
+- **Medição (21/10): fazer a assinatura real de R$ 1** do teste de aceite (`docs/operacao/medicao.md`): DebugView do GA4 + Eventos de teste da Meta (código `TEST22662`), depois estornar pelo Dash Stone e **tirar `GA4_DEBUG` e `META_TEST_EVENT_CODE` do `app.env`** (backup `app.env.bak-*-antes-teste-medicao`) e reiniciar. Segredos já cadastrados e no servidor. As tags do GTM são da ALC.
 - ~~2 chips para o teste de WhatsApp real~~ entregues em 20/10. Falta o dono **derrubar a conexão** (WhatsApp › Aparelhos conectados › desconectar o AtendeRadar) e reconectar pelo QR, para provar o alerta "Conexão desconectada".
 - **Backup diário + cópia no Google Drive** (escolhido em 15/10): o usuário precisa dizer qual conta do Google e qual pasta usar e autorizar o acesso. Depois disso, implementar o agendamento diário no servidor (pelo workflow de deploy) e a cópia para o Drive (ex.: rclone). Ainda não começado.
 - **Atualizar o CNPJ na Receita:** a Dash Stone mostra o aviso "Atualize seu CNPJ na Receita Federal… evitar que sua Conta Stone seja encerrada".
@@ -86,6 +86,8 @@ Sem segredos aqui: o repositório é público.
   - O deploy grava os IDs públicos no `app.env`. Os segredos ainda não existem: até o dono cadastrar, o log mostra `ga4:sem-id` / `meta:sem-id`.
   - Não há `generate_lead` porque não existe formulário de lead.
   - Política de Privacidade na versão 2026-10-21 (seção 5, cookies).
+  - **No ar (deploys 39603439104 e 39606447366):** `gtm.js?id=GTM-P43TS3SF` no site e no app, com o padrão de consentimento antes. O dono cadastrou e trocou os segredos às 13:14 UTC (o primeiro segredo do GA4 apareceu no chat e foi trocado). O token da Meta está provado: um `CompleteRegistration` de teste foi recebido na aba Eventos de teste. O GA4 passou na validação (`/debug/mp/collect` sem erro). O contêiner publicado pela ALC já tem a tag do GA4 e o pixel. `GA4_DEBUG=1` e `META_TEST_EVENT_CODE=TEST22662` estão ligados no `app.env` para o teste de R$ 1.
+  - Local (Windows, worktree): os testes de `/api/admin/simulation/orgs/<id>/*` dão 404, mas no CI passam. É do ambiente local.
 
 ### 20/10/2026
 
