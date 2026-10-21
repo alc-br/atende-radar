@@ -10,6 +10,8 @@ import { TERMS_REQUIRED_MESSAGE, termsAcceptance } from '@/lib/legal'
 import { readJson } from '@/lib/json-body'
 import { milestone } from '@/lib/product-events'
 import { queueMemberSync } from '@/lib/mautic'
+import { attributionFrom } from '@/lib/attribution'
+import { hashedContact, pageUrl, queueConversion, signUpEventId } from '@/lib/conversions'
 
 const Body = z.object({
   name: z.string().trim().min(2, 'Informe o seu nome.').max(120),
@@ -50,10 +52,12 @@ export async function POST(request: Request) {
   }
 
   const plan = await db.plan.findFirst({ where: { active: true }, orderBy: { monthlyPrice: 'asc' } })
+  // origem da venda (campanha da visita, cookies do GA4/Meta e a escolha de cookies); nunca dado pessoal
+  const attribution = attributionFrom(request.headers)
 
   const member = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
-      data: { name: organizationName, displayName: organizationName, adminEmail: email, status: 'active' },
+      data: { name: organizationName, displayName: organizationName, adminEmail: email, status: 'active', attribution: attribution ? JSON.stringify(attribution) : null },
     })
     if (plan) {
       const trialEnd = new Date(Date.now() + trialMs())
@@ -78,6 +82,11 @@ export async function POST(request: Request) {
 
   await milestone(member.organizationId, 'signup') // funil (I7): nunca lança erro
   queueMemberSync(member.id) // contato no Mautic (nunca lança)
+  // conversão "conta criada" para a Meta pelo servidor, com o mesmo event_id do dataLayer (nunca lança)
+  const { em, externalId } = hashedContact(email, '', member.organizationId)
+  await queueConversion('sign_up', signUpEventId(member.organizationId), member.organizationId, {
+    eventTime: Math.floor(Date.now() / 1000), sourceUrl: pageUrl(request.headers.get('referer'), `${appUrl()}/login`), attribution, em, externalId,
+  })
 
   const token = await issueToken(member.id, 'verify')
   await sendMail({
@@ -86,5 +95,5 @@ export async function POST(request: Request) {
     text: `Olá, ${name}!\n\nSua conta do AtendeRadar foi criada. Confirme o seu e-mail:\n${appUrl()}/verify-email?token=${token}\n\nO link vale por 3 dias.`,
   })
 
-  return NextResponse.json({ success: true }, { status: 201 })
+  return NextResponse.json({ success: true, organizationId: member.organizationId }, { status: 201 })
 }

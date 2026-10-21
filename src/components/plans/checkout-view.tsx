@@ -11,6 +11,7 @@ import { useAppStore, type View } from '@/lib/store'
 import { canOpenView } from '@/lib/permissions'
 import { formatCurrency } from '@/lib/utils'
 import { formatDocument, formatPhone, isValidDocument, onlyDigits } from '@/lib/billing/format'
+import { ecommerce, eventId, once, type DlItem } from '@/lib/datalayer'
 import { AddressFields, CardFields, EMPTY_ADDRESS, EMPTY_CARD, addressProblem, cardProblem, tokenizeCard, type AddressValue, type CardValue } from './payment-fields'
 
 interface Plan {
@@ -27,7 +28,7 @@ interface BillingSummary {
   enabled: boolean
   mode: 'test' | 'live' | null
   publicKey: string | null
-  subscription: { status: string; plan: { id: string; name: string }; recurring: boolean; billingCycle: string; pending: boolean } | null
+  subscription: { status: string; plan: { id: string; name: string }; recurring: boolean; billingCycle: string; pending: boolean; subscriptionRef: string | null } | null
 }
 
 type Cycle = 'monthly' | 'annual'
@@ -52,7 +53,7 @@ export default function CheckoutView() {
   const [card, setCard] = useState<CardValue>(EMPTY_CARD)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [done, setDone] = useState<{ status: 'active' | 'processing'; planName: string } | null>(null)
+  const [done, setDone] = useState<{ status: 'active' | 'processing'; planName: string; subscriptionId: string } | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -74,8 +75,8 @@ export default function CheckoutView() {
     const t = setInterval(async () => {
       const r = await fetch('/api/billing').catch(() => null)
       const j = r?.ok ? await r.json() : null
-      if (j?.subscription && !j.subscription.pending && j.subscription.plan.name === done.planName && j.subscription.status === 'active') {
-        setDone({ status: 'active', planName: done.planName })
+      if (j?.subscription && !j.subscription.pending && j.subscription.plan.name === done.planName && j.subscription.status === 'active' && j.subscription.subscriptionRef === done.subscriptionId) {
+        setDone({ status: 'active', planName: done.planName, subscriptionId: done.subscriptionId })
         incrementRefresh()
       }
     }, 5000)
@@ -88,6 +89,21 @@ export default function CheckoutView() {
   const sub = billing?.subscription
   const isChange = !!sub?.recurring && sub.status === 'active'
   const per = cycle === 'annual' ? '/ano' : '/mês'
+  const items: DlItem[] = plan ? [{ item_id: plan.code, item_name: plan.name, item_variant: cycle, price, quantity: 1 }] : []
+
+  // medição (lib/datalayer.ts): início do checkout, uma vez por plano e ciclo nesta tela
+  const checkoutKey = plan ? `${plan.id}.${cycle}` : null
+  useEffect(() => {
+    if (!checkoutKey || !plan) return
+    ecommerce('begin_checkout', eventId('begin_checkout', `${currentOrganization?.id ?? 'org'}.${checkoutKey}`), items, price)
+  }, [checkoutKey])
+
+  // compra: quando a assinatura fica ativa, uma vez por assinatura (o servidor manda a mesma, com o mesmo event_id)
+  useEffect(() => {
+    if (done?.status !== 'active' || !plan) return
+    const id = done.subscriptionId
+    once(`purchase.${id}`, () => ecommerce('purchase', eventId('purchase', id), items, price, { transaction_id: id }))
+  }, [done?.status, done?.subscriptionId])
 
   const back = () => setView('plans')
 
@@ -105,6 +121,7 @@ export default function CheckoutView() {
     setFormError(null)
     setSubmitting(true)
     try {
+      ecommerce('add_payment_info', eventId('add_payment_info', `${currentOrganization?.id ?? 'org'}.${checkoutKey}.${Date.now()}`), items, price, { payment_type: 'cartao' })
       const cardToken = await tokenizeCard(billing.publicKey, card)
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
@@ -114,7 +131,7 @@ export default function CheckoutView() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Não foi possível concluir o pagamento.')
       setCard(EMPTY_CARD)
-      setDone({ status: data.status, planName: data.planName })
+      setDone({ status: data.status, planName: data.planName, subscriptionId: data.subscriptionId })
       if (data.status === 'active') {
         incrementRefresh()
         toast.success(`Plano ${data.planName} ativo.`)

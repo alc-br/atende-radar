@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { CookieConsent } from "@/components/consent/cookie-consent";
+import { CONSENT_DEFAULT_SCRIPT, gtmId, gtmSnippet } from "@/lib/gtm";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -37,11 +39,22 @@ export default async function RootLayout({
   // Nonce da CSP desta requisição (src/proxy.ts): o script do tema roda inline e precisa dele. Ler os cabeçalhos
   // também deixa toda página dinâmica, que é o que permite um nonce novo a cada acesso.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  // medição (src/lib/gtm.ts): padrão do Consent Mode antes do GTM; o GTM só com GTM_ID válido no servidor
+  const gtm = gtmId();
   return (
     <html lang="pt-BR" suppressHydrationWarning className={`${inter.variable} ${jakarta.variable}`}>
+      <head>
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: CONSENT_DEFAULT_SCRIPT }} />
+        {gtm && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: gtmSnippet(gtm) }} />}
+      </head>
       <body
         className={`antialiased bg-background text-foreground`}
       >
+        {gtm && (
+          <noscript>
+            <iframe src={`https://www.googletagmanager.com/ns.html?id=${gtm}`} height="0" width="0" style={{ display: "none", visibility: "hidden" }} title="Google Tag Manager" />
+          </noscript>
+        )}
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -55,6 +68,7 @@ export default async function RootLayout({
             </TooltipProvider>
           </AuthProvider>
           <Toaster richColors position="top-right" />
+          <CookieConsent />
         </ThemeProvider>
       </body>
     </html>

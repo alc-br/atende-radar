@@ -4,6 +4,7 @@ import { gatewayClient, newChat, minutesAgo } from './gw'
 import { lastTokenFor, testDb } from './db'
 import { APPROVED, billingData, cardToken } from './pagarme'
 import { TOURS } from '../../src/lib/tours'
+import { CONSENT_DENIED_STATE } from './consent-state'
 
 // Jornada completa de um cliente, do site ao cancelamento, numa empresa nova e sem atalhos no que a pessoa faz na tela:
 // site → cadastro → WhatsApp conectado (o gateway é simulado: o QR real é provado no celular, card T6) → mensagens →
@@ -87,7 +88,7 @@ test('jornada completa do cliente: do site ao cancelamento', async ({ page, brow
   })
 
   await test.step('convidado: abre o link do e-mail, cria a senha e entra no painel', async () => {
-    const ctx = await browser.newContext()
+    const ctx = await browser.newContext({ storageState: { cookies: CONSENT_DENIED_STATE.cookies, origins: [] } })
     const p2 = await ctx.newPage()
     await p2.goto(`/accept-invite?token=${await lastTokenFor(convidado.email)}`)
     await expect(p2.getByRole('heading', { name: 'Aceitar convite' })).toBeVisible()

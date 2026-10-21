@@ -91,6 +91,11 @@ test.describe('B8 · checkout Pagar.me (sandbox)', () => {
     expect(audit?.targetLabel).toBe('Growth')
     expect(audit?.details ?? '').not.toContain('token_') // token do cartão não vai para a auditoria
 
+    // medição: uma conversão "purchase" desta assinatura, com a origem do checkout; no sandbox não vai para GA4/Meta
+    await expect.poll(async () => (await testDb.conversionEvent.findMany({ where: { id: `purchase.${sub.providerSubscriptionId}` } })).map((e) => [e.status, e.result]), { timeout: 15_000 }).toEqual([['sent', 'ignorado:sandbox']])
+    expect(JSON.parse(sub.attribution ?? '{}')).toMatchObject({ sub: sub.providerSubscriptionId, em: expect.stringMatching(/^[0-9a-f]{64}$/) })
+    expect(sub.attribution).not.toContain('@')
+
     // mesmo plano e ciclo de novo: recusado sem cobrar
     const again = await c.post('/api/billing/checkout', { data: { planId: gestao.id, cycle: 'monthly', cardToken: await cardToken(publicKey, APPROVED), ...billingData() } })
     expect(again.status()).toBe(409)
@@ -508,6 +513,9 @@ test.describe('inadimplência (sandbox): trocar o cartão paga a fatura em abert
     expect(summary.invoices[0]).toMatchObject({ status: 'paid' })
     const audits = await testDb.auditLog.findMany({ where: { organizationId: orgId, action: 'billing.card_updated' }, orderBy: { createdAt: 'asc' } })
     expect(JSON.parse(audits[audits.length - 1].details ?? '{}')).toMatchObject({ openInvoicePaid: true })
+
+    // medição: a fatura paga ao trocar o cartão é a da assinatura que já existia; não é uma compra nova
+    expect(await testDb.conversionEvent.count({ where: { organizationId: orgId, kind: 'purchase' } })).toBe(0)
 
     await provider('DELETE', `/subscriptions/${sub.id}`, { cancel_pending_invoices: true })
     await c.dispose()

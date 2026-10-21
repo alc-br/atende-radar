@@ -14,6 +14,9 @@ import {
 } from './emails'
 import { notifyOnce } from './analysis-gate'
 import { kickNfse, saveBillingCustomer, updateBillingAddress } from '@/lib/nfse/service'
+import { parseAttribution, withCampaign, type Attribution } from '@/lib/attribution'
+import { hashedContact, purchaseEventId, queueConversion, renewalEventId } from '@/lib/conversions'
+import { appUrl } from '@/lib/mailer'
 
 // Cobrança recorrente (B8) com Pagar.me. A fonte de verdade é o provedor: toda mudança de situação passa por
 // applyProviderState(), que lê a assinatura e as faturas DIRETO da API (o conteúdo do webhook nunca é confiado).
@@ -23,6 +26,15 @@ export const APP_TAG = 'atende-radar'
 type Json = Record<string, unknown>
 type Fail = { ok: false; status: number; code: string; error: string }
 const fail = (status: number, code: string, error: string): Fail => ({ ok: false, status, code, error })
+
+// Origem da contratação, gravada no checkout (Subscription.attribution) para a conversão do servidor
+// (lib/conversions.ts): a assinatura do Pagar.me, a campanha/cookies/consentimento e o contato só em hash.
+interface CheckoutOrigin { sub: string; at: Attribution | null; em: string; ph?: string; externalId: string }
+
+const checkoutOrigin = (json: string | null | undefined, subId: string): CheckoutOrigin | null => {
+  const o = parseAttribution(json) as unknown as CheckoutOrigin | null
+  return o && o.sub === subId ? o : null
+}
 
 export interface CheckoutInput {
   planId?: string
@@ -150,6 +162,11 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
     const paid = invoices.filter((i) => i.status === 'paid' && i.paidAt).sort((a, b) => a.paidAt!.getTime() - b.paidAt!.getTime())
     for (const inv of meta.reactivatedFrom ? paid : paid.slice(1)) {
       if (now.getTime() - inv.paidAt!.getTime() > 7 * 86400_000) continue
+      // renovação não é conversão: fica registrada, nada vai para o GA4/Meta
+      await queueConversion('renewal', renewalEventId(inv.providerInvoiceId), orgId, {
+        eventTime: Math.floor(inv.paidAt!.getTime() / 1000), sourceUrl: `${appUrl()}/`, attribution: null, sandbox: cfg.mode !== 'live',
+        value: inv.amountCents / 100, currency: 'BRL', invoiceId: inv.providerInvoiceId,
+      })
       await billingEmail(orgId, 'renewal_paid', inv.providerInvoiceId, renewalPaidEmail(row.plan.name, inv.amountCents, inv.periodEnd ?? derived.periodEnd, cardOf(providerSub).cardLast4))
     }
     return { kind: 'synced', status }
@@ -188,6 +205,21 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
     await milestone(orgId, 'first_payment') // funil (I7): só a 1ª ativação paga conta; nunca lança erro
     const firstPaid = invoices.filter((i) => i.status === 'paid').sort((a, b) => (a.paidAt?.getTime() ?? 0) - (b.paidAt?.getTime() ?? 0))[0]
     await billingEmail(orgId, 'activated', subId, activatedEmail(plan.name, cycle, firstPaid?.amountCents ?? 0, derived.periodEnd, cardOf(providerSub).cardLast4))
+    // conversão "compra": a 1ª cobrança paga desta assinatura, uma vez (o id é o da assinatura). Reativação não é venda.
+    if (!meta.reactivatedFrom) {
+      const origin = checkoutOrigin(row.attribution, subId)
+      const org = await db.organization.findUnique({ where: { id: orgId }, select: { attribution: true } })
+      const value = (firstPaid?.amountCents ?? 0) / 100
+      await queueConversion('purchase', purchaseEventId(subId), orgId, {
+        eventTime: Math.floor((firstPaid?.paidAt ?? now).getTime() / 1000),
+        sourceUrl: `${appUrl()}/`,
+        attribution: withCampaign(origin?.at ?? null, parseAttribution(org?.attribution)),
+        em: origin?.em, ph: origin?.ph, externalId: origin?.externalId,
+        sandbox: cfg.mode !== 'live',
+        value, currency: 'BRL', transactionId: subId,
+        items: [{ item_id: plan.code, item_name: plan.name, item_variant: cycle, price: value, quantity: 1 }],
+      })
+    }
     return { kind: 'activated', planName: plan.name }
   }
   if (providerStatus === 'canceled' || invoices.some((i) => i.status === 'failed')) {
@@ -198,7 +230,7 @@ export async function applyProviderState(cfg: PagarmeConfig, orgId: string, prov
   return { kind: 'pending' }
 }
 
-export async function checkout(auth: AuthContext, input: CheckoutInput): Promise<Fail | { ok: true; status: 'active' | 'processing'; planName: string; mode: string }> {
+export async function checkout(auth: AuthContext, input: CheckoutInput, visit: Attribution | null = null): Promise<Fail | { ok: true; status: 'active' | 'processing'; planName: string; mode: string; subscriptionId: string }> {
   const plan = input.planId ? await db.plan.findFirst({ where: { id: input.planId, active: true } }) : null
   if (!plan) return fail(404, 'plan_not_found', 'Plano não encontrado')
   // V7/T11 · rebaixar só quando o uso atual cabe no plano novo (antes de qualquer chamada ao provedor)
@@ -255,7 +287,8 @@ export async function checkout(auth: AuthContext, input: CheckoutInput): Promise
       description: `AtendeRadar ${plan.name} (${cycle === 'annual' ? 'anual' : 'mensal'})`,
       metadata: { app: APP_TAG, organizationId: auth.orgId, planId: plan.id, planCode: plan.code, cycle },
     })
-    await db.subscription.update({ where: { organizationId: auth.orgId }, data: { providerCustomerId: customer.id } })
+    const origin: CheckoutOrigin = { sub: String(providerSub.id), at: visit, ...hashedContact(email, phone, auth.orgId) }
+    await db.subscription.update({ where: { organizationId: auth.orgId }, data: { providerCustomerId: customer.id, attribution: JSON.stringify(origin) } })
     // tomador da NFS-e: os mesmos dados enviados ao Pagar.me
     await saveBillingCustomer(auth.orgId, { name, email, documentType: doc.type, document: doc.digits, address })
   } catch (e) {
@@ -272,8 +305,9 @@ export async function checkout(auth: AuthContext, input: CheckoutInput): Promise
     await pagarme.cancelSubscription(cfg, String(providerSub.id)).catch(() => {})
     return fail(402, 'payment_declined', `Pagamento recusado: ${outcome.message}. Nenhum valor foi cobrado; confira os dados ou use outro cartão.`)
   }
-  if (outcome.kind === 'activated') return { ok: true, status: 'active', planName: plan.name, mode: cfg.mode }
-  return { ok: true, status: 'processing', planName: plan.name, mode: cfg.mode }
+  const subscriptionId = String(providerSub.id)
+  if (outcome.kind === 'activated') return { ok: true, status: 'active', planName: plan.name, mode: cfg.mode, subscriptionId }
+  return { ok: true, status: 'processing', planName: plan.name, mode: cfg.mode, subscriptionId }
 }
 
 /** Reconsulta o provedor para a empresa (assinatura vigente e troca pendente). Silencioso em falha de rede. */

@@ -2,6 +2,14 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-21
+- **Medição de visitas e vendas (GTM, GA4 e Meta), no site e no app:**
+  - **Aviso de cookies:** Aceitar, Recusar e Configurar, com o mesmo peso. Medição e anúncios ficam desligados até a pessoa escolher (Consent Mode v2), e a escolha pode ser revista no rodapé do site e no menu do app.
+  - **Origem da venda:** a campanha que trouxe a visita (UTM e ids de clique) fica guardada 90 dias, sem dado pessoal, e é gravada no cadastro e na assinatura.
+  - **Envio pelo servidor:** a 1ª cobrança paga vai ao GA4 e à Meta, e o cadastro vai à Meta, com o mesmo id do navegador para não contar em dobro. Renovação não conta como compra.
+  - **Privacidade:** a Política de Privacidade foi atualizada (versão 2026-10-21).
+  - Detalhes em `docs/operacao/medicao.md`.
+
 ## 2026-10-20
 - **NFS-e Padrão Nacional (pronta, desligada):** cada fatura paga (contratação e renovação) gera a nota no Sistema Nacional com o certificado A1. O reembolso (arrependimento ou estorno) cancela a nota sozinho. Falhas ficam numa fila com nova tentativa automática e não emitem em dobro. Em **Admin → Notas fiscais**: configuração e certificado, lista, motivo de cada falha, nova tentativa, cancelamento manual com motivo e download dos XML. Fica desligada até o contador confirmar código de serviço e impostos. Detalhes e o que está provado em `docs/operacao/nfse.md`.
 - **NFS-e: prazo de cancelamento.** Por orientação da contabilidade, a nota só é cancelada dentro do mês de competência. O reembolso que chega depois disso deixa a nota como "Reembolso fora do prazo" em Admin → Notas fiscais, para a contabilidade resolver. A nota passa a informar o NBS 1.1506.21.00 (SaaS).

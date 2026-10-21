@@ -5,6 +5,7 @@ import { disconnectLockedOrgs, pastDueNotices } from './billing/delinquency'
 import { trialEndingNotices } from './billing/trial'
 import { runScheduledReports } from './reports/schedule'
 import { runWebhookOutbox } from './webhooks'
+import { runConversionOutbox } from './conversions'
 import { purgeDueDeletions } from './org-deletion'
 import { optimizeDb } from './db'
 import { purgeProductEvents } from './privacy'
@@ -60,6 +61,9 @@ export function startBackgroundJobs() {
   // webhooks dos clientes: novas tentativas das entregas que falharam (a 1ª vai logo após o alerta)
   const webhooks = setInterval(() => safely('webhooks', () => runWebhookOutbox()), 60_000)
   webhooks.unref?.()
+  // conversões para o GA4/Meta (docs/operacao/medicao.md): novas tentativas das que falharam (a 1ª vai logo ao enfileirar)
+  const conversions = setInterval(() => safely('conversões', () => runConversionOutbox()), 60_000)
+  conversions.unref?.()
   // alertas por e-mail: envia os pendentes (intervalo/silêncio) e tenta de novo os e-mails que falharam; no mesmo passo,
   // os avisos de fim do teste grátis (3 dias, 1 dia, último aviso a 6 h e "terminou"; cada um uma vez)
   const emails = setInterval(async () => {

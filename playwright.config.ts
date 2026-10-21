@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 import { TOUR_AUDIO_TEST_ENV } from './tests/e2e/tour-audio-env'
 import { MEDIA_TEST_ENV } from './tests/e2e/media-env'
 import { TEST_DB_URL } from './tests/e2e/test-db-url'
+import { CONSENT_DENIED_STATE } from './tests/e2e/consent-state'
 
 // E2E_PORT: outra porta para rodar duas execuções ao mesmo tempo em checkouts diferentes (cada um tem seu prisma/test.db)
 const PORT = Number(process.env.E2E_PORT) || 3100
@@ -25,6 +26,8 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
+    // aviso de cookies já respondido (recusado) em todo navegador: tests/e2e/consent-state.ts
+    storageState: { cookies: CONSENT_DENIED_STATE.cookies, origins: CONSENT_DENIED_STATE.origins },
   },
   // Testes de API (rápidos, sem navegador) e testes de interface em desktop e celular.
   projects: [

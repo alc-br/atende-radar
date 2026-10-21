@@ -52,6 +52,8 @@ export async function GET() {
           currentPeriodEnd: sub.currentPeriodEnd.toISOString(),
           cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
           pending: !!sub.pendingProviderSubscriptionId,
+          // assinatura do Pagar.me vigente: o navegador manda o purchase (event_id purchase.<id>) quando ela fica ativa
+          subscriptionRef: sub.providerSubscriptionId,
           lastPaymentError: sub.lastPaymentError,
           // inadimplência: até quando tudo segue liberado
           graceEndsAt: graceEndsAt(sub)?.toISOString() ?? null,

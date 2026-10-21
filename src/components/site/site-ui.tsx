@@ -3,6 +3,7 @@
 import { useEffect, type CSSProperties, type RefObject } from 'react'
 import { appLink } from '@/lib/hosts'
 import { EMPRESA } from '@/lib/legal'
+import { CookieSettingsLink } from '@/components/consent/cookie-consent'
 
 /** Ícone do sprite da página (os símbolos ficam em <Sprite />, um por página). */
 export function Ic({ n, className, style }: { n: string; className?: string; style?: CSSProperties }) {
@@ -110,6 +111,7 @@ export function SiteFooter() {
             <nav aria-label="Legal">
               <a href="/privacidade">Política de Privacidade</a>
               <a href="/termos">Termos de Uso</a>
+              <CookieSettingsLink />
               <a href="/status">Status do serviço</a>
             </nav>
           </div>

@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
 import { SITE_URL, splitHosts } from '@/lib/hosts'
 import { TermsCheckbox } from './terms-checkbox'
+import { dl, eventId } from '@/lib/datalayer'
 import { toast } from 'sonner'
 import {
   Mail, Lock, Eye, EyeOff, Loader2, User, Building2, ArrowLeft, ArrowRight, Zap, Coins, CalendarCheck,
@@ -13,10 +14,10 @@ import {
 
 type Mode = 'login' | 'signup' | 'forgot'
 
-async function postJson(url: string, body: unknown): Promise<{ ok: boolean; error?: string }> {
+async function postJson(url: string, body: unknown): Promise<{ ok: boolean; error?: string; data?: Record<string, unknown> }> {
   try {
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    if (res.ok) return { ok: true }
+    if (res.ok) return { ok: true, data: await res.json().catch(() => ({})) }
     const data = await res.json().catch(() => ({}))
     return { ok: false, error: data.error || 'Algo deu errado. Tente novamente.' }
   } catch {
@@ -92,6 +93,9 @@ export default function LoginPage() {
           toast.error('Não foi possível criar a conta', { description: r.error })
           return
         }
+        // conversão "conta criada" (o servidor manda a mesma, com o mesmo event_id, para a Meta)
+        const orgId = typeof r.data?.organizationId === 'string' ? r.data.organizationId : null
+        if (orgId) dl('sign_up', { event_id: eventId('sign_up', orgId), method: 'email' })
         toast.success('Conta criada! Entrando...')
         await handleLogin(email, password)
       } else {

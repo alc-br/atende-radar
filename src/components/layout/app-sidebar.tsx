@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { View } from '@/lib/store'
 import { canOpenView } from '@/lib/permissions'
+import { CookieSettingsLink } from '@/components/consent/cookie-consent'
 
 type NavItem = { view: View; icon: React.ElementType; label: string }
 
@@ -195,6 +196,8 @@ export function AppSidebar() {
             <span>Central de ajuda e guias</span>
           </span>
         </button>
+        {/* LGPD: rever a escolha do aviso de cookies (medição e anúncios) */}
+        <CookieSettingsLink className="mt-1 block px-3 text-[11.5px] text-[var(--texto-2)] underline-offset-2 hover:text-[var(--texto)] hover:underline" />
         </div>
       </aside>
       {/* Celular: fundo escurecido; tocar fecha a gaveta */}

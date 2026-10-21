@@ -58,10 +58,18 @@ export default function PrivacidadePage() {
           das conversas não é enviado a serviços de inteligência artificial de terceiros. O AtendeRadar não envia mensagens pelo número da
           empresa.
         </p>
-        <h3>Visitas ao site</h3>
+        <h3>Visitas ao site e ao sistema</h3>
         <p>
-          No site de apresentação contamos apenas quantas visitas cada página teve por dia, sem cookie, sem endereço IP e sem nenhum
-          identificador de quem visitou.
+          Contamos quantas visitas cada página do site teve por dia, sem cookie, sem endereço IP e sem nenhum identificador de quem visitou.
+          Só com a sua permissão no aviso de cookies, o site e o sistema também usam ferramentas do Google e da Meta para medir as visitas e
+          saber quais anúncios trazem clientes (veja a seção 5).
+        </p>
+        <h3>Origem da contratação</h3>
+        <p>
+          Quando você chega por um anúncio ou link marcado, guardamos por até 90 dias, num cookie nosso, a campanha de onde veio (os
+          parâmetros utm e os códigos de clique do Google e da Meta), sem nome, e-mail ou telefone. No cadastro e na contratação essa origem
+          fica gravada na conta, junto com a sua escolha no aviso de cookies e os identificadores dos cookies do Google e da Meta, quando
+          existirem.
         </p>
 
         <h2>3. Para que usamos os dados</h2>
@@ -72,6 +80,7 @@ export default function PrivacidadePage() {
           <li>Enviar e-mails do serviço, como confirmação de cadastro, convites, recuperação de senha, avisos da assinatura e relatórios;</li>
           <li>Responder aos chamados de suporte;</li>
           <li>Entender o uso do produto de forma agregada (por exemplo, quantas empresas conectaram o primeiro número) para melhorá-lo;</li>
+          <li>Com a sua permissão no aviso de cookies, medir as visitas e saber quais anúncios trazem cadastros e contratações;</li>
           <li>
             Manter o cadastro de contato de quem usa o sistema e, se enviarmos novidades por e-mail, sempre com link para deixar de receber;
           </li>
@@ -94,6 +103,12 @@ export default function PrivacidadePage() {
             como destinatário de relatórios;
           </li>
           <li>
+            <strong>Google</strong> (Google Analytics, Google Tag Manager e Google Ads) e <strong>Meta</strong> (Facebook e Instagram): só com a
+            sua permissão no aviso de cookies. Recebem as páginas visitadas, as etapas do cadastro e da contratação (plano e valor) e o
+            identificador do cookie de cada um. Na contratação e no cadastro, a Meta recebe também o e-mail e o celular transformados em código
+            (hash SHA-256, que não permite ler o dado), para saber se vieram de um anúncio. Sem a permissão, nada disso é enviado;
+          </li>
+          <li>
             <strong>Provedor de infraestrutura</strong>: servidores onde o sistema, o banco de dados e as cópias de segurança ficam hospedados;
           </li>
           <li>Autoridades públicas, quando houver obrigação legal ou ordem judicial.</li>
@@ -103,13 +118,29 @@ export default function PrivacidadePage() {
           para isso.
         </p>
 
-        <h2>5. Cookies e armazenamento no navegador</h2>
-        <p>Usamos apenas o necessário para o sistema funcionar. Não usamos cookies de publicidade nem de rastreamento de terceiros.</p>
+        <h2 id="cookies">5. Cookies e armazenamento no navegador</h2>
+        <p>
+          Na primeira visita, um aviso pergunta se você aceita os cookies de medição e de anúncios. Aceitar, recusar e configurar têm o
+          mesmo peso, e até você escolher eles ficam desligados. A escolha vale para o site e para o sistema e pode ser mudada a qualquer
+          momento em &ldquo;Preferências de cookies&rdquo;, no rodapé do site e no menu do sistema.
+        </p>
+        <h3>Necessários (sempre ativos)</h3>
         <ul>
           <li>Cookie da sessão de login, que expira em até 7 dias;</li>
+          <li>Sua escolha no aviso de cookies (ar_consent), por 180 dias;</li>
+          <li>A campanha de onde você veio (ar_attr), por 90 dias, sem dado pessoal (seção 2);</li>
           <li>Preferências guardadas só no seu navegador: aparência clara ou escura e velocidade da leitura em voz alta do manual;</li>
           <li>Rascunho do cadastro inicial da empresa, para você não perder o que digitou se fechar a página no meio.</li>
         </ul>
+        <h3>Medição (só com permissão)</h3>
+        <ul>
+          <li>Google Analytics (cookies _ga e _ga_*): páginas visitadas e etapas da contratação, de forma estatística, sem o seu nome ou e-mail.</li>
+        </ul>
+        <h3>Anúncios (só com permissão)</h3>
+        <ul>
+          <li>Google Ads (cookies _gcl_*) e Meta (cookies _fbp e _fbc): saber se o cadastro ou a contratação veio de um anúncio e medir as campanhas.</li>
+        </ul>
+        <p>O Google Tag Manager, que carrega essas ferramentas, respeita a sua escolha: sem permissão, elas não gravam cookies.</p>
 
         <h2>6. Por quanto tempo guardamos</h2>
         <ul>

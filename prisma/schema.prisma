@@ -31,6 +31,9 @@ model Organization {
   // e-mails, webhooks, cobrança, relatórios agendados, analytics e métricas do Admin (src/lib/sandbox.ts).
   isSimulation            Boolean                  @default(false)
   simulationExpiresAt     DateTime? // apagada sozinha depois disto (24 h)
+  // Origem do cadastro (medição, docs/operacao/medicao.md): utm_*, gclid/gbraid/wbraid/fbclid, _ga/_fbp/_fbc e a escolha
+  // de cookies, em JSON. Sem nome, e-mail nem telefone.
+  attribution             String?
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   connections             WhatsAppConnection[]
@@ -707,6 +710,9 @@ model Subscription {
   lastPaymentError              String?
   pastDueSince                  DateTime? // 1ª vez que a renovação ficou sem pagamento; tolerância de 7 dias a partir daqui
   lastSyncedAt                  DateTime?
+  // Origem da última contratação (gravada no checkout, JSON): campanha, _ga/_fbp/_fbc, escolha de cookies e o e-mail e o
+  // celular de cobrança só em SHA-256 (para a API de Conversões da Meta). Lida quando a 1ª cobrança é confirmada.
+  attribution                   String?
 
   @@index([providerSubscriptionId])
 }
@@ -849,6 +855,25 @@ model WebhookDelivery {
 
   @@index([status, nextAttemptAt])
   @@index([organizationId, createdAt])
+}
+
+// Conversões enviadas pelo servidor (GA4 Measurement Protocol e API de Conversões da Meta), docs/operacao/medicao.md.
+// id = event_id compartilhado com o navegador ("purchase.<assinatura>", "sign_up.<empresa>", "renewal.<fatura>"): cada
+// conversão entra uma vez só. payload é a foto do que vai ser enviado (só hashes, nada em texto).
+model ConversionEvent {
+  id             String    @id
+  kind           String // purchase | sign_up | renewal
+  organizationId String?
+  payload        String
+  status         String    @default("pending") // pending | sending | sent | failed | skipped
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  result         String? // ex.: "ga4:ok meta:sem-consentimento"
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+
+  @@index([status, nextAttemptAt])
 }
 
 // Registro de auditoria (B4/B9): quem fez o quê. Só metadados — nunca texto de mensagem, telefone ou nome de cliente final.
