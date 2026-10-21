@@ -34,6 +34,7 @@ export function buttonLabel(url: string): string {
   if (/#support\b|suporte/i.test(url)) return 'Abrir o chamado'
   if (/#admin\b/.test(url)) return 'Abrir no Admin'
   if (/#plans\b|#checkout\b/.test(url)) return 'Ver planos'
+  if (/\/privacidade\b/.test(url)) return 'Ler a política'
   return 'Abrir no AtendeRadar'
 }
 
