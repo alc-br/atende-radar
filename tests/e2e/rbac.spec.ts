@@ -139,6 +139,7 @@ const MATRIX: Row[] = [
   ['GET', '/api/profile', ALL],
   ['PATCH', '/api/profile', ALL],
   ['POST', '/api/profile/password', ALL],
+  ['POST', '/api/profile/verify-email', ALL], // reenvio do link de confirmação do próprio e-mail
   ['GET', '/api/profile/notifications', ALL],
   ['PATCH', '/api/profile/notifications', ALL],
   ['GET', '/api/tours/system', ALL],

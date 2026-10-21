@@ -56,7 +56,7 @@ test('mautic-sync: todo membro de empresa real vira contato com sistema_origem, 
     const admin = posted.find((p) => p.body.email === 'admin.b@test.local')?.body
     expect(admin).toMatchObject({
       sistema_origem: ['atenderadar'], tags: ['atenderadar', 'atenderadar-membro'], company: 'Clínica B', overwriteWithBlank: false,
-      ar_papel: 'admin', ar_membro: 'ativo', ar_plano: 'gestao', ar_assinatura: 'ativa', ar_empresa_id: 'org_b', ar_email_confirmado: 0,
+      ar_papel: 'admin', ar_membro: 'ativo', ar_plano: 'gestao', ar_assinatura: 'ativa', ar_empresa_id: 'org_b', ar_email_confirmado: 1, // seed-test-orgs: e-mail já confirmado
     })
     expect(String(admin?.ar_cadastro)).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/)
   } finally {
