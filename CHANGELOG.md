@@ -9,6 +9,8 @@ Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no
   - **Envio pelo servidor:** a 1ª cobrança paga vai ao GA4 e à Meta, e o cadastro vai à Meta, com o mesmo id do navegador para não contar em dobro. Renovação não conta como compra.
   - **Privacidade:** a Política de Privacidade foi atualizada (versão 2026-10-21).
   - Detalhes em `docs/operacao/medicao.md`.
+- **"Começar teste grátis" abre o cadastro:** no domínio do app, o botão do site abria a tela de entrar ("Bem-vindo de volta") em vez do cadastro.
+- **Faixa "Confirme o seu e-mail":** quem ainda não confirmou o e-mail de acesso vê um aviso no painel, com o endereço e o botão "Reenviar e-mail" (link novo; o anterior deixa de valer; até 3 por hora).
 
 ## 2026-10-20
 - **NFS-e Padrão Nacional (pronta, desligada):** cada fatura paga (contratação e renovação) gera a nota no Sistema Nacional com o certificado A1. O reembolso (arrependimento ou estorno) cancela a nota sozinho. Falhas ficam numa fila com nova tentativa automática e não emitem em dobro. Em **Admin → Notas fiscais**: configuração e certificado, lista, motivo de cada falha, nova tentativa, cancelamento manual com motivo e download dos XML. Fica desligada até o contador confirmar código de serviço e impostos. Detalhes e o que está provado em `docs/operacao/nfse.md`.

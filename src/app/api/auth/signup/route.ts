@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { hashPassword, passwordProblem } from '@/lib/passwords'
-import { issueToken } from '@/lib/auth-tokens'
-import { appUrl, sendMail } from '@/lib/mailer'
+import { sendVerificationEmail } from '@/lib/email-verification'
+import { appUrl } from '@/lib/mailer'
 import { allow, clientIp } from '@/lib/rate-limit'
 import { createOrganizationDefaults } from '@/lib/org-defaults'
 import { TERMS_REQUIRED_MESSAGE, termsAcceptance } from '@/lib/legal'
@@ -88,12 +88,7 @@ export async function POST(request: Request) {
     eventTime: Math.floor(Date.now() / 1000), sourceUrl: pageUrl(request.headers.get('referer'), `${appUrl()}/login`), attribution, em, externalId,
   })
 
-  const token = await issueToken(member.id, 'verify')
-  await sendMail({
-    to: email,
-    subject: 'Confirme o seu e-mail — AtendeRadar',
-    text: `Olá, ${name}!\n\nSua conta do AtendeRadar foi criada. Confirme o seu e-mail:\n${appUrl()}/verify-email?token=${token}\n\nO link vale por 3 dias.`,
-  })
+  await sendVerificationEmail({ id: member.id, name, email })
 
   return NextResponse.json({ success: true, organizationId: member.organizationId }, { status: 201 })
 }

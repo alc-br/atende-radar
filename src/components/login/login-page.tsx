@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
 import { SITE_URL, splitHosts } from '@/lib/hosts'
@@ -40,6 +40,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<Mode>(useAppStore.getState().authMode)
+  // No domínio do app esta tela já aparece antes de a página ler ?modo=cadastro: segue o openAuth que vier depois
+  const authMode = useAppStore((s) => s.authMode)
+  useEffect(() => setMode(authMode), [authMode])
   const [name, setName] = useState('')
   const [organizationName, setOrganizationName] = useState('')
   const [forgotSent, setForgotSent] = useState(false)

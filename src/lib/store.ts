@@ -21,6 +21,8 @@ interface Me {
   role: string
   name: string
   email: string
+  /** false = e-mail de acesso ainda não confirmado (faixa "Confirme o seu e-mail"). */
+  emailVerified?: boolean
   team?: string | null
   isPlatformOperator: boolean
   organizationName?: string | null

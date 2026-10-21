@@ -26,7 +26,7 @@ Sem segredos aqui: o repositório é público.
 
 ## Pendências que só o usuário resolve
 
-- **Medição (21/10): fazer a assinatura real de R$ 1** do teste de aceite (`docs/operacao/medicao.md`): DebugView do GA4 + Eventos de teste da Meta (código `TEST22662`), depois estornar pelo Dash Stone e **tirar `GA4_DEBUG` e `META_TEST_EVENT_CODE` do `app.env`** (backup `app.env.bak-*-antes-teste-medicao`) e reiniciar. Segredos já cadastrados e no servidor. As tags do GTM são da ALC.
+- **Medição (21/10): fazer a assinatura real de R$ 1** do teste de aceite (`docs/operacao/medicao.md`): DebugView do GA4 + Eventos de teste da Meta (código `TEST22662`), depois estornar pelo Dash Stone e **tirar `GA4_DEBUG` e `META_TEST_EVENT_CODE` do `app.env`** (backup `app.env.bak-*-antes-teste-medicao`) e reiniciar. Segredos já cadastrados e no servidor. As tags do GTM são da ALC. **Essencial mensal de novo em R$ 1,00 no banco (21/10, 11:19, backup `prod-202610211119-antes-preco-teste-medicao.db`): voltar para R$ 299 depois do teste** (`update Plan set monthlyPrice=299.0 where code='essencial'`, com backup antes).
 - ~~2 chips para o teste de WhatsApp real~~ entregues em 20/10. Falta o dono **derrubar a conexão** (WhatsApp › Aparelhos conectados › desconectar o AtendeRadar) e reconectar pelo QR, para provar o alerta "Conexão desconectada".
 - **Backup diário + cópia no Google Drive** (escolhido em 15/10): o usuário precisa dizer qual conta do Google e qual pasta usar e autorizar o acesso. Depois disso, implementar o agendamento diário no servidor (pelo workflow de deploy) e a cópia para o Drive (ex.: rclone). Ainda não começado.
 - **Atualizar o CNPJ na Receita:** a Dash Stone mostra o aviso "Atualize seu CNPJ na Receita Federal… evitar que sua Conta Stone seja encerrada".

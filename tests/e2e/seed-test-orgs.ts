@@ -13,18 +13,18 @@ async function main() {
     throw new Error('seed-test-orgs só pode rodar contra prisma/test.db')
   }
 
-  // ---------- Org A: um usuário por papel ----------
+  // ---------- Org A: um usuário por papel (e-mail já confirmado: sem a faixa "Confirme o seu e-mail") ----------
   for (const role of ROLES) {
     await db.organizationMember.create({
       data: {
         id: `member_a_${role}`, organizationId: 'org_seed_1', userId: `${role}.a@test.local`,
-        name: `${role} A`, email: `${role}.a@test.local`, role, status: 'active', passwordHash: hashPassword('demo123'),
+        name: `${role} A`, email: `${role}.a@test.local`, role, status: 'active', passwordHash: hashPassword('demo123'), emailVerifiedAt: new Date(),
       },
     })
   }
   // Operador da plataforma (definido por PLATFORM_ADMIN_EMAILS no ambiente de teste)
   await db.organizationMember.create({
-    data: { id: 'member_platform', organizationId: 'org_seed_1', userId: 'platform@test.local', name: 'Operador', email: 'platform@test.local', role: 'gestor', status: 'active', passwordHash: hashPassword('demo123') },
+    data: { id: 'member_platform', organizationId: 'org_seed_1', userId: 'platform@test.local', name: 'Operador', email: 'platform@test.local', role: 'gestor', status: 'active', passwordHash: hashPassword('demo123'), emailVerifiedAt: new Date() },
   })
 
   // Atendente A tem agente próprio + uma conversa própria (as demais conversas do seed são de outros agentes)
@@ -48,7 +48,7 @@ async function main() {
   for (const role of ['admin', 'gestor', 'atendente'] as const) {
     await db.organizationMember.create({
       // Org B é um cliente "real": tem senha própria (só a org de demonstração aceita a senha pública demo123)
-      data: { id: `member_b_${role}`, organizationId: 'org_b', userId: `${role}.b@test.local`, name: `${role} B`, email: `${role}.b@test.local`, role, status: 'active', passwordHash: hashPassword('demo123') },
+      data: { id: `member_b_${role}`, organizationId: 'org_b', userId: `${role}.b@test.local`, name: `${role} B`, email: `${role}.b@test.local`, role, status: 'active', passwordHash: hashPassword('demo123'), emailVerifiedAt: new Date() },
     })
   }
   // membro da Org B sem senha (ex.: cadastro legado): não pode entrar com a senha pública de demonstração
