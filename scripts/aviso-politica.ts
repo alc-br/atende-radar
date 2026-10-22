@@ -1,6 +1,7 @@
-// Aviso aos clientes da mudança da Política de Privacidade de 21/10/2026 (classificação pelo Claude, backup no Drive).
-// A política promete avisar mudanças relevantes (seção 9). Rodar NO SERVIDOR (o Brevo só aceita o IP de lá).
+// Aviso aos clientes das mudanças da Política de Privacidade. A política promete avisar mudanças relevantes (seção 9).
+// Rodar NO SERVIDOR (o Brevo só aceita o IP de lá). Cada aviso tem a versão da política; o padrão é o mais recente.
 //   bun scripts/aviso-politica.ts                    → só mostra quantos receberiam e o texto (não envia)
+//   AVISO=2026-10-21 bun scripts/aviso-politica.ts   → escolhe outro aviso (ver AVISOS)
 //   PREVIEW_HTML=/tmp/aviso.html bun scripts/aviso-politica.ts   → grava também a versão HTML para conferir
 //   ENVIAR=1 bun scripts/aviso-politica.ts           → envia (quem já recebeu este assunto não recebe de novo)
 // Destinatários: membros ativos com senha (conta de verdade) das empresas que não são simulação nem estão em exclusão.
@@ -9,10 +10,15 @@ import { db } from '../src/lib/db'
 import { mailHtml } from '../src/lib/mail-html'
 import { appUrl, sendMailRow } from '../src/lib/mailer'
 
-export const SUBJECT = 'Atualizamos a Política de Privacidade do AtendeRadar'
+const hello = (nome: string | null) => `Olá${nome ? `, ${nome.split(' ')[0]}` : ''}!`
 
-export function avisoText(nome: string | null, siteUrl: string): string {
-  return `Olá${nome ? `, ${nome.split(' ')[0]}` : ''}!
+interface Aviso { subject: string; text: (nome: string | null, siteUrl: string) => string }
+
+export const AVISOS: Record<string, Aviso> = {
+  // classificação pelo Claude, backup no Drive
+  '2026-10-21': {
+    subject: 'Atualizamos a Política de Privacidade do AtendeRadar',
+    text: (nome, siteUrl) => `${hello(nome)}
 
 Atualizamos a Política de Privacidade do AtendeRadar em 21/10/2026. Você não precisa fazer nada; este aviso é para você saber o que mudou.
 
@@ -30,10 +36,36 @@ Leia a política completa: ${siteUrl}/privacidade
 
 Dúvidas? É só responder este e-mail.
 
-— AtendeRadar`
+— AtendeRadar`,
+  },
+  // situações novas: frase genérica guardada 30 dias
+  '2026-10-22': {
+    subject: 'Um ajuste na Política de Privacidade do AtendeRadar',
+    text: (nome, siteUrl) => `${hello(nome)}
+
+Fizemos um pequeno ajuste na Política de Privacidade do AtendeRadar em 22/10/2026. Você não precisa fazer nada.
+
+O que mudou:
+• Quando a inteligência artificial nota, numa conversa, uma situação importante que os nossos alertas ainda não cobrem, ela devolve também uma frase curta e genérica sobre isso. Exemplo: "cliente diz que vai acionar o Procon".
+• Essa frase não leva nomes, telefones, e-mails, documentos, endereços ou valores, e serve só para melhorarmos os alertas do AtendeRadar.
+• A frase é apagada depois de 30 dias. Depois disso fica só o tema agrupado (por exemplo, "cliente ameaça reclamar em órgão de defesa do consumidor"), com a contagem de conversas e sem dizer de qual empresa são.
+
+O resto continua como no aviso de 21/10: o que vai para a Anthropic é o mesmo, e ela não usa esse conteúdo para treinar os modelos dela.
+
+Leia a política completa: ${siteUrl}/privacidade
+
+Dúvidas? É só responder este e-mail.
+
+— AtendeRadar`,
+  },
 }
 
+export const LATEST = Object.keys(AVISOS).sort().at(-1)!
+
 async function main() {
+  const key = process.env.AVISO || LATEST
+  const aviso = AVISOS[key]
+  if (!aviso) throw new Error(`AVISO desconhecido: ${key} (há ${Object.keys(AVISOS).join(', ')})`)
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://atenderadar.com.br').replace(/\/$/, '')
   const members = await db.organizationMember.findMany({
     where: {
@@ -45,18 +77,18 @@ async function main() {
   })
   const byEmail = new Map<string, { email: string; name: string | null }>()
   for (const m of members) if (!byEmail.has(m.email.toLowerCase())) byEmail.set(m.email.toLowerCase(), m)
-  const already = new Set((await db.emailOutbox.findMany({ where: { subject: SUBJECT, status: 'sent' }, select: { toEmail: true } })).map((r) => r.toEmail.toLowerCase()))
+  const already = new Set((await db.emailOutbox.findMany({ where: { subject: aviso.subject, status: 'sent' }, select: { toEmail: true } })).map((r) => r.toEmail.toLowerCase()))
   const todo = [...byEmail.values()].filter((m) => !already.has(m.email.toLowerCase()))
 
-  console.log(`aviso-politica: ${byEmail.size} destinatário(s); ${already.size} já recebeu(ram); ${todo.length} a enviar (app ${appUrl()})`)
-  if (process.env.PREVIEW_HTML) writeFileSync(process.env.PREVIEW_HTML, mailHtml(SUBJECT, avisoText('Maria Silva', siteUrl)))
+  console.log(`aviso-politica ${key}: ${byEmail.size} destinatário(s); ${already.size} já recebeu(ram); ${todo.length} a enviar (app ${appUrl()})`)
+  if (process.env.PREVIEW_HTML) writeFileSync(process.env.PREVIEW_HTML, mailHtml(aviso.subject, aviso.text('Maria Silva', siteUrl)))
   if (process.env.ENVIAR !== '1') {
-    console.log(`\nAssunto: ${SUBJECT}\n\n${avisoText('Maria Silva', siteUrl)}\n\n(nada enviado; ENVIAR=1 envia)`)
+    console.log(`\nAssunto: ${aviso.subject}\n\n${aviso.text('Maria Silva', siteUrl)}\n\n(nada enviado; ENVIAR=1 envia)`)
     return
   }
   const count = { sent: 0, queued: 0, failed: 0 }
-  for (const m of todo) count[(await sendMailRow({ to: m.email, subject: SUBJECT, text: avisoText(m.name, siteUrl) })).status]++
-  console.log(`aviso-politica: enviados ${count.sent}, na fila ${count.queued}, falharam ${count.failed}`)
+  for (const m of todo) count[(await sendMailRow({ to: m.email, subject: aviso.subject, text: aviso.text(m.name, siteUrl) })).status]++
+  console.log(`aviso-politica ${key}: enviados ${count.sent}, na fila ${count.queued}, falharam ${count.failed}`)
 }
 
 if (import.meta.main) main().finally(() => db.$disconnect())
