@@ -7,6 +7,7 @@ import { mapBaileysMessage } from './map'
 import { park, stillParked } from './park'
 import { SessionKeyError, sessionsKeyFromEnv, loadEncryptedAuthState } from './auth-store'
 import { SIMULATOR_PROVIDER, demoOrgId } from '../sandbox'
+import { installSignalLogFilter } from './signal-log-filter'
 
 // Gerenciador das sessões de WhatsApp (Baileys). Roda dentro do servidor, ligado por WHATSAPP_GATEWAY=on.
 // Só OBSERVA: nunca envia mensagem, nunca marca como lida, nunca aparece "online".
@@ -38,7 +39,11 @@ const log = (...a: unknown[]) => console.log('[whatsapp]', ...a)
 const silentLogger: any = { level: 'silent', trace() {}, debug() {}, info() {}, warn() {}, error() {}, fatal() {}, child() { return silentLogger } }
 
 let baileysPromise: Promise<any> | null = null
-const loadBaileys = () => (baileysPromise ??= import('@whiskeysockets/baileys'))
+// Antes de carregar o Baileys: o libsignal despeja as chaves da sessão no console (ver signal-log-filter.ts).
+const loadBaileys = () => {
+  installSignalLogFilter()
+  return (baileysPromise ??= import('@whiskeysockets/baileys'))
+}
 
 async function emit(connectionId: string, type: string, payload: Record<string, unknown>, occurredAt?: string, eventId?: string) {
   const id = eventId ?? `wa-${connectionId}-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
