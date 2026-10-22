@@ -155,6 +155,7 @@ model Conversation {
   messages          Message[]
   classifications   ConversationClassification[]
   aiClassification  AiClassification?
+  novelSignals      NovelSignal[]
   findings          AuditFinding[]
   opportunities     RevenueOpportunity[]
   alerts            Alert[]
@@ -224,6 +225,47 @@ model AiClassification {
   updatedAt      DateTime     @updatedAt
 
   @@index([organizationId, updatedAt])
+}
+
+// Situações novas: o Claude marca na conversa algo importante que os alertas não cobrem (ai-classify.ts, "novidade").
+// A frase é curta e genérica (sem dado pessoal) e fica até 30 dias; o agrupamento semanal (novelty.ts) junta as
+// parecidas num NovelCluster, que o operador vê em Admin › Situações novas e decide se vale mapear.
+model NovelSignal {
+  id             String        @id @default(cuid())
+  organizationId String
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  description    String
+  clusterId      String?
+  cluster        NovelCluster? @relation(fields: [clusterId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([clusterId, createdAt])
+  @@index([conversationId])
+}
+
+model NovelCluster {
+  id                   String        @id @default(cuid())
+  title                String
+  summary              String
+  /// new = a decidir; mapped = vale mapear (vira assunto/alerta no código); dismissed = descartado
+  status               String        @default("new")
+  conversations        Int           @default(0)
+  lastRunConversations Int           @default(0)
+  /// ids das empresas que tiveram o tema (só para contar; a tela mostra o número, nunca quais)
+  orgIdsJson           String        @default("[]")
+  /// até 5 frases genéricas de exemplo
+  examplesJson         String        @default("[]")
+  firstSeenAt          DateTime      @default(now())
+  lastSeenAt           DateTime      @default(now())
+  decidedAt            DateTime?
+  decidedBy            String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  signals              NovelSignal[]
+
+  @@index([status, lastSeenAt])
 }
 
 model AuditFinding {
@@ -624,15 +666,15 @@ model AuthToken {
 
 // Registro de todo e-mail enviado pelo sistema. Sem provedor configurado ficam 'queued' (nada sai da máquina).
 model EmailOutbox {
-  id          String    @id @default(cuid())
-  toEmail     String
-  subject     String
-  body        String
-  status      String    @default("queued") // queued | sent | failed
-  error       String?
-  attachments String? // anexos enviados: JSON [{ filename, size }] (o conteúdo não fica guardado)
-  createdAt   DateTime  @default(now())
-  sentAt      DateTime?
+  id             String    @id @default(cuid())
+  toEmail        String
+  subject        String
+  body           String
+  status         String    @default("queued") // queued | sent | failed
+  error          String?
+  attachments    String? // anexos enviados: JSON [{ filename, size }] (o conteúdo não fica guardado)
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
   // Novas tentativas automáticas (src/lib/mailer.ts): só e-mails sem anexo; nextAttemptAt null = não tenta mais
   attempts       Int       @default(0) // envios tentados no provedor
   nextAttemptAt  DateTime?

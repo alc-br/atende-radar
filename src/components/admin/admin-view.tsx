@@ -20,11 +20,13 @@ import {
   Package,
   FlaskConical,
   FileText,
+  Lightbulb,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ProductAnalyticsPanel } from '@/components/admin/product-analytics'
 import { SupportTickets } from './support-tickets'
 import { NfsePanel } from './nfse-panel'
+import { NoveltiesPanel } from './novelties-panel'
 import { PlanCatalog } from './plan-catalog'
 import { SimulationPanel, useSimulationAvailable } from './simulation-panel'
 
@@ -411,6 +413,7 @@ export default function AdminView() {
           <TabsTrigger value="plans"><Package className="ic" aria-hidden="true" />Planos</TabsTrigger>
           <TabsTrigger value="system"><Server className="ic" aria-hidden="true" />Sistema</TabsTrigger>
           <TabsTrigger value="product"><BarChart3 className="ic" aria-hidden="true" />Produto</TabsTrigger>
+          <TabsTrigger value="novelties"><Lightbulb className="ic" aria-hidden="true" />Situações novas</TabsTrigger>
           <TabsTrigger value="support"><LifeBuoy className="ic" aria-hidden="true" />Suporte</TabsTrigger>
           <TabsTrigger value="nfse"><FileText className="ic" aria-hidden="true" />Notas fiscais</TabsTrigger>
           {simulationAvailable && <TabsTrigger value="simulation"><FlaskConical className="ic" aria-hidden="true" />Simulação</TabsTrigger>}
@@ -419,6 +422,11 @@ export default function AdminView() {
         {/* ── Produto (I7): funil, ativação, retenção, uso por tela, tour e custo de IA ── */}
         <TabsContent value="product">
           <ProductAnalyticsPanel />
+        </TabsContent>
+
+        {/* ── Situações novas: o que os alertas não cobrem, agrupado por semana; o operador decide ── */}
+        <TabsContent value="novelties">
+          <NoveltiesPanel />
         </TabsContent>
 
         {/* ── Visão Geral ─────────────────────────────────────────── */}

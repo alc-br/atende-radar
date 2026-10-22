@@ -112,8 +112,10 @@ export default function PrivacidadePage() {
             <strong>Anthropic</strong> (Claude, inteligência artificial): classificação das conversas, como suboperadora. Recebe só o texto
             das últimas mensagens de cada conversa (até 40), marcado como &ldquo;cliente&rdquo; ou &ldquo;empresa&rdquo;, com CPF e números de
             cartão mascarados e sem o nome e o telefone cadastrados do contato, junto com o segmento e os termos do setor que a empresa cadastrou.
-            Devolve só a classificação, que é o que guardamos. Pelo contrato de uso da API, a Anthropic não usa esse conteúdo para treinar os
-            seus modelos;
+            Devolve a classificação, que é o que guardamos, e, de vez em quando, uma frase curta e genérica sobre uma situação importante que
+            os alertas ainda não cobrem (por exemplo, &ldquo;cliente diz que vai acionar o Procon&rdquo;), sem nomes, contatos, documentos ou
+            valores. Essas frases servem para melhorarmos os alertas: ficam até 30 dias e depois só resta o tema agrupado, com a contagem de
+            conversas. Pelo contrato de uso da API, a Anthropic não usa esse conteúdo para treinar os seus modelos;
           </li>
           <li>
             <strong>Provedor de infraestrutura</strong>: servidores onde o sistema, o banco de dados e as cópias de segurança ficam hospedados;
@@ -170,6 +172,10 @@ export default function PrivacidadePage() {
           <li>
             <strong>Eventos de uso do produto</strong>: apagados depois de 400 dias; os números agregados (sem identificar pessoas) podem ser
             mantidos.
+          </li>
+          <li>
+            <strong>Situações novas apontadas pela IA</strong>: a frase de cada conversa é apagada depois de 30 dias; fica só o tema
+            agrupado (título, resumo, contagem e até 5 frases genéricas de exemplo).
           </li>
           <li>
             <strong>Dados da conta</strong>: enquanto a conta estiver ativa. Quando o administrador pede o encerramento, há 7 dias para

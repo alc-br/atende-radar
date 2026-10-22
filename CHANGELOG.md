@@ -2,6 +2,9 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-22
+- **Situações novas (Admin):** o Claude passa a apontar, nas conversas, situações importantes que os alertas ainda não cobrem, numa frase curta e genérica. Uma vez por semana as frases parecidas viram temas, e o operador vê em Admin › Situações novas e marca "Vale mapear" ou "Descartar". Nada vira alerta sozinho. A frase fica 30 dias; a Política de Privacidade foi atualizada (versão 2026-10-22). Detalhes em `docs/operacao/ia.md`.
+
 ## 2026-10-21
 - **Faixa "WhatsApp desconectado":** quando um número que já estava conectado cai, todas as telas mostram uma faixa vermelha no topo, com o botão "Reconectar". Ela some sozinha quando o número volta. Conexão sem sincronização mostra "—" em vez de "20747d atrás".
 - **Classificação por IA (Claude Haiku 5.5), ligada:** as conversas que mudaram são classificadas pelo Claude (intenção, sentimento, urgência), com cache por conversa, limite por rodada e por dia, custo em Admin › Produto e as regras de palavras quando a IA falha. A Política de Privacidade passou a citar a Anthropic e o Google Drive (backup cifrado), e os textos que diziam "sem IA" foram trocados. Detalhes em `docs/operacao/ia.md`.

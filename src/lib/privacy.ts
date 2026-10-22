@@ -1,4 +1,5 @@
 import { db } from './db'
+import { NOVELTY_RETENTION_DAYS } from './analysis/novelty-signal'
 import { EXPORT_ACTION, usagePeriodStart } from './quotas'
 
 export interface ErasedCounts {
@@ -67,12 +68,14 @@ export const productEventsRetentionDays = () => parseDays(process.env.PRODUCT_EV
 export async function purgeProductEvents(now = new Date(), days = productEventsRetentionDays()) {
   const cutoff = new Date(now.getTime() - days * 86400000)
   const cutoffDay = cutoff.toISOString().slice(0, 10)
-  const [events, ai, views] = await Promise.all([
+  const [events, ai, views, signals] = await Promise.all([
     db.productEvent.deleteMany({ where: { createdAt: { lt: cutoff } } }),
     db.aiUsage.deleteMany({ where: { createdAt: { lt: cutoff } } }),
     db.pageViewDaily.deleteMany({ where: { day: { lt: cutoffDay } } }),
+    // situações novas: a frase de cada conversa fica 30 dias, agrupada ou não (o tema fica, sem a frase)
+    db.novelSignal.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - NOVELTY_RETENTION_DAYS * 86400000) } } }),
   ])
-  return { productEvents: events.count, aiUsage: ai.count, pageViewDays: views.count }
+  return { productEvents: events.count, aiUsage: ai.count, pageViewDays: views.count, novelSignals: signals.count }
 }
 
 /** Retenção: apaga o TEXTO das mensagens depois de `retContent` dias (padrão 365), as conversas inteiras e o registro de auditoria depois de `retMetadata` dias (padrão 730). */

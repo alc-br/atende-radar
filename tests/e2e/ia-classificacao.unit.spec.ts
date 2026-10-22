@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { aiClassifyMany, aiEnabled, aiKey, fromSaida, transcript } from '../../src/lib/analysis/ai-classify'
+import { cleanNovelty } from '../../src/lib/analysis/novelty-signal'
 import type { AnalysisMessage } from '../../src/lib/analysis/classify'
 
 // Item 8 · classificação pelo Claude. Sem chave e sem AI_CLASSIFIER=claude (CI, testes) fica desligada e o motor segue
@@ -13,11 +14,23 @@ test('desligada sem AI_CLASSIFIER=claude e chave: nada é chamado', async () => 
 })
 
 test('resposta do Claude vira a mesma classificação das regras, com origem llm', () => {
-  expect(fromSaida({ intent: 'preco', urgency: 'normal', sentiment: 'frustrated', confidence: 'alta' }))
+  expect(fromSaida({ intent: 'preco', urgency: 'normal', sentiment: 'frustrated', confidence: 'alta', novidade: null }))
     .toEqual({ intent: 'preco', stage: 'price', urgency: 'normal', sentiment: 'frustrated', confidence: 0.9, source: 'llm' })
-  expect(fromSaida({ intent: 'nenhuma', urgency: 'low', sentiment: 'neutral', confidence: 'baixa' }))
+  expect(fromSaida({ intent: 'nenhuma', urgency: 'low', sentiment: 'neutral', confidence: 'baixa', novidade: null }))
     .toMatchObject({ intent: null, stage: 'discovery', confidence: 0.55 })
-  expect(fromSaida({ intent: 'compra', urgency: 'high', sentiment: 'positive', confidence: 'media' })).toMatchObject({ stage: 'decision', confidence: 0.75 })
+  expect(fromSaida({ intent: 'compra', urgency: 'high', sentiment: 'positive', confidence: 'media', novidade: 'cliente diz que vai acionar o Procon' })).toMatchObject({ stage: 'decision', confidence: 0.75 })
+})
+
+test('situação nova: a frase sai limpa, sem contato nem documento', () => {
+  expect(cleanNovelty('  "cliente relata reação alérgica após o procedimento."  ')).toBe('cliente relata reação alérgica após o procedimento')
+  const suja = cleanNovelty('cliente maria@exemplo.com pede reembolso, CPF 123.456.789-09, fone (41) 99999-1234') ?? ''
+  expect(suja).not.toContain('maria@')
+  expect(suja).not.toContain('99999')
+  expect(suja).not.toContain('123.456')
+  expect(cleanNovelty('null')).toBeNull()
+  expect(cleanNovelty('nenhuma')).toBeNull()
+  expect(cleanNovelty('curta')).toBeNull()
+  expect((cleanNovelty('x '.repeat(200)) ?? '').length).toBeLessThanOrEqual(160)
 })
 
 test('transcrição: quem falou, sem mídia vazia, cortada no fim da conversa', () => {

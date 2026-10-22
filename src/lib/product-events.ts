@@ -92,6 +92,9 @@ export function estimateAiCostBrl(inputTokens: number, outputTokens: number): nu
   return (inputTokens * envNumber('AI_PRICE_BRL_PER_MTOK_IN') + outputTokens * envNumber('AI_PRICE_BRL_PER_MTOK_OUT')) / 1_000_000
 }
 
+/** organizationId do uso de IA que não é de uma empresa (agrupamento das situações novas, analysis/novelty.ts). */
+export const PLATFORM_AI_ORG = 'plataforma'
+
 export interface AiUsageInput {
   organizationId: string
   conversationId?: string | null

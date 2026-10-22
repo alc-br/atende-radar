@@ -11,6 +11,16 @@ Montada em 21/10/2026 (item 8; o dono escolheu o Claude). **Ligada em produção
 - **Custo:** cada chamada entra no `AiUsage` e aparece em Admin › Produto ("Custo de IA").
 - Correção manual continua vencendo sempre. A classificação grava `source = 'llm'` e o motivo "Claude (IA)". O relatório de qualidade diz qual método foi usado.
 
+## Situações novas (22/10/2026)
+
+Como o sistema aprende situações que os alertas ainda não cobrem, com uma pessoa decidindo:
+
+1. **Sinal:** junto com os rótulos, o Claude devolve `novidade`: quase sempre `null`; quando a conversa mostra algo importante que nenhum alerta cobre (risco de perder o cliente, prejuízo, problema legal, de saúde ou de segurança), uma frase curta e genérica, sem nome, contato, documento, valor ou data. O servidor ainda limpa e-mail, número longo, CPF e cartão (`src/lib/analysis/novelty-signal.ts`) e guarda uma frase por conversa em `NovelSignal`.
+2. **Agrupamento** (`src/lib/analysis/novelty.ts`): no laço de limpeza (a cada 15 min), quando a frase mais antiga sem tema faz 7 dias ou juntam 200, uma chamada ao Claude junta as frases parecidas em temas (`NovelCluster`), reaproveitando os temas que já existem (até 120). Até 400 frases por rodada. O uso entra no `AiUsage` com a empresa `plataforma` (Admin › Produto mostra "Plataforma (situações novas)"). Se falhar, tenta de novo depois de 6 h.
+3. **Decisão:** Admin › Situações novas lista os temas (a decidir primeiro), com contagem de conversas, número de empresas (nunca quais) e até 5 frases de exemplo. O operador marca "Vale mapear" ou "Descartar". "Agrupar agora" roda sem esperar a semana.
+4. **Nada é automático:** um tema marcado "Vale mapear" vira assunto ou alerta no código, por decisão de quem desenvolve. Tema descartado continua recebendo a contagem, mas fica no fim da lista.
+5. **Retenção:** a frase fica 30 dias (`purgeProductEvents`, `src/lib/privacy.ts`); o tema fica. A Política de Privacidade (versão 2026-10-22) descreve isso.
+
 ## Ligar e desligar
 
 Em `/opt/atende-radar/shared/app.env`, depois reinicie o app:

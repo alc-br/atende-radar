@@ -14,6 +14,7 @@ import { retryFailedEmails } from './mailer'
 import { purgeExpiredSimulations } from './simulation/cleanup'
 import { mauticEnabled, syncAllMembersToMautic } from './mautic'
 import { processNfse } from './nfse/service'
+import { clusterNovelSignals } from './analysis/novelty'
 
 // Tarefas em segundo plano dentro do próprio servidor: o motor de análise roda a cada minuto (alertas por TEMPO precisam
 // disparar mesmo sem mensagem nova) e, com um pequeno atraso, logo depois que chegam mensagens de uma empresa.
@@ -82,6 +83,8 @@ export function startBackgroundJobs() {
     await safely('retenção dos eventos de produto', () => purgeProductEvents())
     // simulação (S1): empresas simuladas mantidas somem depois de 24 h (só isSimulation)
     await safely('limpeza das simulações', () => purgeExpiredSimulations())
+    // situações novas: agrupa as frases da semana (só com a IA ligada; analysis/novelty.ts)
+    await safely('situações novas', () => clusterNovelSignals())
   }, 15 * 60_000)
   deletions.unref?.()
   // estatísticas do banco para o planejador de consultas (T15): logo depois de subir e a cada 6 h

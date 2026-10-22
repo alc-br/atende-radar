@@ -1,5 +1,5 @@
 import { db } from './db'
-import { dayKey, FUNNEL_MILESTONES, type MilestoneName } from './product-events'
+import { dayKey, FUNNEL_MILESTONES, PLATFORM_AI_ORG, type MilestoneName } from './product-events'
 import { demoOrgId, simulationOrgIds } from './sandbox'
 
 // I7 · Números do produto para o operador da plataforma (Admin › Produto). Só agregados: nenhuma linha devolvida
@@ -134,7 +134,7 @@ export async function productAnalytics(days: number, now = new Date()) {
       const conversations = convsPerOrg.get(r.organizationId) ?? 0
       return {
         organizationId: r.organizationId,
-        organization: orgNames.get(r.organizationId) ?? '(empresa apagada)',
+        organization: orgNames.get(r.organizationId) ?? (r.organizationId === PLATFORM_AI_ORG ? 'Plataforma (situações novas)' : '(empresa apagada)'),
         calls: r._count._all,
         inputTokens: r._sum.inputTokens ?? 0,
         outputTokens: r._sum.outputTokens ?? 0,

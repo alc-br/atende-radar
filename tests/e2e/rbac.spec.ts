@@ -87,6 +87,9 @@ const MATRIX: Row[] = [
   // Painel da plataforma: nenhum papel de cliente entra (só o operador da plataforma — ver session.spec.ts)
   ['GET', '/api/admin', []],
   ['GET', '/api/admin/analytics', []],
+  ['GET', '/api/admin/novelties', []], // situações novas: só o operador da plataforma
+  ['PATCH', '/api/admin/novelties/x', []],
+  ['POST', '/api/admin/novelties/cluster', []],
   ['GET', '/api/admin/support', []],
   ['GET', '/api/admin/support/x', []],
   ['PATCH', '/api/admin/support/x', []],

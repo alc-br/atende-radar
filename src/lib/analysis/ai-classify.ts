@@ -4,11 +4,13 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
 import { db } from '../db'
 import { recordAiUsage } from '../product-events'
+import { saveNovelSignal } from './novelty-signal'
 import { STAGE_BY_INTENT, type AnalysisMessage, type Classification } from './classify'
 
 // Item 8 · classificação por IA (Claude). Desligada por padrão: só roda com AI_CLASSIFIER=claude e ANTHROPIC_API_KEY no
 // ambiente (docs/operacao/ia.md). Qualquer falha (sem chave, limite do dia, erro da API, recusa) cai nas regras de palavras.
 // O texto já chega mascarado (CPF, cartão) pelo motor. Do Claude só se guardam os rótulos (AiClassification), nunca o texto.
+// "novidade" é a frase curta e genérica de uma situação importante que os alertas não cobrem (situações novas, novelty.ts).
 
 const INTENTS = ['cancelamento', 'compra', 'negociacao', 'agendamento', 'reclamacao', 'disponibilidade', 'preco', 'suporte', 'pos_venda', 'consulta', 'nenhuma'] as const
 const Saida = z.object({
@@ -16,6 +18,7 @@ const Saida = z.object({
   urgency: z.enum(['low', 'normal', 'high', 'critical']),
   sentiment: z.enum(['neutral', 'positive', 'frustrated', 'anxious', 'confused']),
   confidence: z.enum(['alta', 'media', 'baixa']),
+  novidade: z.string().nullable(),
 })
 type Saida = z.infer<typeof Saida>
 const CONFIDENCE: Record<Saida['confidence'], number> = { alta: 0.9, media: 0.75, baixa: 0.55 }
@@ -45,7 +48,13 @@ sentiment: como o cliente está AGORA, no último bloco de mensagens dele desde 
 
 urgency (no último bloco do cliente): critical = emergência, dor forte, "urgente"; high = precisa para hoje ou o quanto antes; low = disse que não tem pressa; normal = o resto.
 
-confidence: alta quando a conversa deixa claro; media quando dá para inferir; baixa quando é um palpite.`
+confidence: alta quando a conversa deixa claro; media quando dá para inferir; baixa quando é um palpite.
+
+novidade: quase sempre null. Preencha só quando a conversa mostra algo que a empresa precisaria saber logo (risco de perder o cliente, prejuízo, problema legal, de saúde ou de segurança, uma oportunidade grande) e que NÃO é coberto pelos avisos que o sistema já dá:
+- cliente sem resposta ou esperando demais; pergunta do cliente ignorada;
+- orçamento ou preço pedido e não respondido; cliente querendo comprar, agendar ou negociar sem resposta;
+- cliente irritado ou frustrado; promessa da empresa vencida ou perto de vencer; cliente que sumiu depois de mostrar interesse.
+Escreva uma frase curta (até 15 palavras) e genérica, que sirva para qualquer empresa, sem nomes, telefones, e-mails, documentos, endereços, valores ou datas. Exemplos: "cliente relata reação alérgica após o procedimento"; "cliente diz que vai acionar o Procon"; "cliente recebeu produto de outra pessoa".`
 
 const MAX_MESSAGES = 40
 const MAX_CHARS = 6000
@@ -54,7 +63,7 @@ export function aiEnabled(): boolean {
   return process.env.AI_CLASSIFIER === 'claude' && !!process.env.ANTHROPIC_API_KEY
 }
 
-const aiModel = () => process.env.AI_MODEL || 'claude-haiku-5-5'
+export const aiModel = () => process.env.AI_MODEL || 'claude-haiku-5-5'
 
 /** Transcrição curta: só as últimas mensagens com texto, marcadas por quem falou. */
 export function transcript(messages: AnalysisMessage[]): string {
@@ -84,7 +93,7 @@ export function fromSaida(s: Saida): Classification {
 }
 
 let client: Anthropic | null = null
-const anthropic = () => (client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 60_000, maxRetries: 2 }))
+export const anthropic = () => (client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 60_000, maxRetries: 2 }))
 
 export async function callClaude(text: string, ctx: AiContext): Promise<{ saida: Saida; inputTokens: number; outputTokens: number } | null> {
   const contexto = [
@@ -145,6 +154,7 @@ export async function aiClassifyMany(
         const data = { organizationId: orgId, inputHash: it.key, resultJson: JSON.stringify(r.saida), model: aiModel(), inputTokens: r.inputTokens, outputTokens: r.outputTokens }
         await db.aiClassification.upsert({ where: { conversationId: it.id }, create: { conversationId: it.id, ...data }, update: data })
         await recordAiUsage({ organizationId: orgId, conversationId: it.id, provider: 'anthropic', model: aiModel(), feature: 'classify', inputTokens: r.inputTokens, outputTokens: r.outputTokens })
+        if (r.saida.novidade) await saveNovelSignal(orgId, it.id, r.saida.novidade, now)
       } catch (e) {
         // sem retentar aqui: a conversa fica nas regras de palavras e entra de novo na próxima rodada em que mudar
         if (e instanceof Anthropic.AuthenticationError) { console.error('[ia] chave do Claude recusada; seguindo nas regras de palavras'); queue.length = 0; return }

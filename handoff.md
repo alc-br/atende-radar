@@ -69,6 +69,10 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 22/10/2026
+
+- **Situações novas (pedido do dono: "e quando surge uma situação inédita?"):** o Claude devolve `novidade` (frase curta e genérica, quase sempre nula) quando a conversa mostra algo importante que nenhum alerta cobre. O agrupamento semanal junta as frases em temas, e o operador decide em Admin › Situações novas ("Vale mapear" / "Descartar"). Nada vira alerta sozinho. A frase fica 30 dias, e a Política de Privacidade foi para a versão 2026-10-22. As conversas já em cache são reclassificadas uma vez, porque o formato da resposta mudou. Detalhes em `docs/operacao/ia.md`. Testes: `tests/e2e/novelties.spec.ts`, `ia-classificacao.unit.spec.ts`, `rbac.spec.ts`.
+
 ### 21/10/2026
 
 - **Pedidos do dono de 21/10 (lote de 8 itens):**

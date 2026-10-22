@@ -2,7 +2,7 @@
 // Fonte única: as páginas /termos e /privacidade mostram estas datas e o cadastro/aceite de convite grava estas versões.
 // Ao mudar o texto de uma das páginas, atualize a versão aqui.
 export const TERMS_VERSION = '2026-10-15'
-export const PRIVACY_VERSION = '2026-10-21'
+export const PRIVACY_VERSION = '2026-10-22'
 
 /** Quem presta o serviço (termos, privacidade, rodapé do site e dos e-mails). */
 export const EMPRESA = {
