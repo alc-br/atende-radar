@@ -92,7 +92,7 @@
     "write-excel-file": "4.1.1",
     "xml-crypto": "6.3.3",
     "z-ai-web-dev-sdk": "^0.0.18",
-    "zod": "^4.0.2",
+    "zod": "4.6.6",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
@@ -121,7 +121,8 @@
     "lodash": "^4.18.0",
     "lodash-es": "^4.18.0",
     "postcss": "^8.5.12",
-    "source-map-js": "^1.2.2"
+    "source-map-js": "^1.2.2",
+    "zod": "4.6.6"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
