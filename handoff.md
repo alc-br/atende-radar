@@ -71,6 +71,25 @@ Sem segredos aqui: o repositório é público.
 
 ### 23/10/2026
 
+- **Pedido da ALC, 2ª parte** (commits 604a781 e 565c680; CI 40016104305 verde na 2ª tentativa, a 1ª caiu no checkout do sandbox Pagar.me no Firefox):
+  - **Páginas de anúncio no ar:** `/para/clinicas`, `/para/servicos`, `/para/imobiliarias`, `/para/escolas` e `/para/agencias`.
+    - Em produção as 5 respondem 200 com `noindex, nofollow`; `/para/padarias` dá 404.
+    - O botão leva `modo=cadastro`, as utm e o `gclid` até o app.
+    - Teste: `tests/e2e/segmentos.ui.spec.ts`.
+  - **Meta tag de verificação de domínio:** pronta. Falta o dono pôr o código em `META_DOMAIN_VERIFICATION`.
+  - **Criativos:** em `criativos/` (README com cores, fontes e cuidados). As peças se geram de novo com `node --experimental-strip-types criativos/gerar.mts`; a saída fica fora do git.
+  - **Conferência do consentimento em produção** (navegador limpo), detalhada em `docs/operacao/medicao.md` › "Achados em produção":
+    - o modo é **básico**, não avançado, porque as tags do GTM exigem consentimento adicional (a doc estava errada e foi corrigida);
+    - aceitar na 1ª página só mede a partir da página seguinte;
+    - o COEP barra `www.google.com/ccm/collect` e a CSP barra `ad.doubleclick.net`;
+    - entre domínios está certo: um único `_ga` em `.atenderadar.com.br`.
+  - **Propostas que esperam o OK do dono** (`docs/operacao/medicao.md` › "Propostas que dependem do dono"):
+    - disparo "Uma vez por evento" no GTM;
+    - modo avançado, que exige texto novo na /privacidade;
+    - CSP com `ad.doubleclick.net` e `www.googleadservices.com`, sem o COEP;
+    - texto das conversões otimizadas do Google;
+    - aviso nos Termos sobre o risco da conexão por QR Code.
+
 - **Pedido do time de tráfego da ALC (10 itens), parte de código.** Feito e testado (unit 20/20, `tests/e2e/marketing.spec.ts` 5/5, `admin-medicao.ui.spec.ts` desktop e celular, consentimento, CSP, cadastro):
   - **Ativação:** a 1ª conexão do WhatsApp enfileira `activation.<empresa>`: GA4 `activation` e Meta `StartTrial`. O app empurra `activation` ao dataLayer com o mesmo id nas 48 h seguintes.
   - **`sign_up` ao GA4 pelo servidor:** pronto, mas desligado (`GA4_SERVER_SIGNUP`), para não contar em dobro com a tag do GTM.

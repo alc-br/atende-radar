@@ -9,6 +9,15 @@ Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no
 - **Taxa de aceite do aviso de cookies:** contador diário de cada botão, sem identificar ninguém.
 - **Endereço do app:** ao abrir, o app tira só `modo` e `demo` da URL; UTM, `gclid` e `_gl` ficam para as tags.
 - **Next.js 16.4.1** (correções de segurança).
+- **Páginas de anúncio por segmento:** `/para/clinicas`, `/para/servicos`, `/para/imobiliarias`, `/para/escolas` e `/para/agencias`. Ficam fora do Google, não têm menu, e o botão de cadastro leva a campanha (utm, gclid, gbraid, wbraid, fbclid) até o app.
+- **Verificação do domínio na Meta:** a meta tag sai em todas as páginas quando `META_DOMAIN_VERIFICATION` estiver configurada.
+- **Criativos de anúncio** (`criativos/`):
+  - 6 imagens (1080×1080 e 1080×1920) e 2 vídeos verticais de 20 s, gerados por script, com dados fictícios;
+  - logo e ícone em SVG.
+- **Conferência em produção:** o Consent Mode está no modo básico (as tags do Google esperam o aceite), e não no avançado, como a documentação dizia.
+  - Aceitar na 1ª página só passa a medir na página seguinte.
+  - CSP e COEP barram duas medições do Google Ads.
+  - As propostas de correção esperam o OK do dono.
 - Detalhes em `docs/operacao/medicao.md`.
 
 ## 2026-10-22

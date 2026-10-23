@@ -62,8 +62,14 @@ para o site e para o app. Depois da escolha vão `gtag('consent','update',...)` 
 
 A explicação ao cliente está na /privacidade, seção 5 ("Cookies"), na versão 2026-10-21.
 
-É o modo **avançado** do Consent Mode: o GTM carrega sempre, e as tags do Google, sem permissão, mandam só pings sem
-cookie (o Google modela as conversões que faltam). Nenhuma tag grava cookie antes do aceite.
+É o modo **básico** do Consent Mode (conferido em produção em 23/10/2026, seção "Achados em produção"):
+
+- o GTM carrega sempre, mas as tags do Google e da Meta só disparam depois do aceite;
+- sem permissão, nada é enviado ao Google nem à Meta, e nenhum cookie é gravado, como promete a /privacidade.
+
+O modo avançado manda, sem permissão, pings sem cookie para o Google modelar as conversões. Para ativá-lo é preciso
+mudar o GTM e o texto da /privacidade, as duas coisas com o OK do dono. A proposta está em "Propostas que dependem do
+dono".
 
 **Taxa de aceite.** Cada clique no aviso soma 1 num contador do dia (`ConsentChoiceDaily`: `accept_all`, `reject_all`,
 `custom`), por `POST /api/public/consent`, sem cookie, IP ou identificador. Admin › Medição mostra os totais e as
@@ -250,6 +256,99 @@ nada, `(direto)`. Colunas:
 | cancelamentos | auditoria `subscription.canceled` e `subscription.withdrawn` |
 
 "Baixar funil (CSV)" baixa a mesma tabela.
+
+## Achados em produção (23/10/2026)
+
+Conferido com um navegador limpo (Chromium do Playwright, sem cookies) em https://atenderadar.com.br, com o contêiner
+publicado GTM-P43TS3SF.
+
+- **Antes da escolha:**
+  - padrão `analytics_storage`, `ad_storage`, `ad_user_data` e `ad_personalization` = `denied`;
+  - só o `gtm.js` carrega;
+  - nenhum cookie do Google ou da Meta (só o `ar_attr`, nosso).
+- **No contêiner**, a tag do Google (G-1KVLT8H1ZP) e o evento GA4 exigem o consentimento adicional
+  `analytics_storage`, e o Vinculador de conversões exige `ad_storage` + `ad_user_data`. Por isso o modo é básico.
+- **Aceitar na 1ª página não dispara nada nessa página.** O `consent update` e o evento `consent_update` chegam ao
+  dataLayer, mas nenhuma tag do Google nem da Meta dispara. A medição só começa na página seguinte (`page_view` com
+  `gcs=G111`).
+  - Consequência: o GA4 não vê a página de entrada com utm/gclid. A sessão pode ficar sem a campanha, e o `_gcl_aw`
+    só é gravado se a próxima página ainda tiver o `gclid` na URL.
+  - A conversão pelo servidor (Meta CAPI, GA4 MP e CSV do Google Ads) não perde a campanha, porque ela fica no
+    cookie `ar_attr`, nosso, e vai para a conta no cadastro.
+  - Causa provável, a confirmar no Preview do GTM: as tags estão em "Uma vez por página" e a tentativa bloqueada no
+    `gtm.js` já conta como disparo.
+- **CSP e COEP bloqueiam medições do Google Ads**, já com o aceite:
+  - `www.google.com/ccm/collect` falha por COEP (`ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoep`): imagem de outro domínio sem `Cross-Origin-Resource-Policy`;
+  - `ad.doubleclick.net/ccm/s/collect` é recusado pela CSP (`connect-src` e `img-src`).
+- **Entre os domínios** está certo: um único `_ga` em `.atenderadar.com.br`. O app (app.atenderadar.com.br) lê o mesmo
+  valor do site e o mesmo `ar_attr`. Não precisa de vinculador entre domínios (`_gl`).
+- **No site há um erro no console:** `/api/auth/session` do app é recusado pela CSP do site. É o cliente de sessão
+  tentando falar com o app, sem efeito na medição.
+
+## Propostas que dependem do dono
+
+Nada disto foi aplicado.
+
+### 1. Disparo na página em que a pessoa aceita (GTM, sem mudar texto)
+
+Nas tags "Google tag", "Vinculador de conversões" e "Meta Pixel - PageView":
+
+1. Mude as opções de disparo de "Uma vez por página" para "**Uma vez por evento**".
+2. Mantenha os acionadores "Inicialização - Todas as páginas" e o evento `consent_update`.
+
+Quem volta com o aceite gravado não recebe `consent_update`, então não há disparo duplo. Teste no Preview e publique
+só com o OK.
+
+### 2. Modo avançado (GTM + texto da /privacidade)
+
+Mudança no GTM:
+
+- Tag do Google, eventos GA4 e Vinculador de conversões: "Não é necessário consentimento adicional". As tags do Google
+  já respeitam o consentimento sozinhas.
+- Meta continua exigindo `ad_storage`.
+
+Texto proposto para /privacidade, seção 2 (Google e Meta), no lugar de "só com a sua permissão no aviso de cookies":
+
+> Sem a sua permissão, o Google recebe apenas sinais sem cookie e sem identificador (a página visitada e se houve
+> cadastro), usados de forma estatística para estimar resultados de anúncios; nada é gravado no seu navegador e a
+> Meta não recebe nada. Com a permissão, [...]
+
+E na seção 5: "sem permissão, elas não gravam cookies; o Google recebe só sinais sem cookie, como explicado na seção 2".
+
+### 3. CSP e COEP mínimos para Google Ads (código, `src/lib/csp.ts` e `next.config.ts`)
+
+- CSP, `connect-src` e `img-src`: acrescentar `https://ad.doubleclick.net` e `https://www.googleadservices.com`.
+  - `https://*.g.doubleclick.net` e `https://www.google.com` já estão.
+  - Para remarketing em quadro, `frame-src` com `https://td.doubleclick.net` já está.
+- COEP: tirar o `Cross-Origin-Embedder-Policy: require-corp`.
+  - Nada no sistema usa isolamento entre origens (`crossOriginIsolated`, `SharedArrayBuffer`). O cabeçalho entrou só
+    para calar um alerta do ZAP.
+  - A alternativa `credentialless` deixa as imagens do Google passarem, mas sem os cookies delas, o que piora o
+    remarketing.
+  - O COOP e o CORP continuam.
+
+Depois do OK: um teste e2e garante que a CSP contém os novos domínios. Aí sim, Preview do GTM com uma tag de
+conversão do Ads e uma de remarketing.
+
+### 4. Conversões otimizadas do Google (texto da /privacidade)
+
+Hoje só a Meta recebe e-mail e celular em hash. Para as conversões otimizadas do Google (e-mail em minúsculas, sem
+espaços, e celular em E.164, em SHA-256), a seção 2 passaria a dizer:
+
+> Na contratação e no cadastro, o Google e a Meta recebem também o e-mail e o celular transformados em código (hash
+> SHA-256, que não permite ler o dado), para saber se vieram de um anúncio.
+
+### 5. Termos: risco da conexão por QR Code
+
+Item novo na seção 7 dos Termos, logo depois do primeiro:
+
+> A conexão por QR Code funciona como o WhatsApp Web e não é uma integração oficial da Meta. O WhatsApp pode
+> restringir ou bloquear números por uso fora das regras dele (por exemplo, envio em massa ou mensagens não
+> solicitadas). O AtendeRadar só lê as conversas e não envia mensagens em nome da empresa, mas não controla nem
+> responde por decisões do WhatsApp sobre o número conectado.
+
+Conferido no código em 23/10: `src/` não tem nenhum envio de mensagem pelo WhatsApp conectado (nenhum `sendMessage`).
+O sistema só lê.
 
 ## Google Ads offline (CSV)
 
