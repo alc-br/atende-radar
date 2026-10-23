@@ -10,6 +10,8 @@ export interface Segment {
   dores: { t: string; p: string }[]
   conversa: { cliente: string; equipe: string; pendente: string }
   alerta: string
+  /** Linha a mais no bloco "Quem vê as conversas?", quando o segmento lida com dado sensível (LGPD, art. 11). */
+  privacidade?: string
 }
 
 export const SEGMENTS: Segment[] = [
@@ -31,6 +33,8 @@ export const SEGMENTS: Segment[] = [
       pendente: 'Sem retorno há 2 dias',
     },
     alerta: 'Paciente pediu horário e ficou sem retorno.',
+    privacidade:
+      'Conversa de paciente pode trazer dado de saúde, que a LGPD trata como dado sensível. Por isso dá para tirar um contato da análise e apagar de vez as conversas e os dados dele quando o paciente pedir.',
   },
   {
     slug: 'servicos',

@@ -97,6 +97,10 @@ No GTM:
 | `begin_checkout` | abriu a tela de pagamento de um plano | `event_id`, `ecommerce.value`, `currency` BRL, `items` |
 | `add_payment_info` | clicou em pagar (antes de enviar o cartão) | `event_id`, `ecommerce.payment_type` = `cartao`, `value`, `items` |
 | `purchase` | assinatura ativa na tela de pagamento, uma vez por assinatura neste navegador | `event_id` = `purchase.<id da assinatura no Pagar.me>`, `ecommerce.transaction_id` (o mesmo id), `value`, `currency` BRL, `items` |
+| `cta_click` | clique num botão das páginas `/para/<segmento>` | `cta_id` (`cadastro`, `planos` ou `contato`), `cta_position` (`topo`, `hero`, `preco`, `duvidas` ou `final`), `page_segment` |
+| `faq_open` | abriu uma pergunta das Dúvidas numa página `/para/<segmento>` | `faq_question` (o texto da pergunta), `page_segment` |
+| `video_play` | deu play no vídeo de 20 s de uma página `/para/<segmento>`; só o 1º play de cada visita | `video_title` = `demo-20s`, `page_segment` |
+| `video_complete` | o vídeo chegou ao fim | `video_title` = `demo-20s`, `page_segment` |
 
 `items`: `[{ item_id: <código do plano>, item_name, item_variant: monthly|annual, price, quantity: 1 }]`.
 
@@ -417,7 +421,13 @@ Os testes automáticos cobrem:
   de cookies).
 - Os botões abrem `app.atenderadar.com.br/?modo=cadastro` com `utm_*`, `gclid`, `gbraid`, `wbraid`, `fbclid` e `_gl`
   da visita. A campanha também fica no cookie `ar_attr`, que vale para os dois domínios.
-- Renderizadas no servidor, sem JavaScript próprio e sem animação de entrada (para o LCP).
+- Renderizadas no servidor e sem animação de entrada (para o LCP). O único JavaScript da página são os eventos
+  `cta_click`, `faq_open`, `video_play` e `video_complete` (`src/app/para/[segmento]/medicao.tsx`, tabela acima).
+- Seções: dores do segmento, como funciona, vídeo de 20 s (`public/para/video-demo.mp4`, 540×960, sem áudio,
+  `preload="none"`; é o `video-01` dos criativos), preço depois do teste (o plano pago mais barato, lido do banco),
+  "Meu número pode ser bloqueado?" e "Quem vê as conversas?" (texto do FAQ da home e da Política de Privacidade;
+  clínicas tem a linha de dado de saúde da LGPD, campo `privacidade` do segmento), Dúvidas (o resto do FAQ) e
+  "Fale com a gente" (e-mail de contato, com o segmento no assunto).
 - Segmento que não existe dá 404.
 - Teste: `tests/e2e/segmentos.ui.spec.ts`.
 

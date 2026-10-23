@@ -71,6 +71,18 @@ Sem segredos aqui: o repositório é público.
 
 ### 23/10/2026
 
+- **Cobrança da agência (verba de ~R$ 50/dia por 2 semanas em clínicas e serviços, liga quando os itens chegarem):**
+  - **Item 1, páginas `/para/*`:** feito nos 5 segmentos.
+    - Entraram o preço depois do teste (plano pago mais barato, do banco), "Meu número pode ser bloqueado?" e "Quem vê as conversas?". Os textos vêm do FAQ da home e da Política; clínicas tem a linha de dado de saúde da LGPD.
+    - Também o vídeo de 20 s (`public/para/video-demo.mp4`, 230 KB, `preload="none"`), Dúvidas e "Fale com a gente" (mailto com o segmento no assunto).
+    - Eventos: `cta_click`, `faq_open`, `video_play` e `video_complete`.
+    - "As conversas são auditadas" virou "O AtendeRadar lê as conversas".
+    - Teste: `segmentos.ui.spec.ts`, 14/14 no desktop e no celular.
+  - **Item 3, eventos do dataLayer:** já estava pronto; a resposta está em `docs/operacao/medicao.md` (tabela "Eventos do dataLayer" e "Envio pelo servidor").
+  - **Item 4, criativos:** zip gerado em `criativos/saida/AtendeRadar-criativos.zip` (fora do git), com as peças, os SVGs da marca e um LEIA-ME.
+  - **Items 2 e 5:** o Consent Mode é o básico. A conversão do Google Ads espera o OK do dono na proposta 3 (CSP/COEP).
+  - **Falta:** o LCP no celular antes e depois (PSI depois do deploy).
+- **zod 4.6.6** (GHSA-mrhx-c7xc-m3w5, alta; pedido do dono, apesar de a versão ter menos de 2 semanas). Vai pelos `overrides` também para a cópia do `eslint-plugin-react-hooks`. O `bun audit` do CI passa.
 - **Pedido da ALC, 2ª parte** (commits 604a781 e 565c680; CI 40016104305 verde na 2ª tentativa, a 1ª caiu no checkout do sandbox Pagar.me no Firefox):
   - **Páginas de anúncio no ar:** `/para/clinicas`, `/para/servicos`, `/para/imobiliarias`, `/para/escolas` e `/para/agencias`.
     - Em produção as 5 respondem 200 com `noindex, nofollow`; `/para/padarias` dá 404.
