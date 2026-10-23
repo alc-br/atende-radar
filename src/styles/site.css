@@ -323,3 +323,11 @@ html:has(.lp) {scroll-behavior: auto;}
 
 /* O reset do Tailwind tira o negrito padrão dos títulos; o pacote conta com ele. */
 .lp h1, .lp h2, .lp h3, .lp h4, .lp b, .lp strong {font-weight: 700;}
+
+/* Páginas de anúncio por segmento (/para/<segmento>): sem menu, rodapé só com o legal */
+.lp--segmento .demo--segmento {margin: 0; grid-template-columns: 1fr; max-width: 460px; justify-self: center;}
+.lp--segmento .passos-segmento {list-style: none; padding: 0;}
+.lp--segmento .rodape-segmento {padding: 28px 0 36px; border-top: 1px solid var(--borda, #e6ebef); font-size: 13px; color: var(--suave, #55606b); text-align: center;}
+.lp--segmento .rodape-segmento nav {display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; margin-bottom: 10px;}
+.lp--segmento .rodape-segmento a, .lp--segmento .rodape-segmento button {color: inherit; text-decoration: underline; background: none; border: 0; padding: 0; font: inherit; cursor: pointer;}
+.lp--segmento .rodape-segmento p {margin: 4px 0;}

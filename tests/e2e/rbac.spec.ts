@@ -99,6 +99,9 @@ const MATRIX: Row[] = [
   ['POST', '/api/admin/nfse', []],
   ['POST', '/api/admin/nfse/x', []],
   ['GET', '/api/admin/nfse/x/xml', []],
+  ['GET', '/api/admin/marketing', []], // medição (funil, internos, CSV do Google Ads): só o operador — marketing.spec.ts
+  ['PUT', '/api/admin/marketing', []],
+  ['GET', '/api/admin/marketing/export', []],
   ['GET', '/api/admin/plans', []], // V7 · catálogo de planos: só o operador da plataforma
   ['PATCH', '/api/admin/plans/x', []],
   // ambiente de simulação (S1): só o operador da plataforma (ou Bearer SIMULATION_SECRET) — simulacao.spec.ts

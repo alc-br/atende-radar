@@ -307,3 +307,23 @@ Os testes automáticos cobrem:
 - `tests/e2e/marketing.spec.ts`: ativação uma vez na 1ª conexão, empresas internas fora, só o operador vê a medição, o
   funil por campanha, o CSV do Google Ads e o contador do aviso de cookies;
 - `tests/e2e/admin-medicao.ui.spec.ts`: Admin › Medição na tela, com os dois CSVs baixados.
+
+## Páginas de anúncio por segmento
+
+`https://atenderadar.com.br/para/<segmento>`, com `clinicas`, `servicos`, `imobiliarias`, `escolas` e `agencias`
+(texto em `src/lib/segments.ts`; as conversas são exemplos inventados).
+
+- Fora do Google (`noindex, nofollow`) e fora do `sitemap.xml`.
+- Sem menu: os únicos links são os botões de cadastro e o rodapé legal (Privacidade e Termos em nova aba, preferências
+  de cookies).
+- Os botões abrem `app.atenderadar.com.br/?modo=cadastro` com `utm_*`, `gclid`, `gbraid`, `wbraid`, `fbclid` e `_gl`
+  da visita. A campanha também fica no cookie `ar_attr`, que vale para os dois domínios.
+- Renderizadas no servidor, sem JavaScript próprio e sem animação de entrada (para o LCP).
+- Segmento que não existe dá 404.
+- Teste: `tests/e2e/segmentos.ui.spec.ts`.
+
+## Verificação do domínio na Meta
+
+Em Gerenciador de Negócios > Segurança da marca > Domínios > "Meta tag", copie só o código do `content` para
+`META_DOMAIN_VERIFICATION` no `app.env` e reinicie o app. A tag `facebook-domain-verification` sai em todas as páginas.
+Sem a variável, não sai nada.

@@ -21,7 +21,11 @@ const jakarta = Plus_Jakarta_Sans({
   weight: ["400", "500", "600", "700", "800"],
 });
 
+// Verificação do domínio na Meta (Gerenciador de Negócios > Segurança da marca > Domínios): o código vem do app.env.
+const metaDomain = /^[a-z0-9]{10,64}$/.test(process.env.META_DOMAIN_VERIFICATION || "") ? process.env.META_DOMAIN_VERIFICATION! : null;
+
 export const metadata: Metadata = {
+  ...(metaDomain ? { verification: { other: { "facebook-domain-verification": metaDomain } } } : {}),
   title: "AtendeRadar - Auditor de Receita e Qualidade no WhatsApp",
   description: "Encontre o dinheiro que a equipe comercial está deixando escapar no atendimento.",
   keywords: ["AtendeRadar", "auditoria", "WhatsApp", "qualidade", "receita", "atendimento"],
