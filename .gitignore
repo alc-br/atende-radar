@@ -75,3 +75,6 @@ playwright-report/
 .tmp/
 # cache do áudio da narração do tour (TOUR_AUDIO_DIR em dev)
 .tour-audio/
+
+# criativos gerados (criativos/gerar.mts)
+criativos/saida/
