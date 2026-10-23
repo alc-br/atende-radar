@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test'
 import { createHash } from 'node:crypto'
 import { attributionFrom, consentFrom, normalizedPhone, sha256, withCampaign } from '../../src/lib/attribution'
-import { hashedContact, pageUrl, purchaseEventId, sendConversion, signUpEventId, type ConversionPayload } from '../../src/lib/conversions'
+import { activationEventId, hashedContact, pageUrl, purchaseEventId, sendConversion, signUpEventId, type ConversionPayload } from '../../src/lib/conversions'
+import { isInternalEmail, normalizeRules } from '../../src/lib/internal'
+import { brTime, googleAdsCsv, periodFrom, toCsv } from '../../src/lib/marketing-report'
 import { contentSecurityPolicy } from '../../src/lib/csp'
 import { CONSENT_DEFAULT_SCRIPT, gtmId, gtmSnippet } from '../../src/lib/gtm'
 
@@ -60,6 +62,7 @@ test.describe('medição: envio pelo servidor', () => {
     process.env.META_CAPI_TOKEN = 'token-meta'
     delete process.env.META_TEST_EVENT_CODE
     delete process.env.GA4_DEBUG
+    delete process.env.GA4_SERVER_SIGNUP
     delete process.env.META_GRAPH_VERSION
     globalThis.fetch = (async (url: string, init?: RequestInit) => {
       calls.push({ url: String(url), body: JSON.parse(String(init?.body ?? '{}')) })
@@ -113,12 +116,30 @@ test.describe('medição: envio pelo servidor', () => {
     expect(calls).toEqual([])
   })
 
-  test('cadastro: só a Meta (CompleteRegistration), com o event_id do navegador e o código de teste', async () => {
+  test('cadastro: a Meta (CompleteRegistration) com o event_id do navegador; o GA4 fica com a tag do GTM', async () => {
     process.env.META_TEST_EVENT_CODE = 'TEST123'
     const id = signUpEventId('org1')
-    const r = await sendConversion('sign_up', id, { eventTime: 1, sourceUrl: 'https://app.atenderadar.com.br/', attribution: { consent: { analytics: true, ads: true } }, em: sha256('ana@exemplo.com') })
-    expect(r).toEqual(['meta:ok'])
+    const r = await sendConversion('sign_up', id, { eventTime: 1, sourceUrl: 'https://app.atenderadar.com.br/', attribution: { ga: '1.2', consent: { analytics: true, ads: true } }, em: sha256('ana@exemplo.com') })
+    expect(r).toEqual(['ga4:pelo-navegador', 'meta:ok'])
+    expect(calls).toHaveLength(1)
     expect(calls[0].body).toMatchObject({ test_event_code: 'TEST123', data: [{ event_name: 'CompleteRegistration', event_id: 'sign_up.org1' }] })
+  })
+
+  test('cadastro com GA4_SERVER_SIGNUP=on: sign_up vai também ao GA4 pelo servidor, com a campanha', async () => {
+    process.env.GA4_SERVER_SIGNUP = 'on'
+    const r = await sendConversion('sign_up', signUpEventId('org1'), { eventTime: 1, sourceUrl: 'x', attribution: { ga: '1.2', gs: '9', utm_source: 'google', utm_medium: 'cpc', utm_campaign: 'pre_anuncio', consent: { analytics: true, ads: false } } })
+    expect(r).toEqual(['ga4:ok', 'meta:sem-consentimento'])
+    expect(calls[0].body).toMatchObject({ client_id: '1.2', events: [{ name: 'sign_up', params: { method: 'email', session_id: '9', campaign_source: 'google', campaign_medium: 'cpc', campaign: 'pre_anuncio' } }] })
+  })
+
+  test('ativação: GA4 "activation" e Meta "StartTrial" com o mesmo event_id do dataLayer', async () => {
+    const id = activationEventId('org1')
+    expect(id).toBe('activation.org1')
+    const r = await sendConversion('activation', id, { eventTime: 5, sourceUrl: 'https://app.atenderadar.com.br/', attribution: { ga: '1.2', fbp: 'fb.1.1.2', gclid: 'g1', consent: { analytics: true, ads: true } }, ...hashedContact('ana@exemplo.com', '', 'org1') })
+    expect(r).toEqual(['ga4:ok', 'meta:ok'])
+    expect(calls[0].body).toMatchObject({ client_id: '1.2', events: [{ name: 'activation', params: { method: 'whatsapp' } }] })
+    expect((calls[1].body.data as Record<string, unknown>[])[0]).toMatchObject({ event_name: 'StartTrial', event_id: 'activation.org1', event_time: 5, user_data: { em: [sha256('ana@exemplo.com')], fbp: 'fb.1.1.2' } })
+    expect(await sendConversion('activation', id, { eventTime: 5, sourceUrl: 'x', attribution: null })).toEqual(['ga4:sem-consentimento', 'meta:sem-consentimento'])
   })
 
   test('erro HTTP lança (nova tentativa) sem expor o token', async () => {
@@ -126,6 +147,45 @@ test.describe('medição: envio pelo servidor', () => {
     const err = await sendConversion('purchase', 'purchase.sub_6', purchase({ analytics: false, ads: true })).catch((e: Error) => e)
     expect(err).toBeInstanceOf(Error)
     expect((err as Error).message).toBe('Meta HTTP 500')
+  })
+})
+
+test.describe('medição: internos e arquivos do Admin', () => {
+  test('lista de internos: limpa o que foi digitado e casa e-mail exato ou domínio (com subdomínio)', () => {
+    const r = normalizeRules({ emails: ' Ana@Exemplo.com, lixo;ana@exemplo.com ', domains: ['@ALC.com.br', 'sem ponto', 'teste.dev'] })
+    expect(r).toEqual({ emails: ['ana@exemplo.com'], domains: ['alc.com.br', 'teste.dev'] })
+    expect(isInternalEmail('ANA@exemplo.com', r)).toBe(true)
+    expect(isInternalEmail('bia@exemplo.com', r)).toBe(false)
+    expect(isInternalEmail('x@time.alc.com.br', r)).toBe(true)
+    expect(isInternalEmail('x@naoalc.com.br', r)).toBe(false)
+    expect(isInternalEmail(null, r)).toBe(false)
+  })
+
+  test('CSV do Google Ads no formato da importação, hora de Brasília', () => {
+    expect(brTime(new Date('2026-10-23T17:30:05Z'))).toBe('2026-10-23 14:30:05')
+    const csv = googleAdsCsv([
+      { gclid: 'TESTE123', name: 'AtendeRadar - Ativacao', time: '2026-10-23 14:30:05', value: null, currency: 'BRL', kind: 'activation', organizationId: 'o' },
+      { gclid: 'TESTE123', name: 'AtendeRadar - Assinatura', time: '2026-10-23 15:00:00', value: 299, currency: 'BRL', kind: 'purchase', organizationId: 'o' },
+    ])
+    expect(csv).toBe(
+      'Parameters:TimeZone=America/Sao_Paulo\r\n' +
+      'Google Click ID,Conversion Name,Conversion Time,Conversion Value,Conversion Currency\r\n' +
+      'TESTE123,AtendeRadar - Ativacao,2026-10-23 14:30:05,,BRL\r\n' +
+      'TESTE123,AtendeRadar - Assinatura,2026-10-23 15:00:00,299.00,BRL\r\n',
+    )
+  })
+
+  test('CSV nunca vira fórmula na planilha e escapa vírgula e aspas', () => {
+    expect(toCsv([['=HYPERLINK("x")', 'a,b', '-1']])).toBe(`"'=HYPERLINK(""x"")","a,b",'-1\r\n`)
+  })
+
+  test('período em dias de Brasília, até 1 ano', () => {
+    const p = periodFrom(new URLSearchParams('from=2026-10-01&to=2026-10-23'))!
+    expect(p.from.toISOString()).toBe('2026-10-01T03:00:00.000Z')
+    expect(p.to.toISOString()).toBe('2026-10-24T02:59:59.999Z')
+    expect(periodFrom(new URLSearchParams('from=2026-10-23&to=2026-10-01'))).toBeNull()
+    expect(periodFrom(new URLSearchParams('from=2024-01-01&to=2026-10-01'))).toBeNull()
+    expect(periodFrom(new URLSearchParams('from=ontem'))).toBeNull()
   })
 })
 
@@ -140,6 +200,8 @@ test.describe('medição: GTM e CSP', () => {
   test('padrão do Consent Mode: negado até escolher', () => {
     expect(CONSENT_DEFAULT_SCRIPT).toContain("gtag('consent','default'")
     expect(CONSENT_DEFAULT_SCRIPT).toContain("c.analytics===true?'granted':'denied'")
+    // tráfego interno: marcado antes do GTM carregar
+    expect(CONSENT_DEFAULT_SCRIPT).toContain("traffic_type:'internal'")
   })
 
   test('CSP libera as tags de medição e mais nada', () => {

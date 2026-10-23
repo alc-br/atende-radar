@@ -2,6 +2,15 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-23
+- **Ativação (1ª conexão do WhatsApp) como conversão:** vai uma vez por empresa ao GA4 (`activation`) e à Meta (`StartTrial`) pelo servidor, e ao dataLayer com o mesmo `event_id`, para as tags de anúncio. Leva a campanha do cadastro.
+- **Empresas internas:** em Admin › Medição, e-mails e domínios da casa. Empresa interna não conta como cadastro, ativação ou compra em lugar nenhum, e o navegador de quem é da casa é marcado como tráfego interno (`traffic_type`).
+- **Admin › Medição:** funil por dia e campanha (cadastros, ativações, testes vencidos sem contratar, assinaturas pagas, receita, cancelamentos), com CSV, e o CSV de conversões offline do Google Ads (por `gclid`), com os nomes das conversões editáveis.
+- **Taxa de aceite do aviso de cookies:** contador diário de cada botão, sem identificar ninguém.
+- **Endereço do app:** ao abrir, o app tira só `modo` e `demo` da URL; UTM, `gclid` e `_gl` ficam para as tags.
+- **Next.js 16.4.1** (correções de segurança).
+- Detalhes em `docs/operacao/medicao.md`.
+
 ## 2026-10-22
 - **Situações novas (Admin):** o Claude passa a apontar, nas conversas, situações importantes que os alertas ainda não cobrem, numa frase curta e genérica. Uma vez por semana as frases parecidas viram temas, e o operador vê em Admin › Situações novas e marca "Vale mapear" ou "Descartar". Nada vira alerta sozinho. A frase fica 30 dias; a Política de Privacidade foi atualizada (versão 2026-10-22). Detalhes em `docs/operacao/ia.md`.
 

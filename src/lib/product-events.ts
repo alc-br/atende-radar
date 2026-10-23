@@ -80,6 +80,23 @@ export async function countPageView(page: PageViewPage, now = new Date()): Promi
   }
 }
 
+// ---------- escolhas no aviso de cookies (contador do dia, sem cookie nem IP) ----------
+
+export const CONSENT_CHOICES = ['accept_all', 'reject_all', 'custom'] as const
+export type ConsentChoice = (typeof CONSENT_CHOICES)[number]
+
+export async function countConsentChoice(choice: ConsentChoice, now = new Date()): Promise<void> {
+  const day = dayKey(now)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await db.consentChoiceDaily.upsert({ where: { day_choice: { day, choice } }, create: { day, choice, count: 1 }, update: { count: { increment: 1 } } })
+      return
+    } catch (e) {
+      if (attempt === 1) console.error('[product-events] falha ao contar escolha de cookies', e instanceof Error ? e.message : e)
+    }
+  }
+}
+
 // ---------- custo de IA ----------
 
 const envNumber = (name: string) => {

@@ -96,9 +96,9 @@ export default function LoginPage() {
           toast.error('Não foi possível criar a conta', { description: r.error })
           return
         }
-        // conversão "conta criada" (o servidor manda a mesma, com o mesmo event_id, para a Meta)
+        // conversão "conta criada" (o servidor manda a mesma, com o mesmo event_id, para a Meta); empresa interna não conta
         const orgId = typeof r.data?.organizationId === 'string' ? r.data.organizationId : null
-        if (orgId) dl('sign_up', { event_id: eventId('sign_up', orgId), method: 'email' })
+        if (orgId && r.data?.internal !== true) dl('sign_up', { event_id: eventId('sign_up', orgId), method: 'email' })
         toast.success('Conta criada! Entrando...')
         await handleLogin(email, password)
       } else {

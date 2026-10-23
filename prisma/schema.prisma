@@ -922,7 +922,7 @@ model WebhookDelivery {
 // conversão entra uma vez só. payload é a foto do que vai ser enviado (só hashes, nada em texto).
 model ConversionEvent {
   id             String    @id
-  kind           String // purchase | sign_up | renewal
+  kind           String // purchase | sign_up | activation | renewal
   organizationId String?
   payload        String
   status         String    @default("pending") // pending | sending | sent | failed | skipped
@@ -1051,4 +1051,21 @@ model SimulationRun {
 
   @@index([createdAt])
   @@index([scenarioId, createdAt])
+}
+
+// Configuração da plataforma feita pelo operador (Admin), chave → JSON. Hoje: quem é interno na medição
+// ("marketing.internal": e-mails e domínios) e os nomes das conversões do Google Ads ("marketing.gads_names").
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// Escolhas no aviso de cookies (medição): só um contador por dia e escolha. Sem IP, cookie ou identificador.
+model ConsentChoiceDaily {
+  day    String // AAAA-MM-DD no horário de Brasília
+  choice String // accept_all | reject_all | custom
+  count  Int    @default(0)
+
+  @@id([day, choice])
 }

@@ -3,6 +3,7 @@ import { db } from './db'
 import { requestAnalysis } from './background'
 import { maskSensitive } from './mask-sensitive'
 import { milestone } from './product-events'
+import { queueActivation } from './conversions'
 import { phoneHash } from './phone-hash'
 import { encryptPhone } from './phone-crypto'
 import { isExcludedNumber } from './excluded-numbers'
@@ -146,7 +147,8 @@ async function ingestEventInner(raw: unknown, source: 'gateway' | 'simulator'): 
         },
       }),
     ])
-    if (p.data.status === 'connected') await milestone(connection.organizationId, 'first_connection') // funil (I7)
+    // funil (I7); a 1ª conexão da empresa é a conversão "ativação" (uma por empresa, docs/operacao/medicao.md)
+    if (p.data.status === 'connected' && (await milestone(connection.organizationId, 'first_connection'))) await queueActivation(connection.organizationId)
     return { ok: true }
   }
 

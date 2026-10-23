@@ -66,8 +66,10 @@ export function CookieConsent() {
     return () => window.removeEventListener(OPEN_EVENT, reopen)
   }, [])
 
-  const choose = (x: Choice) => {
+  const choose = (x: Choice, kind: 'accept_all' | 'reject_all' | 'custom') => {
     setCookie('ar_consent', JSON.stringify({ v: 1, ...x, at: new Date().toISOString() }), 180)
+    // taxa de aceite: só soma 1 no contador do dia (sem cookie, sem IP gravado), mesmo domínio
+    fetch('/api/public/consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ choice: kind }), keepalive: true }).catch(() => {})
     apply(x)
     setC(x)
     setOpen(false)
@@ -109,12 +111,12 @@ export function CookieConsent() {
       )}
       <div className="mt-3.5 flex flex-wrap justify-end gap-2">
         {config ? (
-          <button type="button" className={neutral} onClick={() => choose(c)}>Salvar minhas escolhas</button>
+          <button type="button" className={neutral} onClick={() => choose(c, 'custom')}>Salvar minhas escolhas</button>
         ) : (
           <button type="button" className={neutral} onClick={() => setConfig(true)}>Configurar</button>
         )}
-        <button type="button" className={neutral} onClick={() => choose({ analytics: false, ads: false })}>Recusar</button>
-        <button type="button" className={neutral} onClick={() => choose({ analytics: true, ads: true })}>Aceitar todos</button>
+        <button type="button" className={neutral} onClick={() => choose({ analytics: false, ads: false }, 'reject_all')}>Recusar</button>
+        <button type="button" className={neutral} onClick={() => choose({ analytics: true, ads: true }, 'accept_all')}>Aceitar todos</button>
       </div>
     </div>
   )

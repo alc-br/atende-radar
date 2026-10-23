@@ -14,6 +14,8 @@ export const CONSENT_DEFAULT_SCRIPT =
   "gtag('consent','default',{analytics_storage:a,ad_storage:d,ad_user_data:d,ad_personalization:d,functionality_storage:'granted',security_storage:'granted',wait_for_update:500});" +
   "gtag('set','ads_data_redaction',d==='denied');" +
   "dataLayer.push({event:'consent_state',consent_analytics:a,consent_ads:d});" +
+  // pessoa da equipe/ALC/testes (cookie ar_internal, gravado pelo app): o GA4 marca como tráfego interno
+  "if(/(?:^|; )ar_internal=1/.test(document.cookie))dataLayer.push({traffic_type:'internal',ar_internal:true});" +
   // campanha da visita (utm_*, gclid, gbraid, wbraid, fbclid) no cookie próprio ar_attr, 90 dias, sem dado pessoal.
   // Aqui, antes de a página rodar: o app tira a query do endereço (?modo=cadastro) logo que abre.
   "try{var q=new URLSearchParams(location.search),v={},n=0;" +

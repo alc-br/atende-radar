@@ -71,6 +71,18 @@ Sem segredos aqui: o repositório é público.
 
 ### 23/10/2026
 
+- **Pedido do time de tráfego da ALC (10 itens), parte de código.** Feito e testado (unit 20/20, `tests/e2e/marketing.spec.ts` 5/5, `admin-medicao.ui.spec.ts` desktop e celular, consentimento, CSP, cadastro):
+  - **Ativação:** a 1ª conexão do WhatsApp enfileira `activation.<empresa>`: GA4 `activation` e Meta `StartTrial`. O app empurra `activation` ao dataLayer com o mesmo id nas 48 h seguintes.
+  - **`sign_up` ao GA4 pelo servidor:** pronto, mas desligado (`GA4_SERVER_SIGNUP`), para não contar em dobro com a tag do GTM.
+  - **Empresas internas:** lista no banco, em Admin › Medição; o cookie `ar_internal` alimenta `traffic_type`.
+  - **Funil e CSVs:** funil por dia × campanha com CSV, e CSV offline do Google Ads.
+  - **Aviso de cookies:** contador diário das escolhas.
+  - Documentado em `docs/operacao/medicao.md`.
+  - **Falta (dono ou ALC):**
+    - cadastrar os e-mails e domínios internos em Admin › Medição;
+    - criar no GTM a tag Meta `StartTrial` e a conversão de ativação do Ads, e no GA4 o filtro de tráfego interno (não publicar sem o OK do dono);
+    - fazer o cadastro de teste com `gclid=TESTE123` (eu confiro no banco).
+- **Next.js 16.4.1 no ar** (run 40002394066, 2ª tentativa; a 1ª caiu no tropeço conhecido do Google Fonts). `eslint-config-next` fica em 16.3.8, com `eslint-plugin-react-hooks` 7.0.1: a 16.4.1 trazia regras novas do React Compiler, que quebravam o lint.
 - **Conferência da produção (só leitura):** serviço ativo desde 22/10 12:03, WhatsApp de teste (final 1515) conectado, fumaça e backup diário verdes. Log das últimas 24 h:
   - `prisma:error` P2002 em `rawChannelEvent.create` (22/10 15:56): o gateway reenviou um evento e o descarte funcionou, mas o Prisma sujou o log. Agora `src/lib/ingest.ts` olha antes, como já se faz nos marcos do funil. O catch continua lá para o caso de corrida. Teste `tests/e2e/gateway.spec.ts` (idempotência) passou.
   - "The Server Reference ID did not match the expected format. Received "x"": robôs de varredura (ex.: 45.32.52.14) mandando `POST /` com cabeçalho de Server Action falso. O Next recusa e nada roda; é ruído.

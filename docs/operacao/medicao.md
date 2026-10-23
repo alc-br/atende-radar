@@ -62,6 +62,13 @@ para o site e para o app. Depois da escolha vão `gtag('consent','update',...)` 
 
 A explicação ao cliente está na /privacidade, seção 5 ("Cookies"), na versão 2026-10-21.
 
+É o modo **avançado** do Consent Mode: o GTM carrega sempre, e as tags do Google, sem permissão, mandam só pings sem
+cookie (o Google modela as conversões que faltam). Nenhuma tag grava cookie antes do aceite.
+
+**Taxa de aceite.** Cada clique no aviso soma 1 num contador do dia (`ConsentChoiceDaily`: `accept_all`, `reject_all`,
+`custom`), por `POST /api/public/consent`, sem cookie, IP ou identificador. Admin › Medição mostra os totais e as
+porcentagens do período. Não há número de antes de 23/10/2026: o contador começou nessa data.
+
 No GTM:
 
 1. Admin > Configurações do contêiner > ativar **Visão geral do consentimento**.
@@ -79,12 +86,17 @@ No GTM:
 |---|---|---|
 | `consent_state` | toda página, antes do GTM | `consent_analytics`, `consent_ads` (`granted`/`denied`) |
 | `consent_update` | a pessoa escolheu no aviso | `consent_analytics`, `consent_ads` |
-| `sign_up` | conta criada no app (cadastro por e-mail) | `event_id` = `sign_up.<id da empresa>`, `method` = `email` |
+| `sign_up` | conta criada no app (cadastro por e-mail); não vai para empresa interna | `event_id` = `sign_up.<id da empresa>`, `method` = `email` |
+| `activation` | a empresa conectou o WhatsApp pela 1ª vez; vai uma vez por navegador, na 1ª tela do app nas 48 h seguintes (janela de deduplicação da Meta); não vai para empresa interna | `event_id` = `activation.<id da empresa>`, `method` = `whatsapp` |
 | `begin_checkout` | abriu a tela de pagamento de um plano | `event_id`, `ecommerce.value`, `currency` BRL, `items` |
 | `add_payment_info` | clicou em pagar (antes de enviar o cartão) | `event_id`, `ecommerce.payment_type` = `cartao`, `value`, `items` |
 | `purchase` | assinatura ativa na tela de pagamento, uma vez por assinatura neste navegador | `event_id` = `purchase.<id da assinatura no Pagar.me>`, `ecommerce.transaction_id` (o mesmo id), `value`, `currency` BRL, `items` |
 
 `items`: `[{ item_id: <código do plano>, item_name, item_variant: monthly|annual, price, quantity: 1 }]`.
+
+**Tráfego interno.** Quem entra no app numa empresa interna (Admin › Medição) ganha o cookie `ar_internal=1` no
+domínio `.atenderadar.com.br`, por 1 ano; ele sai no próximo acesso de quem deixou de ser interno. Com o cookie, o
+`<head>` empurra `{ traffic_type: 'internal', ar_internal: true }` antes do GTM, no site e no app.
 
 Nunca vai dado pessoal para o `dataLayer`: nome, e-mail, telefone e documento ficam fora. Antes de cada evento de
 e-commerce vai `{ ecommerce: null }`, para um evento não herdar os itens do anterior.
@@ -101,6 +113,13 @@ manda `generate_lead` com `event_id` = `lead.<id>`, no padrão acima.
 - Uma tag de evento GA4 para `sign_up`, `begin_checkout` e `add_payment_info`, com "Enviar dados de e-commerce" a
   partir do dataLayer. Fica de fora o `purchase`: a compra do GA4 vem só do servidor (Measurement Protocol), na 1ª
   cobrança paga, com o `client_id` do `_ga` do comprador. Uma tag `purchase` no GTM contaria a venda duas vezes.
+- **Também fica de fora o `activation`**: a ativação do GA4 vem só do servidor. Marque `activation` como evento-chave
+  no GA4 (Admin > Eventos) depois que ele aparecer.
+- **`sign_up` pelo servidor.** O servidor pode mandar o `sign_up` ao GA4 também (`GA4_SERVER_SIGNUP=on` no
+  `app.env`). Fica desligado enquanto a tag do GTM manda o `sign_up`: o GA4 não deduplica e contaria duas vezes. Para
+  passar ao servidor: tirar `sign_up` da tag do GTM, publicar, e só então ligar a variável e reiniciar.
+- **Tráfego interno.** Variável do dataLayer `traffic_type`, posta como parâmetro `traffic_type` na Tag do Google.
+  No GA4, Admin > Filtros de dados > "Tráfego interno" em **Ativo**.
 
 **Meta**
 
@@ -109,14 +128,20 @@ manda `generate_lead` com `event_id` = `lead.<id>`, no padrão acima.
   dataLayer `event_id`. O servidor manda os mesmos eventos pela API de Conversões com o mesmo `event_id`, e a Meta junta
   os dois.
 - No `Purchase`: `value` = `ecommerce.value`, `currency` = `BRL`.
+- `StartTrial` no evento `activation`, com `eventID` = `event_id`. O servidor manda o mesmo pela API de Conversões.
+  É o evento padrão da Meta para "começou a usar o teste" e já serve para otimizar campanha, sem conversão
+  personalizada. O cadastro já é o `CompleteRegistration`; a ativação é o passo seguinte.
 - `InitiateCheckout` no `begin_checkout` e `AddPaymentInfo` no `add_payment_info` são opcionais: o servidor não manda
   esses dois.
+- Para não contar quem é da casa: acionador de exceção com `ar_internal` igual a `true` nas tags de conversão.
 
 **Google Ads (PENDENTE, quando houver conta)**
 
 - Vinculador de conversões em todas as páginas.
 - Conversão de compra no evento `purchase`, com valor `ecommerce.value`, moeda BRL e ID da transação
   `ecommerce.transaction_id`.
+- Conversão de ativação no evento `activation`, com ID da transação = `event_id` (o Google Ads deduplica por ele).
+- Ou, sem tag: importação do CSV de Admin › Medição (seção "Google Ads offline" abaixo).
 
 **Cuidados com a CSP do AtendeRadar** (`src/lib/csp.ts`):
 
@@ -139,8 +164,11 @@ manda `generate_lead` com `event_id` = `lead.<id>`, no padrão acima.
 ## Origem da venda (UTM)
 
 Quando a visita chega com `utm_*`, `gclid`, `gbraid`, `wbraid` ou `fbclid`, o script do `<head>` guarda esses
-parâmetros por 90 dias no cookie próprio `ar_attr`, junto com a página de entrada e a hora, sem nome nem e-mail. Ele
-roda antes do app tirar a query do endereço.
+parâmetros por 90 dias no cookie próprio `ar_attr`, junto com a página de entrada e a hora, sem nome nem e-mail. O
+cookie vale para `.atenderadar.com.br` (site e app). A regra é "último clique marcado": uma visita nova com campanha
+troca a anterior, e uma visita sem campanha não apaga nada. O cookie é gravado mesmo sem aceite, porque não identifica
+ninguém e é próprio; o que sai para Google e Meta continua dependendo do consentimento. Ao abrir o app, ele tira só
+`modo` e `demo` do endereço: `utm_*`, `gclid` e `_gl` ficam para as tags que leem a URL.
 
 No cadastro, a origem vai para `Organization.attribution`, com o `_ga`, `_ga_<fluxo>`, `_fbp`, `_fbc` (ou um montado do
 `fbclid`) e a escolha de consentimento.
@@ -162,7 +190,8 @@ novo, a cada minuto. Se falhar, tenta até 6 vezes (1, 5, 15, 60 e 240 min). Env
 | Evento | Quando | Para onde | Condição |
 |---|---|---|---|
 | `purchase` | 1ª cobrança paga de uma assinatura do AtendeRadar (`metadata.app = atende-radar`), na ativação: checkout, aviso do Pagar.me ou sincronização. Uma vez: o id é `purchase.<id da assinatura>` | GA4 (`purchase`, `client_id` do `_ga`, `session_id`, `transaction_id`, valor, BRL, itens) e Meta (`Purchase`, mesmo `event_id`, `em`/`ph`/`external_id` em SHA-256, `fbp`/`fbc`, valor, BRL) | GA4 só com consentimento de medição; Meta só com consentimento de anúncios |
-| `sign_up` | conta criada | Meta (`CompleteRegistration`, mesmo `event_id` do navegador) | consentimento de anúncios |
+| `sign_up` | conta criada | Meta (`CompleteRegistration`, mesmo `event_id` do navegador). GA4 (`sign_up`, `method` = `email`, campanha) só com `GA4_SERVER_SIGNUP=on` | GA4 com medição; Meta com anúncios |
+| `activation` | 1ª conexão do WhatsApp da empresa (marco `first_connection`), uma vez: `activation.<id da empresa>` | GA4 (`activation`, `method` = `whatsapp`, campanha) e Meta (`StartTrial`, mesmo `event_id`, `em`/`external_id` em SHA-256, `fbp`/`fbc`) | o consentimento e os cookies são os do cadastro: a conexão chega pelo gateway, sem navegador |
 | `renewal` | renovação paga | nada: fica registrada (`nao-enviado:renovacao`) | renovação não é compra |
 
 Reativar uma assinatura cancelada também não conta como compra. No Pagar.me de teste (`PAGARME_MODE=test`), a compra
@@ -183,9 +212,67 @@ Resultados possíveis:
 | `ga4:sem-consentimento` / `meta:sem-consentimento` | a pessoa não aceitou |
 | `ga4:sem-client-id` | aceitou, mas não havia `_ga` (GTM ainda sem a tag do GA4, ou bloqueador) |
 | `ignorado:sandbox` | Pagar.me de teste |
+| `ignorado:interna` | empresa interna ou simulada (a lista vale na hora do envio) |
+| `ga4:pelo-navegador` | `sign_up` com `GA4_SERVER_SIGNUP` desligado: o GA4 recebe da tag do GTM |
 | `nao-enviado:renovacao` | renovação, não é enviada |
 
 Erro HTTP gera nova tentativa. O texto do erro nunca leva o token.
+
+O GA4 recebe `campaign_source`, `campaign_medium`, `campaign`, `campaign_content` e `campaign_term` quando há UTM. O
+Measurement Protocol não atribui por `gclid`; a ligação com o Google Ads vem da tag (vinculador) ou do CSV abaixo.
+
+## Empresas internas (Admin › Medição)
+
+Uma empresa é interna quando o `adminEmail` ou o e-mail de algum membro bate com um e-mail ou domínio da lista
+(domínio vale também para subdomínios). A lista fica no banco (`PlatformSetting`, chave `marketing.internal`), nunca no
+repositório, e só o operador da plataforma a edita. No log de auditoria vai só a contagem. Empresas simuladas são
+sempre internas.
+
+Empresa interna:
+
+- não manda `sign_up` nem `activation` ao dataLayer;
+- tem tudo da fila marcado `ignorado:interna`, inclusive o que já estava esperando;
+- fica fora do funil e do CSV do Google Ads.
+
+## Funil por campanha (Admin › Medição)
+
+Só leitura, por dia (horário de Brasília) × `utm_source`/`utm_medium`/`utm_campaign` da campanha do cadastro da
+empresa. Sem UTM, mas com `gclid`/`gbraid`/`wbraid`, conta como `google`/`cpc`; com `fbclid`, como `meta`/`cpc`. Sem
+nada, `(direto)`. Colunas:
+
+| Coluna | De onde vem |
+|---|---|
+| cadastros | marco `signup` |
+| ativações | marco `first_connection` |
+| testes vencidos sem contratar | `Subscription.trialEnd` no dia, já passado, sem nenhuma fatura paga da empresa |
+| assinaturas pagas | marco `first_payment` |
+| receita | faturas `paid` pela data do pagamento (valor bruto, sem estornos) |
+| cancelamentos | auditoria `subscription.canceled` e `subscription.withdrawn` |
+
+"Baixar funil (CSV)" baixa a mesma tabela.
+
+## Google Ads offline (CSV)
+
+"Conversões do Google Ads (CSV)" em Admin › Medição baixa uma linha por ativação e por compra com `gclid` no período
+(pela hora da conversão), sem internas, simuladas e sandbox. Formato da importação por arquivo:
+
+```
+Parameters:TimeZone=America/Sao_Paulo
+Google Click ID,Conversion Name,Conversion Time,Conversion Value,Conversion Currency
+TESTE123,AtendeRadar - Ativacao,2026-10-23 14:30:05,,BRL
+TESTE123,AtendeRadar - Assinatura,2026-10-23 15:00:00,299.00,BRL
+```
+
+- Os nomes das conversões são editados em Admin › Medição e precisam ser **iguais** aos das ações de conversão no
+  Google Ads (tipo "Importar > Cliques"). Padrão: `AtendeRadar - Ativacao` e `AtendeRadar - Assinatura`.
+- Ativação vai sem valor (vale o valor padrão da ação). A compra vai com o valor da 1ª cobrança.
+- `gbraid` e `wbraid` (iOS) ficam guardados, mas não entram no CSV: a importação por arquivo só aceita o `gclid`.
+- Espere de 4 a 6 horas depois de criar a ação de conversão antes de importar. Clique com mais de 90 dias é recusado.
+- O Google trata a importação por arquivo como legado e recomenda o Data Manager ou a API. O próximo passo é o envio
+  automático pela API do Google Ads (`ConversionUploadService`), com `gbraid`/`wbraid` e conversões otimizadas
+  (`user_identifiers` com e-mail e telefone em SHA-256, normalizados como o Google pede: minúsculas, sem espaços, sem
+  pontos antes do `@` em gmail.com, telefone em E.164 com `+`). Precisa do token de desenvolvedor e do OAuth da conta.
+  Não foi feito.
 
 ## Teste de aceite
 
@@ -216,4 +303,7 @@ Os testes automáticos cobrem:
 - `tests/e2e/consentimento.ui.spec.ts`:
   - recusar não grava cookie de terceiro com o contêiner real carregado;
   - aceitar põe a escolha e o `sign_up` no dataLayer;
-- `tests/e2e/csp.ui.spec.ts`: os domínios novos passam e os outros continuam bloqueados.
+- `tests/e2e/csp.ui.spec.ts`: os domínios novos passam e os outros continuam bloqueados;
+- `tests/e2e/marketing.spec.ts`: ativação uma vez na 1ª conexão, empresas internas fora, só o operador vê a medição, o
+  funil por campanha, o CSV do Google Ads e o contador do aviso de cookies;
+- `tests/e2e/admin-medicao.ui.spec.ts`: Admin › Medição na tela, com os dois CSVs baixados.

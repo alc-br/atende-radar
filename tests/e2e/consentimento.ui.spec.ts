@@ -112,6 +112,6 @@ test('aceitar: consentimento atualizado, campanha guardada e o sign_up no dataLa
   expect(JSON.parse(org.attribution!)).toMatchObject({ utm_source: 'google', utm_campaign: 'teste-medicao', gclid: 'teste123', consent: { analytics: true, ads: true } })
   await expect.poll(async () => (await testDb.conversionEvent.findUnique({ where: { id: `sign_up.${orgId}` } }))?.status, { timeout: 20_000 }).toBe('sent')
   const ev = await testDb.conversionEvent.findUniqueOrThrow({ where: { id: `sign_up.${orgId}` } })
-  expect(ev.result).toMatch(/^meta:(sem-id|ok)$/)
+  expect(ev.result).toMatch(/^ga4:pelo-navegador meta:(sem-id|ok)$/)
   expect(ev.payload).not.toContain(email)
 })

@@ -39,6 +39,18 @@ import { ConnectionBanner } from '@/components/layout/connection-banner'
 import { EmailVerifyBanner } from '@/components/layout/email-verify-banner'
 import { LockedShell } from '@/components/layout/locked-shell'
 import { onAppHost } from '@/lib/hosts'
+import { dl, once } from '@/lib/datalayer'
+
+// Medição (docs/operacao/medicao.md): quem é interno ganha o cookie ar_internal (site e app; o <head> manda
+// traffic_type=internal ao dataLayer) e a 1ª conexão do WhatsApp vira o evento "activation", uma vez por navegador.
+function measure(d: { internal?: boolean; activation?: { eventId: string } | null }) {
+  const domain = location.hostname.endsWith('atenderadar.com.br') ? '; domain=.atenderadar.com.br' : ''
+  const secure = location.protocol === 'https:' ? '; secure' : ''
+  if (d.internal) document.cookie = `ar_internal=1; max-age=${365 * 86400}; path=/${domain}; samesite=lax${secure}`
+  else if (/(?:^|; )ar_internal=/.test(document.cookie)) document.cookie = `ar_internal=; max-age=0; path=/${domain}; samesite=lax${secure}`
+  const id = d.activation?.eventId
+  if (id && !d.internal) once(id, () => dl('activation', { event_id: id, method: 'whatsapp' }))
+}
 
 // Telas sem guia automático na primeira visita (o guia continua em "Tour desta tela"). A Visão Geral é a tela de entrada:
 // o guia dela abrindo sozinho logo depois do boas-vindas era tour demais.
@@ -67,7 +79,10 @@ function MainContent() {
     const q = new URLSearchParams(window.location.search)
     const modo = q.get('modo')
     if (!modo && !q.has('demo')) return
-    window.history.replaceState(null, '', '/')
+    // tira só o que é do app; utm_*/gclid/_gl ficam no endereço para as tags do GTM que leem a URL
+    q.delete('modo')
+    q.delete('demo')
+    window.history.replaceState(null, '', q.size ? `/?${q}` : '/')
     pendingModo.current = modo
   }, [])
   useEffect(() => {
@@ -98,6 +113,10 @@ function MainContent() {
         // sessão que o servidor não aceita mais (conta removida, senha trocada): sai em vez de mostrar um painel vazio
         if (r.status === 401) void signOut({ redirect: false })
         return r.ok ? r.json() : null
+      })
+      .then((d) => {
+        if (d) measure(d)
+        return d
       })
       .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName, organizationLogoUrl: d.organizationLogoUrl ?? null, organizationDeletion: d.organizationDeletion ?? null, subscriptionLock: d.subscriptionLock ?? null } : null))
       .catch(() => setMe(null))

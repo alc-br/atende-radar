@@ -57,6 +57,7 @@ export default defineConfig({
       ANALYSIS_SCHEDULER: 'off', // os testes disparam o motor com POST /api/gateway/tick, de forma determinística
       SIGNUP_RATE_LIMIT_PER_HOUR: '500', // os testes criam muitas contas do mesmo IP
       INVITE_RATE_LIMIT_PER_HOUR: '500', // idem para convites aceitos (createUser)
+      CONSENT_RATE_LIMIT_PER_MIN: '1000', // os testes de tela clicam no aviso de cookies do mesmo IP
       NEXTAUTH_URL: `http://127.0.0.1:${PORT}`,
       // Pagar.me: sempre o SANDBOX nos testes (chaves *_TEST vêm do .env local ou dos segredos do CI)
       PAGARME_MODE: 'test',

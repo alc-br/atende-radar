@@ -11,6 +11,7 @@ import { readJson } from '@/lib/json-body'
 import { milestone } from '@/lib/product-events'
 import { queueMemberSync } from '@/lib/mautic'
 import { attributionFrom } from '@/lib/attribution'
+import { isInternalOrg } from '@/lib/internal'
 import { hashedContact, pageUrl, queueConversion, signUpEventId } from '@/lib/conversions'
 
 const Body = z.object({
@@ -90,5 +91,7 @@ export async function POST(request: Request) {
 
   await sendVerificationEmail({ id: member.id, name, email })
 
-  return NextResponse.json({ success: true, organizationId: member.organizationId }, { status: 201 })
+  // empresa interna (Admin › Medição): o navegador não manda o sign_up ao dataLayer; a fila também não envia
+  const internal = await isInternalOrg(member.organizationId).catch(() => false)
+  return NextResponse.json({ success: true, organizationId: member.organizationId, internal }, { status: 201 })
 }

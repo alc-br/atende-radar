@@ -23,6 +23,7 @@ export type AuditAction =
   | 'simulation.run' | 'simulation.inject' | 'simulation.tick' | 'simulation.clean' | 'simulation.viewed'
   | 'nfse.run' | 'nfse.retry' | 'nfse.cancel_requested'
   | 'novelty.decided'
+  | 'marketing.internal_updated' | 'marketing.gads_names_updated'
 
 export interface AuditEntryInput {
   action: AuditAction
@@ -102,6 +103,8 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'nfse.run': 'Processou a fila de notas fiscais (operador da plataforma)',
   'nfse.retry': 'Tentou de novo uma nota fiscal com falha (operador da plataforma)',
   'novelty.decided': 'Decidiu sobre uma situação nova (operador da plataforma)',
+  'marketing.internal_updated': 'Alterou a lista de quem é interno na medição (operador da plataforma)',
+  'marketing.gads_names_updated': 'Alterou os nomes das conversões do Google Ads (operador da plataforma)',
   'nfse.cancel_requested': 'Pediu o cancelamento de uma nota fiscal (operador da plataforma)',
   'billing.card_updated': 'Trocou o cartão da assinatura',
   'report.generated': 'Gerou relatório',

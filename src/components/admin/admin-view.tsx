@@ -21,12 +21,14 @@ import {
   FlaskConical,
   FileText,
   Lightbulb,
+  Megaphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ProductAnalyticsPanel } from '@/components/admin/product-analytics'
 import { SupportTickets } from './support-tickets'
 import { NfsePanel } from './nfse-panel'
 import { NoveltiesPanel } from './novelties-panel'
+import { MarketingPanel } from './marketing-panel'
 import { PlanCatalog } from './plan-catalog'
 import { SimulationPanel, useSimulationAvailable } from './simulation-panel'
 
@@ -414,6 +416,7 @@ export default function AdminView() {
           <TabsTrigger value="system"><Server className="ic" aria-hidden="true" />Sistema</TabsTrigger>
           <TabsTrigger value="product"><BarChart3 className="ic" aria-hidden="true" />Produto</TabsTrigger>
           <TabsTrigger value="novelties"><Lightbulb className="ic" aria-hidden="true" />Situações novas</TabsTrigger>
+          <TabsTrigger value="marketing"><Megaphone className="ic" aria-hidden="true" />Medição</TabsTrigger>
           <TabsTrigger value="support"><LifeBuoy className="ic" aria-hidden="true" />Suporte</TabsTrigger>
           <TabsTrigger value="nfse"><FileText className="ic" aria-hidden="true" />Notas fiscais</TabsTrigger>
           {simulationAvailable && <TabsTrigger value="simulation"><FlaskConical className="ic" aria-hidden="true" />Simulação</TabsTrigger>}
@@ -427,6 +430,11 @@ export default function AdminView() {
         {/* ── Situações novas: o que os alertas não cobrem, agrupado por semana; o operador decide ── */}
         <TabsContent value="novelties">
           <NoveltiesPanel />
+        </TabsContent>
+
+        {/* ── Medição: quem é interno, funil por campanha e CSVs (Google Ads, funil) ── */}
+        <TabsContent value="marketing">
+          <MarketingPanel />
         </TabsContent>
 
         {/* ── Visão Geral ─────────────────────────────────────────── */}
