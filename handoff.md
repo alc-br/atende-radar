@@ -69,6 +69,12 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 23/10/2026
+
+- **Conferência da produção (só leitura):** serviço ativo desde 22/10 12:03, WhatsApp de teste (final 1515) conectado, fumaça e backup diário verdes. Log das últimas 24 h:
+  - `prisma:error` P2002 em `rawChannelEvent.create` (22/10 15:56): o gateway reenviou um evento e o descarte funcionou, mas o Prisma sujou o log. Agora `src/lib/ingest.ts` olha antes, como já se faz nos marcos do funil. O catch continua lá para o caso de corrida. Teste `tests/e2e/gateway.spec.ts` (idempotência) passou.
+  - "The Server Reference ID did not match the expected format. Received "x"": robôs de varredura (ex.: 45.32.52.14) mandando `POST /` com cabeçalho de Server Action falso. O Next recusa e nada roda; é ruído.
+
 ### 22/10/2026
 
 - **Situações novas (pedido do dono: "e quando surge uma situação inédita?"):** o Claude devolve `novidade` (frase curta e genérica, quase sempre nula) quando a conversa mostra algo importante que nenhum alerta cobre. O agrupamento semanal junta as frases em temas, e o operador decide em Admin › Situações novas ("Vale mapear" / "Descartar"). Nada vira alerta sozinho. A frase fica 30 dias, e a Política de Privacidade foi para a versão 2026-10-22. As conversas já em cache são reclassificadas uma vez, porque o formato da resposta mudou. Detalhes em `docs/operacao/ia.md`. Testes: `tests/e2e/novelties.spec.ts`, `ia-classificacao.unit.spec.ts`, `rbac.spec.ts`. No ar e conferido: migração aplicada, e a primeira frase gravada veio genérica. Aviso da política enviado aos 5 administradores (`AVISO` padrão = 2026-10-22 em `scripts/aviso-politica.ts`).

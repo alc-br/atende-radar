@@ -83,12 +83,15 @@ async function ingestEventInner(raw: unknown, source: 'gateway' | 'simulator'): 
   const occurredAt = evt.occurredAt ? new Date(evt.occurredAt) : new Date()
 
   // Idempotência: o mesmo evento nunca é processado duas vezes (gateway pode reenviar).
+  // Olha antes, para o reenvio comum não sujar o log com o P2002 esperado; o catch fica para a corrida.
+  const idempotencyKey = `${connection.id}:${evt.eventId}`
+  if (await db.rawChannelEvent.findUnique({ where: { idempotencyKey }, select: { id: true } })) return { ok: true, duplicate: true }
   try {
     await db.rawChannelEvent.create({
       data: {
         connectionId: connection.id,
         eventId: evt.eventId,
-        idempotencyKey: `${connection.id}:${evt.eventId}`,
+        idempotencyKey,
         eventType: evt.type,
         // O registro bruto NÃO guarda dados pessoais: sem texto, sem número, sem nome, sem QR (que é credencial de pareamento).
         payload: JSON.stringify(
