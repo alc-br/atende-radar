@@ -69,6 +69,13 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 24/10/2026
+
+- **Páginas `/para/*` no ar**, com os 4 textos aprovados pelo dono. CI run 40122913155: 1 grupo de testes não subiu o servidor porque não baixou a fonte do Google (`next/font`); passou ao rodar de novo, e o deploy foi feito. Conferido com curl em `/para/clinicas` e `/para/servicos`: seções novas, 20 `data-cta` e nada de "conversas auditadas".
+- **Verificação de domínio da Meta:** `META_DOMAIN_VERIFICATION` gravada no `app.env` (backup `app.env.bak-202610241607-antes-meta`). A tag sai no HTML servido da home e das páginas `/para/*`. Quem clica em Verificar no portfólio Meta é a TRAFEGO ALC.
+- **C1 e C3 prontos** (`criativos/teste-1/`, fora do git; zip em `criativos/saida/AtendeRadar-teste-1.zip`): fotos do ChatGPT, na conta do dono, com o alerta real por cima. Uma foto do C3 foi descartada por ter um logo no celular. "Atende Radar", separado, só nos textos das peças (decisão do dono). Scripts de composição em `.tmp-check/compor*.mts` (local).
+- Ainda falta: vídeos V1 e V2 e o Consent Mode avançado (decisão do dono).
+
 ### 23/10/2026
 
 - **Cobrança da agência (verba de ~R$ 50/dia por 2 semanas em clínicas e serviços, liga quando os itens chegarem):**
@@ -88,7 +95,7 @@ Sem segredos aqui: o repositório é público.
     - Em produção as 5 respondem 200 com `noindex, nofollow`; `/para/padarias` dá 404.
     - O botão leva `modo=cadastro`, as utm e o `gclid` até o app.
     - Teste: `tests/e2e/segmentos.ui.spec.ts`.
-  - **Meta tag de verificação de domínio:** pronta. Falta o dono pôr o código em `META_DOMAIN_VERIFICATION`.
+  - **Meta tag de verificação de domínio:** ~~falta o código~~ ligada em produção em 24/10/2026.
   - **Criativos:** em `criativos/` (README com cores, fontes e cuidados). As peças se geram de novo com `node --experimental-strip-types criativos/gerar.mts`; a saída fica fora do git.
   - **Conferência do consentimento em produção** (navegador limpo), detalhada em `docs/operacao/medicao.md` › "Achados em produção":
     - o modo é **básico**, não avançado, porque as tags do GTM exigem consentimento adicional (a doc estava errada e foi corrigida);

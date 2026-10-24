@@ -2,6 +2,11 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-24
+- **Páginas de anúncio publicadas** (ajustes de 23/10, com os textos aprovados pelo dono).
+- **Verificação do domínio na Meta ligada em produção:** `META_DOMAIN_VERIFICATION` no `app.env`, e a meta tag sai no `<head>` de todas as páginas.
+- **Criativos C1 e C3:** fotos geradas no ChatGPT, com o alerta real por cima, nos 3 formatos. "Atende Radar", separado, nos textos das peças. Prompts em `criativos/prompts-imagens.md`.
+
 ## 2026-10-23
 - **Páginas de anúncio com o que a agência pediu:** preço depois do teste, "Meu número pode ser bloqueado?", "Quem vê as conversas?" (com a linha de LGPD em clínicas), vídeo de 20 s, Dúvidas, "Fale com a gente" e os eventos `cta_click`, `faq_open`, `video_play` e `video_complete`. Sai o "As conversas são auditadas", que vira "O AtendeRadar lê as conversas" (só observa, não envia mensagens). Vale para os 5 segmentos.
 - **Segurança:** zod 4.6.6 (GHSA-mrhx-c7xc-m3w5), inclusive a cópia que vem com o `eslint-plugin-react-hooks`.

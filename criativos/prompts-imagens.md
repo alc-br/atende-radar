@@ -3,7 +3,15 @@
 Cenas com pessoas das peças C1 e C3 do teste 1 (`criativos/teste-1/`). A IA gera só a foto. Título, linha de apoio, logo e o
 alerta sobreposto entram depois, na composição (a mesma de `teste-1`), com a tela real do produto.
 
-Situação em 23/10/2026: **ainda não gerado**. Falta o login do dono no ChatGPT e a permissão para baixar as imagens.
+Situação em 24/10/2026: **gerado** no ChatGPT (conta do dono) e composto em `criativos/teste-1/AR_C1_*` e `AR_C3_*`.
+
+- C1: uma foto em 1:1 (usada no 1080×1080) e uma em 9:16 (usada no 1080×1350 e no 1080×1920). O alerta real entra
+  na tela do celular, em perspectiva.
+- C3: só a foto em 9:16, usada nos três formatos. A primeira, em 1:1, foi descartada porque a traseira do celular
+  tinha um logo parecido com o da Apple. Por isso o pedido do 9:16 diz "traseira lisa, sem logotipo". O alerta real
+  (só a parte de cima: título, cliente, atendente, valor e confiança) entra ao lado do rosto, sobre a parede.
+- Rodapé das duas peças: "Imagem ilustrativa. Alerta: tela real do Atende Radar, dados fictícios."
+- Marca escrita "Atende Radar", separado, nos textos das peças (decisão do dono, 24/10/2026). O logo continua o mesmo.
 
 ## Regras que valem para todos os prompts
 
@@ -18,8 +26,8 @@ Situação em 23/10/2026: **ainda não gerado**. Falta o login do dono no ChatGP
 
 ## C1: "Paciente pediu horário e ninguém respondeu?"
 
-Gerar em 1:1 (1080×1080), 4:5 (1080×1350) e 9:16 (1080×1920). No 9:16, deixar o terço de cima e o de baixo mais limpos,
-porque o título e o rodapé entram ali.
+Gerar em 1:1 (1080×1080) e 9:16 (o 4:5 usa um corte do 9:16). No 9:16, deixar o terço de cima e o de baixo mais
+limpos, porque o título e o rodapé entram ali.
 
 ```
 Foto realista, estilo fotografia de banco de imagem, de uma mão segurando um celular em primeiro plano, com a tela apagada
@@ -34,7 +42,8 @@ equipamento; jaleco com paciente; procedimento médico ou odontológico; mãos o
 
 ## C3: "Sua recepção atende. O Atende Radar avisa o que ficou para trás."
 
-Mesmos formatos. Deixar espaço livre de um lado (à direita no 1:1 e no 4:5, embaixo no 9:16) para o alerta sobreposto.
+Gerar em 9:16 e usar nos três formatos. No pedido, acrescentar: "a traseira do celular deve ser totalmente lisa, sem
+nenhum logotipo, símbolo ou marca" e "sem monitor ou computador no balcão". Deixar espaço livre de um lado (à direita no 1:1 e no 4:5, embaixo no 9:16) para o alerta sobreposto.
 
 ```
 Foto realista de uma recepcionista brasileira, cerca de 30 anos, uniforme social simples sem logotipo, sentada atrás do
@@ -50,4 +59,6 @@ paciente, jaleco, procedimento ou equipamento médico em uso; mãos ou dedos def
 
 1. Abrir https://chatgpt.com, colar o prompt e trocar `[...]` pelo formato.
 2. Conferir na imagem: mãos, texto escondido em placas ou telas, marca em roupa ou celular. Se aparecer algum, gerar de novo.
-3. Baixar em PNG e compor com o título e o alerta real, como as outras peças de `teste-1`.
+3. Ampliar e conferir a traseira do celular: logo de fabricante aparece com frequência.
+4. Baixar em PNG e compor com o título e o alerta real, como as outras peças de `teste-1`. Se a foto mudar, os cantos
+   da tela do celular (C1) e a posição do alerta (C3) precisam ser medidos de novo.
