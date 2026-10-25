@@ -69,6 +69,12 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 25/10/2026
+
+- **2º pixel da Meta (`1080108481699281`, pedido da TRAFEGO ALC, aprovado pelo dono: "mandar para os dois"):** o servidor manda os 3 eventos aos dois pixels com o mesmo `event_id` (`src/lib/conversions.ts`); um erro em um não impede o outro e a conversão volta para a fila. O deploy grava `META_PIXEL_ID_2` e, do *secret*, `META_CAPI_TOKEN_2`.
+  - Falta o dono gerar o token do pixel novo e rodar `gh secret set META_CAPI_TOKEN_2 --repo alc-br/atende-radar`; depois, um deploy. Sem ele, `meta2:sem-id`.
+  - O pixel no navegador (PageView, CompleteRegistration, StartTrial) é da agência, no GTM GTM-P43TS3SF. Não publicamos versão do GTM.
+
 ### 24/10/2026
 
 - **Páginas `/para/*` no ar**, com os 4 textos aprovados pelo dono. CI run 40122913155: 1 grupo de testes não subiu o servidor porque não baixou a fonte do Google (`next/font`); passou ao rodar de novo, e o deploy foi feito. Conferido com curl em `/para/clinicas` e `/para/servicos`: seções novas, 20 `data-cta` e nada de "conversas auditadas".

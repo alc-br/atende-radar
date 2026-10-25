@@ -177,18 +177,21 @@ jobs:
           # Conversões pelo servidor (GA4 Measurement Protocol e API de Conversões da Meta): docs/operacao/medicao.md
           GA4_API_SECRET: ${{ secrets.GA4_API_SECRET }}
           META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
+          META_CAPI_TOKEN_2: ${{ secrets.META_CAPI_TOKEN_2 }}
         run: |
           ENVF=/opt/atende-radar/shared/app.env
           add_if_missing() { grep -q "^$1=" "$ENVF" || echo "$1=$2" >> "$ENVF"; }
           # Chaves do Pagar.me e da Azure vêm dos secrets do GitHub (valor nunca impresso); trocar o secret troca no
           # servidor; secret vazio não apaga o que já está lá
           set_from_secret() { [ -n "${!1}" ] || return 0; sed -i "/^$1=/d" "$ENVF"; echo "$1=${!1}" >> "$ENVF"; }
-          for v in PAGARME_PUBLIC_KEY PAGARME_SECRET_KEY PAGARME_PUBLIC_KEY_TEST PAGARME_SECRET_KEY_TEST PAGARME_WEBHOOK_USER PAGARME_WEBHOOK_PASS AZURE_SPEECH_KEY AZURE_SPEECH_REGION BREVO_API_KEY MAUTIC_USUARIO MAUTIC_SENHA GA4_API_SECRET META_CAPI_TOKEN; do set_from_secret "$v"; done
+          for v in PAGARME_PUBLIC_KEY PAGARME_SECRET_KEY PAGARME_PUBLIC_KEY_TEST PAGARME_SECRET_KEY_TEST PAGARME_WEBHOOK_USER PAGARME_WEBHOOK_PASS AZURE_SPEECH_KEY AZURE_SPEECH_REGION BREVO_API_KEY MAUTIC_USUARIO MAUTIC_SENHA GA4_API_SECRET META_CAPI_TOKEN META_CAPI_TOKEN_2; do set_from_secret "$v"; done
           add_if_missing MAUTIC_URL https://mautic.alc.srv.br
           # medição (IDs públicos, criados em 20/10/2026): GTM no site e no app, GA4 e pixel da Meta
           add_if_missing GTM_ID GTM-P43TS3SF
           add_if_missing GA4_MEASUREMENT_ID G-1KVLT8H1ZP
           add_if_missing META_PIXEL_ID 1795760021571040
+          # 2º pixel (o da agência, 24/10/2026): a API de Conversões manda a ele também, com o mesmo event_id
+          add_if_missing META_PIXEL_ID_2 1080108481699281
           # entre aspas: o app.env também é lido por ". app.env" nos passos do deploy, e "<" sem aspas quebra o shell
           # (o systemd tira as aspas). Corrige o valor antigo, gravado sem aspas.
           sed -i -E 's/^MAIL_FROM=([^"].*)$/MAIL_FROM="\1"/' "$ENVF"

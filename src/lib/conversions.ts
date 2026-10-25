@@ -16,6 +16,7 @@ import { appUrl } from './mailer'
 // Empresa interna (Admin › Medição, src/lib/internal.ts) ou simulada: nada é enviado, "ignorado:interna".
 // Consentimento: GA4 só com "medição" (analytics), Meta só com "anúncios" (ads); sem ele, "sem-consentimento".
 // Sem os IDs (GA4_MEASUREMENT_ID + GA4_API_SECRET, META_PIXEL_ID + META_CAPI_TOKEN), "ga4:sem-id" / "meta:sem-id".
+// Com META_PIXEL_ID_2 + META_CAPI_TOKEN_2, a Meta recebe também no 2º pixel ("meta2:ok"), com o mesmo event_id.
 // Assinaturas do sandbox do Pagar.me (PAGARME_MODE=test) não são compra de verdade: "ignorado:sandbox".
 // Fila na tabela ConversionEvent: 1ª tentativa logo depois de enfileirar, novas tentativas a cada minuto (agendador).
 
@@ -91,10 +92,15 @@ async function ga4(clientId: string, events: object[]): Promise<string> {
   return 'ga4:ok'
 }
 
-async function meta(event: object): Promise<string> {
-  const pixel = process.env.META_PIXEL_ID?.trim()
-  const token = process.env.META_CAPI_TOKEN?.trim()
-  if (!pixel || !token) return 'meta:sem-id'
+// 2º pixel (o da agência, META_PIXEL_ID_2 + META_CAPI_TOKEN_2): recebe o mesmo evento, com o mesmo event_id.
+// Sem o META_PIXEL_ID_2, nada muda ("meta:..." só); com o id e sem o token, "meta2:sem-id".
+const META_PIXELS = [
+  { tag: 'meta', pixel: 'META_PIXEL_ID', token: 'META_CAPI_TOKEN' },
+  { tag: 'meta2', pixel: 'META_PIXEL_ID_2', token: 'META_CAPI_TOKEN_2' },
+] as const
+
+async function metaPixel(tag: string, pixel: string | undefined, token: string | undefined, event: object): Promise<string> {
+  if (!pixel || !token) return `${tag}:sem-id`
   const version = process.env.META_GRAPH_VERSION?.trim() || 'v23.0'
   const testCode = process.env.META_TEST_EVENT_CODE?.trim()
   const r = await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(pixel)}/events?access_token=${encodeURIComponent(token)}`, {
@@ -104,8 +110,21 @@ async function meta(event: object): Promise<string> {
     signal: AbortSignal.timeout(15_000),
   })
   // o corpo do erro da Meta não leva o token; a URL leva, por isso nunca é impressa
-  if (!r.ok) throw new Error(`Meta HTTP ${r.status}`)
-  return 'meta:ok'
+  if (!r.ok) throw new Error(`${tag === 'meta' ? 'Meta' : 'Meta 2'} HTTP ${r.status}`)
+  return `${tag}:ok`
+}
+
+/** Manda aos pixels configurados. Um erro não impede o outro; depois lança (nova tentativa: a Meta deduplica pelo event_id). */
+async function meta(event: object): Promise<string[]> {
+  const sends = META_PIXELS.flatMap((m, i) => {
+    const pixel = process.env[m.pixel]?.trim()
+    if (i > 0 && !pixel) return []
+    return [metaPixel(m.tag, pixel, process.env[m.token]?.trim(), event)]
+  })
+  const done = await Promise.allSettled(sends)
+  const failed = done.find((d) => d.status === 'rejected')
+  if (failed) throw failed.reason
+  return done.map((d) => (d as PromiseFulfilledResult<string>).value)
 }
 
 const ga4Params = (at: Attribution, extra: Record<string, unknown> = {}) => ({
@@ -144,7 +163,7 @@ export async function sendConversion(kind: ConversionKind, id: string, p: Conver
       out.push(await ga4(at.ga, [{ name: 'purchase', params: ga4Params(at, { transaction_id: p.transactionId, value: p.value, currency: p.currency ?? 'BRL', items: p.items ?? [] }) }]))
     } else out.push(consent.analytics ? 'ga4:sem-client-id' : 'ga4:sem-consentimento')
     if (consent.ads) {
-      out.push(await meta({
+      out.push(...await meta({
         event_name: 'Purchase', event_time: p.eventTime, event_id: id, action_source: 'website', event_source_url: p.sourceUrl,
         user_data: userData(p),
         custom_data: { currency: p.currency ?? 'BRL', value: p.value, order_id: p.transactionId, content_type: 'product', content_ids: (p.items ?? []).map((i) => i.item_id), num_items: (p.items ?? []).length },
@@ -155,7 +174,7 @@ export async function sendConversion(kind: ConversionKind, id: string, p: Conver
     if (consent.analytics && at.ga) out.push(await ga4(at.ga, [{ name: 'activation', params: ga4Params(at, { method: 'whatsapp' }) }]))
     else out.push(consent.analytics ? 'ga4:sem-client-id' : 'ga4:sem-consentimento')
     if (consent.ads) {
-      out.push(await meta({ event_name: 'StartTrial', event_time: p.eventTime, event_id: id, action_source: 'website', event_source_url: p.sourceUrl, user_data: userData(p), custom_data: { currency: 'BRL', value: 0, predicted_ltv: 0, status: 'whatsapp_connected' } }))
+      out.push(...await meta({ event_name: 'StartTrial', event_time: p.eventTime, event_id: id, action_source: 'website', event_source_url: p.sourceUrl, user_data: userData(p), custom_data: { currency: 'BRL', value: 0, predicted_ltv: 0, status: 'whatsapp_connected' } }))
     } else out.push('meta:sem-consentimento')
   } else {
     // sign_up: a Meta recebe pelos dois lados, com o mesmo event_id; o GA4 pelo servidor só quando ligado (ver o topo)
@@ -163,7 +182,7 @@ export async function sendConversion(kind: ConversionKind, id: string, p: Conver
     else if (consent.analytics && at.ga) out.push(await ga4(at.ga, [{ name: 'sign_up', params: ga4Params(at, { method: 'email' }) }]))
     else out.push(consent.analytics ? 'ga4:sem-client-id' : 'ga4:sem-consentimento')
     if (consent.ads) {
-      out.push(await meta({ event_name: 'CompleteRegistration', event_time: p.eventTime, event_id: id, action_source: 'website', event_source_url: p.sourceUrl, user_data: userData(p), custom_data: { status: 'trial' } }))
+      out.push(...await meta({ event_name: 'CompleteRegistration', event_time: p.eventTime, event_id: id, action_source: 'website', event_source_url: p.sourceUrl, user_data: userData(p), custom_data: { status: 'trial' } }))
     } else out.push('meta:sem-consentimento')
   }
   return out

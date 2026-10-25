@@ -16,7 +16,9 @@ está marcado como **PENDENTE**.
 | GA4, ID de medição | `GA4_MEASUREMENT_ID` (`app.env`, pelo deploy) e tag no GTM | `G-1KVLT8H1ZP` (conta a412743241, propriedade p559894910, fluxo web 16169835418) |
 | GA4, segredo da API do Measurement Protocol | `GA4_API_SECRET` (*secret* do GitHub) | **PENDENTE**, o dono cadastra. Chave "atenderadar-servidor" em GA4 > Administrador > Fluxos de dados > fluxo do AtendeRadar > Chaves secretas da API do Measurement Protocol |
 | Meta, ID do pixel (conjunto de dados) | `META_PIXEL_ID` (`app.env`, pelo deploy) e tag no GTM | `1795760021571040` (portfólio "Al Chipak Treinamentos e Serviços") |
-| Meta, token da API de Conversões | `META_CAPI_TOKEN` (*secret* do GitHub) | **PENDENTE**, o dono cadastra. Gerenciador de Eventos > conjunto do AtendeRadar > Configurações > API de Conversões > Gerar token |
+| Meta, token da API de Conversões | `META_CAPI_TOKEN` (*secret* do GitHub) | cadastrado em 21/10/2026. Gerenciador de Eventos > conjunto do AtendeRadar > Configurações > API de Conversões > Gerar token |
+| Meta, 2º pixel (o da agência de tráfego) | `META_PIXEL_ID_2` (`app.env`, pelo deploy) | `1080108481699281`. A API de Conversões manda a ele o mesmo evento, com o mesmo `event_id`. O pixel no navegador fica com a agência, no GTM |
+| Meta, token do 2º pixel | `META_CAPI_TOKEN_2` (*secret* do GitHub) | **PENDENTE**, o dono cadastra: Gerenciador de Eventos > pixel `1080108481699281` > Configurações > API de Conversões > Gerar token; depois `gh secret set META_CAPI_TOKEN_2 --repo alc-br/atende-radar` e um deploy. Sem ele, o log mostra `meta2:sem-id` e o 1º pixel segue igual |
 | Meta, código de teste | `META_TEST_EVENT_CODE` (`app.env`, só durante o teste; apagar depois) | opcional |
 | Google Ads, conversão de compra | só no GTM | PENDENTE: sem conta do Ads por enquanto |
 
@@ -141,6 +143,11 @@ manda `generate_lead` com `event_id` = `lead.<id>`, no padrão acima.
 - `StartTrial` no evento `activation`, com `eventID` = `event_id`. O servidor manda o mesmo pela API de Conversões.
   É o evento padrão da Meta para "começou a usar o teste" e já serve para otimizar campanha, sem conversão
   personalizada. O cadastro já é o `CompleteRegistration`; a ativação é o passo seguinte.
+- **2º pixel (`1080108481699281`).** O servidor manda `CompleteRegistration`, `StartTrial` e `Purchase` aos dois
+  pixels, com o mesmo `event_id`. Um erro em um não impede o outro; a conversão volta para a fila e a Meta descarta
+  a repetição pelo `event_id`. No navegador, a agência espelha no GTM as tags `PageView`, `CompleteRegistration` e
+  `StartTrial` (o `fbq('init')` do 2º pixel e o mesmo `eventID` = `event_id`). A CSP já libera o
+  `connect.facebook.net`.
 - `InitiateCheckout` no `begin_checkout` e `AddPaymentInfo` no `add_payment_info` são opcionais: o servidor não manda
   esses dois.
 - Para não contar quem é da casa: acionador de exceção com `ar_internal` igual a `true` nas tags de conversão.
@@ -219,6 +226,7 @@ Resultados possíveis:
 |---|---|
 | `ga4:ok` / `meta:ok` | enviado |
 | `ga4:sem-id` / `meta:sem-id` | falta ID ou segredo no `app.env` |
+| `meta2:ok` / `meta2:sem-id` | o mesmo para o 2º pixel; só aparece com `META_PIXEL_ID_2` |
 | `ga4:sem-consentimento` / `meta:sem-consentimento` | a pessoa não aceitou |
 | `ga4:sem-client-id` | aceitou, mas não havia `_ga` (GTM ainda sem a tag do GA4, ou bloqueador) |
 | `ignorado:sandbox` | Pagar.me de teste |

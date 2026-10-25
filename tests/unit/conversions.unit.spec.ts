@@ -148,6 +148,33 @@ test.describe('medição: envio pelo servidor', () => {
     expect(err).toBeInstanceOf(Error)
     expect((err as Error).message).toBe('Meta HTTP 500')
   })
+
+  test('2º pixel: o mesmo evento, com o mesmo event_id, vai aos dois pixels', async () => {
+    process.env.META_PIXEL_ID_2 = '456'
+    process.env.META_CAPI_TOKEN_2 = 'token-meta-2'
+    const r = await sendConversion('activation', activationEventId('org1'), { eventTime: 5, sourceUrl: 'x', attribution: { consent: { analytics: false, ads: true } } })
+    expect(r).toEqual(['ga4:sem-consentimento', 'meta:ok', 'meta2:ok'])
+    expect(calls.map((c) => new URL(c.url).pathname)).toEqual(['/v23.0/123/events', '/v23.0/456/events'])
+    expect(calls[1].url).toContain('access_token=token-meta-2')
+    expect(calls[0].body).toEqual(calls[1].body)
+    expect((calls[1].body.data as Record<string, unknown>[])[0]).toMatchObject({ event_name: 'StartTrial', event_id: 'activation.org1' })
+  })
+
+  test('2º pixel sem o token: "meta2:sem-id"; sem o id, nem aparece', async () => {
+    process.env.META_PIXEL_ID_2 = '456'
+    expect(await sendConversion('sign_up', signUpEventId('org1'), { eventTime: 1, sourceUrl: 'x', attribution: { consent: { analytics: false, ads: true } } })).toEqual(['ga4:pelo-navegador', 'meta:ok', 'meta2:sem-id'])
+    expect(calls).toHaveLength(1)
+  })
+
+  test('2º pixel com erro: o 1º recebe mesmo assim e a conversão lança (nova tentativa) sem expor o token', async () => {
+    process.env.META_PIXEL_ID_2 = '456'
+    process.env.META_CAPI_TOKEN_2 = 'token-meta-2'
+    const urls: string[] = []
+    globalThis.fetch = (async (url: string) => { urls.push(String(url)); return new Response('erro', { status: String(url).includes('/456/') ? 400 : 200 }) }) as typeof fetch
+    const err = await sendConversion('purchase', 'purchase.sub_7', purchase({ analytics: false, ads: true })).catch((e: Error) => e)
+    expect((err as Error).message).toBe('Meta 2 HTTP 400')
+    expect(urls.map((u) => new URL(u).pathname)).toEqual(['/v23.0/123/events', '/v23.0/456/events'])
+  })
 })
 
 test.describe('medição: internos e arquivos do Admin', () => {

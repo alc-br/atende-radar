@@ -2,6 +2,9 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-25
+- **2º pixel da Meta na API de Conversões:** `CompleteRegistration`, `StartTrial` e `Purchase` vão também ao pixel `1080108481699281` (o da agência), com o mesmo `event_id`. Só começa quando o *secret* `META_CAPI_TOKEN_2` for cadastrado; até lá, o log mostra `meta2:sem-id` e o 1º pixel segue igual.
+
 ## 2026-10-24
 - **Páginas de anúncio publicadas** (ajustes de 23/10, com os textos aprovados pelo dono).
 - **Verificação do domínio na Meta ligada em produção:** `META_DOMAIN_VERIFICATION` no `app.env`, e a meta tag sai no `<head>` de todas as páginas.
