@@ -145,9 +145,12 @@ manda `generate_lead` com `event_id` = `lead.<id>`, no padrão acima.
   personalizada. O cadastro já é o `CompleteRegistration`; a ativação é o passo seguinte.
 - **2º pixel (`1080108481699281`).** O servidor manda `CompleteRegistration`, `StartTrial` e `Purchase` aos dois
   pixels, com o mesmo `event_id`. Um erro em um não impede o outro; a conversão volta para a fila e a Meta descarta
-  a repetição pelo `event_id`. No navegador, a agência espelha no GTM as tags `PageView`, `CompleteRegistration` e
-  `StartTrial` (o `fbq('init')` do 2º pixel e o mesmo `eventID` = `event_id`). A CSP já libera o
-  `connect.facebook.net`.
+  a repetição pelo `event_id`. No navegador, o GTM versão 3 (publicada pela TRAFEGO ALC em 25/10/2026, com o OK do
+  dono) faz o `fbq('init')` dos dois pixels na tag "Meta - Base", e as tags com `fbq('track')` valem para os dois.
+  A CSP já libera o `connect.facebook.net`.
+- **`StartTrial` no navegador desde a versão 4 do GTM (25/10/2026):** a tag "Meta - StartTrial" dispara no evento `activation`,
+  com `eventID` = `{{DLV - event_id}}` e consentimento `ad_storage`/`ad_user_data`, para os dois pixels. Antes disso, a
+  ativação ia só pelo servidor.
 - `InitiateCheckout` no `begin_checkout` e `AddPaymentInfo` no `add_payment_info` são opcionais: o servidor não manda
   esses dois.
 - Para não contar quem é da casa: acionador de exceção com `ar_internal` igual a `true` nas tags de conversão.

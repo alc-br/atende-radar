@@ -73,7 +73,9 @@ Sem segredos aqui: o repositório é público.
 
 - **2º pixel da Meta (`1080108481699281`, pedido da TRAFEGO ALC, aprovado pelo dono: "mandar para os dois"):** o servidor manda os 3 eventos aos dois pixels com o mesmo `event_id` (`src/lib/conversions.ts`); um erro em um não impede o outro e a conversão volta para a fila. O deploy grava `META_PIXEL_ID_2` e, do *secret*, `META_CAPI_TOKEN_2`.
   - Falta o dono gerar o token do pixel novo e rodar `gh secret set META_CAPI_TOKEN_2 --repo alc-br/atende-radar`; depois, um deploy. Sem ele, `meta2:sem-id`.
-  - O pixel no navegador (PageView, CompleteRegistration, StartTrial) é da agência, no GTM GTM-P43TS3SF. Não publicamos versão do GTM.
+  - Navegador: a TRAFEGO ALC publicou o GTM-P43TS3SF versão 3, com o OK do dono. A tag "Meta - Base" inicia os dois pixels. Segundo ela, conferido no ar: PageView para o 1080108481699281. Não conferi aqui.
+  - GTM versão 4 (TRAFEGO ALC, com o OK do dono): tag "Meta - StartTrial" no evento `activation`, com `eventID` = `event_id`, para os dois pixels. O `event_id` é o mesmo da CAPI: o `/api/me` e a fila usam o mesmo `activationEventId`.
+  - O token do pixel novo só pode ser gerado por admin do portfólio dono do pixel (não é o "Al Chipak"); está com o dono e a agência.
 
 ### 24/10/2026
 
