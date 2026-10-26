@@ -18,7 +18,7 @@ está marcado como **PENDENTE**.
 | Meta, ID do pixel (conjunto de dados) | `META_PIXEL_ID` (`app.env`, pelo deploy) e tag no GTM | `1795760021571040` (portfólio "Al Chipak Treinamentos e Serviços") |
 | Meta, token da API de Conversões | `META_CAPI_TOKEN` (*secret* do GitHub) | cadastrado em 21/10/2026. Gerenciador de Eventos > conjunto do AtendeRadar > Configurações > API de Conversões > Gerar token |
 | Meta, 2º pixel (o da agência de tráfego) | `META_PIXEL_ID_2` (`app.env`, pelo deploy) | `1080108481699281`. A API de Conversões manda a ele o mesmo evento, com o mesmo `event_id`. O pixel no navegador fica com a agência, no GTM |
-| Meta, token do 2º pixel | `META_CAPI_TOKEN_2` (*secret* do GitHub) | **PENDENTE**, o dono cadastra: Gerenciador de Eventos > pixel `1080108481699281` > Configurações > API de Conversões > Gerar token; depois `gh secret set META_CAPI_TOKEN_2 --repo alc-br/atende-radar` e um deploy. Sem ele, o log mostra `meta2:sem-id` e o 1º pixel segue igual |
+| Meta, token do 2º pixel | `META_CAPI_TOKEN_2` (*secret* do GitHub) | **não será criado** (TRAFEGO ALC, 26/10/2026): os anúncios usam o pixel `1795760021571040`, e o `1080108481699281` fica só no navegador. Sem o token, o log mostra `meta2:sem-id` e o 1º pixel segue igual. O envio ao 2º pixel pode sair do código quando for conveniente |
 | Meta, código de teste | `META_TEST_EVENT_CODE` (`app.env`, só durante o teste; apagar depois) | opcional |
 | Google Ads, conversão de compra | só no GTM | PENDENTE: sem conta do Ads por enquanto |
 

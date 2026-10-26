@@ -69,6 +69,10 @@ Sem segredos aqui: o repositório é público.
 
 ## Diário
 
+### 26/10/2026
+
+- **2º pixel da Meta sem CAPI:** a TRAFEGO ALC desistiu do token e do *secret* `META_CAPI_TOKEN_2`. O conjunto de anúncios usa o pixel `1795760021571040` (otimiza por CompleteRegistration), que já recebe pela CAPI. O `1080108481699281` fica só no navegador, pelo GTM. O log segue com `meta2:sem-id`; tirar o envio ao 2º pixel do código fica a critério do dono.
+
 ### 25/10/2026
 
 - **2º pixel da Meta (`1080108481699281`, pedido da TRAFEGO ALC, aprovado pelo dono: "mandar para os dois"):** o servidor manda os 3 eventos aos dois pixels com o mesmo `event_id` (`src/lib/conversions.ts`); um erro em um não impede o outro e a conversão volta para a fila. O deploy grava `META_PIXEL_ID_2` e, do *secret*, `META_CAPI_TOKEN_2`.
