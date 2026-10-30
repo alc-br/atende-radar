@@ -11,6 +11,65 @@ Sem segredos aqui: o repositório é público.
 - Segredos do servidor: `/opt/atende-radar/shared/app.env` (gravados pelo deploy a partir dos secrets do GitHub).
 - Quadro do Trello: "AtendeRadar · Go-Live & Backlog" — card **GATE DE GO-LIVE** tem o veredito "pode vender".
 
+## Para continuar de outra conta (30/10/2026)
+
+Retrato do estado em 30/10/2026, para quem pegar o trabalho sem o histórico da conversa anterior.
+
+**Como o dono quer que se trabalhe**
+- Sempre em português do Brasil. Autonomia, nada simulado (mock).
+- Em cada entrega: commit, push e acompanhar o CI até o deploy. Depois, atualizar o Trello (comentário no card), este handoff, o `CHANGELOG.md` e a doc em `docs/`.
+- Separar o que foi provado do que não foi. "Pode vender" ou "no ar" só com prova.
+- Nada de mudar preço, Termos ou Política sem o OK do dono.
+- Segredos nunca no repositório, que é público. Os *secrets* do GitHub são cadastrados só pelo dono (`gh secret set`); nunca pedir nem escrever o valor.
+- Estorno e movimentação de dinheiro real: só o dono, no Dash Stone. NFS-e real: só com o aval do dono e da contabilidade.
+- GTM GTM-P43TS3SF: as tags são da ALC e da agência (TRAFEGO ALC). Não publicar versão do GTM.
+- COEP/CSP em produção: só com o OK do dono.
+- Teste de WhatsApp real só entre os números de teste (cliente e empresa da bateria). Não ler o WhatsApp pessoal do dono.
+- E-mail pelo Brevo: testar só a partir do servidor, porque o Brevo libera só o IP dele.
+- Pacotes novos: só versões com 2 semanas ou mais. Sem *force-push*.
+- Contas de terceiros (ChatGPT, Meta, Google) quem loga é o dono, no navegador embutido.
+
+**Acessos que a nova conta precisa**
+- `gh` autenticado com acesso a `alc-br/atende-radar`.
+- SSH `mautic-alc` (root, o mesmo servidor do Mautic). No Windows, use o `ssh` do Git (`C:\Program Files\Git\usr\bin\ssh.exe`).
+- Chaves locais, lidas só por script e nunca impressas:
+  - `D:\ALC\env\.env`: Trello (`TRELLO_API_KEY`, `TRELLO_TOKEN`).
+  - `D:\ALC\env\.env.atenderadar`: Brevo e Mautic.
+- Trello: quadro "AtendeRadar · Go-Live & Backlog". O status real fica nos comentários dos cards. Card da medição: "Medição: GTM, GA4 e Meta com consentimento".
+
+**Arquivos que só existem nesta máquina (fora do git)**
+- `criativos/teste-1/`: peças do teste 1 (C1, C2, C3, S1–S3, CAP1–CAP4, nos 3 formatos).
+- `criativos/saida/`: os zips enviados à agência.
+- `.tmp-check/`: scripts de composição e capturas.
+  - `compor.mts`: peças com print.
+  - `compor-ia.mts`: C1 e C3, com a foto do ChatGPT e o alerta real por cima, em perspectiva.
+  - `capturar.mts`: prints do app.
+  - `raw/`: capturas.
+  - `ia/`: as fotos geradas.
+  - Rodar da raiz com `node --experimental-strip-types .tmp-check/<script>.mts`.
+  - Antes de apagar `.tmp-check/`, copie para outro lugar o que quiser guardar.
+- Não commitar (já listados em "Cuidados"): `.env.repo.example`, `.env.servidor`, `prisma/dev.db*`, `shadow-check.db`, `.claude/`, `AGENTS.md`, `CLAUDE.md` e `.tmp-check/`. `AGENTS.md` e `CLAUDE.md` o `next dev` recria sozinho.
+
+**Medição (estado em 30/10)**
+- API de Conversões pelo servidor (cadastro, ativação e compra) para o pixel `1795760021571040`. Funciona e é o pixel que os anúncios usam; otimiza por CompleteRegistration.
+- O código também manda ao 2º pixel, `1080108481699281` (commit d05345a). Sem o `META_CAPI_TOKEN_2`, que a agência decidiu não criar, o log mostra `meta2:sem-id`. Esse envio pode sair do código; a decisão é do dono.
+- Navegador: GTM versão 4, publicada pela TRAFEGO ALC com o OK do dono. Os dois pixels carregam, e a tag "Meta - StartTrial" dispara no evento `activation`. Não conferido por nós no navegador; a agência diz que conferiu.
+- Detalhes em `docs/operacao/medicao.md`.
+- A agência é atendida por outra sessão do Claude, a "TRAFEGO ALC", que só existe na conta antiga. De outra conta, combine com o dono.
+
+**O que está aberto**
+1. Vídeos V1 e V2 para os anúncios: não gravados.
+2. Consent Mode avançado: decisão do dono. A proposta está em `medicao.md`.
+3. Tirar ou manter o envio ao 2º pixel (ver acima).
+4. Encontrados e só relatados, ainda não corrigidos:
+   - "Gerar agora" do relatório Diário usa 7 dias.
+   - Valores sem tradução no HTML do relatório.
+   - O CSV de conversões do Google Ads não leva `gbraid`/`wbraid`.
+5. NFS-e:
+   - Rodar a sonda de novo depois da 2ª entrega da NT 009 (30/10).
+   - Ligar só depois de 03/11, com as pendências da contabilidade resolvidas (ver "Pendências").
+6. CNPJ na Receita (dono, com a Stone).
+
 ## Bateria de testes "pode vender" (pedido do usuário, 8 itens)
 
 | # | Item | Situação |
