@@ -39,7 +39,9 @@ Rascunhos fora do Git, no scratchpad da sessão
    `migration_lock.toml`, `.claude/`, `.tmp*`. Depois `git fetch` + `git merge-base --is-ancestor origin/main HEAD`,
    push com a saída saneada, **PR para `main` sem merge automático** com `$S/pr-body.md` (preencher `<<SHA-TOUR>>` e
    `<<TESTES>>`; citar a revisão do T05.07). Em seguida commit preenchendo `<<COMMIT>>` e `<<PR>>` no QA-MESTRE.
-4. Relatório final de 11 seções ao usuário com o veredito único **HOMOLOGAÇÃO PARCIAL — PENDÊNCIAS DOCUMENTADAS**.
+4. **FEITO (31/10 ~13:40):** entregue no chat. CI do PR #3 rodando às 13:15 (workflow Deploy em
+   `pull_request`; o job de produção é pulado em PR); o app avisa falha pelo Auto-fix. **Próximo:** se o CI falhar,
+   corrigir na branch e enviar; esperar o OK do dono para o R6 (guia das telas) e para o merge. Era: Relatório final de 11 seções ao usuário com o veredito único **HOMOLOGAÇÃO PARCIAL — PENDÊNCIAS DOCUMENTADAS**.
 5. node-forge 1.4.2 só a partir de 10/11/2026 (regra das 2 semanas).
 
 **Limpeza do log do servidor (autorizada pelo usuário em 31/10):** os despejos `SessionEntry` com chaves do libsignal
