@@ -54,7 +54,20 @@ jobs:
           # Cobrança contra o SANDBOX do Pagar.me (sem as chaves, os testes de cobrança são pulados)
           PAGARME_PUBLIC_KEY_TEST: ${{ secrets.PAGARME_PUBLIC_KEY_TEST }}
           PAGARME_SECRET_KEY_TEST: ${{ secrets.PAGARME_SECRET_KEY_TEST }}
-        run: bun run test:e2e ${{ matrix.args }}
+        # O next/font/google baixa as fontes do Google ao compilar o layout. Quando o download falha na máquina do CI,
+        # o /login não responde e o servidor de teste estoura os 180 s antes de qualquer teste (main em 30/10, PR #3).
+        # Só nesse caso (nenhum teste rodou) a suíte repete uma vez; falha de teste não repete.
+        run: |
+          set +e
+          bun run test:e2e ${{ matrix.args }} 2>&1 | tee e2e-tentativa-1.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ] && grep -q "from config.webServer" e2e-tentativa-1.log && ! grep -qE "^ +[0-9]+ (passed|failed)" e2e-tentativa-1.log; then
+            echo "::warning::O servidor de teste não subiu (fontes do Google); repetindo uma vez"
+            sleep 30
+            bun run test:e2e ${{ matrix.args }}
+            code=$?
+          fi
+          exit $code
 
       # Vulnerabilidades conhecidas nas dependências (base de avisos do GitHub, via bun.lock).
       # Só high/critical derrubam o deploy; low/moderate não são nem listados.
@@ -106,7 +119,18 @@ jobs:
         env:
           PAGARME_PUBLIC_KEY_TEST: ${{ secrets.PAGARME_PUBLIC_KEY_TEST }}
           PAGARME_SECRET_KEY_TEST: ${{ secrets.PAGARME_SECRET_KEY_TEST }}
-        run: bun run test:e2e:browsers
+        # Mesma repetição única do job de cima, só quando o servidor de teste não subiu
+        run: |
+          set +e
+          bun run test:e2e:browsers 2>&1 | tee e2e-tentativa-1.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ] && grep -q "from config.webServer" e2e-tentativa-1.log && ! grep -qE "^ +[0-9]+ (passed|failed)" e2e-tentativa-1.log; then
+            echo "::warning::O servidor de teste não subiu (fontes do Google); repetindo uma vez"
+            sleep 30
+            bun run test:e2e:browsers
+            code=$?
+          fi
+          exit $code
 
       - name: Upload test report on failure
         if: failure()

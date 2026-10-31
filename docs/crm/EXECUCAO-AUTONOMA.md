@@ -286,6 +286,12 @@ Estados: `pendente`, `em andamento`, `bloqueada`, `concluída`, `descartada`.
   do tick global; os 11 que não rodaram são do `nfse` em modo serial.
   - Direcionada das falhas (12:59–13:11), com os arquivos inteiros: 72 passaram, 2 pulados, sem falha
     (`08-testes-e2e.md` § 3).
+- **CI do PR #3:** o primeiro run (cf1aeb4) passou inteiro. Nos dois seguintes, 3 shards falharam antes de qualquer
+  teste: o servidor de teste não subiu em 180 s porque o `next/font/google` não conseguiu baixar as fontes do Google
+  na máquina do CI (milhares de `Can't resolve '@vercel/turbopack-next/internal/font/google/font'`). A falha da
+  `main` em 30/10 tem a mesma causa, então o problema é anterior ao CRM. Correção no `deploy.yml`: os passos de teste
+  repetem a suíte uma vez só quando o servidor não subiu e nenhum teste rodou; falha de teste não repete. Trocar para
+  fonte local resolveria na raiz, mas mexe em todas as telas e fica para o dono decidir.
 - **Log das rotinas do CRM no agendador (T08.04):** o `safely()` de `background.ts` gravava `e.message` quando uma
   rotina do CRM falhava. As cinco rotinas do CRM passaram a usar `safelyCrm`, que grava só `errTag`. A checagem
   estática ganhou essas rotinas e o tick, e `token` entrou na lista de campos proibidos no log.

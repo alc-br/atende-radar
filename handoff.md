@@ -41,7 +41,10 @@ Rascunhos fora do Git, no scratchpad da sessão
    `<<TESTES>>`; citar a revisão do T05.07). Em seguida commit preenchendo `<<COMMIT>>` e `<<PR>>` no QA-MESTRE.
 4. **FEITO (31/10 ~13:40):** entregue no chat. CI do PR #3 rodando às 13:15 (workflow Deploy em
    `pull_request`; o job de produção é pulado em PR); o app avisa falha pelo Auto-fix. **Próximo:** se o CI falhar,
-   corrigir na branch e enviar; esperar o OK do dono para o R6 (guia das telas) e para o merge. Era: Relatório final de 11 seções ao usuário com o veredito único **HOMOLOGAÇÃO PARCIAL — PENDÊNCIAS DOCUMENTADAS**.
+   corrigir na branch e enviar; esperar o OK do dono para o R6 (guia das telas) e para o merge. **CI (13:50):** o run do cf1aeb4 passou inteiro; no do 039ba15, 2 shards (ui-desktop 1/2, ui-mobile 2/2) falharam porque o servidor de teste não subiu em 180 s (falha ao buscar a fonte do Google). Commit vazio d705090 enviado para rodar de novo; falhou outro shard (ui-mobile 1/2) pela mesma causa, que é a
+   mesma da falha da `main` em 30/10 (download das fontes do Google). **Corrigido no `deploy.yml` (13:55):** os passos
+   de teste repetem a suíte uma vez só quando o servidor de teste não subiu e nenhum teste rodou. O Auto-fix avisa o
+   resultado. Fonte local (`next/font/local`) resolveria na raiz, mas mexe em todas as telas: decisão do dono. Era: Relatório final de 11 seções ao usuário com o veredito único **HOMOLOGAÇÃO PARCIAL — PENDÊNCIAS DOCUMENTADAS**.
 5. node-forge 1.4.2 só a partir de 10/11/2026 (regra das 2 semanas).
 
 **Limpeza do log do servidor (autorizada pelo usuário em 31/10):** os despejos `SessionEntry` com chaves do libsignal
