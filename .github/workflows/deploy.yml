@@ -64,9 +64,17 @@ jobs:
       #   GHSA-86w9-cpqp-85rv  node-forge (20/10/2026): sem versão corrigida (1.4.0 é a última); a falha é na VERIFICAÇÃO
       #                        de assinatura RSA do forge, que não usamos: ele só abre o nosso .p12 da NFS-e e gera o
       #                        certificado dos testes; a assinatura do XML é conferida pelo xml-crypto com o crypto do Node
+      # Ignorados (31/10/2026) até trocar o pin do node-forge para 1.4.2, que corrige os 5 abaixo mas saiu em 27/10/2026
+      # (pacote novo só com 2 semanas de publicado: a partir de 10/11/2026). Nenhum tem entrada de terceiros hoje
+      # (docs/crm/reports/sca-baseline.md):
+      #   GHSA-8hrf-8g6f-7xwp, GHSA-hqq3-7jhf-c5jx  negação de serviço no TLS do forge: forge.tls não é usado
+      #   GHSA-5x38-2vff-x55p  verifyCertificateChain(): a função não é usada
+      #   GHSA-7wch-p9px-956x  ReDoS no pem.decode: só no modo NFSE_FAKE, com chave gerada pelo próprio app
+      #   GHSA-jc66-7q78-782g  MAC do PKCS#12: é o caminho da NFS-e (pkcs12FromAsn1), mas o .p12 é o certificado A1 da
+      #                        ALC, lido de um caminho do servidor; nenhum módulo aceita .p12 enviado por cliente
       - name: "Auditoria de dependências (bun audit: falha só em high/critical)"
         if: matrix.shard == 1
-        run: bun audit --audit-level=high --ignore GHSA-vfj7-8cjw-p6xm --ignore GHSA-ggr8-5vv4-36mx --ignore GHSA-86w9-cpqp-85rv
+        run: bun audit --audit-level=high --ignore GHSA-vfj7-8cjw-p6xm --ignore GHSA-ggr8-5vv4-36mx --ignore GHSA-86w9-cpqp-85rv --ignore GHSA-8hrf-8g6f-7xwp --ignore GHSA-hqq3-7jhf-c5jx --ignore GHSA-5x38-2vff-x55p --ignore GHSA-7wch-p9px-956x --ignore GHSA-jc66-7q78-782g
 
       - name: Upload test report on failure
         if: failure()

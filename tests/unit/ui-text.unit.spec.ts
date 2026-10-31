@@ -5,7 +5,7 @@ import { join, relative } from 'node:path'
 // Padrão de textos (docs/design/guia-de-ui.md): "Tentar novamente" / "Tente novamente" (nunca "de novo"), e título de
 // tela (h1) com maiúscula só na primeira palavra, salvo nomes próprios.
 const ROOT = process.cwd()
-const PROPER = new Set(['WhatsApp', 'AtendeRadar', 'Growth', 'Pix', 'Pagar.me'])
+const PROPER = new Set(['WhatsApp', 'AtendeRadar', 'Growth', 'Pix', 'Pagar.me', 'CRM'])
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {

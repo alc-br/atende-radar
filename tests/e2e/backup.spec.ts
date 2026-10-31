@@ -99,3 +99,98 @@ test.describe('B10 · backup do banco', () => {
     }
   })
 })
+
+// F8 · CRM comercial: o backup leva as tabelas Crm* e o ensaio de restauração (deploy.yml) as confere.
+// Tudo numa cópia parada do banco de teste: ninguém mais grava nela, então as contagens não correm contra outros testes.
+function bunScript(script: string, env: Record<string, string>) {
+  return execFileSync('bun', [script], { env: { ...process.env, ...env }, encoding: 'utf-8', shell: process.platform === 'win32' })
+}
+
+function frozenCopy(): { dir: string; url: string } {
+  const dir = mkdtempSync(join(tmpdir(), 'ar-congelado-'))
+  runBackup(dir, 5)
+  return { dir, url: `file:${join(dir, readdirSync(dir)[0]).replace(/\\/g, '/')}` }
+}
+
+async function crmCounts(url: string): Promise<Record<string, number>> {
+  const p = new PrismaClient({ datasources: { db: { url } } })
+  try {
+    const tables = await p.$queryRawUnsafe<{ name: string }[]>("SELECT name FROM sqlite_master WHERE type='table' AND name GLOB 'Crm*' ORDER BY name")
+    const out: Record<string, number> = {}
+    for (const t of tables) out[t.name] = Number((await p.$queryRawUnsafe<{ n: bigint }[]>(`SELECT count(*) AS n FROM "${t.name}"`))[0].n)
+    return out
+  } finally {
+    await p.$disconnect()
+  }
+}
+
+test.describe('F8 · backup e restauração do CRM', () => {
+  test('as 16 tabelas do CRM voltam do backup com as mesmas contagens e o app lê o funil restaurado', async () => {
+    const frozen = frozenCopy()
+    const dir = mkdtempSync(join(tmpdir(), 'ar-backup-'))
+    try {
+      // dados do CRM garantidos na cópia: o teste não depende de os testes do CRM já terem rodado
+      const p = new PrismaClient({ datasources: { db: { url: frozen.url } } })
+      const org = await p.organization.findFirstOrThrow({ select: { id: true } })
+      await p.crmTenantLink.upsert({ where: { organizationId: org.id }, create: { organizationId: org.id, status: 'active' }, update: {} })
+      await p.crmFeatureState.upsert({
+        where: { organizationId_flag: { organizationId: org.id, flag: 'crm.enabled' } },
+        create: { organizationId: org.id, flag: 'crm.enabled', enabled: true },
+        update: {},
+      })
+      const pipe = await p.crmPipeline.create({
+        data: {
+          organizationId: org.id,
+          name: 'Funil do ensaio',
+          stages: { create: [{ organizationId: org.id, name: 'Etapa A', position: 0 }, { organizationId: org.id, name: 'Etapa B', position: 1 }] },
+        },
+      })
+      await p.crmCompany.create({ data: { organizationId: org.id, name: 'Empresa do ensaio', nameNorm: 'empresa do ensaio' } })
+      await p.$disconnect()
+      const before = await crmCounts(frozen.url)
+
+      bunScript('scripts/backup-db.ts', { DATABASE_URL: frozen.url, BACKUP_DIR: dir })
+      const out = bunScript('scripts/restore-drill.ts', { DATABASE_URL: frozen.url, BACKUP_DIR: dir })
+      const line = out.split(/\r?\n/).find((l) => l.startsWith('restore-drill: crm {'))
+      expect(line, out).toBeTruthy()
+      const restored = JSON.parse(line!.slice('restore-drill: crm '.length)) as Record<string, number>
+
+      expect(Object.keys(restored)).toHaveLength(16)
+      expect(restored).toEqual(before)
+      for (const t of ['CrmTenantLink', 'CrmFeatureState', 'CrmPipeline', 'CrmStage', 'CrmCompany']) expect(restored[t], t).toBeGreaterThan(0)
+
+      // o backup abre com o mesmo Prisma do app e o funil volta com as etapas na ordem
+      const backupFile = readdirSync(dir).find((f) => f.endsWith('.db'))!
+      const bk = new PrismaClient({ datasources: { db: { url: `file:${join(dir, backupFile).replace(/\\/g, '/')}` } } })
+      const back = await bk.crmPipeline.findUnique({ where: { id: pipe.id }, include: { stages: { orderBy: { position: 'asc' } } } })
+      await bk.$disconnect()
+      expect(back?.name).toBe('Funil do ensaio')
+      expect(back?.stages.map((s) => s.name)).toEqual(['Etapa A', 'Etapa B'])
+    } finally {
+      rmSync(frozen.dir, { recursive: true, force: true })
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('backup de antes da migração do CRM (primeiro deploy): o ensaio passa e avisa que o CRM está ausente', async () => {
+    const frozen = frozenCopy()
+    const dir = mkdtempSync(join(tmpdir(), 'ar-backup-'))
+    try {
+      // tira as tabelas Crm* da cópia, como no banco de produção antes da migração 20261031120000_crm_base
+      const url = `${frozen.url}?connection_limit=1`
+      const p = new PrismaClient({ datasources: { db: { url } } })
+      await p.$executeRawUnsafe('PRAGMA foreign_keys=OFF')
+      const tables = await p.$queryRawUnsafe<{ name: string }[]>("SELECT name FROM sqlite_master WHERE type='table' AND name GLOB 'Crm*'")
+      for (const t of tables) await p.$executeRawUnsafe(`DROP TABLE "${t.name}"`)
+      await p.$disconnect()
+      expect(Object.keys(await crmCounts(frozen.url))).toHaveLength(0)
+
+      bunScript('scripts/backup-db.ts', { DATABASE_URL: frozen.url, BACKUP_DIR: dir })
+      const out = bunScript('scripts/restore-drill.ts', { DATABASE_URL: frozen.url, BACKUP_DIR: dir })
+      expect(out).toContain('restore-drill: crm ausente')
+    } finally {
+      rmSync(frozen.dir, { recursive: true, force: true })
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})

@@ -146,7 +146,9 @@ export async function createUser(
 export async function signupOrg(overrides: Partial<{ name: string; email: string; password: string; organizationName: string }> = {}) {
   const email = overrides.email ?? `dono.${uid()}@cliente.test`
   const password = overrides.password ?? STRONG
-  const anon = await request.newContext({ baseURL: BASE_URL })
+  // cada cadastro com um IP de teste próprio (198.18.0.0/15): a suíte inteira passa dos 20 cadastros por hora por IP
+  const ip = `198.18.${Math.floor(Math.random() * 256)}.${1 + Math.floor(Math.random() * 254)}`
+  const anon = await request.newContext({ baseURL: BASE_URL, extraHTTPHeaders: { 'x-forwarded-for': ip } })
   const res = await anon.post('/api/auth/signup', {
     data: { name: overrides.name ?? 'Dona Teste', email, password, organizationName: overrides.organizationName ?? `Empresa ${uid()}`, acceptTerms: true },
   })

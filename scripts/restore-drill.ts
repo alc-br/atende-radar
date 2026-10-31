@@ -38,6 +38,13 @@ try {
   })
   if (counts.empresas === 0 || !org) throw new Error('backup restaurado sem nenhuma empresa')
 
+  // tabelas do CRM comercial, contadas só se já existirem: no primeiro deploy com o CRM o backup é de antes da migração
+  // (docs/crm/09-deploy-e-rollback.md § 5). SQL direto, sem o cliente Prisma, pelo mesmo motivo das colunas acima.
+  const sq = new Database(restored, { readonly: true })
+  const crmTables = (sq.query("SELECT name FROM sqlite_master WHERE type='table' AND name GLOB 'Crm*' ORDER BY name").all() as { name: string }[]).map((t) => t.name)
+  const crm = Object.fromEntries(crmTables.map((t) => [t, (sq.query(`SELECT count(*) AS n FROM "${t}"`).get() as { n: number }).n]))
+  sq.close()
+
   // o backup foi feito agora há pouco: não pode ter MAIS empresas que o banco em uso
   const url = process.env.DATABASE_URL || ''
   if (url.startsWith('file:')) {
@@ -51,6 +58,7 @@ try {
     }
   }
   console.log(`restore-drill: ${backups[0].split(/[\\/]/).pop()} restaurado e lido pelo app: ${JSON.stringify(counts)}`)
+  console.log(crmTables.length ? `restore-drill: crm ${JSON.stringify(crm)}` : 'restore-drill: crm ausente (backup de antes da migração do CRM)')
 } catch (e) {
   failed = true
   console.error('restore-drill: FALHOU:', e instanceof Error ? e.message : e)
