@@ -7,9 +7,11 @@ import { maskSensitive } from './mask-sensitive'
 //
 // Sai tudo o que a empresa cadastrou ou o AtendeRadar produziu para ela: empresa, membros, equipes, números, atendentes,
 // contatos (telefone completo decifrado), conversas com mensagens e análises, alertas, regras, recuperação, relatórios,
-// métricas, notificações, assinatura e faturas, webhook, auditoria e chamados de suporte.
+// métricas, notificações, assinatura e faturas, webhook, auditoria, chamados de suporte e o CRM comercial (empresas,
+// pessoas com telefone completo, funis, negócios com histórico, tarefas, sugestões e configurações).
 // NÃO sai: credenciais e segredos (hash de senha, tokens, segredo do webhook, QR de pareamento, hash do telefone),
-// controles internos de segurança e os dados de uso do produto (analytics da plataforma).
+// controles internos de segurança e os dados de uso do produto (analytics da plataforma). Do CRM também não saem a fila
+// e os controles da sincronização (outbox, inbox, checkpoints, idempotência) nem as chaves de duplicidade.
 // O texto das mensagens passa pelo mesmo mascaramento da exportação por cliente (cartão, CPF etc.).
 //
 // As conversas saem em lotes (CONVERSATION_BATCH) e o arquivo é escrito aos poucos: uma empresa grande não carrega
@@ -22,9 +24,11 @@ const DROP = new Set([
   'passwordHash', 'tokenHash', 'secret', 'phoneHash', 'phoneEncrypted', 'qrCode', 'screenshot',
   'sessionVersion', 'failedLogins', 'lockedUntil', 'seenToursJson', 'systemTourJson',
   'stripeCustomerId', 'stripeSubscriptionId', 'isSimulation', 'simulationExpiresAt',
+  'phoneKey', 'emailKey', 'dedupeKey', 'originKey', 'linkKey',
 ])
 /** Campos guardados como texto JSON: saem já como objeto/lista. */
-const JSON_FIELDS = new Set(['settingsJson', 'details', 'recipients', 'daysOfWeek', 'channels', 'events', 'tags', 'conditions', 'actions', 'data', 'metadata', 'evidence', 'payload'])
+const JSON_FIELDS = new Set(['settingsJson', 'details', 'recipients', 'daysOfWeek', 'channels', 'events', 'tags', 'conditions', 'actions', 'data', 'metadata', 'evidence', 'payload',
+  'tagsJson', 'mergeDataJson', 'dataJson', 'payloadJson', 'evidenceJson'])
 
 type Row = Record<string, unknown>
 
@@ -84,6 +88,22 @@ export async function* organizationExport(orgId: string, now = new Date()): Asyn
   yield section('entregasDoWebhook', list(await db.webhookDelivery.findMany({ where, orderBy: { createdAt: 'asc' } }) as unknown as Row[]))
   yield section('auditoria', list(await db.auditLog.findMany({ where, orderBy: { createdAt: 'asc' } }) as unknown as Row[]))
   yield section('chamadosDeSuporte', list(await db.supportTicket.findMany({ where, orderBy: { createdAt: 'asc' } }) as unknown as Row[]))
+  // CRM comercial: a empresa pode ter usado e desligado depois; os dados continuam dela e saem do mesmo jeito
+  yield section('crmConfiguracoes', list(await db.crmFeatureState.findMany({ where }) as unknown as Row[]))
+  yield section('crmEmpresas', list(await db.crmCompany.findMany({ where, orderBy: { createdAt: 'asc' } }) as unknown as Row[]))
+  const people = await db.crmPerson.findMany({ where, orderBy: { createdAt: 'asc' } })
+  yield section('crmPessoas', people.map((p) => {
+    const digits = p.phoneEncrypted ? decryptPhone(orgId, p.phoneEncrypted) : null
+    return { ...clean(p as unknown as Row), phone: digits ? formatPhone(digits) : null }
+  }))
+  yield section('crmFunis', list(await db.crmPipeline.findMany({ where, orderBy: { createdAt: 'asc' }, include: { stages: { orderBy: { position: 'asc' } } } }) as unknown as Row[]))
+  const deals = await db.crmDeal.findMany({ where, orderBy: { createdAt: 'asc' }, include: { events: { orderBy: { createdAt: 'asc' } } } })
+  yield section('crmNegocios', deals.map(({ events, ...d }) => ({ ...clean(d as unknown as Row), events: list(events as unknown as Row[]) })))
+  yield section('crmTarefasERegistros', list(await db.crmActivity.findMany({ where, orderBy: { createdAt: 'asc' } }) as unknown as Row[]))
+  yield section('crmSugestoes', list(await db.crmSuggestion.findMany({ where, orderBy: { createdAt: 'asc' } }) as unknown as Row[]))
+  // vínculos: negócio ↔ conversa, oportunidade, alerta e recuperação; contato do AtendeRadar ↔ pessoa do CRM (sem linkKey)
+  yield section('crmVinculosNegocio', list(await db.crmBusinessLink.findMany({ where, orderBy: { createdAt: 'asc' } }) as unknown as Row[]))
+  yield section('crmVinculosIdentidade', list(await db.crmIdentityLink.findMany({ where, orderBy: { createdAt: 'asc' } }) as unknown as Row[]))
 
   // conversas por último (a parte grande), em lotes
   yield `,\n"conversas": [`

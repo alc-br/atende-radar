@@ -146,6 +146,40 @@ export const TOURS: Record<string, TourStep[]> = {
       placement: 'bottom',
     },
   ],
+
+  // CRM comercial: tela de negócios (quadro por etapa). Os alvos crm-* ficam na própria tela e no painel de sugestões.
+  'crm-deals': [
+    {
+      target: 'nav-crm',
+      title: 'Comercial',
+      body: 'Este grupo do menu reúne o CRM: visão comercial, negócios, contatos, empresas e tarefas. Ele só aparece quando o CRM está ligado na sua empresa.',
+      placement: 'right',
+    },
+    {
+      target: 'crm-new-deal',
+      title: 'Novo negócio',
+      body: 'Cadastre uma venda para a equipe acompanhar. O valor que você informa é o valor declarado; o valor estimado pelo AtendeRadar aparece separado e não é receita.',
+      placement: 'bottom',
+    },
+    {
+      target: 'crm-board',
+      title: 'Quadro de negócios',
+      body: 'Cada coluna é uma etapa do funil, na ordem da venda. O cartão mostra o negócio, o responsável e o valor.',
+      placement: 'top',
+    },
+    {
+      target: 'crm-card-move',
+      title: 'Mudar de etapa',
+      body: 'Use o botão Mover do cartão para escolher a nova etapa, ou arraste o cartão para outra coluna. Nenhum negócio muda de etapa sozinho.',
+      placement: 'bottom',
+    },
+    {
+      target: 'crm-suggestions',
+      title: 'Sugestões',
+      body: 'A partir das conversas, o AtendeRadar sugere criar um negócio, mudar a etapa ou confirmar uma venda. A sugestão só vale quando alguém aceita.',
+      placement: 'bottom',
+    },
+  ],
 }
 
 

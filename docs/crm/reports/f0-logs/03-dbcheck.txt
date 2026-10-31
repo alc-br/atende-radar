@@ -1,0 +1,19 @@
+# 03-dbcheck
+comando: bun run db:check
+início: 2026-10-30 23:23:34 -0300
+fim: 2026-10-30 23:23:47 -0300
+duração: 13 s
+código de saída: 0
+linhas na saída bruta: 3
+(saída sanitizada: e-mails, telefones, tokens e cadeias longas mascarados; cores ANSI removidas)
+
+## Linhas de falha / resumo encontradas
+(nenhuma)
+
+## Testes pulados ou que não rodaram (prefixo "-")
+(nenhum)
+
+## Últimas 200 linhas
+$ bun scripts/db-migrate.ts --check
+db-migrate --check: as migrações cobrem todo o schema.prisma
+

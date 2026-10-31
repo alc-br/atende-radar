@@ -295,3 +295,814 @@
   }
   .ar .entrada-prefixo > .entrada { flex: 1; min-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 }
+
+/* CRM comercial · F5: "Negócios relacionados" no detalhe da conversa (crm/related-deals.tsx). Só tokens de painel.css
+   (o tema escuro vem de .dark); a cor da situação nunca é a única pista (o texto vai na etiqueta). */
+@layer components {
+  .ar .crm-relacionados__lista { display: grid; gap: 10px; }
+  .ar .crm-relacionados__item {
+    display: grid; gap: 8px; padding: 12px 14px; min-width: 0;
+    border: 1px solid var(--borda); border-radius: var(--raio-sm, 10px); background: var(--superficie-2);
+  }
+  .ar .crm-relacionados__topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; }
+  .ar .crm-relacionados__titulo { min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+  .ar .crm-relacionados__topo .tag { flex: none; }
+  .ar .crm-relacionados__dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+  .ar .crm-relacionados__dados dt { font-size: 12px; color: var(--suave); }
+  .ar .crm-relacionados__dados dd { font-size: 13.5px; font-weight: 500; overflow-wrap: anywhere; }
+  .ar .crm-relacionados__proxima { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; color: var(--texto-2); overflow-wrap: anywhere; }
+  .ar .crm-relacionados__proxima .ic { flex: none; width: 15px; height: 15px; margin-top: 2px; color: var(--verde-700); }
+  .ar .crm-relacionados__acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+  @media (max-width: 400px) { .ar .crm-relacionados__dados { grid-template-columns: minmax(0, 1fr); } }
+}
+
+/* ── CRM comercial (F4): telas de negócios, contatos e empresas, visão e tarefas, ajustes. Escopo ".ar .crm-*", só tokens
+   de painel.css (o tema escuro vem de .dark), sem hex nem !important; os diálogos do CRM com classes do painel levam
+   "ar bg-none" no DialogContent (o portal do Radix fica fora do .ar). Ordem: contatos (base comum: .crm-link, .crm-fone,
+   .crm-estimado, .crm-dados), negócios, visão/tarefas/sugestões, ajustes. ── */
+/* CRM comercial · UI-2 (contatos e empresas). Rascunho para juntar ao CSS do CRM na integração.
+   Só tokens de painel.css (o tema escuro vem de .dark), tudo escopado em ".ar .crm-*" e dentro de @layer components,
+   como o resto do painel. Os diálogos (portal fora do .ar) recebem className "ar" no DialogContent para estas regras
+   valerem lá dentro. */
+@layer components {
+
+/* Barra de busca e filtros da lista (dentro do .cartao, logo abaixo do .cartao__cab) */
+.ar .crm-filtros {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px;
+  padding: 14px 22px; border-bottom: 1px solid var(--borda);
+}
+.ar .crm-filtros .campo { flex: 0 1 220px; }
+.ar .crm-filtros .crm-filtros__busca { flex: 1 1 280px; }
+.ar .crm-filtros .campo > label { font-weight: 500; font-size: 12.5px; color: var(--texto-2); }
+
+/* Nome clicável na tabela e nas listas (é um <button>; parece link) */
+.ar .crm-link {
+  display: inline; padding: 0; border: 0; background: none; border-radius: var(--raio-sm);
+  color: var(--verde-700); font-weight: 600; text-align: left; cursor: pointer;
+  text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px;
+  transition: text-decoration-color .15s ease;
+}
+.ar .crm-link:hover { text-decoration-color: currentColor; }
+.ar .crm-link:focus-visible { outline: 2px solid var(--verde-500); outline-offset: 2px; }
+
+/* Telefone mascarado ("•••• 1234") */
+.ar .crm-fone { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Dados do registro (dl) */
+.ar .crm-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 28px; margin: 0; }
+/* align-content: start: na linha da grade, o item ao lado de um mais alto (ex.: valor com nota) não desce o valor */
+.ar .crm-dados > div { display: grid; gap: 2px; min-width: 0; align-content: start; }
+.ar .crm-dados dt { font-size: 12.5px; color: var(--suave); }
+.ar .crm-dados dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.ar .crm-dados .crm-dados__todo { grid-column: 1 / -1; }
+.ar .crm-dados dd p { white-space: pre-wrap; font-weight: 400; color: var(--texto-2); }
+
+/* Lista simples de itens (negócios, pessoas, conversas) dentro de .cartao__corpo */
+.ar .crm-lista { display: grid; }
+.ar .crm-lista__item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid var(--borda);
+}
+.ar .crm-lista__item:last-child { border-bottom: 0; }
+.ar .crm-lista__principal { display: grid; gap: 4px; min-width: 0; }
+.ar .crm-lista__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12.5px; color: var(--suave); }
+.ar .crm-lista__valor { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Formulários (diálogos e edição no cartão) */
+.ar .crm-form { display: grid; gap: 14px; }
+.ar .crm-form__acoes { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.ar .crm-erro-campo { font-size: 12.5px; color: var(--vermelho); }
+/* painel.css só estiliza .ajuda-campo dentro de .campo; nos formulários do CRM ela também aparece solta
+   (ex.: "Você fica como responsável…", "Mostrando as 50 primeiras…"). A margem negativa de .campo continua valendo lá. */
+.ar .crm-form .ajuda-campo { font-size: 12px; color: var(--suave); }
+
+/* Nota neutra (explicação, sem alerta) */
+.ar .crm-nota { border: 1px solid var(--borda); background: var(--superficie-2); color: var(--texto-2); font-size: 13px; }
+.ar .crm-nota .ic { flex-shrink: 0; margin-top: 2px; font-size: 16px; color: var(--suave); }
+
+/* Valor estimado: sempre rotulado e separado do declarado */
+.ar .crm-estimado { font-size: 12.5px; color: var(--suave); }
+
+/* Passos da importação */
+.ar .crm-passos { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; padding: 0; list-style: none; counter-reset: crm-passo; }
+.ar .crm-passos li { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--suave); }
+.ar .crm-passos li::before {
+  counter-increment: crm-passo; content: counter(crm-passo);
+  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid var(--borda-forte); font-size: 12px; font-weight: 600;
+}
+.ar .crm-passos li[aria-current="step"] { color: var(--texto); font-weight: 600; }
+.ar .crm-passos li[aria-current="step"]::before { border-color: var(--verde-500); background: var(--verde-50); color: var(--verde-700); }
+
+/* Colunas reconhecidas na planilha */
+.ar .crm-colunas { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Caixa de seleção com texto ao lado */
+.ar .crm-checkbox { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; cursor: pointer; }
+.ar .crm-checkbox input { width: 18px; height: 18px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--verde-700); }
+
+/* Escolha única em lista (rádios): entidade da exportação, contato para mesclar */
+.ar .crm-escolha { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.ar .crm-escolha legend { padding: 0; margin-bottom: 6px; font-size: 13px; font-weight: 600; }
+.ar .crm-escolha label {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--borda); border-radius: var(--raio-sm); background: var(--superficie); cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.ar .crm-escolha label:has(input:checked) { border-color: var(--verde-500); background: var(--verde-50); }
+.ar .crm-escolha input { width: 16px; height: 16px; margin: 0; flex-shrink: 0; accent-color: var(--verde-700); }
+.ar .crm-escolha small { display: block; font-size: 12px; color: var(--suave); }
+
+/* Tabela com rolagem própria (prévia da importação) */
+.ar .crm-rolagem { position: relative; max-height: 260px; overflow-y: auto; border: 1px solid var(--borda); border-radius: var(--raio-sm); }
+.ar .crm-rolagem .tabela th { position: sticky; top: 0; background: var(--superficie); }
+
+/* Carregando dentro de um cartão */
+.ar .crm-skel { display: grid; gap: 10px; padding: 16px 22px; }
+
+@media (max-width: 1024px) {
+  .ar .crm-dados { gap: 12px 20px; }
+  .ar .crm-filtros { padding: 12px 16px; }
+}
+@media (max-width: 720px) {
+  .ar .crm-filtros .campo, .ar .crm-filtros .crm-filtros__busca { flex: 1 1 100%; }
+  .ar .crm-dados { grid-template-columns: minmax(0, 1fr); }
+  .ar .crm-lista__item { flex-direction: column; align-items: flex-start; }
+  .ar .crm-lista__valor { text-align: left; }
+  .ar .crm-skel { padding: 12px 16px; }
+}
+@media (max-width: 480px) {
+  .ar .crm-form__acoes { flex-direction: column-reverse; }
+  .ar .crm-form__acoes .btn { width: 100%; }
+  .ar .crm-passos { gap: 6px 12px; }
+  .ar .crm-rolagem { max-height: 220px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar .crm-link, .ar .crm-escolha label { transition: none; }
+}
+
+}
+
+/* CRM comercial · UI-1 (negócios: quadro, lista e detalhe). Rascunho para juntar ao CSS do CRM na integração.
+   Só tokens de painel.css (o tema escuro vem de .dark), tudo escopado em ".ar .crm-*" e dentro de @layer components,
+   como o resto do painel. Reaproveita do rascunho UI-2 (css-ui2-contatos.css), sem redefinir: .crm-link (nome
+   clicável), .crm-fone (telefone mascarado), .crm-estimado (valor estimado rotulado) e .crm-dados (dl de dados).
+   Os diálogos usam os componentes shadcn (Input, Label, Button), então não dependem destas regras. */
+@layer components {
+
+/* Barra de filtros de Negócios (cartão próprio, acima do quadro ou da lista) */
+.ar .crm-negocios-filtros {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 14px;
+  padding: 14px 18px;
+}
+.ar .crm-negocios-filtros .campo { flex: 0 1 200px; min-width: 0; }
+.ar .crm-negocios-filtros .crm-negocios-filtros__busca { flex: 1 1 260px; }
+.ar .crm-negocios-filtros .campo > label,
+.ar .crm-negocios-filtros .rotulo { font-weight: 500; font-size: 12.5px; color: var(--texto-2); }
+.ar .crm-negocios-filtros .entrada,
+.ar .crm-negocios-filtros .selecao { background-color: var(--superficie-2); }
+.ar .crm-negocios-filtros__vista { display: grid; gap: 6px; flex: 0 0 auto; }
+.ar .crm-negocios-filtros__vista .segmentado button { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Quadro (Kanban): rolagem horizontal entre as etapas. O position: relative faz o quadro conter os textos sr-only
+   (position: absolute) dos cartões; sem ele, os das colunas fora da vista esticam a página para o lado. */
+.ar .crm-quadro {
+  position: relative;
+  display: flex; align-items: flex-start; gap: 14px;
+  overflow-x: auto; padding: 2px 2px 14px;
+  scroll-snap-type: x proximity; overscroll-behavior-x: contain;
+  border-radius: var(--raio);
+}
+.ar .crm-quadro__dica { font-size: 12.5px; color: var(--suave); }
+
+/* Coluna = etapa do funil */
+.ar .crm-coluna {
+  flex: 0 0 300px; min-width: 0; display: flex; flex-direction: column;
+  background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio);
+  scroll-snap-align: start;
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.ar .crm-coluna--alvo {
+  border-color: var(--verde-500); background: var(--verde-50);
+  box-shadow: inset 0 0 0 1px var(--verde-500);
+}
+.ar .crm-coluna__cab {
+  display: grid; gap: 4px; padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--borda);
+}
+.ar .crm-coluna__titulo { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.ar .crm-coluna__titulo h2 { font-size: 14px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.ar .crm-coluna__total { font-size: 12.5px; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+.ar .crm-coluna__soltar {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--verde-700);
+}
+.ar .crm-coluna__lista {
+  list-style: none; margin: 0; padding: 10px;
+  display: grid; align-content: start; gap: 10px;
+  min-height: 96px; max-height: 70vh; overflow-y: auto;
+  position: relative; /* contém os sr-only dos cartões, como o quadro */
+}
+.ar .crm-coluna__vazia {
+  padding: 18px 10px; text-align: center; font-size: 13px; color: var(--suave);
+  border: 1px dashed var(--borda-forte); border-radius: var(--raio-sm);
+}
+.ar .crm-coluna__mais { margin: 0 10px 10px; }
+
+/* Cartão do negócio */
+.ar .crm-cartao {
+  display: grid; gap: 6px; padding: 10px 12px;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-sm);
+  box-shadow: var(--sombra);
+}
+.ar .crm-cartao--arrastando { opacity: .45; }
+.ar .crm-cartao__topo { display: flex; align-items: flex-start; gap: 6px; }
+.ar .crm-cartao__titulo { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.35; }
+.ar .crm-cartao__titulo .crm-link { overflow-wrap: anywhere; }
+.ar .crm-cartao__alca {
+  flex: 0 0 auto; display: inline-grid; place-items: center;
+  width: 28px; height: 28px; margin: -4px -6px 0 0;
+  border: 0; border-radius: 6px; background: none; color: var(--suave);
+  cursor: grab; touch-action: none;
+}
+.ar .crm-cartao__alca:hover { background: var(--superficie-3); color: var(--texto); }
+.ar .crm-cartao__alca:active { cursor: grabbing; }
+.ar .crm-cartao__linha {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px;
+  font-size: 12.5px; color: var(--texto-2); min-width: 0;
+}
+.ar .crm-cartao__linha .ic { flex-shrink: 0; font-size: 14px; color: var(--suave); }
+/* texto longo da próxima ação quebra ao lado do ícone, não numa linha nova embaixo dele */
+.ar .crm-cartao__texto { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.ar .crm-cartao__valor { font-size: 13.5px; font-weight: 700; color: var(--texto); font-variant-numeric: tabular-nums; }
+.ar .crm-cartao__rodape { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 2px; }
+
+/* Cópia do cartão que acompanha o ponteiro durante o arraste */
+.ar .crm-cartao--sobreposicao { box-shadow: var(--sombra-flutuante); cursor: grabbing; transform: rotate(1.5deg); }
+
+/* Detalhe do negócio: conteúdo à esquerda, painéis à direita */
+.ar .crm-detalhe { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 18px; align-items: start; }
+.ar .crm-detalhe__principal,
+.ar .crm-detalhe__lateral { display: grid; gap: 18px; min-width: 0; }
+.ar .crm-detalhe__resumo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 6px; color: var(--texto-2); font-size: 14px; }
+.ar .crm-detalhe__cab { display: grid; gap: 10px; min-width: 0; }
+.ar .crm-detalhe__cab h1 { overflow-wrap: anywhere; }
+.ar .crm-valor-fonte { display: block; font-size: 12.5px; font-weight: 400; color: var(--suave); }
+
+/* Formulário de edição no cartão */
+.ar .crm-edicao { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; }
+.ar fieldset.crm-edicao { border: 0; margin: 0; padding: 0; min-width: 0; }
+.ar fieldset.crm-edicao:disabled .entrada,
+.ar fieldset.crm-edicao:disabled .selecao { opacity: .6; cursor: not-allowed; }
+.ar .crm-edicao .crm-edicao__todo { grid-column: 1 / -1; }
+/* o .campo do painel é grade; esticado pela linha (o Valor declarado tem dica embaixo), descia o select da Prioridade */
+.ar .crm-edicao > .campo { align-content: start; }
+.ar .crm-edicao__dica { font-size: 12.5px; color: var(--suave); }
+.ar .crm-edicao__acoes { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+
+/* Histórico (linha do tempo) */
+.ar .crm-historico { list-style: none; margin: 0; padding: 0; display: grid; }
+.ar .crm-historico li {
+  position: relative; display: grid; gap: 2px;
+  margin-left: 6px; padding: 8px 0 12px 20px;
+  border-left: 2px solid var(--borda);
+}
+.ar .crm-historico li::before {
+  content: ""; position: absolute; left: -7px; top: 12px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--superficie); border: 2px solid var(--verde-500);
+}
+.ar .crm-historico__texto { font-size: 14px; color: var(--texto); overflow-wrap: anywhere; }
+.ar .crm-historico__quando { font-size: 12.5px; color: var(--suave); }
+
+/* Conversas vinculadas */
+.ar .crm-vinculos { list-style: none; margin: 0; padding: 0; display: grid; }
+.ar .crm-vinculos li {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--borda);
+}
+.ar .crm-vinculos li:last-child { border-bottom: 0; }
+
+@media (max-width: 1024px) {
+  .ar .crm-detalhe { grid-template-columns: minmax(0, 1fr); }
+  .ar .crm-coluna { flex-basis: 280px; }
+  .ar .crm-negocios-filtros { padding: 12px 16px; }
+}
+@media (max-width: 720px) {
+  .ar .crm-negocios-filtros .campo,
+  .ar .crm-negocios-filtros .crm-negocios-filtros__busca { flex: 1 1 100%; }
+  .ar .crm-coluna { flex-basis: 85%; }
+  .ar .crm-coluna__lista { max-height: none; }
+  .ar .crm-edicao { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .ar .crm-coluna { flex-basis: 92%; }
+  .ar .crm-cartao { padding: 10px; }
+  .ar .crm-edicao__acoes { flex-direction: column-reverse; align-items: stretch; }
+  .ar .crm-edicao__acoes .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar .crm-coluna { transition: none; }
+  .ar .crm-cartao--sobreposicao { transform: none; }
+  .ar .crm-quadro { scroll-behavior: auto; }
+}
+
+}
+
+@layer components {
+/* CRM: sugestões, tarefas e visão comercial (agente UI-3). Só tokens de painel.css; escopo .ar .crm-*. */
+
+/* ── Sugestões ─────────────────────────────────────────────────────────── */
+.ar .crm-sugestoes__erro {
+  padding: 14px 18px; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; font-size: 13.5px;
+}
+.ar .crm-sugestoes__lista {
+  display: grid; gap: 10px; list-style: none; margin: 0; padding: 0;
+}
+.ar .crm-sugestao {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+  padding: 12px 14px; border: 1px solid var(--borda); border-left: 3px solid var(--azul); border-radius: var(--raio-sm);
+  background: var(--superficie-2);
+}
+.ar .crm-sugestao__texto {
+  display: grid; gap: 3px; min-width: 0; font-size: 13.5px;
+}
+.ar .crm-sugestao__texto strong {
+  font-weight: 600; color: var(--texto); overflow-wrap: anywhere;
+}
+.ar .crm-sugestao__detalhe {
+  color: var(--texto-2); font-size: 13px;
+}
+.ar .crm-sugestao__meta {
+  font-size: 12px; color: var(--suave);
+}
+.ar .crm-sugestao__acoes {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0;
+}
+.ar .crm-sugestoes__mais {
+  margin-top: 10px;
+}
+
+/* ── Tarefas ───────────────────────────────────────────────────────────── */
+.ar .crm-tarefas__carregando {
+  display: grid; gap: 10px;
+}
+.ar .crm-tarefas__lista {
+  display: grid; list-style: none; margin: 0; padding: 0;
+}
+.ar .crm-tarefa {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: flex-start; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid var(--borda);
+}
+.ar .crm-tarefa:last-child {
+  border-bottom: 0;
+}
+.ar .crm-tarefa__icone {
+  width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px;
+  background: var(--azul-fundo); color: var(--azul); font-size: 17px;
+}
+.ar .crm-tarefa--atrasada .crm-tarefa__icone {
+  background: var(--vermelho-fundo); color: var(--vermelho);
+}
+.ar .crm-tarefa--fechada .crm-tarefa__icone {
+  background: var(--superficie-3); color: var(--suave);
+}
+.ar .crm-tarefa--fechada .crm-tarefa__texto strong {
+  color: var(--texto-2);
+}
+.ar .crm-tarefa__texto {
+  display: grid; gap: 6px; min-width: 0;
+}
+.ar .crm-tarefa__texto strong {
+  font-size: 14px; font-weight: 600; overflow-wrap: anywhere;
+}
+.ar .crm-tarefa__tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.ar .crm-tarefa__tags .tag .ic {
+  font-size: 13px;
+}
+.ar .crm-tarefa__info {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12.5px; color: var(--suave);
+}
+.ar .crm-tarefa__info > span {
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.ar .crm-tarefa__vinculo {
+  height: auto; min-height: 24px; padding: 2px 6px; white-space: normal; text-align: left;
+  margin-inline-start: -6px; /* o texto do link alinha com o título da tarefa */
+}
+.ar .crm-tarefa__nota {
+  font-size: 13px; color: var(--texto-2); white-space: pre-line; overflow-wrap: anywhere;
+}
+.ar .crm-tarefa__acoes {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
+}
+/* Cancelar é a ação menos importante da tarefa: cinza, não o verde de link que parece a ação principal */
+.ar .crm-tarefa__acoes .btn--link { color: var(--texto-2); }
+.ar .crm-tarefa__acoes .btn--link:hover { background: var(--superficie-3); color: var(--texto); }
+/* tipo da tarefa (Ligação, Reunião…) é informação, não destaque: borda neutra em vez da cor do texto */
+.ar .crm-tarefa__tags .tag--contorno { border-color: var(--borda-forte); color: var(--texto-2); }
+.ar .crm-tarefas__vazio {
+  padding: 24px 12px;
+}
+.ar .crm-tarefas__vazio p {
+  max-width: 52ch; margin: 0 auto; font-size: 13.5px;
+}
+.ar .crm-tarefas__vazio-acao {
+  margin-top: 14px; display: flex; justify-content: center;
+}
+.ar .crm-tarefas--compacta .crm-tarefas__vazio {
+  padding: 16px 12px;
+}
+.ar .crm-tarefas--compacta .crm-tarefa {
+  padding: 10px 0;
+}
+/* lista compacta (coluna lateral do negócio, detalhe do contato): as ações vão para baixo do texto; ao lado, em ~380 px,
+   cobriam o título */
+.ar .crm-tarefas--compacta .crm-tarefa {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.ar .crm-tarefas--compacta .crm-tarefa__acoes {
+  grid-column: 2; justify-content: flex-start;
+}
+.ar .crm-tarefas__rodape {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 10px 22px 14px; border-top: 1px solid var(--borda); font-size: 12.5px;
+}
+.ar .crm-tarefas__barra {
+  display: flex; justify-content: flex-end; margin-bottom: 4px;
+}
+.ar .crm-tarefas--solta .crm-tarefas__rodape {
+  padding: 10px 0 0;
+}
+.ar .crm-tarefas--solta .crm-tarefas__vazio,
+.ar .crm-tarefas__erro {
+  padding: 12px 0;
+}
+.ar .crm-filtros-tarefas {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.ar .crm-filtros-tarefas__minhas {
+  display: inline-flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 500; color: var(--texto-2); cursor: pointer;
+}
+/* seis filtros (CRM-04, com Hoje e Próximos 7 dias): o rótulo não quebra; sem espaço, o grupo passa para outra linha.
+   Rolagem lateral cortava o contorno de foco e escondia "Concluídas" e "Todas" no celular, sem pista de que havia mais */
+.ar .crm-filtros-tarefas .segmentado {
+  flex-wrap: wrap; max-width: 100%;
+}
+.ar .crm-filtros-tarefas .segmentado button {
+  white-space: nowrap;
+}
+/* aviso de fuso da agenda (navegador em fuso diferente do da empresa) */
+.ar .crm-tarefas__fuso {
+  margin: 0 0 10px; font-size: 12.5px; color: var(--suave);
+}
+
+/* ── Visão comercial ───────────────────────────────────────────────────── */
+/* grades do CRM: o cartão não se alarga com o gráfico e a tabela de dentro (min-width: auto do item de grade); sem isso a
+   Visão comercial rola para o lado em 320 e 375 px */
+.ar .crm-grade > * {
+  min-width: 0;
+}
+/* a última linha das tabelas da Visão comercial tem th de linha (scope="row"); o painel só tira a borda do td */
+.ar .crm-grade .tabela tbody tr:last-child th {
+  border-bottom: 0;
+}
+/* tabelas do CRM que rolam para o lado no celular: sombra na borda indica que há mais colunas. As camadas "local" cobrem
+   a sombra quando a rolagem chega ao fim; só aparecem com conteúdo escondido daquele lado */
+.ar .crm-tabela-rola {
+  background:
+    linear-gradient(to right, var(--superficie) 30%, transparent) left center / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--superficie) 30%, transparent) right center / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgb(0 0 0 / 0.16), transparent) left center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 0.16), transparent) right center / 12px 100% no-repeat scroll;
+  background-color: var(--superficie);
+}
+.ar .crm-visao__periodo {
+  font-size: 13px;
+}
+.ar .crm-visao__cartao-corpo {
+  display: grid; gap: 6px; justify-items: start;
+}
+.ar .crm-visao__cartao-corpo .btn {
+  margin-top: 6px;
+}
+.ar .crm-visao__vazio-acoes {
+  margin-top: 14px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
+}
+/* 6 indicadores com valor em reais não cabem em 6 colunas até ~1800 px (em 1280 o valor quebrava no meio: "R$ 2.500,0" e
+   "0"): 3 colunas até lá, 6 acima; no celular ficam as 2 do painel (regra em "Quebras") */
+.ar .crm-kpis {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* etapa e responsável lado a lado só quando as tabelas (5 e 4 colunas) cabem; abaixo disso, um embaixo do outro */
+.ar .crm-visao__tabelas {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 1800px) {
+  .ar .crm-kpis {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .ar .crm-visao__tabelas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* valor em reais grande quebra em vez de ser cortado (.kpi tem overflow: hidden); a nota explica a soma e não pode virar "…" */
+.ar .crm-kpis .kpi__valor,
+.ar .crm-kpi-estimativa .kpi__valor {
+  overflow-wrap: anywhere;
+}
+.ar .crm-kpis .kpi__ref,
+.ar .crm-kpi-estimativa .kpi__ref {
+  white-space: normal; overflow: visible; text-overflow: clip;
+}
+.ar .crm-kpi-estimativa {
+  border-style: dashed; border-color: var(--borda-forte); background: var(--superficie-2);
+}
+.ar .crm-kpi-estimativa .kpi__valor {
+  color: var(--texto-2);
+}
+.ar .crm-grafico {
+  width: 100%; min-height: 140px; margin-bottom: 12px;
+}
+.ar .crm-legenda--abertos {
+  background: var(--azul);
+}
+.ar .crm-legenda--ganhos {
+  background: var(--verde-600);
+}
+.ar .crm-checklist {
+  border-color: var(--verde-100);
+}
+.ar .crm-checklist__lista {
+  display: grid; gap: 10px; list-style: none; margin: 0;
+}
+.ar .crm-checklist__item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 12px 14px; border: 1px solid var(--borda); border-radius: var(--raio-sm); background: var(--superficie);
+}
+.ar .crm-checklist__ic {
+  font-size: 20px; color: var(--muito-suave);
+}
+.ar .crm-checklist__item--feito {
+  background: var(--verde-50); border-color: var(--verde-100);
+}
+.ar .crm-checklist__item--feito .crm-checklist__ic {
+  color: var(--verde-600);
+}
+.ar .crm-checklist__texto {
+  display: grid; gap: 2px; font-size: 13.5px; min-width: 0;
+}
+.ar .crm-motivos {
+  display: grid; gap: 10px; list-style: none; margin: 0; padding: 0;
+}
+.ar .crm-motivos li {
+  display: grid; grid-template-columns: minmax(120px, 200px) minmax(0, 1fr) auto; align-items: center; gap: 12px; font-size: 13.5px;
+}
+.ar .crm-motivos__nome {
+  color: var(--texto); font-weight: 500;
+}
+.ar .crm-motivos__barra > i {
+  background: var(--vermelho);
+}
+.ar .crm-motivos__qtd {
+  color: var(--texto-2); font-weight: 600; white-space: nowrap;
+}
+.ar .crm-metodo {
+  background: var(--superficie-2); box-shadow: none;
+}
+.ar .crm-metodo__cab {
+  margin: 0; font-size: 14px;
+}
+.ar .crm-metodo__botao {
+  width: 100%; display: flex; align-items: center; gap: 8px; padding: 14px 18px;
+  border: 0; background: none; color: var(--texto-2); font: inherit; font-weight: 600; text-align: left; border-radius: var(--raio);
+}
+.ar .crm-metodo__seta {
+  margin-left: auto; transition: transform .15s ease;
+}
+.ar .crm-metodo__botao[aria-expanded="true"] .crm-metodo__seta {
+  transform: rotate(180deg);
+}
+.ar .crm-metodo__corpo {
+  padding: 0 18px 16px;
+}
+.ar .crm-metodo__corpo dl {
+  display: grid; gap: 8px; margin: 0;
+}
+.ar .crm-metodo__item {
+  display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; font-size: 13px;
+}
+.ar .crm-metodo__item dt {
+  font-weight: 600; color: var(--texto);
+}
+.ar .crm-metodo__item dd {
+  margin: 0; color: var(--texto-2);
+}
+
+/* ── Quebras ───────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .ar .crm-motivos li {
+    grid-template-columns: minmax(110px, 160px) minmax(0, 1fr) auto;
+  }
+}
+@media (max-width: 720px) {
+  .ar .crm-sugestao {
+    flex-direction: column;
+  }
+  .ar .crm-sugestao__acoes {
+    justify-content: flex-start;
+  }
+  .ar .crm-tarefa {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .ar .crm-tarefa__acoes {
+    grid-column: 1 / -1; justify-content: flex-start;
+  }
+  .ar .crm-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ar .crm-kpis .kpi__valor {
+    font-size: 18px;
+  }
+  .ar .crm-checklist__item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .ar .crm-checklist__item .btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .ar .crm-metodo__item {
+    grid-template-columns: 1fr; gap: 2px;
+  }
+  .ar .crm-tarefas__rodape {
+    padding: 10px 18px 12px;
+  }
+}
+@media (max-width: 480px) {
+  .ar .crm-tarefa,
+  .ar .crm-tarefas--compacta .crm-tarefa {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ar .crm-tarefas--compacta .crm-tarefa__acoes {
+    grid-column: 1 / -1;
+  }
+  .ar .crm-tarefa__icone {
+    display: none;
+  }
+  .ar .crm-motivos li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .ar .crm-motivos__barra {
+    grid-column: 1 / -1; grid-row: 2;
+  }
+  .ar .crm-tarefas__rodape {
+    padding: 10px 16px 12px;
+  }
+}
+/* em 320 px duas colunas deixam ~105 px para o valor: "R$ 2.500,00" não cabe */
+@media (max-width: 360px) {
+  .ar .crm-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar .crm-metodo__seta {
+    transition: none;
+  }
+  .ar .crm-carregando [data-slot="skeleton"],
+  .ar .crm-tarefas__carregando [data-slot="skeleton"] {
+    animation: none;
+  }
+}
+}
+
+/* CRM comercial · UI-4 (Ajustes do CRM). Rascunho para juntar ao CSS do CRM na integração.
+   Só tokens de painel.css (o tema escuro vem de .dark), tudo escopado em ".ar .crm-*" e dentro de @layer components,
+   como o resto do painel. Reaproveita .secao-config, .opcao, .interruptor, .kpis/.kpi, .tag, .tabela-wrap, .vazio e .aviso;
+   aqui só o que não existe. Os diálogos (portal fora do .ar) usam os componentes shadcn com utilitários Tailwind e não
+   dependem destas regras. */
+@layer components {
+
+/* Cabeçalho de cada bloco (.secao-config__cab): ações à direita, quebrando linha quando falta espaço */
+.ar .crm-ajustes__cab { flex-wrap: wrap; }
+.ar .crm-ajustes__titulo { flex: 1 1 260px; min-width: 0; }
+.ar .crm-ajustes__acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+
+/* Nota de rodapé (D3: nada é enviado ao cliente) */
+.ar .crm-ajustes__nota {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px; font-size: 13px; color: var(--texto-2);
+  background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio-sm);
+}
+.ar .crm-ajustes__nota .ic { font-size: 18px; color: var(--verde-700); margin-top: 1px; }
+
+/* Aviso de recarga que falhou / rascunho descartado: o botão vai para a direita */
+.ar .crm-ajustes__aviso { align-items: center; flex-wrap: wrap; }
+.ar .crm-ajustes__aviso > span { flex: 1 1 240px; }
+
+/* Erro do servidor ao salvar (role=alert): ícone + texto, não só a cor */
+.ar .crm-ajustes__erro {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13px; font-weight: 500; color: var(--vermelho);
+}
+.ar .crm-ajustes__erro .ic { font-size: 16px; margin-top: 1px; }
+
+/* Automação: .opcao com a linha "Não faz" e o estado em texto ao lado do interruptor */
+.ar .crm-flags { display: grid; gap: 12px; }
+.ar .crm-flag { align-items: start; }
+.ar .crm-flag .dado-ic { margin-top: 2px; }
+.ar .crm-flag__nao { margin-top: 6px; font-size: 12.5px; color: var(--texto-2); }
+.ar .crm-flag__controle { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
+.ar .crm-flag__estado { min-width: 64px; text-align: right; font-size: 12.5px; font-weight: 600; color: var(--texto-2); }
+
+/* Funil de vendas */
+.ar .crm-funis { display: grid; gap: 14px; }
+.ar .crm-funis__sub { margin-top: 6px; font-size: 14px; font-weight: 700; color: var(--texto-2); }
+.ar .crm-funil {
+  display: grid; gap: 12px; padding: 16px 18px;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio);
+}
+.ar .crm-funil--inativo { background: var(--superficie-2); }
+.ar .crm-funil__cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.ar .crm-funil__nome { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.ar .crm-funil__nome h3 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.ar .crm-funil__acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.ar .crm-funil__ajuda { font-size: 13px; }
+
+/* Editor de etapas */
+.ar .crm-etapas-editor { display: grid; gap: 10px; }
+.ar .crm-etapas__titulo { font-size: 13px; font-weight: 600; color: var(--texto-2); }
+.ar .crm-etapas { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ar .crm-etapa {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 6px 8px; border-radius: var(--raio-sm);
+  transition: background-color .2s ease;
+}
+.ar .crm-etapa--nova { background: var(--verde-50); }
+.ar .crm-etapa__num {
+  width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%;
+  font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--texto-2); background: var(--superficie-3);
+}
+.ar .crm-etapa__campo { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ar .crm-etapa__campo .entrada { min-width: 0; }
+.ar .crm-etapa__acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.ar .crm-etapa__mover { width: 32px; padding: 0; }
+
+/* Etapas que saem ao salvar e etapas desativadas (com "Manter" / "Reativar") */
+.ar .crm-etapas__fora {
+  display: grid; gap: 6px; padding: 10px 12px; font-size: 13px;
+  background: var(--superficie-2); border: 1px dashed var(--borda-forte); border-radius: var(--raio-sm);
+}
+.ar .crm-etapas__fora ul { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; }
+.ar .crm-etapas__fora li { display: inline-flex; align-items: center; gap: 4px; }
+.ar .crm-etapas__fora li > span { text-decoration: line-through; color: var(--texto-2); }
+
+.ar .crm-etapas__rodape { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ar .crm-etapas__contagem { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ar .crm-etapas__salvar { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+
+/* Sincronização */
+.ar .crm-sync { display: grid; gap: 14px; }
+.ar .crm-sync__resumo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.ar .crm-sync__resumo p { flex: 1 1 280px; font-size: 13.5px; color: var(--texto-2); }
+.ar .crm-sync__titulo { margin-top: 6px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.ar .crm-sync__lista {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 24px; margin: 0;
+}
+.ar .crm-sync__lista dt { font-size: 12.5px; color: var(--suave); }
+.ar .crm-sync__lista dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ar .crm-sync__contagens { grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; }
+.ar .crm-sync__contagens dd { margin: 0; }
+.ar .crm-sync__ajuda { margin-top: 4px; font-size: 12px; }
+
+@media (max-width: 1024px) {
+  .ar .crm-sync__contagens { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ar .crm-sync__lista { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .ar .crm-ajustes__acoes { margin-left: 0; width: 100%; }
+  .ar .crm-flag { grid-template-columns: 44px minmax(0, 1fr); }
+  .ar .crm-flag__controle { grid-column: 1 / -1; justify-content: flex-end; padding-top: 0; }
+  .ar .crm-etapas__salvar { margin-left: 0; width: 100%; }
+  .ar .crm-sync__contagens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 480px) {
+  .ar .crm-flag { grid-template-columns: minmax(0, 1fr); }
+  .ar .crm-flag .dado-ic { display: none; }
+  .ar .crm-funil { padding: 14px; }
+  .ar .crm-etapa { grid-template-columns: 28px minmax(0, 1fr); }
+  .ar .crm-etapa__acoes { grid-column: 1 / -1; justify-content: flex-start; }
+  .ar .crm-sync__lista { grid-template-columns: minmax(0, 1fr); }
+  .ar .crm-sync__contagens { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ar .crm-etapa { transition: none; }
+}
+
+}

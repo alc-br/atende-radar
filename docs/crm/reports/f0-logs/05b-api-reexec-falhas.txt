@@ -1,0 +1,44 @@
+# 05b-api-reexec-falhas
+comando: bunx playwright test --project=api tests/e2e/analysis-outcomes.spec.ts tests/e2e/nfse.spec.ts tests/e2e/settings-effect.spec.ts
+início: 2026-10-30 23:58:57 -0300
+fim: 2026-10-31 00:01:54 -0300
+duração: 177 s
+código de saída: 0
+linhas na saída bruta: 28
+(saída sanitizada: e-mails, telefones, tokens e cadeias longas mascarados; cores ANSI removidas)
+
+## Linhas de falha / resumo encontradas
+  22 passed (2.9m)
+
+## Testes pulados ou que não rodaram (prefixo "-")
+(nenhum)
+
+## Últimas 200 linhas
+
+Running 22 tests using 1 worker
+
+  ok  1 [api] › tests\e2e\analysis-outcomes.spec.ts:26:7 › B6 · alertas agrupados › várias regras pela mesma causa → UM alerta: título da mais específica, gravidade da mais grave (5.8s)
+  ok  2 [api] › tests\e2e\analysis-outcomes.spec.ts:40:7 › B6 · alertas agrupados › o problema volta na mesma conversa → o MESMO alerta reabre com contador, sem novo e-mail nem "alert.created" (6.7s)
+  ok  3 [api] › tests\e2e\analysis-outcomes.spec.ts:91:7 › B6 · alertas agrupados › alerta aberto que fica mais grave sobe de gravidade no mesmo alerta e avisa de novo (4.1s)
+  ok  4 [api] › tests\e2e\analysis-outcomes.spec.ts:121:7 › B6 · venda e perda pelas mensagens › cliente diz que pagou → conversa ganha, oportunidade ganha, item da Recuperação recuperado e alerta resolvido (3.3s)
+  ok  5 [api] › tests\e2e\analysis-outcomes.spec.ts:145:7 › B6 · venda e perda pelas mensagens › cliente diz que fechou com outra → perdida (sem item de abandono); pergunta ou negação não decidem nada (3.2s)
+  ok  6 [api] › tests\e2e\analysis-outcomes.spec.ts:174:7 › B6 · reanálise respeita a correção humana › resultado marcado por uma pessoa não é desfeito: nem por mensagem nova, nem por venda/perda automática, nem por abandono (6.6s)
+  ok  7 [api] › tests\e2e\analysis-outcomes.spec.ts:199:7 › B6 · reanálise respeita a correção humana › correção da intenção para "não é venda" sobrevive à reanálise e tira o valor em risco; corrigir intenção vazia funciona (12.2s)
+  ok  8 [api] › tests\e2e\nfse.spec.ts:47:5 › fatura paga vira NFS-e emitida, uma só; renovação gera outra com o número seguinte; reembolso cancela (9.7s)
+  ok  9 [api] › tests\e2e\nfse.spec.ts:86:5 › fatura paga antes de NFSE_DESDE e fatura não paga não geram nota (3.3s)
+  ok 10 [api] › tests\e2e\nfse.spec.ts:95:5 › rejeição do governo fica como falha com o motivo; corrigido o dado, a nova tentativa emite (7.4s)
+  ok 11 [api] › tests\e2e\nfse.spec.ts:116:5 › queda de rede depois do envio: a nova tentativa acha a nota pela DPS e não emite em dobro (5.5s)
+  ok 12 [api] › tests\e2e\nfse.spec.ts:128:5 › sem dados de quem paga: falha explicada; reembolsada antes de emitir, a nota é dispensada (5.6s)
+  ok 13 [api] › tests\e2e\nfse.spec.ts:139:5 › cancelamento recusado fica como falha; operador cancela manualmente com motivo e baixa os XML (9.4s)
+  ok 14 [api] › tests\e2e\nfse.spec.ts:181:5 › reembolso depois do mês de competência: a nota não é cancelada e fica para a contabilidade (9.7s)
+  ok 15 [api] › tests\e2e\nfse.spec.ts:214:5 › admin de empresa cliente não vê nem mexe nas notas (611ms)
+  ok 16 [api] › tests\e2e\settings-effect.spec.ts:12:7 › P2 · horário comercial e regra fora do expediente › "ignora": fora do expediente o cliente não conta como esperando → sem alerta; "atraso": conta → alerta (3.7s)
+  ok 17 [api] › tests\e2e\settings-effect.spec.ts:25:7 › P2 · horário comercial e regra fora do expediente › "alerta, mas não pune": o alerta dispara, mas a nota da conversa não cai por espera fora do expediente (5.6s)
+  ok 18 [api] › tests\e2e\settings-effect.spec.ts:45:7 › P2 · horário comercial e regra fora do expediente › expediente 24 h com "ignora" conta tudo (equivale ao tempo corrido) (3.4s)
+  ok 19 [api] › tests\e2e\settings-effect.spec.ts:56:7 › P2 · SLA de primeira resposta na nota › a mesma demora vale nota diferente conforme o SLA da empresa (8.1s)
+  ok 20 [api] › tests\e2e\settings-effect.spec.ts:78:7 › P2 · encerramento por inatividade, abandono e reabertura › sem mensagens por mais tempo que "Encerramento por inatividade" → conversa encerrada e alertas resolvidos (3.6s)
+  ok 21 [api] › tests\e2e\settings-effect.spec.ts:91:7 › P2 · encerramento por inatividade, abandono e reabertura › cliente com oportunidade que some por mais que "Tempo de abandono" → perdido por abandono (opportunidade e conversa) (7.3s)
+  ok 22 [api] › tests\e2e\settings-effect.spec.ts:115:7 › P2 · encerramento por inatividade, abandono e reabertura › mensagem nova dentro da "Janela de reabertura" reabre a MESMA conversa; fora dela abre outra (4.7s)
+
+  22 passed (2.9m)
+

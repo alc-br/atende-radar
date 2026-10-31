@@ -24,6 +24,14 @@ export type AuditAction =
   | 'nfse.run' | 'nfse.retry' | 'nfse.cancel_requested'
   | 'novelty.decided'
   | 'marketing.internal_updated' | 'marketing.gads_names_updated'
+  // CRM: o alvo é o id; rótulo só para funil (nome escolhido pela empresa) e empresa cliente da plataforma. Pessoa,
+  // empresa do CRM e negócio vão sem rótulo, e os detalhes levam nomes de campo, nunca o valor.
+  | 'crm.enabled_changed' | 'crm.settings_updated' | 'crm.dlq_retried' | 'crm.imported' | 'crm.exported'
+  | 'crm.person_created' | 'crm.person_updated' | 'crm.person_archived' | 'crm.people_merged'
+  | 'crm.company_created' | 'crm.company_updated' | 'crm.company_archived'
+  | 'crm.pipeline_created' | 'crm.pipeline_updated' | 'crm.stages_updated'
+  | 'crm.deal_created' | 'crm.deal_updated' | 'crm.deal_moved' | 'crm.deal_closed' | 'crm.deal_reopened' | 'crm.deal_archived'
+  | 'crm.activity_created' | 'crm.activity_updated' | 'crm.suggestion_accepted' | 'crm.suggestion_dismissed'
 
 export interface AuditEntryInput {
   action: AuditAction
@@ -125,4 +133,29 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'simulation.tick': 'Rodou o motor numa empresa simulada',
   'simulation.clean': 'Apagou as empresas simuladas',
   'simulation.viewed': 'Abriu uma empresa simulada',
+  'crm.enabled_changed': 'Ligou ou desligou o CRM da empresa (operador da plataforma)',
+  'crm.settings_updated': 'Alterou as configurações do CRM',
+  'crm.dlq_retried': 'Reprocessou um evento parado da sincronização do CRM',
+  'crm.imported': 'Importou pessoas para o CRM',
+  'crm.exported': 'Exportou dados do CRM (CSV)',
+  'crm.person_created': 'Cadastrou pessoa no CRM',
+  'crm.person_updated': 'Alterou pessoa no CRM',
+  'crm.person_archived': 'Arquivou pessoa no CRM',
+  'crm.people_merged': 'Juntou duas pessoas duplicadas no CRM',
+  'crm.company_created': 'Cadastrou empresa no CRM',
+  'crm.company_updated': 'Alterou empresa no CRM',
+  'crm.company_archived': 'Arquivou empresa no CRM',
+  'crm.pipeline_created': 'Criou funil de vendas',
+  'crm.pipeline_updated': 'Alterou funil de vendas',
+  'crm.stages_updated': 'Alterou as etapas de um funil',
+  'crm.deal_created': 'Criou negócio',
+  'crm.deal_updated': 'Alterou negócio',
+  'crm.deal_moved': 'Mudou negócio de etapa',
+  'crm.deal_closed': 'Fechou negócio (ganho ou perdido)',
+  'crm.deal_reopened': 'Reabriu negócio',
+  'crm.deal_archived': 'Arquivou negócio',
+  'crm.activity_created': 'Criou tarefa ou registro no CRM',
+  'crm.activity_updated': 'Alterou tarefa ou registro no CRM',
+  'crm.suggestion_accepted': 'Aceitou uma sugestão do CRM',
+  'crm.suggestion_dismissed': 'Dispensou uma sugestão do CRM',
 }

@@ -6,6 +6,18 @@ import { TOURS, welcomeStepsFor } from '@/lib/tours'
 import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
 
+// Altura aproximada do cartão do passo, para decidir se ele cabe abaixo ou acima do alvo.
+const CARD_HEIGHT = 250
+
+/** Grava no servidor que o tour foi visto; outcome alimenta a taxa de conclusão do tour (Admin › Produto). */
+function saveTourSeen(tourId: string, outcome: 'completed' | 'skipped') {
+  fetch('/api/tours', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tourId, outcome }),
+  }).catch(() => {})
+}
+
 export function TourOverlay() {
   const activeTour = useAppStore((s) => s.activeTour)
   const activeStep = useAppStore((s) => s.activeStep)
@@ -32,6 +44,9 @@ export function TourOverlay() {
     [activeTour, role, operator, name]
   )
   const step = steps[activeStep]
+  // Tour que já mostrou ao menos um passo: se o último alvo não estiver na tela, ele termina como concluído e fica
+  // gravado no servidor (senão voltaria a cada carga). Tour que não mostrou nada (tela ainda carregando) só fecha.
+  const shown = useRef<string | null>(null)
 
   const measure = useCallback(() => {
     if (!step) return
@@ -43,12 +58,14 @@ export function TourOverlay() {
           nextTourStep()
         } else {
           markTourSeen(activeTour)
+          if (shown.current === activeTour) saveTourSeen(activeTour, 'completed')
           endTour()
         }
       }
       return
     }
     el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    shown.current = activeTour
     setSpot({ rect: el.getBoundingClientRect(), at: `${activeTour}:${activeStep}` })
   }, [step, activeTour, activeStep, steps.length, nextTourStep, endTour, markTourSeen])
 
@@ -104,28 +121,30 @@ export function TourOverlay() {
     cardStyle.left = 16
     cardStyle.right = 16
     cardStyle.bottom = 16
-  } else if (placement === 'bottom') {
-    cardStyle.top = rect.bottom + gap
-    cardStyle.left = Math.min(Math.max(rect.left, 16), window.innerWidth - 356)
-  } else if (placement === 'top') {
-    cardStyle.bottom = window.innerHeight - rect.top + gap
+  } else if (placement === 'bottom' || placement === 'top') {
+    // Sem espaço do lado pedido, o cartão vai para o outro lado do alvo (alvo perto do pé da página: o "Próximo"
+    // cairia fora da tela, onde não dá para clicar).
+    const below = window.innerHeight - rect.bottom - gap
+    const above = rect.top - gap
+    const side =
+      placement === 'bottom'
+        ? below < CARD_HEIGHT && above > below ? 'top' : 'bottom'
+        : above < CARD_HEIGHT && below > above ? 'bottom' : 'top'
+    if (side === 'bottom') cardStyle.top = rect.bottom + gap
+    else cardStyle.bottom = window.innerHeight - rect.top + gap
     cardStyle.left = Math.min(Math.max(rect.left, 16), window.innerWidth - 356)
   } else if (placement === 'right') {
     cardStyle.left = rect.right + gap
-    cardStyle.top = Math.min(Math.max(rect.top, 16), window.innerHeight - 250)
+    cardStyle.top = Math.min(Math.max(rect.top, 16), window.innerHeight - CARD_HEIGHT)
   } else {
     cardStyle.right = window.innerWidth - rect.left + gap
-    cardStyle.top = Math.min(Math.max(rect.top, 16), window.innerHeight - 250)
+    cardStyle.top = Math.min(Math.max(rect.top, 16), window.innerHeight - CARD_HEIGHT)
   }
 
-  // outcome alimenta a taxa de conclusão do tour (Admin › Produto): "Concluir" no último passo x "Pular"/fechar
+  // "Concluir" no último passo x "Pular"/fechar
   const handleFinish = (outcome: 'completed' | 'skipped') => {
     markTourSeen(activeTour)
-    fetch('/api/tours', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tourId: activeTour, outcome }),
-    }).catch(() => {})
+    saveTourSeen(activeTour, outcome)
     endTour()
   }
 

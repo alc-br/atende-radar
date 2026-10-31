@@ -13,6 +13,7 @@ const CONFIG: Role[] = ['admin', 'gestor'] // altera configuração operacional
 const ADMIN: Role[] = ['admin']
 const ANALISE: Role[] = ['admin', 'gestor', 'supervisor', 'analista'] // gera relatórios, vê desempenho
 const LEITURA_REL: Role[] = ['admin', 'gestor', 'supervisor', 'analista', 'viewer']
+const CRM_NUMEROS: Role[] = ['admin', 'gestor', 'supervisor', 'analista', 'atendente', 'viewer'] // KPIs agregados do CRM
 
 type Row = [method: string, path: string, allowed: readonly Role[]]
 
@@ -161,6 +162,47 @@ const MATRIX: Row[] = [
   ['GET', '/api/media/avatar/x', ALL],
   ['GET', '/api/media/logo/x', ALL],
   ['GET', '/api/conversations/x/phone', OPERACAO],
+  // CRM (docs/crm/ADR-003): na empresa A o CRM está desligado, então quem pode recebe 404 crm_disabled (nunca 401/403)
+  // e quem não pode recebe 403 antes disso: a permissão é conferida primeiro. Com o CRM ligado, o escopo por papel está
+  // em crm-api.spec.ts › "CRM · escopo por papel" e em crm-matriz.spec.ts › T02.
+  ['PATCH', '/api/admin/organizations/x/crm', []], // ligar/desligar o CRM: só o operador da plataforma
+  ['GET', '/api/crm/overview', CRM_NUMEROS],
+  ['GET', '/api/crm/contacts', OPERACAO],
+  ['POST', '/api/crm/contacts', OPERACAO],
+  ['GET', '/api/crm/contacts/x', OPERACAO],
+  ['PATCH', '/api/crm/contacts/x', OPERACAO],
+  ['DELETE', '/api/crm/contacts/x', OPERACAO],
+  ['POST', '/api/crm/contacts/merge', CONFIG],
+  ['GET', '/api/crm/companies', OPERACAO],
+  ['POST', '/api/crm/companies', OPERACAO],
+  ['GET', '/api/crm/companies/x', OPERACAO],
+  ['PATCH', '/api/crm/companies/x', OPERACAO],
+  ['DELETE', '/api/crm/companies/x', OPERACAO],
+  ['GET', '/api/crm/pipelines', OPERACAO],
+  ['POST', '/api/crm/pipelines', CONFIG],
+  ['PATCH', '/api/crm/pipelines/x', CONFIG],
+  ['PATCH', '/api/crm/pipelines/x/stages', CONFIG],
+  ['GET', '/api/crm/deals', OPERACAO],
+  ['POST', '/api/crm/deals', OPERACAO],
+  ['POST', '/api/crm/deals/from-opportunity', OPERACAO],
+  ['GET', '/api/crm/deals/x', OPERACAO],
+  ['PATCH', '/api/crm/deals/x', OPERACAO],
+  ['DELETE', '/api/crm/deals/x', OPERACAO],
+  ['POST', '/api/crm/deals/x/stage', OPERACAO],
+  ['POST', '/api/crm/deals/x/close', OPERACAO],
+  ['POST', '/api/crm/deals/x/reopen', OPERACAO],
+  ['GET', '/api/crm/activities', OPERACAO],
+  ['POST', '/api/crm/activities', OPERACAO],
+  ['PATCH', '/api/crm/activities/x', OPERACAO],
+  ['GET', '/api/crm/suggestions', OPERACAO],
+  ['POST', '/api/crm/suggestions/x/accept', OPERACAO],
+  ['POST', '/api/crm/suggestions/x/dismiss', OPERACAO],
+  ['GET', '/api/crm/settings', CONFIG],
+  ['PATCH', '/api/crm/settings', CONFIG],
+  ['GET', '/api/crm/integration/status', CONFIG],
+  ['POST', '/api/crm/integration/dlq/x/retry', ADMIN],
+  ['POST', '/api/crm/imports', ADMIN],
+  ['POST', '/api/crm/exports', ADMIN],
   // por último: "sair de todos os aparelhos" troca a versão da sessão (a de quem pediu é regravada e continua valendo)
   ['DELETE', '/api/profile/sessions', ALL],
 ]

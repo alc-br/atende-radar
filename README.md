@@ -5,6 +5,9 @@ AtendeRadar analisa as conversas: aponta clientes sem retorno, propostas esqueci
 vendas em risco, com alertas, fila de recuperação, desempenho da equipe e relatórios. O sistema **não envia
 mensagens** pelo número da empresa.
 
+CRM comercial (opcional, desligado por padrão e ligado por empresa no Admin): pessoas, empresas, funis, negócios,
+tarefas e sugestões a partir das conversas. Também não envia mensagens; ver `docs/crm/`.
+
 - Site (vendas, blog, privacidade, termos): https://atenderadar.com.br
 - App (entrar, cadastro, painel): https://app.atenderadar.com.br
 - Teste grátis de 14 dias; assinatura recorrente pelo Pagar.me.
@@ -15,7 +18,7 @@ mensagens** pelo número da empresa.
 |---|---|
 | App | Next.js 16 (App Router), React 19, TypeScript 5 |
 | Estilo | Tailwind CSS 4 + CSS do pacote de design (`src/styles/`: `.ar` = painel e contas, `.lp` = site) |
-| Banco | SQLite via Prisma 6 (`prisma/schema.prisma`, 33 modelos) |
+| Banco | SQLite via Prisma 6 (`prisma/schema.prisma`, 68 modelos, 16 deles do CRM) |
 | Login | NextAuth v4 (credenciais + JWT), papéis por organização |
 | WhatsApp | Baileys (`src/lib/whatsapp/`), sessões fora da pasta de deploy |
 | Cobrança | Pagar.me API v5, checkout transparente (`src/lib/billing/`) |
@@ -92,6 +95,9 @@ Desfazer um deploy ruim: `docs/operacao/rollback.md`.
 
 - `handoff.md`: estado atual, pendências e cuidados (comece por aqui).
 - `CHANGELOG.md`: o que mudou, por data.
+- `docs/crm/`: CRM comercial (inventário, arquitetura e ADRs, modelo de dados, API, sincronização, UX, segurança,
+  testes, deploy e rollback, suporte). O registro do trabalho está em `docs/crm/EXECUCAO-AUTONOMA.md` e o resultado da
+  homologação técnica em `docs/crm/QA-MESTRE-RESULTADO.md`.
 - `docs/operacao/`: incidentes (`incidente.md`), backup e restauração, rollback, migrações, capacidade, desempenho, cobrança (Pagar.me).
 - `docs/suporte/manual.md`: manual de suporte (perguntas frequentes dos clientes e onde olhar).
 - `docs/design/guia-de-ui.md`: guia curto de UI (tokens, componentes, textos, estados, acessibilidade).

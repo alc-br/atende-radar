@@ -24,6 +24,7 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  ListTodo,
 } from 'lucide-react'
 
 import {
@@ -32,6 +33,7 @@ import {
   timeAgo,
 } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
+import { CrmTaskDialog, useCrmTaskAllowed } from '@/components/crm/crm-task-button'
 import { mutate } from '@/lib/mutation'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -223,6 +225,9 @@ export default function RecoveryView() {
   const [recoveredValueInput, setRecoveredValueInput] = useState('')
   const [deadlineDialogOpen, setDeadlineDialogOpen] = useState(false)
   const [deadlineItemId, setDeadlineItemId] = useState<string | null>(null)
+  // F5 · tarefa no CRM a partir do item (só com o CRM ligado e permissão de criar tarefas)
+  const canCrmTask = useCrmTaskAllowed()
+  const [crmTaskItem, setCrmTaskItem] = useState<{ id: string; reason: string | null } | null>(null)
   const [deadlineInput, setDeadlineInput] = useState('')
 
   // API state
@@ -739,6 +744,11 @@ export default function RecoveryView() {
                               <DropdownMenuItem onClick={() => handleCopyContext(item)}>
                                 <Copy className="w-4 h-4 mr-2" aria-hidden="true" />Copiar contexto
                               </DropdownMenuItem>
+                              {canCrmTask && (
+                                <DropdownMenuItem onClick={() => setCrmTaskItem({ id: item.id, reason: item.reason || null })}>
+                                  <ListTodo className="w-4 h-4 mr-2" aria-hidden="true" />Criar tarefa no CRM
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleAttempt(item.id)}>
                                 <PhoneCall className="w-4 h-4 mr-2" aria-hidden="true" />Registrar tentativa
@@ -921,6 +931,16 @@ export default function RecoveryView() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <CrmTaskDialog
+          open={crmTaskItem !== null}
+          onOpenChange={(open) => {
+            if (!open) setCrmTaskItem(null)
+          }}
+          recoveryItemId={crmTaskItem?.id}
+          defaultTitle={`Recuperação: ${crmTaskItem?.reason || 'retomar o contato com o cliente'}`.slice(0, 160)}
+          context="A tarefa fica ligada a este item da recuperação. Uma tarefa aberta por item."
+        />
       </>
     </TooltipProvider>
   )

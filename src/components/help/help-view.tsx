@@ -30,10 +30,12 @@ const VIEW_LABEL: Partial<Record<View, string>> = {
   teams: 'Equipes',
   plans: 'Planos',
   admin: 'Admin',
+  'crm-deals': 'Negócios',
+  'crm-deal': 'Negócios',
 }
 
 /** Tour de cada tela (as telas de detalhe usam o tour da lista). */
-const TOUR_OF: Partial<Record<View, string>> = { 'conversation-detail': 'conversations', 'agent-profile': 'team', checkout: 'plans' }
+const TOUR_OF: Partial<Record<View, string>> = { 'conversation-detail': 'conversations', 'agent-profile': 'team', checkout: 'plans', 'crm-deal': 'crm-deals' }
 
 const MAX_SCREENSHOT = 2 * 1024 * 1024
 const TIPOS_IMAGEM = ['image/png', 'image/jpeg', 'image/webp']

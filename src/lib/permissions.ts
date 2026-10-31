@@ -13,6 +13,7 @@ const CONFIG: Role[] = ['admin', 'gestor']
 const ADMIN: Role[] = ['admin']
 const ANALISE: Role[] = ['admin', 'gestor', 'supervisor', 'analista']
 const LEITURA_REL: Role[] = ['admin', 'gestor', 'supervisor', 'analista', 'viewer']
+const CRM_NUMEROS: Role[] = ['admin', 'gestor', 'supervisor', 'analista', 'atendente', 'viewer'] // todos menos member
 
 export const PERMISSIONS = {
   'dashboard.view': ALL,
@@ -43,6 +44,21 @@ export const PERMISSIONS = {
   'organization.export': ADMIN, // exportar todos os dados da empresa (JSON), inclusive com o painel bloqueado
   'organization.delete': ADMIN, // encerrar a conta: só o dono (o admin criado no cadastro e quem ele promover)
   'plans.view': ADMIN, // a tela usa a assinatura (billing), restrita ao admin
+  // CRM comercial (docs/crm/ADR-003). Só vale com o CRM ligado na empresa: desligado, a rota dá 404 depois da permissão.
+  // Analista e visualizador veem só os números agregados; atendente e supervisor só o que é seu ou da equipe (crm/scope.ts).
+  'crm.analytics.view': CRM_NUMEROS,
+  'crm.contacts.view': OPERACAO,
+  'crm.contacts.manage': OPERACAO,
+  'crm.contacts.merge': CONFIG,
+  'crm.deals.view': OPERACAO,
+  'crm.deals.manage': OPERACAO,
+  'crm.activities.view': OPERACAO,
+  'crm.activities.manage': OPERACAO,
+  'crm.pipelines.manage': CONFIG,
+  'crm.settings.manage': CONFIG,
+  'crm.sync.retry': ADMIN, // reprocessar evento parado na fila da sincronização
+  'crm.import': ADMIN,
+  'crm.export': ADMIN,
 } as const satisfies Record<string, readonly Role[]>
 
 export type Permission = keyof typeof PERMISSIONS
@@ -96,6 +112,16 @@ export const VIEW_PERMISSION: Record<string, Permission | null> = {
   profile: null, // o próprio perfil: qualquer pessoa logada
   help: null, // central de ajuda e "Falar com o suporte": qualquer pessoa logada
   'system-tour': 'tours.use', // tour pelo sistema: os capítulos já vêm filtrados pelo papel
+  // CRM: além da permissão, o menu só mostra o grupo "Comercial" com o CRM ligado na empresa (me.crm.enabled)
+  'crm-overview': 'crm.analytics.view',
+  'crm-deals': 'crm.deals.view',
+  'crm-deal': 'crm.deals.view',
+  'crm-contacts': 'crm.contacts.view',
+  'crm-contact': 'crm.contacts.view',
+  'crm-companies': 'crm.contacts.view',
+  'crm-company': 'crm.contacts.view',
+  'crm-activities': 'crm.activities.view',
+  'crm-settings': 'crm.settings.manage',
 }
 
 export function canOpenView(role: string | null | undefined, view: string): boolean {

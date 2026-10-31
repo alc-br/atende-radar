@@ -11,6 +11,55 @@ Sem segredos aqui: o repositório é público.
 - Segredos do servidor: `/opt/atende-radar/shared/app.env` (gravados pelo deploy a partir dos secrets do GitHub).
 - Quadro do Trello: "AtendeRadar · Go-Live & Backlog" — card **GATE DE GO-LIVE** tem o veredito "pode vender".
 
+## ONDE PAREI (31/10/2026, ~12:30) — retomar exatamente daqui
+
+Worktree `.claude/worktrees/crm`, branch `crm/integracao` (HEAD = origin/main eac8042; **nada do CRM commitado ainda, sem PR**).
+Rascunhos fora do Git, no scratchpad da sessão
+(`C:/Users/chipak/AppData/Local/Temp/claude/D--ALC-clientes-alc-sistemas-proprios-atende-radar/85713a8f-bdef-49fb-aac3-5f8074f897ff/scratchpad/`, aqui `$S`).
+
+1. **Regressão completa nº 5** (3.123 testes, ~1,3 h) rodando desde 11:42 no código final; log `$S/pw-completa5.log`
+   (esperar `EXIT=` e `FIM`). A anterior parada está em `$S/pw-completa5-parada.log`. Se a sessão caiu, rodar de novo:
+   `E2E_PORT=3111 TURBOPACK_ROOT="D:/ALC/clientes/alc/sistemas-proprios/atende-radar" timeout 10800 bunx playwright test --reporter=line`
+   (uma rodada por vez; não mexer em `src/` nem `tests/` enquanto roda). A direcionada pós-revisão do T05.07 já passou
+   (120/120, registrada na doc 08 § 3 e no EXECUCAO).
+   **RESULTADO da nº 5 (11:42–12:57, log `$S/pw-completa5.log`): 3046 passaram, 12 falharam, 57 pulados, 11 não
+   rodaram (1,2 h).** Das falhas, 8 são do CRM em ui-mobile, todas `cadastro falhou com 429` ("Muitas tentativas"):
+   o limite de cadastro por IP do servidor de teste estourou com os testes novos (o helper do CRM cria empresa pelo
+   cadastro); é do ambiente de teste, não do produto. **FEITO 13:05:** `signupOrg` (`tests/e2e/helpers.ts`, já no `$S/commits.sh`) manda um `x-forwarded-for` de teste 198.18.x.x por cadastro; **FEITO:** direcionada das falhas (12:59–13:11, log
+   `$S/pw-reg5-falhas.log`), arquivos inteiros: **72 passaram, 2 pulados, sem falha, nenhum 429**. Registrado na doc 08
+   § 3, no EXECUCAO e no QA-MESTRE.
+2. **FEITO (13:20):** marcadores do QA-MESTRE preenchidos e `<<TESTES>>` do `$S/pr-body.md`. Era: preencher em `docs/crm/QA-MESTRE-RESULTADO.md` os marcadores `<<REGRESSAO-LINHA>>`, `<<REGRESSAO>>`,
+   `<<REGRESSAO-SIT>>`, `<<ITEM2>>`, `<<ITEM12>>`; acrescentar a linha na doc 08 § 3 e no EXECUCAO. Falha = corrigir e
+   rodar direcionada antes.
+3. **FEITO (13:30):** 4 commits (d52061a código, 035e1d5 testes, d6c35d3 docs, cf1aeb4 guia das telas), push da
+   branch e **PR [alc-br/atende-radar#3](https://github.com/alc-br/atende-radar/pull/3)** aberto para a `main`, vinculado
+   à sessão (Auto-fix ligado pelo app; merge automático desligado). Depois, um commit de docs com o commit e o PR no
+   QA-MESTRE. **Não fazer merge** sem o OK do dono (o merge na `main` faz deploy de produção). Era: **Commits por caminho**: script pronto `$S/commits.sh` (4 commits: código+migrações; testes+config+CI; docs; por
+   último `tour-overlay.tsx` sozinho). Nunca `-A`; fora: `.env*`, `AGENTS.md`, `CLAUDE.md`, `prisma/dev.db*`,
+   `migration_lock.toml`, `.claude/`, `.tmp*`. Depois `git fetch` + `git merge-base --is-ancestor origin/main HEAD`,
+   push com a saída saneada, **PR para `main` sem merge automático** com `$S/pr-body.md` (preencher `<<SHA-TOUR>>` e
+   `<<TESTES>>`; citar a revisão do T05.07). Em seguida commit preenchendo `<<COMMIT>>` e `<<PR>>` no QA-MESTRE.
+4. **FEITO (31/10 ~13:40):** entregue no chat. CI do PR #3 rodando às 13:15 (workflow Deploy em
+   `pull_request`; o job de produção é pulado em PR); o app avisa falha pelo Auto-fix. **Próximo:** se o CI falhar,
+   corrigir na branch e enviar; esperar o OK do dono para o R6 (guia das telas) e para o merge. **CI (13:50):** o run do cf1aeb4 passou inteiro; no do 039ba15, 2 shards (ui-desktop 1/2, ui-mobile 2/2) falharam porque o servidor de teste não subiu em 180 s (falha ao buscar a fonte do Google). Commit vazio d705090 enviado para rodar de novo; falhou outro shard (ui-mobile 1/2) pela mesma causa, que é a
+   mesma da falha da `main` em 30/10 (download das fontes do Google). **Corrigido no `deploy.yml` (13:55):** os passos
+   de teste repetem a suíte uma vez só quando o servidor de teste não subiu e nenhum teste rodou. O Auto-fix avisa o
+   resultado. Fonte local (`next/font/local`) resolveria na raiz, mas mexe em todas as telas: decisão do dono. Era: Relatório final de 11 seções ao usuário com o veredito único **HOMOLOGAÇÃO PARCIAL — PENDÊNCIAS DOCUMENTADAS**.
+5. node-forge 1.4.2 só a partir de 10/11/2026 (regra das 2 semanas).
+
+**Limpeza do log do servidor (autorizada pelo usuário em 31/10):** os despejos `SessionEntry` com chaves do libsignal
+que a atende-radar gravou antes da correção b1d417b. Inventário: 28 linhas com chave (7 blocos de 40 linhas) em 2
+arquivos `user-1002@…` do journal (20/10 e 22/10) e as mesmas no `/var/log/syslog.1`; `auth.log` só tem o registro do
+sudo com o nome do padrão (sem chave). Script revisado por 3 revisores e ensaiado (`dry` ok): `$S/saneia_log.sh`
+(`ssh mautic-alc "sudo bash -s apply" < saneia_log.sh`). **FEITO em 31/10 ~12:35:** 7 blocos (280 linhas)
+tirados do `syslog.1` e dos 2 arquivos do journal; originais destruídos com `shred`; cópias saneadas (o resto do
+log daqueles arquivos) em `/var/log/journal-saneado/` (root:adm 0640). Conferência: 0 no journal inteiro, 0 em
+`/var/log` e nos `.gz`. Snapshots/backups do provedor (Contabo) não são alcançáveis daqui.
+**Achado novo, NÃO autorizado, perguntar ao usuário:** o log do contêiner `evolution-api` (json-file de 93 MB, sem
+rotação) tem os mesmos despejos desde 27/09 e ainda grava (último em 30/10), ~2.984 linhas com chave. Apagar sem
+corrigir a origem não adianta; corrigir exige mexer na configuração ou na imagem do Evolution e reiniciar o contêiner
+(derruba as conexões de WhatsApp por instantes). Opções a oferecer: filtrar a saída, configurar rotação, truncar o log.
+
 ## Para continuar de outra conta (30/10/2026)
 
 Retrato do estado em 30/10/2026, para quem pegar o trabalho sem o histórico da conversa anterior.
@@ -69,6 +118,8 @@ Retrato do estado em 30/10/2026, para quem pegar o trabalho sem o histórico da 
    - Rodar a sonda de novo depois da 2ª entrega da NT 009 (30/10).
    - Ligar só depois de 03/11, com as pendências da contabilidade resolvidas (ver "Pendências").
 6. CNPJ na Receita (dono, com a Stone).
+7. CRM comercial (31/10): pronto na branch `crm/integracao`, fora da `main` e desligado para todas as empresas. Falta o
+   dono revisar e aprovar o PR, escolher a 1ª empresa (piloto) e dar o OK para ligá-la. Ver Diário 31/10 e `docs/crm/`.
 
 ## Bateria de testes "pode vender" (pedido do usuário, 8 itens)
 
@@ -127,6 +178,58 @@ Retrato do estado em 30/10/2026, para quem pegar o trabalho sem o histórico da 
 - WebKit do Playwright não aplica `connect-src` da CSP em nenhuma plataforma (o teste pula a prova de bloqueio nele); Bun não abre os navegadores do Playwright no Windows (usar `node --experimental-strip-types` com `.mts`).
 
 ## Diário
+
+### 31/10/2026
+
+- **CRM comercial (especificação mestre v1.0, F0 a F9), na branch `crm/integracao`:** arquitetura nativa (ADR-001, decisão
+  B): mesmo app, mesmo deploy e mesmo SQLite. O Open Mercato ficou fora porque a POC não passou (`docs/crm/02-poc-open-mercato.md`).
+  Entraram 16 tabelas `Crm*` (migração `20261031120000_crm_base`, só criação), 25 rotas `/api/crm/*`, as telas do grupo
+  "Comercial" (contatos, empresas, negócios em quadro, tarefas, visão comercial, ajustes) e a fila de sincronização com a
+  Auditoria. As oportunidades das conversas viram sugestão, e quem decide é a pessoa (D2). Não manda WhatsApp (D3).
+- **Desligado por padrão (D7):** só o operador da plataforma liga, empresa por empresa, em Admin › Organizações › (empresa) › "CRM comercial", com
+  confirmação e auditoria. Desligar não apaga nada. `CRM_DISABLED=1` no `app.env` desliga para todos. Passos em
+  `docs/crm/09-deploy-e-rollback.md`.
+- **Testes:** resultados com saída de comando em `docs/crm/08-testes-e2e.md`. A matriz T01–T12, os critérios de § 13.4 e
+  o checklist de § 14 estão em `docs/crm/QA-MESTRE-RESULTADO.md`. O registro de cada fase e decisão fica em
+  `docs/crm/EXECUCAO-AUTONOMA.md`.
+- **Carga (10 mil pessoas, 2 mil empresas, 5 mil negócios, 15 mil tarefas numa empresa, mais 20 pequenas):** achou duas
+  consultas lentas nas listas de quem vê só a própria carteira ou a equipe (até 17 s). Corrigido em `src/lib/crm/scope.ts`
+  (a empresa vai também dentro do filtro "tem negócio dele") e com 2 índices novos (migração
+  `20261031140000_crm_indices_empresa`, só `CREATE INDEX`). Números em `docs/crm/08-testes-e2e.md` › Carga.
+- **Matriz T01–T12 (`crm-matriz`, 44 de API e 5 unitários; 12 da F9 e 5 das lacunas da rastreabilidade):** achou seis faltas do produto, corrigidas. Conversa de grupo
+  virava negócio pela conversão manual. Evento de contato excluído ou de grupo ia para a DLQ. Empresa de simulação e
+  empresa bloqueada alimentavam o CRM. O teto de valor não cabia na coluna (500). E o "alerta criado" atrasado abria
+  tarefa de alerta já resolvido. O log do CRM também deixou de levar `e.message`. Detalhe em
+  `docs/crm/08-testes-e2e.md` § 3 e em `05-sincronizacao.md`.
+- **F9:** reabrir negócio exige motivo (fica no histórico, fora da auditoria); Tarefas ganhou Hoje e Próximos 7 dias no
+  fuso da empresa e "Editar tarefa" com auditoria do que mudou; um teste de interface por requisito (contatos, ajustes,
+  Visão comercial, importação, exportação, sugestões, reabertura, agenda, menu por papel, guia). O guia das telas
+  (`tour-overlay.tsx`, vale para todos os guias) passou a abrir o cartão do outro lado quando ele não cabe.
+- **Lacunas da especificação, documentadas e não feitas:** H1–H29 em `docs/crm/10-handoff-e-suporte.md` § 9 (entre
+  elas: desfazer importação e mescla, arquivados, campos personalizados e consentimento, etiquetas na tela, CNPJ em
+  texto puro, detalhamento e relatórios da Visão comercial, guias das outras telas, comentário e anexo, lembretes,
+  automações do CRM-06, canário em produção, RTO e RPO, saúde da sincronização na tela, fuso nas telas e os testes que a
+  suíte não tem).
+- **Custo do CRM no tick:** a completa nº 4 teve 4 testes com tempo esgotado à espera do tick global (NFS-e e
+  ajustes; dois já falhavam assim na F0). Medido: com 149 empresas com o CRM ligado, a captura regravava 740 checkpoints
+  por rodada sem linha nova. Agora a rodada ociosa regrava no máximo uma vez por minuto (4,8 s → 2,4 s, 0 gravações), e
+  cada arquivo de teste do CRM desliga no fim as empresas que ligou (`tests/e2e/crm-cleanup.ts`). Risco R11 no
+  `QA-MESTRE-RESULTADO.md`.
+- **Exportação da empresa** passou a levar os vínculos do CRM (negócio ↔ conversa, oportunidade, alerta e recuperação;
+  contato ↔ pessoa), e o log do tick e das rotinas do CRM no agendador (`safelyCrm` em `background.ts`) deixou de
+  gravar `e.message` quando o CRM falha.
+- **Uma tarefa por causa de alerta (T05.07):** a verificação da rastreabilidade achou que a tarefa à mão e a da
+  sugestão aceita do mesmo alerta duplicavam, e que o alerta que volta depois de resolvido pedia outra tarefa. Corrigido
+  com a chave `alertTaskKey` e a checagem da causa (`groupKey`) no consumidor. A revisão adversarial da correção achou
+  mais dois casos, também corrigidos: a sugestão de um falso positivo segurava a causa, e o mesmo alerta reaberto pelo
+  motor nunca mais pedia tarefa. Detalhe em `docs/crm/05-sincronizacao.md` § 6.
+- **"Avisos do CRM" saiu de Ajustes:** a opção existia, mas nada gerava aviso a partir dela. A flag continua no servidor,
+  sem efeito; ligar à central de avisos é decisão de produto.
+- **Não foi feito, de propósito:** merge na `main`, deploy e liberação para empresa real. A especificação (§ 14) pede
+  canário num domínio real e o OK do dono, então a homologação é técnica e fica parcial até isso.
+- **`node-forge`:** 5 avisos altos (≤1.4.0). A 1.4.2 saiu em 27/10 e só pode entrar a partir de 10/11/2026 (regra das 2
+  semanas). Até lá o `deploy.yml` ignora os 5 avisos com justificativa. Detalhe em `docs/crm/09-deploy-e-rollback.md`.
+- **Cuidado:** não rodar o `workflow_dispatch` na `crm/integracao`, porque ele publica a branch escolhida em produção.
 
 ### 26/10/2026
 

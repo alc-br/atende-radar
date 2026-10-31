@@ -66,6 +66,7 @@ import { ALERT_CHANNEL_LABELS, ALERT_RULE_HELP, ALERT_TYPE_LABELS, RULE_LIMIT_LA
 import { HelpTip } from '@/components/ui/help-tip'
 import { tourSignal } from '@/lib/system-tour/signals'
 import { can, canOpenView } from '@/lib/permissions'
+import { CrmTaskButton, useCrmTaskAllowed } from '@/components/crm/crm-task-button'
 
 // ── Severity helpers ──────────────────────────────────────────────
 
@@ -233,6 +234,8 @@ export default function AlertsView() {
   const role = useAppStore((s) => s.me?.role)
   const canAct = can(role, 'alerts.manage')
   const canOpenConversation = canOpenView(role, 'conversation-detail')
+  // F5 · tarefa no CRM a partir do alerta (só com o CRM ligado e permissão de criar tarefas)
+  const canCrmTask = useCrmTaskAllowed()
   const canSeeRules = can(role, 'alert_rules.view')
   const canEditRules = can(role, 'alert_rules.manage')
   const tabs = canSeeRules ? TABS : TABS.filter((t) => t.key !== 'regras')
@@ -732,7 +735,7 @@ export default function AlertsView() {
               {alert.evidence}
             </p>
           )}
-          {(canOpenConversation || canAct) && (
+          {(canOpenConversation || canAct || canCrmTask) && (
           <div className="alerta__acoes">
             {canOpenConversation && alert.conversationId && (
             <button type="button" className="btn btn--escuro" onClick={() => handleOpenConversation(alert.conversationId)}>
@@ -794,6 +797,15 @@ export default function AlertsView() {
               Recuperação
             </button>
             </>)}
+            {canCrmTask && (
+            <CrmTaskButton
+              className="btn--link"
+              label="Tarefa no CRM"
+              alertId={alert.id}
+              defaultTitle={`Tratar alerta: ${alert.title}`.slice(0, 160)}
+              context="A tarefa fica ligada a este alerta. Uma tarefa aberta por alerta."
+            />
+            )}
           </div>
           )}
         </div>

@@ -1069,3 +1069,377 @@ model ConsentChoiceDaily {
 
   @@id([day, choice])
 }
+
+// ───────────────────────────── CRM comercial (docs/crm/03-modelo-dados.md) ─────────────────────────────
+// Tudo aditivo. organizationId em toda linha e sem chave estrangeira para Organization: a exclusão da empresa apaga
+// estas tabelas na mesma transação (src/lib/org-deletion.ts). ownerMemberId é referência solta (o membro pode ser
+// removido; a tela mostra "Sem responsável"). Dinheiro em centavos inteiros; null = valor não informado, nunca R$ 0.
+
+// Vínculo da empresa com o provedor do CRM. Criado uma vez ao ligar crm.enabled; externalTenantId nunca vem do navegador.
+model CrmTenantLink {
+  id                  String    @id @default(cuid())
+  organizationId      String    @unique
+  provider            String    @default("native") // native | open_mercato
+  externalTenantId    String?
+  externalOrgId       String?
+  status              String    @default("pending") // pending | active | degraded | disabled | deleting
+  provisioningVersion Int       @default(1)
+  lastHealthyAt       DateTime?
+  lastErrorCode       String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([provider, externalTenantId])
+}
+
+// Flags do CRM por empresa, resolvidas no servidor (src/lib/crm/flags.ts). Sem linha = desligada.
+model CrmFeatureState {
+  id             String   @id @default(cuid())
+  organizationId String
+  flag           String // crm.enabled | crm.autoCreateDeals | crm.suggestStage | crm.notifications | crm.exports
+  enabled        Boolean  @default(false)
+  source         String   @default("manual") // manual | plan | platform
+  updatedBy      String? // e-mail de quem mudou (operador da plataforma ou admin da empresa)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, flag])
+}
+
+// ID do AtendeRadar ↔ ID no CRM. No nativo: contato observacional (Contact) ↔ pessoa comercial (CrmPerson).
+// A mescla não reescreve o vínculo: a pessoa mesclada aponta para a que ficou (CrmPerson.mergedIntoId).
+model CrmIdentityLink {
+  id             String   @id @default(cuid())
+  organizationId String
+  provider       String   @default("native")
+  entityType     String // contact | company | deal | member | agent
+  sourceId       String
+  externalId     String
+  lastVersion    Int      @default(0)
+  tombstone      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, entityType, sourceId, provider])
+  @@unique([organizationId, entityType, externalId, provider])
+}
+
+// Negócio ↔ oportunidade, conversa, alerta ou item de recuperação. Vários por negócio (sem 1:1); linkKey impede repetir.
+model CrmBusinessLink {
+  id                   String   @id @default(cuid())
+  organizationId       String
+  dealId               String // CrmDeal.id no nativo; id do negócio no provedor externo
+  relationshipType     String // origin | conversation | opportunity | alert | recovery
+  revenueOpportunityId String?
+  conversationId       String?
+  alertId              String?
+  recoveryItemId       String?
+  sourceEventId        String?
+  sourceVersion        Int?
+  linkKey              String   @unique
+  createdBy            String?
+  createdAt            DateTime @default(now())
+
+  @@index([organizationId, dealId])
+  @@index([organizationId, conversationId])
+  @@index([organizationId, revenueOpportunityId])
+}
+
+// Outbox transacional: o evento é gravado na mesma transação da mudança e o worker (src/lib/crm/worker.ts) entrega.
+// payloadJson é mínimo: sem texto de mensagem, telefone completo, senha ou token.
+model CrmOutboxEvent {
+  id               String    @id @default(cuid())
+  organizationId   String
+  eventType        String // opportunity.detected | alert.opened | alert.resolved | deal.stage_changed ...
+  schemaVersion    String    @default("1.0")
+  aggregateType    String
+  aggregateId      String
+  aggregateVersion Int       @default(1)
+  payloadJson      String
+  origin           String    @default("atenderadar")
+  correlationId    String?
+  traceId          String?
+  idempotencyKey   String    @unique
+  status           String    @default("pending") // pending | processing | processed | failed | dead
+  attempts         Int       @default(0)
+  nextAttemptAt    DateTime  @default(now())
+  lockedUntil      DateTime?
+  lastErrorCode    String?
+  createdAt        DateTime  @default(now())
+  processedAt      DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([organizationId, aggregateType, aggregateId, aggregateVersion])
+  @@index([organizationId, status])
+}
+
+// Idempotência do consumidor: cada evento é aplicado uma vez por consumidor.
+model CrmSyncInbox {
+  id             String   @id @default(cuid())
+  organizationId String
+  consumer       String
+  eventId        String
+  status         String   @default("processed") // processed | ignored | failed
+  resultJson     String?
+  createdAt      DateTime @default(now())
+
+  @@unique([consumer, eventId])
+  @@index([organizationId, createdAt])
+}
+
+// Cursor, lag e resultado por empresa e recurso (backfill, reconciliação).
+model CrmSyncCheckpoint {
+  id             String    @id @default(cuid())
+  organizationId String
+  resource       String // backfill | reconcile
+  cursor         String?
+  lastRunAt      DateTime?
+  lastSuccessAt  DateTime?
+  lagSeconds     Int?
+  lastErrorCode  String?
+  statsJson      String? // contagens e divergências, sem dado pessoal
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([organizationId, resource])
+}
+
+// Resposta guardada de um POST com Idempotency-Key: o reenvio devolve a mesma resposta sem repetir o efeito.
+model CrmIdempotencyKey {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  key            String
+  route          String
+  requestHash    String
+  status         Int
+  responseJson   String
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, memberId, key])
+  @@index([createdAt])
+}
+
+// ── CRM nativo (ADR-001) ──
+
+model CrmCompany {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  nameNorm       String // minúsculas e sem acento, para a busca
+  taxId          String? // CNPJ, só dígitos
+  domain         String?
+  segment        String?
+  ownerMemberId  String?
+  notes          String?
+  status         String      @default("active") // active | archived
+  importBatchId  String?
+  version        Int         @default(1)
+  createdBy      String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  people         CrmPerson[]
+  deals          CrmDeal[]
+
+  @@index([organizationId, status, nameNorm])
+}
+
+// Pessoa comercial. O telefone segue a regra do Contact: cifrado (PHONE_ENC_KEY), hash para achar e 4 últimos dígitos.
+model CrmPerson {
+  id                String        @id @default(cuid())
+  organizationId    String
+  name              String
+  nameNorm          String
+  email             String?
+  emailNorm         String?
+  phoneEncrypted    String?
+  phoneHash         String?
+  phoneLast4        String?
+  // Chaves de duplicidade (empresa + hash/e-mail): só pessoa ativa tem; arquivar ou mesclar zera (null não colide)
+  phoneKey          String?       @unique
+  emailKey          String?       @unique
+  companyId         String?
+  company           CrmCompany?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  ownerMemberId     String?
+  source            String        @default("manual") // manual | whatsapp | import
+  notes             String?
+  tagsJson          String        @default("[]")
+  status            String        @default("active") // active | archived | merged
+  mergedIntoId      String?
+  mergeDataJson     String? // o que a mescla moveu (negócios, atividades, vínculos), para desfazer
+  importBatchId     String? // lote de importação CSV, para desfazer o lote
+  lastInteractionAt DateTime?
+  version           Int           @default(1)
+  createdBy         String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deals             CrmDeal[]
+  activities        CrmActivity[]
+
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, phoneHash])
+  @@index([organizationId, emailNorm])
+  @@index([organizationId, ownerMemberId])
+  @@index([organizationId, companyId])
+  @@index([organizationId, nameNorm])
+  @@index([organizationId, importBatchId])
+}
+
+model CrmPipeline {
+  id             String     @id @default(cuid())
+  organizationId String
+  name           String
+  isDefault      Boolean    @default(false)
+  status         String     @default("active") // active | inactive
+  position       Int        @default(0)
+  version        Int        @default(1)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  stages         CrmStage[]
+  deals          CrmDeal[]
+
+  @@index([organizationId, status, position])
+}
+
+// Etapa de funil. Ganho e perdido não são etapas: são o status do negócio.
+model CrmStage {
+  id             String      @id @default(cuid())
+  organizationId String
+  pipelineId     String
+  pipeline       CrmPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name           String
+  position       Int
+  probability    Int         @default(0) // 0 a 100
+  slaDays        Int?
+  status         String      @default("active") // active | inactive
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deals          CrmDeal[]
+
+  @@index([pipelineId, status, position])
+}
+
+model CrmDeal {
+  id                   String         @id @default(cuid())
+  organizationId       String
+  pipelineId           String
+  pipeline             CrmPipeline    @relation(fields: [pipelineId], references: [id])
+  stageId              String
+  stage                CrmStage       @relation(fields: [stageId], references: [id])
+  title                String
+  personId             String?
+  person               CrmPerson?     @relation(fields: [personId], references: [id], onDelete: SetNull)
+  companyId            String?
+  company              CrmCompany?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  ownerMemberId        String?
+  source               String         @default("manual") // manual | opportunity | alert | recovery | import | suggestion
+  sourceId             String? // id da origem (imutável)
+  originKey            String?        @unique // empresa + origem + id: uma oportunidade gera no máximo um negócio
+  status               String         @default("open") // open | won | lost | archived
+  amountCents          Int? // valor declarado ou confirmado
+  currency             String         @default("BRL")
+  amountSource         String         @default("unknown") // unknown | manual | verified_external | inferred
+  estimatedAmountCents Int? // estimativa analítica (RevenueOpportunity): nunca entra em receita
+  confidence           Float?
+  probability          Int? // 0 a 100
+  priority             String         @default("normal") // low | normal | high
+  expectedCloseAt      DateTime?
+  closedAt             DateTime?
+  lostReasonCode       String?
+  outcomeNote          String?
+  outcomeEvidence      String? // manual | conversation:<id> | external:<ref>
+  nextAction           String?
+  nextActionAt         DateTime?
+  stageChangedAt       DateTime       @default(now())
+  stageLockedByHuman   Boolean        @default(false)
+  version              Int            @default(1)
+  createdBy            String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  events               CrmDealEvent[]
+  activities           CrmActivity[]
+
+  @@index([organizationId, status, stageId])
+  @@index([organizationId, pipelineId, status])
+  @@index([organizationId, ownerMemberId, status])
+  @@index([organizationId, personId])
+  @@index([organizationId, companyId])
+  @@index([organizationId, updatedAt])
+}
+
+// Histórico imutável do negócio (nunca editado nem apagado, só com o negócio na exclusão da empresa).
+model CrmDealEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  dealId         String
+  deal           CrmDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  type           String // created | updated | stage_changed | assigned | won | lost | reopened | archived | linked | suggestion_accepted
+  fromStageId    String?
+  toStageId      String?
+  origin         String   @default("manual") // manual | system | suggested
+  actorMemberId  String?
+  actorLabel     String? // nome no momento (o membro pode ser removido depois)
+  dataJson       String? // de/para pequeno, sem dado pessoal
+  dealVersion    Int
+  createdAt      DateTime @default(now())
+
+  @@index([dealId, createdAt])
+  @@index([organizationId, type, createdAt])
+}
+
+model CrmActivity {
+  id             String     @id @default(cuid())
+  organizationId String
+  type           String // call | whatsapp_external | email | meeting | follow_up | internal
+  title          String
+  notes          String?
+  dealId         String?
+  deal           CrmDeal?   @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  personId       String?
+  person         CrmPerson? @relation(fields: [personId], references: [id], onDelete: SetNull)
+  ownerMemberId  String?
+  dueAt          DateTime? // UTC; a tela mostra no fuso da empresa
+  priority       String     @default("normal") // low | normal | high
+  status         String     @default("open") // open | in_progress | done | cancelled
+  result         String?
+  completedAt    DateTime?
+  source         String     @default("manual") // manual | alert | recovery | stage | suggestion
+  sourceId       String?
+  dedupeKey      String?    @unique // uma tarefa aberta por causa; vira null ao concluir ou cancelar
+  version        Int        @default(1)
+  createdBy      String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([organizationId, status, dueAt])
+  @@index([organizationId, ownerMemberId, status])
+  @@index([dealId])
+  @@index([personId])
+}
+
+// Sugestão da inteligência comercial (D2: sugere, a pessoa decide). Nada muda no negócio sem aceite.
+model CrmSuggestion {
+  id             String    @id @default(cuid())
+  organizationId String
+  kind           String // create_deal | move_stage | create_task | confirm_outcome
+  status         String    @default("pending") // pending | accepted | dismissed | expired
+  dealId         String?
+  conversationId String?
+  opportunityId  String?
+  alertId        String?
+  agentId        String? // atendente da conversa (escopo de atendente e supervisor)
+  ownerMemberId  String?
+  payloadJson    String // proposta (etapa alvo, título, prazo), sem texto de mensagem
+  reason         String // motivo curto, legível
+  evidenceJson   String? // referências por ID
+  ruleVersion    String
+  dedupeKey      String    @unique
+  decidedBy      String?
+  decidedAt      DateTime?
+  decisionNote   String?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, dealId])
+}

@@ -8,9 +8,10 @@ import { CONSENT_DENIED_STATE } from './tests/e2e/consent-state'
 const PORT = Number(process.env.E2E_PORT) || 3100
 const TEST_DB = TEST_DB_URL
 
-// Outros navegadores (Firefox, Safari no Mac e no iPhone): só os fluxos que vendem e cobram, em job próprio no CI.
-// Ligados por CROSS_BROWSER=1 (bun run test:e2e:browsers) para não pesar a suíte principal.
-const CROSS_BROWSER = /(landing|conteudos|first-run|qr|conversations|billing-checkout|jornada|csp)\.ui\.spec\.ts$/
+// Outros navegadores (Firefox, Safari no Mac e no iPhone): os fluxos que vendem e cobram e as telas do CRM, em job
+// próprio no CI. Ligados por CROSS_BROWSER=1 (bun run test:e2e:browsers) para não pesar a suíte principal.
+// crm e crm-* só com o nome começando em "crm" (admin-crm.ui.spec.ts fica fora)
+const CROSS_BROWSER = /((landing|conteudos|first-run|qr|conversations|billing-checkout|jornada|csp)|(^|[\\/])crm(-[a-z0-9-]+)?)\.ui\.spec\.ts$/
 const crossBrowserProjects = process.env.CROSS_BROWSER
   ? [
       { name: 'ui-firefox', testMatch: CROSS_BROWSER, use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } } },

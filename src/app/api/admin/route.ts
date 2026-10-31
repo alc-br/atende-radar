@@ -4,6 +4,7 @@ import { guard, isPlatformOperator } from '@/lib/api-auth'
 import { maskSensitive } from '@/lib/mask-sensitive'
 import { effectiveStatus, graceEndsAt } from '@/lib/billing/core'
 import { NOT_SIMULATION } from '@/lib/sandbox'
+import { crmKilled } from '@/lib/crm/flags'
 import fs from 'fs'
 import path from 'path'
 
@@ -37,6 +38,7 @@ export async function GET() {
       subscriptions,
       recentNotifications,
       plans,
+      crmOn,
     ] = await Promise.all([
       db.organization.findMany({
         where: NOT_SIMULATION,
@@ -58,7 +60,10 @@ export async function GET() {
         include: { organization: { select: { name: true } } },
       }),
       db.plan.findMany({ orderBy: { sortOrder: 'asc' }, select: { id: true, code: true, name: true, active: true, monthlyPrice: true } }),
+      // CRM comercial liberado por empresa (flag gravada; o CRM_DISABLED vai à parte em crmKillSwitch)
+      db.crmFeatureState.findMany({ where: { flag: 'crm.enabled', enabled: true }, select: { organizationId: true } }),
     ])
+    const crmEnabledOrgs = new Set(crmOn.map((f) => f.organizationId))
 
     const globalUsers = await db.organizationMember.findMany({
       where: real,
@@ -117,7 +122,9 @@ export async function GET() {
         // exclusão pedida pelo dono (some de vez nesta data, salvo desistência)
         deletionRequestedAt: o.deletionRequestedAt?.toISOString() || null,
         deletionScheduledFor: o.deletionScheduledFor?.toISOString() || null,
+        crmEnabled: crmEnabledOrgs.has(o.id),
       })),
+      crmKillSwitch: crmKilled(),
       pendingDeletions: organizations
         .filter((o) => o.deletionScheduledFor)
         .sort((a, b) => a.deletionScheduledFor!.getTime() - b.deletionScheduledFor!.getTime())

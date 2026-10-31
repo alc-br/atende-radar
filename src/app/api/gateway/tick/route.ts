@@ -12,6 +12,8 @@ import { retryFailedEmails } from '@/lib/mailer'
 import { endExpiredPlans } from '@/lib/billing/service'
 import { disconnectLockedOrgs, pastDueNotices } from '@/lib/billing/delinquency'
 import { processNfse } from '@/lib/nfse/service'
+import { crmTick } from '@/lib/crm/tick'
+import { errTag } from '@/lib/crm/log'
 
 // Roda o motor de análise agora (mesma função que o agendador interno chama a cada minuto).
 // Serve também para um agendador externo (cron) e para os testes. Também processa a fila de webhooks. Exige o segredo do gateway.
@@ -69,5 +71,10 @@ export async function POST(request: Request) {
   const disconnected = await disconnectLockedOrgs(now, orgId ?? undefined)
   // NFS-e: fila de emissão e cancelamento (desligada com NFSE_AMBIENTE=off)
   const nfse = await processNfse(now)
-  return NextResponse.json({ ok: true, ...summary, nfse, webhooks, alertEmails, emailRetries, endedPlans, pastDueNotices: pastDue, disconnected, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
+  // CRM comercial (só empresas com o CRM ligado): captura o que a análise mudou e processa a fila
+  const crm = await crmTick(orgId ?? undefined).catch((e) => {
+    console.error('[tick] CRM falhou', errTag(e))
+    return null
+  })
+  return NextResponse.json({ ok: true, ...summary, nfse, crm, webhooks, alertEmails, emailRetries, endedPlans, pastDueNotices: pastDue, disconnected, deletedOrganizations: deletions.deleted, purgedProductEvents: productEvents })
 }
