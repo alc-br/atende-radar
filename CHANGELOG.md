@@ -2,6 +2,22 @@
 
 Resumo do que mudou, por data (mais recente primeiro). Detalhe em `git log` e no Diário do `handoff.md`.
 
+## 2026-10-31
+- **CRM comercial (branch `crm/integracao`, ainda fora da `main`):** pessoas, empresas, funis e negócios (quadro com arrastar, teclado e menu), tarefas, visão comercial e sugestões a partir das conversas. Fica desligado por padrão: o operador da plataforma liga por empresa em Admin, com confirmação e auditoria, e desligar não apaga nada. Com ele desligado, as rotas `/api/crm/*` respondem 404 e a Auditoria segue como está.
+- **CRM, o que ele não faz:** não manda mensagem no WhatsApp e não cria negócio sozinho. O que vem das conversas chega como sugestão, e quem decide é a pessoa (desfecho humano manda). Pessoas do CRM e contatos da Auditoria são coisas separadas, ligadas por vínculo.
+- **CRM, tarefas a partir da Auditoria:** "Tarefa no CRM" no alerta e no item de recuperação (uma aberta por causa) e "Negócios relacionados" na conversa.
+- **CRM, segurança e dados:** escopo por papel no servidor (todos, equipe ou os próprios), isolamento entre empresas, versão em cada edição (corrida = 409), limite por minuto, exportação CSV sem fórmula, LGPD (exportar e apagar a pessoa) e as 16 tabelas `Crm*` no backup e no ensaio de restauração.
+- **CRM, desempenho:** listas de quem vê só a própria carteira ou a equipe rápidas também com 10 mil pessoas (dois índices novos, migração só com `CREATE INDEX`).
+- **CRM, regras que a matriz de testes cobrou:** conversa de grupo não vira negócio; evento antigo de contato excluído ou de grupo é ignorado sem erro; alerta já resolvido não abre sugestão de tarefa; empresa de simulação não alimenta o CRM; empresa bloqueada pelo plano pausa a captura e retoma de onde parou; valor máximo de um negócio em R$ 20 milhões; log do CRM só com o tipo do erro, sem a mensagem.
+- **CRM, reabrir com motivo:** negócio ganho ou perdido volta a aberto só com o motivo (3 a 500 caracteres), que fica no histórico do negócio.
+- **CRM, agenda:** "Hoje" e "Próximos 7 dias" na tela de Tarefas, no fuso da empresa (o mesmo para toda a equipe), "em andamento" conta como aberta e "Editar tarefa" muda título, prioridade, situação, observação e, para supervisor, gestor e administrador, o responsável. A troca de responsável e a conclusão ficam na auditoria.
+- **Guias das telas (todas, não só o CRM):** quando o cartão do passo não cabe abaixo do alvo, ele abre do outro lado (antes ficava cortado no pé da tela e o "Próximo" não dava clique). Um guia cujo último passo não está na tela termina como visto e não volta a cada carga.
+- **CRM, exportação da empresa:** passa a levar os vínculos (negócio com conversa, oportunidade, alerta e recuperação; contato da Auditoria com pessoa do CRM), sem a chave interna.
+- **CRM, custo da sincronização:** empresa com o CRM ligado e sem nada novo deixa de regravar o estado da captura a cada 15 s; regrava no máximo uma vez por minuto. Menos escrita no banco com muitas empresas ligadas.
+- **CRM, log do agendador:** a falha do CRM no tick e nas rotinas do agendador (limpeza da fila, sugestões vencidas, reconciliação, captura e fila) grava só o tipo e o código do erro, sem a mensagem.
+- **CRM, uma tarefa por alerta:** a tarefa criada à mão para um alerta e a que nasce da sugestão aceita são a mesma. O alerta que volta depois de resolvido não pede outra enquanto a primeira estiver aberta; concluída a tarefa, pode pedir de novo, também quando é o mesmo alerta reaberto. A sugestão de um alerta marcado como falso positivo expira e não segura a sugestão do alerta seguinte.
+- **CRM, testes:** contrato da API, matriz T01–T12 da especificação, um teste de interface por requisito, interface em Chromium, Firefox e WebKit de 320 a 1920 px, axe em claro e escuro, e medição de carga. Cada arquivo de teste do CRM desliga, no fim, o CRM das empresas que ligou. Resultados em `docs/crm/08-testes-e2e.md`; homologação em `docs/crm/QA-MESTRE-RESULTADO.md`.
+
 ## 2026-10-25
 - **2º pixel da Meta na API de Conversões:** `CompleteRegistration`, `StartTrial` e `Purchase` vão também ao pixel `1080108481699281` (o da agência), com o mesmo `event_id`. Só começa quando o *secret* `META_CAPI_TOKEN_2` for cadastrado; até lá, o log mostra `meta2:sem-id` e o 1º pixel segue igual.
 

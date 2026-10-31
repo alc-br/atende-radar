@@ -1,0 +1,17 @@
+# 02-eslint
+comando: bunx eslint . --ignore-pattern ".tmp/**" --ignore-pattern ".bun-cache/**"
+início: 2026-10-30 23:22:10 -0300
+fim: 2026-10-30 23:23:21 -0300
+duração: 71 s
+código de saída: 0
+linhas na saída bruta: 1
+(saída sanitizada: e-mails, telefones, tokens e cadeias longas mascarados; cores ANSI removidas)
+
+## Linhas de falha / resumo encontradas
+(nenhuma)
+
+## Testes pulados ou que não rodaram (prefixo "-")
+(nenhum)
+
+## Últimas 200 linhas
+

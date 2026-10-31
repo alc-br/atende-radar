@@ -1,0 +1,27 @@
+# 07-a11y-ui
+comando: bunx playwright test tests/e2e/a11y.ui.spec.ts --project=ui-desktop
+início: 2026-10-31 00:09:39 -0300
+fim: 2026-10-31 00:12:54 -0300
+duração: 195 s
+código de saída: 0
+linhas na saída bruta: 11
+(saída sanitizada: e-mails, telefones, tokens e cadeias longas mascarados; cores ANSI removidas)
+
+## Linhas de falha / resumo encontradas
+  5 passed (3.2m)
+
+## Testes pulados ou que não rodaram (prefixo "-")
+(nenhum)
+
+## Últimas 200 linhas
+
+Running 5 tests using 1 worker
+
+  ok 1 [ui-desktop] › tests\e2e\a11y.ui.spec.ts:36:9 › Acessibilidade e temas › telas do sistema em tema light: sem violações críticas/sérias de acessibilidade (1.1m)
+  ok 2 [ui-desktop] › tests\e2e\a11y.ui.spec.ts:36:9 › Acessibilidade e temas › telas do sistema em tema dark: sem violações críticas/sérias de acessibilidade (55.7s)
+  ok 3 [ui-desktop] › tests\e2e\a11y.ui.spec.ts:52:7 › Acessibilidade e temas › página de vendas e login: sem violações críticas/sérias (4.4s)
+  ok 4 [ui-desktop] › tests\e2e\a11y.ui.spec.ts:67:7 › Acessibilidade e temas › telas de detalhe (conversa, atendente) e diálogo: sem violações críticas/sérias (21.2s)
+  ok 5 [ui-desktop] › tests\e2e\a11y.ui.spec.ts:97:7 › Acessibilidade e temas › conta nova (vazia): telas sem violações críticas/sérias (23.0s)
+
+  5 passed (3.2m)
+

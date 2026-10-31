@@ -1,0 +1,17 @@
+# 01-tsc
+comando: bunx tsc --noEmit
+início: 2026-10-30 23:20:54 -0300
+fim: 2026-10-30 23:21:58 -0300
+duração: 64 s
+código de saída: 0
+linhas na saída bruta: 1
+(saída sanitizada: e-mails, telefones, tokens e cadeias longas mascarados; cores ANSI removidas)
+
+## Linhas de falha / resumo encontradas
+(nenhuma)
+
+## Testes pulados ou que não rodaram (prefixo "-")
+(nenhum)
+
+## Últimas 200 linhas
+

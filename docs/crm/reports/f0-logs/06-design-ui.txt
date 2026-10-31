@@ -1,0 +1,77 @@
+# 06-design-ui
+comando: DESIGN_CAPTURAS=1 bunx playwright test tests/e2e/design.ui.spec.ts --project=ui-desktop --project=ui-mobile --project=ui-tablet
+início: 2026-10-31 00:02:12 -0300
+fim: 2026-10-31 00:09:01 -0300
+duração: 408 s
+código de saída: 0
+linhas na saída bruta: 52
+(saída sanitizada: e-mails, telefones, tokens e cadeias longas mascarados; cores ANSI removidas)
+
+## Linhas de falha / resumo encontradas
+  9 skipped
+  12 passed (6.8m)
+
+## Testes pulados ou que não rodaram (prefixo "-")
+  -   5 [ui-desktop] › tests\e2e\design.ui.spec.ts:156:7 › Design QA · menu no celular › menu lateral não cobre a tela: abre pelo botão, fecha ao escolher e pelo fundo
+  -  10 [ui-mobile] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1440 px
+  -  11 [ui-mobile] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1920 px
+  -  13 [ui-mobile] › tests\e2e\design.ui.spec.ts:184:7 › Design QA · reflow a 320 px (WCAG 1.4.10 ≈ zoom 400 % em 1280) › todas as telas cabem em 320 px sem rolagem horizontal
+  -  14 [ui-mobile] › tests\e2e\design.ui.spec.ts:194:7 › Design QA · teclado › dá para chegar ao menu só com Tab, ver o foco e abrir uma tela com Enter
+  -  17 [ui-tablet] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1440 px
+  -  18 [ui-tablet] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1920 px
+  -  20 [ui-tablet] › tests\e2e\design.ui.spec.ts:184:7 › Design QA · reflow a 320 px (WCAG 1.4.10 ≈ zoom 400 % em 1280) › todas as telas cabem em 320 px sem rolagem horizontal
+  -  21 [ui-tablet] › tests\e2e\design.ui.spec.ts:194:7 › Design QA · teclado › dá para chegar ao menu só com Tab, ver o foco e abrir uma tela com Enter
+
+## Últimas 200 linhas
+
+Running 21 tests using 1 worker
+
+  ok  1 [ui-desktop] › tests\e2e\design.ui.spec.ts:117:7 › Design QA · conta com dados (Org A, admin) › todas as telas (44.9s)
+  ok  2 [ui-desktop] › tests\e2e\design.ui.spec.ts:125:7 › Design QA · conta nova, vazia (primeira experiência) › todas as telas (34.3s)
+  ok  3 [ui-desktop] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1440 px (37.6s)
+  ok  4 [ui-desktop] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1920 px (36.2s)
+  -   5 [ui-desktop] › tests\e2e\design.ui.spec.ts:156:7 › Design QA · menu no celular › menu lateral não cobre a tela: abre pelo botão, fecha ao escolher e pelo fundo
+  ok  6 [ui-desktop] › tests\e2e\design.ui.spec.ts:184:7 › Design QA · reflow a 320 px (WCAG 1.4.10 ≈ zoom 400 % em 1280) › todas as telas cabem em 320 px sem rolagem horizontal (37.2s)
+  ok  7 [ui-desktop] › tests\e2e\design.ui.spec.ts:194:7 › Design QA · teclado › dá para chegar ao menu só com Tab, ver o foco e abrir uma tela com Enter (3.8s)
+  ok  8 [ui-mobile] › tests\e2e\design.ui.spec.ts:117:7 › Design QA · conta com dados (Org A, admin) › todas as telas (42.4s)
+[WebServer] Error: aborted
+[WebServer]     at ignore-listed frames {
+[WebServer]   code: 'ECONNRESET'
+[WebServer] }
+[WebServer] ⨯ uncaughtException: Error: aborted
+[WebServer]     at ignore-listed frames {
+[WebServer]   code: 'ECONNRESET'
+[WebServer] }
+[WebServer] ⨯ uncaughtException:  Error: aborted
+[WebServer]     at ignore-listed frames {
+[WebServer]   code: 'ECONNRESET'
+[WebServer] }
+  ok  9 [ui-mobile] › tests\e2e\design.ui.spec.ts:125:7 › Design QA · conta nova, vazia (primeira experiência) › todas as telas (36.7s)
+  -  10 [ui-mobile] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1440 px
+  -  11 [ui-mobile] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1920 px
+  ok 12 [ui-mobile] › tests\e2e\design.ui.spec.ts:156:7 › Design QA · menu no celular › menu lateral não cobre a tela: abre pelo botão, fecha ao escolher e pelo fundo (4.8s)
+  -  13 [ui-mobile] › tests\e2e\design.ui.spec.ts:184:7 › Design QA · reflow a 320 px (WCAG 1.4.10 ≈ zoom 400 % em 1280) › todas as telas cabem em 320 px sem rolagem horizontal
+  -  14 [ui-mobile] › tests\e2e\design.ui.spec.ts:194:7 › Design QA · teclado › dá para chegar ao menu só com Tab, ver o foco e abrir uma tela com Enter
+[WebServer] Error: aborted
+[WebServer]     at ignore-listed frames {
+[WebServer]   code: 'ECONNRESET'
+[WebServer] }
+[WebServer] ⨯ uncaughtException: Error: aborted
+[WebServer]     at ignore-listed frames {
+[WebServer]   code: 'ECONNRESET'
+[WebServer] }
+[WebServer] ⨯ uncaughtException:  Error: aborted
+[WebServer]     at ignore-listed frames {
+[WebServer]   code: 'ECONNRESET'
+[WebServer] }
+  ok 15 [ui-tablet] › tests\e2e\design.ui.spec.ts:117:7 › Design QA · conta com dados (Org A, admin) › todas as telas (40.4s)
+  ok 16 [ui-tablet] › tests\e2e\design.ui.spec.ts:125:7 › Design QA · conta nova, vazia (primeira experiência) › todas as telas (42.8s)
+  -  17 [ui-tablet] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1440 px
+  -  18 [ui-tablet] › tests\e2e\design.ui.spec.ts:143:9 › Design QA · telas largas (1440 e 1920 px), conta com dados › todas as telas a 1920 px
+  ok 19 [ui-tablet] › tests\e2e\design.ui.spec.ts:156:7 › Design QA · menu no celular › menu lateral não cobre a tela: abre pelo botão, fecha ao escolher e pelo fundo (5.0s)
+  -  20 [ui-tablet] › tests\e2e\design.ui.spec.ts:184:7 › Design QA · reflow a 320 px (WCAG 1.4.10 ≈ zoom 400 % em 1280) › todas as telas cabem em 320 px sem rolagem horizontal
+  -  21 [ui-tablet] › tests\e2e\design.ui.spec.ts:194:7 › Design QA · teclado › dá para chegar ao menu só com Tab, ver o foco e abrir uma tela com Enter
+
+  9 skipped
+  12 passed (6.8m)
+

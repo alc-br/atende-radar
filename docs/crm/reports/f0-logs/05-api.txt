@@ -1,0 +1,248 @@
+# 05-api
+comando: bunx playwright test --project=api
+início: 2026-10-30 23:26:04 -0300
+fim: 2026-10-30 23:57:34 -0300
+duração: 1890 s
+código de saída: 1
+linhas na saída bruta: 1702
+(saída sanitizada: e-mails, telefones, tokens e cadeias longas mascarados; cores ANSI removidas)
+
+## Linhas de falha / resumo encontradas
+  x    39 [api] › tests\e2e\analysis-outcomes.spec.ts:199:7 › B6 · reanálise respeita a correção humana › correção da intenção para "não é venda" sobrevive à reanálise e tira o valor em risco; corrigir intenção vazia funciona (30.0s)
+  x   580 [api] › tests\e2e\nfse.spec.ts:47:5 › fatura paga vira NFS-e emitida, uma só; renovação gera outra com o número seguinte; reembolso cancela (29.8s)
+  x  1607 [api] › tests\e2e\settings-effect.spec.ts:56:7 › P2 · SLA de primeira resposta na nota › a mesma demora vale nota diferente conforme o SLA da empresa (30.0s)
+  x  1609 [api] › tests\e2e\settings-effect.spec.ts:91:7 › P2 · encerramento por inatividade, abandono e reabertura › cliente com oportunidade que some por mais que "Tempo de abandono" → perdido por abandono (opportunidade e conversa) (30.0s)
+  1) [api] › tests\e2e\analysis-outcomes.spec.ts:199:7 › B6 · reanálise respeita a correção humana › correção da intenção para "não é venda" sobrevive à reanálise e tira o valor em risco; corrigir intenção vazia funciona 
+  2) [api] › tests\e2e\nfse.spec.ts:47:5 › fatura paga vira NFS-e emitida, uma só; renovação gera outra com o número seguinte; reembolso cancela 
+    Error: Test timeout of 30000ms exceeded
+  3) [api] › tests\e2e\settings-effect.spec.ts:56:7 › P2 · SLA de primeira resposta na nota › a mesma demora vale nota diferente conforme o SLA da empresa 
+  4) [api] › tests\e2e\settings-effect.spec.ts:91:7 › P2 · encerramento por inatividade, abandono e reabertura › cliente com oportunidade que some por mais que "Tempo de abandono" → perdido por abandono (opportunidade e conversa) 
+  4 failed
+  14 skipped
+  7 did not run
+  1614 passed (31.4m)
+
+## Testes pulados ou que não rodaram (prefixo "-")
+  -   456 [api] › tests\e2e\billing-pagarme.spec.ts:48:7 › B8 · checkout Pagar.me (sandbox) › resumo expõe só a chave PÚBLICA e o ambiente; a secreta nunca sai do servidor
+  -   457 [api] › tests\e2e\billing-pagarme.spec.ts:61:7 › B8 · checkout Pagar.me (sandbox) › cartão aprovado: plano ativa na hora, fatura paga registrada e limites do novo plano valem
+  -   458 [api] › tests\e2e\billing-pagarme.spec.ts:105:7 › B8 · checkout Pagar.me (sandbox) › cartão recusado: 402 com motivo claro, nada muda (continua no teste grátis)
+  -   459 [api] › tests\e2e\billing-pagarme.spec.ts:119:7 › B8 · checkout Pagar.me (sandbox) › dados inválidos são barrados antes de falar com o Pagar.me
+  -   460 [api] › tests\e2e\billing-pagarme.spec.ts:141:7 › B8 · checkout Pagar.me (sandbox) › troca de cartão e cancelamento da renovação (vale até o fim do período pago)
+  -   461 [api] › tests\e2e\billing-pagarme.spec.ts:189:7 › B8 · checkout Pagar.me (sandbox) › V7 · direito de arrependimento: em 7 dias, encerra agora e estorna o valor integral no Pagar.me
+  -   462 [api] › tests\e2e\billing-pagarme.spec.ts:251:7 › B8 · checkout Pagar.me (sandbox) › V7 · arrependimento: fora dos 7 dias é recusado; com a renovação já cancelada ainda vale no prazo
+  -   463 [api] › tests\e2e\billing-pagarme.spec.ts:273:7 › B8 · checkout Pagar.me (sandbox) › V7 · reativar a renovação depois de cancelar:assinatura de continuação no Pagar.me, sem cobrar o período já pago
+  -   464 [api] › tests\e2e\billing-pagarme.spec.ts:346:7 › B8 · checkout Pagar.me (sandbox) › V7 · reativar: preço novo do catálogo não muda o valor de quem já assina
+  -   465 [api] › tests\e2e\billing-pagarme.spec.ts:367:7 › B8 · checkout Pagar.me (sandbox) › V7 · reativar sem cobrança automática (teste grátis): 409
+  -   466 [api] › tests\e2e\billing-pagarme.spec.ts:376:7 › B8 · checkout Pagar.me (sandbox) › aviso (webhook): exige autenticação, ignora o que não é nosso, sincroniza o que é e não processa duas vezes
+  -   467 [api] › tests\e2e\billing-pagarme.spec.ts:409:7 › B8 · checkout Pagar.me (sandbox) › aviso (webhook) depois do estorno não volta a fatura estornada para paga
+  -   468 [api] › tests\e2e\billing-pagarme.spec.ts:428:7 › B8 · checkout Pagar.me (sandbox) › só o administrador contrata
+  -   469 [api] › tests\e2e\billing-pagarme.spec.ts:467:7 › inadimplência (sandbox): trocar o cartão paga a fatura em aberto › renovação recusada: past_due com prazo; cartão recusado não resolve; cartão aprovado cobra na hora e volta a ativa
+  -   581 [api] › tests\e2e\nfse.spec.ts:86:5 › fatura paga antes de NFSE_DESDE e fatura não paga não geram nota
+  -   582 [api] › tests\e2e\nfse.spec.ts:95:5 › rejeição do governo fica como falha com o motivo; corrigido o dado, a nova tentativa emite
+  -   583 [api] › tests\e2e\nfse.spec.ts:116:5 › queda de rede depois do envio: a nova tentativa acha a nota pela DPS e não emite em dobro
+  -   584 [api] › tests\e2e\nfse.spec.ts:128:5 › sem dados de quem paga: falha explicada; reembolsada antes de emitir, a nota é dispensada
+  -   585 [api] › tests\e2e\nfse.spec.ts:139:5 › cancelamento recusado fica como falha; operador cancela manualmente com motivo e baixa os XML
+  -   586 [api] › tests\e2e\nfse.spec.ts:181:5 › reembolso depois do mês de competência: a nota não é cancelada e fica para a contabilidade
+  -   587 [api] › tests\e2e\nfse.spec.ts:214:5 › admin de empresa cliente não vê nem mexe nas notas
+
+## Últimas 200 linhas
+  ok 1496 [api] › tests\e2e\rbac.spec.ts:199:9 › supervisor PODE POST /api/profile/email (85ms)
+  ok 1497 [api] › tests\e2e\rbac.spec.ts:199:9 › analista PODE POST /api/profile/email (82ms)
+  ok 1498 [api] › tests\e2e\rbac.spec.ts:199:9 › member PODE POST /api/profile/email (73ms)
+  ok 1499 [api] › tests\e2e\rbac.spec.ts:199:9 › atendente PODE POST /api/profile/email (83ms)
+  ok 1500 [api] › tests\e2e\rbac.spec.ts:199:9 › viewer PODE POST /api/profile/email (68ms)
+  ok 1501 [api] › tests\e2e\rbac.spec.ts:199:9 › admin PODE DELETE /api/profile/email (70ms)
+  ok 1502 [api] › tests\e2e\rbac.spec.ts:199:9 › gestor PODE DELETE /api/profile/email (84ms)
+  ok 1503 [api] › tests\e2e\rbac.spec.ts:199:9 › supervisor PODE DELETE /api/profile/email (86ms)
+  ok 1504 [api] › tests\e2e\rbac.spec.ts:199:9 › analista PODE DELETE /api/profile/email (90ms)
+  ok 1505 [api] › tests\e2e\rbac.spec.ts:199:9 › member PODE DELETE /api/profile/email (86ms)
+  ok 1506 [api] › tests\e2e\rbac.spec.ts:199:9 › atendente PODE DELETE /api/profile/email (85ms)
+  ok 1507 [api] › tests\e2e\rbac.spec.ts:199:9 › viewer PODE DELETE /api/profile/email (85ms)
+  ok 1508 [api] › tests\e2e\rbac.spec.ts:199:9 › admin PODE POST /api/organization/logo (144ms)
+  ok 1509 [api] › tests\e2e\rbac.spec.ts:199:9 › gestor PODE POST /api/organization/logo (78ms)
+  ok 1510 [api] › tests\e2e\rbac.spec.ts:199:9 › supervisor NÃO pode POST /api/organization/logo (70ms)
+  ok 1511 [api] › tests\e2e\rbac.spec.ts:199:9 › analista NÃO pode POST /api/organization/logo (88ms)
+  ok 1512 [api] › tests\e2e\rbac.spec.ts:199:9 › member NÃO pode POST /api/organization/logo (83ms)
+  ok 1513 [api] › tests\e2e\rbac.spec.ts:199:9 › atendente NÃO pode POST /api/organization/logo (86ms)
+  ok 1514 [api] › tests\e2e\rbac.spec.ts:199:9 › viewer NÃO pode POST /api/organization/logo (87ms)
+  ok 1515 [api] › tests\e2e\rbac.spec.ts:199:9 › admin PODE DELETE /api/organization/logo (164ms)
+  ok 1516 [api] › tests\e2e\rbac.spec.ts:199:9 › gestor PODE DELETE /api/organization/logo (228ms)
+  ok 1517 [api] › tests\e2e\rbac.spec.ts:199:9 › supervisor NÃO pode DELETE /api/organization/logo (88ms)
+  ok 1518 [api] › tests\e2e\rbac.spec.ts:199:9 › analista NÃO pode DELETE /api/organization/logo (150ms)
+  ok 1519 [api] › tests\e2e\rbac.spec.ts:199:9 › member NÃO pode DELETE /api/organization/logo (86ms)
+  ok 1520 [api] › tests\e2e\rbac.spec.ts:199:9 › atendente NÃO pode DELETE /api/organization/logo (82ms)
+  ok 1521 [api] › tests\e2e\rbac.spec.ts:199:9 › viewer NÃO pode DELETE /api/organization/logo (83ms)
+  ok 1522 [api] › tests\e2e\rbac.spec.ts:199:9 › admin PODE GET /api/media/avatar/x (232ms)
+  ok 1523 [api] › tests\e2e\rbac.spec.ts:199:9 › gestor PODE GET /api/media/avatar/x (87ms)
+  ok 1524 [api] › tests\e2e\rbac.spec.ts:199:9 › supervisor PODE GET /api/media/avatar/x (156ms)
+  ok 1525 [api] › tests\e2e\rbac.spec.ts:199:9 › analista PODE GET /api/media/avatar/x (89ms)
+  ok 1526 [api] › tests\e2e\rbac.spec.ts:199:9 › member PODE GET /api/media/avatar/x (83ms)
+  ok 1527 [api] › tests\e2e\rbac.spec.ts:199:9 › atendente PODE GET /api/media/avatar/x (85ms)
+  ok 1528 [api] › tests\e2e\rbac.spec.ts:199:9 › viewer PODE GET /api/media/avatar/x (122ms)
+  ok 1529 [api] › tests\e2e\rbac.spec.ts:199:9 › admin PODE GET /api/media/logo/x (233ms)
+  ok 1530 [api] › tests\e2e\rbac.spec.ts:199:9 › gestor PODE GET /api/media/logo/x (82ms)
+  ok 1531 [api] › tests\e2e\rbac.spec.ts:199:9 › supervisor PODE GET /api/media/logo/x (71ms)
+  ok 1532 [api] › tests\e2e\rbac.spec.ts:199:9 › analista PODE GET /api/media/logo/x (85ms)
+  ok 1533 [api] › tests\e2e\rbac.spec.ts:199:9 › member PODE GET /api/media/logo/x (70ms)
+  ok 1534 [api] › tests\e2e\rbac.spec.ts:199:9 › atendente PODE GET /api/media/logo/x (99ms)
+  ok 1535 [api] › tests\e2e\rbac.spec.ts:199:9 › viewer PODE GET /api/media/logo/x (86ms)
+  ok 1536 [api] › tests\e2e\rbac.spec.ts:199:9 › admin PODE GET /api/conversations/x/phone (147ms)
+  ok 1537 [api] › tests\e2e\rbac.spec.ts:199:9 › gestor PODE GET /api/conversations/x/phone (72ms)
+  ok 1538 [api] › tests\e2e\rbac.spec.ts:199:9 › supervisor PODE GET /api/conversations/x/phone (89ms)
+  ok 1539 [api] › tests\e2e\rbac.spec.ts:199:9 › analista NÃO pode GET /api/conversations/x/phone (62ms)
+  ok 1540 [api] › tests\e2e\rbac.spec.ts:199:9 › member NÃO pode GET /api/conversations/x/phone (87ms)
+  ok 1541 [api] › tests\e2e\rbac.spec.ts:199:9 › atendente PODE GET /api/conversations/x/phone (88ms)
+  ok 1542 [api] › tests\e2e\rbac.spec.ts:199:9 › viewer NÃO pode GET /api/conversations/x/phone (81ms)
+  ok 1543 [api] › tests\e2e\rbac.spec.ts:199:9 › admin PODE DELETE /api/profile/sessions (274ms)
+  ok 1544 [api] › tests\e2e\rbac.spec.ts:199:9 › gestor PODE DELETE /api/profile/sessions (85ms)
+  ok 1545 [api] › tests\e2e\rbac.spec.ts:199:9 › supervisor PODE DELETE /api/profile/sessions (79ms)
+  ok 1546 [api] › tests\e2e\rbac.spec.ts:199:9 › analista PODE DELETE /api/profile/sessions (84ms)
+  ok 1547 [api] › tests\e2e\rbac.spec.ts:199:9 › member PODE DELETE /api/profile/sessions (88ms)
+  ok 1548 [api] › tests\e2e\rbac.spec.ts:199:9 › atendente PODE DELETE /api/profile/sessions (89ms)
+  ok 1549 [api] › tests\e2e\rbac.spec.ts:199:9 › viewer PODE DELETE /api/profile/sessions (65ms)
+  ok 1550 [api] › tests\e2e\reports-export.spec.ts:28:7 › P3 · download do relatório em XLSX, PDF e JSON › XLSX e PDF: content-type, assinatura do arquivo e anexo com o nome do relatório (3.4s)
+  ok 1551 [api] › tests\e2e\reports-export.spec.ts:62:7 › P3 · download do relatório em XLSX, PDF e JSON › cada download (XLSX, PDF, JSON) conta na cota; HTML não; ao esgotar, 402 (4.2s)
+  ok 1552 [api] › tests\e2e\reports-export.spec.ts:86:7 › P3 · download do relatório em XLSX, PDF e JSON › papel sem permissão de relatórios recebe 403; viewer baixa mas não reenvia nem tenta de novo (7.0s)
+  ok 1553 [api] › tests\e2e\reports-export.spec.ts:113:7 › P3 · download do relatório em XLSX, PDF e JSON › formato inválido: 400 com a lista dos aceitos (2.7s)
+  ok 1554 [api] › tests\e2e\reports-export.spec.ts:123:7 › P3 · indicadores em XLSX › exporta a planilha dos indicadores diários (conta na cota) (3.1s)
+  ok 1555 [api] › tests\e2e\reports-export.spec.ts:138:7 › P3 · reenvio e "tentar novamente" › reenviar manda o relatório com o PDF em anexo aos destinatários e não conta na cota (2.8s)
+  ok 1556 [api] › tests\e2e\reports-export.spec.ts:163:7 › P3 · reenvio e "tentar novamente" › reenviar sem destinatários: 400 (3.4s)
+  ok 1557 [api] › tests\e2e\reports-export.spec.ts:171:7 › P3 · reenvio e "tentar novamente" › tentar novamente gera de novo a execução que falhou; execução concluída devolve 409 (4.0s)
+  ok 1558 [api] › tests\e2e\reports-export.spec.ts:190:7 › P3 · reenvio e "tentar novamente" › tentar novamente de um agendado que falhou também envia o e-mail (3.2s)
+  ok 1559 [api] › tests\e2e\reports-export.spec.ts:204:7 › P3 · agendamento no fuso da empresa › o horário agendado vale no fuso configurado da empresa (3.5s)
+  ok 1560 [api] › tests\e2e\reports.spec.ts:22:7 › Relatórios reais › gerar cria uma execução concluída na hora, com o conteúdo dos dados reais (nada de "processando" falso) (27.4s)
+  ok 1561 [api] › tests\e2e\reports.spec.ts:41:9 › Relatórios reais › tipo "daily": gera e baixa em CSV e em HTML (21.0s)
+  ok 1562 [api] › tests\e2e\reports.spec.ts:41:9 › Relatórios reais › tipo "weekly": gera e baixa em CSV e em HTML (21.7s)
+  ok 1563 [api] › tests\e2e\reports.spec.ts:41:9 › Relatórios reais › tipo "agent": gera e baixa em CSV e em HTML (22.6s)
+  ok 1564 [api] › tests\e2e\reports.spec.ts:41:9 › Relatórios reais › tipo "lost_opportunities": gera e baixa em CSV e em HTML (16.8s)
+  ok 1565 [api] › tests\e2e\reports.spec.ts:41:9 › Relatórios reais › tipo "promises": gera e baixa em CSV e em HTML (12.8s)
+  ok 1566 [api] › tests\e2e\reports.spec.ts:41:9 › Relatórios reais › tipo "recovery": gera e baixa em CSV e em HTML (12.1s)
+  ok 1567 [api] › tests\e2e\reports.spec.ts:41:9 › Relatórios reais › tipo "data_quality": gera e baixa em CSV e em HTML (13.3s)
+  ok 1568 [api] › tests\e2e\reports.spec.ts:41:9 › Relatórios reais › tipo "connections": gera e baixa em CSV e em HTML (13.4s)
+  ok 1569 [api] › tests\e2e\reports.spec.ts:59:7 › Relatórios reais › conteúdo específico: atendentes, promessas e conexões refletem os dados (14.6s)
+  ok 1570 [api] › tests\e2e\reports.spec.ts:73:7 › Relatórios reais › números de mensagens e conversas batem com os dados (diário e conexões) (15.3s)
+  ok 1571 [api] › tests\e2e\reports.spec.ts:90:7 › Relatórios reais › HTML escapa o conteúdo das mensagens (sem injeção) (19.0s)
+  ok 1572 [api] › tests\e2e\reports.spec.ts:101:7 › Relatórios reais › validação: tipo desconhecido, período inválido e formato inválido (15.3s)
+  ok 1573 [api] › tests\e2e\reports.spec.ts:110:7 › Relatórios reais › isolamento e permissão: outra empresa recebe 404; analista baixa; viewer baixa mas não gera (19.4s)
+  ok 1574 [api] › tests\e2e\reports.spec.ts:123:7 › Relatórios reais › histórico lista as execuções geradas (16.7s)
+  ok 1575 [api] › tests\e2e\reports.spec.ts:135:7 › Exportação de indicadores › CSV e JSON dos indicadores diários da empresa (16.6s)
+  ok 1576 [api] › tests\e2e\reports.spec.ts:148:7 › Exportação de indicadores › exportar exige login e a permissão de relatórios (394ms)
+  ok 1577 [api] › tests\e2e\security-headers.spec.ts:7:9 › Cabeçalhos de segurança › / traz os cabeçalhos de proteção (363ms)
+  ok 1578 [api] › tests\e2e\security-headers.spec.ts:7:9 › Cabeçalhos de segurança › /login traz os cabeçalhos de proteção (234ms)
+  ok 1579 [api] › tests\e2e\security-headers.spec.ts:7:9 › Cabeçalhos de segurança › /api/public/plans traz os cabeçalhos de proteção (97ms)
+  ok 1580 [api] › tests\e2e\security-headers.spec.ts:7:9 › Cabeçalhos de segurança › /reset-password traz os cabeçalhos de proteção (381ms)
+  ok 1581 [api] › tests\e2e\security-headers.spec.ts:18:7 › Cabeçalhos de segurança › o servidor não anuncia a tecnologia (x-powered-by) (182ms)
+  ok 1582 [api] › tests\e2e\session.spec.ts:19:7 › B4 · sessão acompanha o cadastro em tempo real › membro removido perde o acesso imediatamente (mesmo com cookie válido) (841ms)
+  ok 1583 [api] › tests\e2e\session.spec.ts:31:7 › B4 · sessão acompanha o cadastro em tempo real › mudança de papel vale na hora, sem novo login (1.0s)
+  ok 1584 [api] › tests\e2e\session.spec.ts:45:7 › B4 · sessão acompanha o cadastro em tempo real › membro suspenso perde o acesso (826ms)
+  ok 1585 [api] › tests\e2e\session.spec.ts:57:7 › B4 · regras de gestão de membros › papel inexistente é recusado (146ms)
+  ok 1586 [api] › tests\e2e\session.spec.ts:61:7 › B4 · regras de gestão de membros › e-mail já usado (em qualquer organização) é recusado (155ms)
+  ok 1587 [api] › tests\e2e\session.spec.ts:65:7 › B4 · regras de gestão de membros › admin não remove nem rebaixa a si mesmo (163ms)
+  ok 1588 [api] › tests\e2e\session.spec.ts:69:7 › B4 · regras de gestão de membros › papel inválido em PATCH é recusado (102ms)
+  ok 1589 [api] › tests\e2e\session.spec.ts:75:7 › B4 · /api/me alimenta o menu da interface › devolve papel e organização de quem está logado (328ms)
+  ok 1590 [api] › tests\e2e\session.spec.ts:82:7 › B4 · /api/me alimenta o menu da interface › operador da plataforma é identificado (397ms)
+  ok 1591 [api] › tests\e2e\session.spec.ts:90:7 › B4 · painel da plataforma só para o operador › admin de cliente recebe 403 (125ms)
+  ok 1592 [api] › tests\e2e\session.spec.ts:93:7 › B4 · painel da plataforma só para o operador › operador da plataforma recebe 200 (363ms)
+  ok 1593 [api] › tests\e2e\session.spec.ts:103:7 › B4 · atendente só enxerga o que é seu › lista de conversas contém só as conversas do próprio agente (211ms)
+  ok 1594 [api] › tests\e2e\session.spec.ts:108:7 › B4 · atendente só enxerga o que é seu › conversa de outro agente da mesma organização → 404 (387ms)
+  ok 1595 [api] › tests\e2e\session.spec.ts:115:7 › B4 · atendente só enxerga o que é seu › alertas e recuperação: só os próprios (423ms)
+  ok 1596 [api] › tests\e2e\session.spec.ts:121:7 › B4 · atendente só enxerga o que é seu › dashboard do atendente não traz o ranking dos colegas (318ms)
+  ok 1597 [api] › tests\e2e\settings-config-effect.spec.ts:13:7 › Privacidade · números excluídos do monitoramento › número na lista: o que já existia sai das telas e mensagens novas não são guardadas nem analisadas (3.6s)
+  ok 1598 [api] › tests\e2e\settings-config-effect.spec.ts:54:7 › Financeiro · teto, amostra mínima e exibir estimativas › teto por oportunidade limita o valor estimado e o "Como calculamos" explica (2.6s)
+  ok 1599 [api] › tests\e2e\settings-config-effect.spec.ts:74:7 › Financeiro · teto, amostra mínima e exibir estimativas › amostra mínima: com N vendas confirmadas o ticket passa a ser a média delas (3.4s)
+  ok 1600 [api] › tests\e2e\settings-config-effect.spec.ts:96:7 › Financeiro · teto, amostra mínima e exibir estimativas › "Exibir estimativas" desligado: Conversas não mostram valor; ligado de novo, voltam (2.5s)
+  ok 1601 [api] › tests\e2e\settings-config-effect.spec.ts:117:7 › Notificações › Relatórios agendados viram o agendamento real › diário/semanal salvos nas Configurações (ou no onboarding) mudam o Relatório Diário e o Semanal (1.5s)
+  ok 1602 [api] › tests\e2e\settings-config-effect.spec.ts:149:7 › Privacidade · mascaramento automático e exportação pelo titular › mascaramento desligado: mensagens novas ficam como chegaram; ligado (padrão), mascaradas (1.8s)
+  ok 1603 [api] › tests\e2e\settings-config-effect.spec.ts:172:7 › Privacidade · mascaramento automático e exportação pelo titular › exportação pelo titular: desligada = 403; ligada sai com base legal e encarregado (2.2s)
+  ok 1604 [api] › tests\e2e\settings-effect.spec.ts:12:7 › P2 · horário comercial e regra fora do expediente › "ignora": fora do expediente o cliente não conta como esperando → sem alerta; "atraso": conta → alerta (28.3s)
+  ok 1605 [api] › tests\e2e\settings-effect.spec.ts:25:7 › P2 · horário comercial e regra fora do expediente › "alerta, mas não pune": o alerta dispara, mas a nota da conversa não cai por espera fora do expediente (29.5s)
+  ok 1606 [api] › tests\e2e\settings-effect.spec.ts:45:7 › P2 · horário comercial e regra fora do expediente › expediente 24 h com "ignora" conta tudo (equivale ao tempo corrido) (14.4s)
+  x  1607 [api] › tests\e2e\settings-effect.spec.ts:56:7 › P2 · SLA de primeira resposta na nota › a mesma demora vale nota diferente conforme o SLA da empresa (30.0s)
+  ok 1608 [api] › tests\e2e\settings-effect.spec.ts:78:7 › P2 · encerramento por inatividade, abandono e reabertura › sem mensagens por mais tempo que "Encerramento por inatividade" → conversa encerrada e alertas resolvidos (19.0s)
+  x  1609 [api] › tests\e2e\settings-effect.spec.ts:91:7 › P2 · encerramento por inatividade, abandono e reabertura › cliente com oportunidade que some por mais que "Tempo de abandono" → perdido por abandono (opportunidade e conversa) (30.0s)
+  ok 1610 [api] › tests\e2e\settings-effect.spec.ts:115:7 › P2 · encerramento por inatividade, abandono e reabertura › mensagem nova dentro da "Janela de reabertura" reabre a MESMA conversa; fora dela abre outra (18.5s)
+  ok 1611 [api] › tests\e2e\settings-empresa.spec.ts:6:7 › Configurações › Dados da empresa › nome empresarial é salvo; vazio é recusado e não apaga o anterior (965ms)
+  ok 1612 [api] › tests\e2e\simulacao.spec.ts:37:7 › acesso › sem sessão → 401; admin de empresa cliente → 403; operador → 200 (1.1s)
+  ok 1613 [api] › tests\e2e\simulacao.spec.ts:53:7 › acesso › e-mail de operador sem conta não entra com a antiga senha pública de demonstração (243ms)
+  ok 1614 [api] › tests\e2e\simulacao.spec.ts:62:7 › acesso › Bearer: segredo certo → 200; errado ou o do gateway → 401 (sem cair para a sessão) (361ms)
+  ok 1615 [api] › tests\e2e\simulacao.spec.ts:77:7 › acesso › desligado (sem SIMULATION_ENABLED=on): o CLI recusa com código 2 (654ms)
+(node:39172) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  ok 1616 [api] › tests\e2e\simulacao.spec.ts:87:7 › cenários › todos os cenários verdes pela API (operador) (1.5m)
+  ok 1617 [api] › tests\e2e\simulacao.spec.ts:103:7 › cenários › pelo CLI (como o agente de IA): rodar um cenário com --json sai com 0 (12.7s)
+  ok 1618 [api] › tests\e2e\simulacao.spec.ts:115:7 › cenários › cenário inexistente → 400 (340ms)
+  ok 1619 [api] › tests\e2e\simulacao.spec.ts:121:7 › isolamento › empresa simulada fica fora de e-mail, webhook, eventos de produto, motor agendado, login e Admin (36.8s)
+  ok 1620 [api] › tests\e2e\simulacao.spec.ts:210:7 › isolamento › empresa REAL nunca é alcançada: retrato, injetar e tick respondem 404 (594ms)
+  ok 1621 [api] › tests\e2e\supervisor-scope.spec.ts:7:5 › supervisor da Recepção vê a Recepção e o não atribuído; não vê o Comercial (18.5s)
+  ok 1622 [api] › tests\e2e\supervisor-scope.spec.ts:68:5 › Visão Geral do supervisor da Recepção não conta nada do Comercial (4.7s)
+[WebServer] [support] SUPPORT_EMAIL não definido: chamado cmvvt8ifv0r7alrl0j3sw66f9 salvo sem aviso por e-mail (veja em Admin › Suporte)
+[WebServer] [support] SUPPORT_EMAIL não definido: chamado cmvvt8ij40r7clrl02sd0qoib salvo sem aviso por e-mail (veja em Admin › Suporte)
+  ok 1623 [api] › tests\e2e\support.spec.ts:21:5 › abre chamado com e sem captura; valida tipo e tamanho da imagem; o operador vê, abre a imagem e resolve (3.1s)
+[WebServer] [support] SUPPORT_EMAIL não definido: chamado cmvvt8kot0r81lrl0j403gwde salvo sem aviso por e-mail (veja em Admin › Suporte)
+  ok 1624 [api] › tests\e2e\support.spec.ts:84:5 › o operador responde: e-mail ao autor (EmailOutbox), resposta registrada no chamado, aberto → respondido → fechado (2.1s)
+  ok 1625 [api] › tests\e2e\support.spec.ts:128:5 › assunto e mensagem obrigatórios; corpo precisa ser multipart (969ms)
+[WebServer] [support] SUPPORT_EMAIL não definido: chamado cmvvt8n7i0r9flrl0zqzdp8kt salvo sem aviso por e-mail (veja em Admin › Suporte)
+[WebServer] [support] SUPPORT_EMAIL não definido: chamado cmvvt8n9l0r9hlrl0k9c0gl9j salvo sem aviso por e-mail (veja em Admin › Suporte)
+[WebServer] [support] SUPPORT_EMAIL não definido: chamado cmvvt8nc80r9jlrl0mpm0pd0l salvo sem aviso por e-mail (veja em Admin › Suporte)
+[WebServer] [support] SUPPORT_EMAIL não definido: chamado cmvvt8nhe0r9llrl015zwx3zh salvo sem aviso por e-mail (veja em Admin › Suporte)
+[WebServer] [support] SUPPORT_EMAIL não definido: chamado cmvvt8njv0r9nlrl00mxr06l9 salvo sem aviso por e-mail (veja em Admin › Suporte)
+  ok 1626 [api] › tests\e2e\support.spec.ts:136:5 › limite de chamados por hora: o sexto seguido recebe 429 (1.4s)
+[WebServer] [support] SUPPORT_EMAIL não definido: chamado cmvvt8nzl0raclrl0lmipmvpp salvo sem aviso por e-mail (veja em Admin › Suporte)
+  ok 1627 [api] › tests\e2e\support.spec.ts:144:5 › isolamento: admin de outra empresa não vê o chamado nem acessa as rotas do operador (2.3s)
+  ok 1628 [api] › tests\e2e\support.spec.ts:172:5 › status público: a página e o JSON respondem 200 sem login (3.3s)
+  ok 1629 [api] › tests\e2e\tour-audio.spec.ts:24:5 › sem login: 401 (25ms)
+  ok 1630 [api] › tests\e2e\tour-audio.spec.ts:30:5 › capítulo ou passo inexistente: 404 (e nenhum texto livre é aceito) (545ms)
+  ok 1631 [api] › tests\e2e\tour-audio.spec.ts:37:5 › capítulo que o papel não vê: 404 (867ms)
+  ok 1632 [api] › tests\e2e\tour-audio.spec.ts:46:5 › o servidor avisa que tem a narração em áudio (174ms)
+  ok 1633 [api] › tests\e2e\tour-audio.spec.ts:51:5 › gera uma vez, depois serve do cache com o mesmo ETag; If-None-Match devolve 304 (688ms)
+  ok 1634 [api] › tests\e2e\tour-audio.spec.ts:88:5 › pedidos simultâneos do mesmo passo geram o áudio uma vez só (349ms)
+  ok 1635 [api] › tests\e2e\webhooks.spec.ts:53:7 › P4 · webhook: configuração › cria, altera, troca o segredo e remove; segredo só aparece uma vez; tudo vai para a auditoria (3.2s)
+  ok 1636 [api] › tests\e2e\webhooks.spec.ts:108:7 › P4 · webhook: configuração › só admin e gestor acessam (os demais papéis recebem 403) (4.3s)
+  ok 1637 [api] › tests\e2e\webhooks.spec.ts:126:7 › P4 · webhook: configuração › SSRF: recusa http, localhost, IPs internos/privados/link-local e URLs com credencial (3.0s)
+  ok 1638 [api] › tests\e2e\webhooks.spec.ts:152:7 › P4 · webhook: entrega › alerta criado e resolvido chegam assinados (HMAC do corpo cru), sem dados de cliente; "Enviar teste" funciona (2.9s)
+  ok 1639 [api] › tests\e2e\webhooks.spec.ts:219:7 › P4 · webhook: entrega › falha é repetida pela fila (até 3 tentativas) e o último status aparece na configuração (4.6s)
+
+
+  1) [api] › tests\e2e\analysis-outcomes.spec.ts:199:7 › B6 · reanálise respeita a correção humana › correção da intenção para "não é venda" sobrevive à reanálise e tira o valor em risco; corrigir intenção vazia funciona 
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: test-results\e2e-analysis-outcomes-B6-·-74a3c-gir-intenção-vazia-funciona-api\error-context.md
+
+  2) [api] › tests\e2e\nfse.spec.ts:47:5 › fatura paga vira NFS-e emitida, uma só; renovação gera outra com o número seguinte; reembolso cancela 
+
+    Error: Test timeout of 30000ms exceeded
+
+      39 |     const doc = await testDb.nfseDocument.findUnique({ where: { billingInvoiceId: invoiceId } })
+      40 |     return doc?.status
+    > 41 |   }, { timeout: 30_000, intervals: [300, 500, 1000] }).toBe(status)
+         |                                                        ^
+      42 |   await gw.dispose()
+      43 |   return (await testDb.nfseDocument.findUniqueOrThrow({ where: { billingInvoiceId: invoiceId } }))
+      44 | }
+        at ate (D:\ALC\clientes\alc\sistemas-proprios\atende-radar\.claude\worktrees\crm\tests\e2e\nfse.spec.ts:41:56)
+        at D:\ALC\clientes\alc\sistemas-proprios\atende-radar\.claude\worktrees\crm\tests\e2e\nfse.spec.ts:71:16
+
+    Error Context: test-results\e2e-nfse-fatura-paga-vira--5a031--seguinte-reembolso-cancela-api\error-context.md
+
+  3) [api] › tests\e2e\settings-effect.spec.ts:56:7 › P2 · SLA de primeira resposta na nota › a mesma demora vale nota diferente conforme o SLA da empresa 
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: test-results\e2e-settings-effect-P2-·-S-1e3aa-e-conforme-o-SLA-da-empresa-api\error-context.md
+
+  4) [api] › tests\e2e\settings-effect.spec.ts:91:7 › P2 · encerramento por inatividade, abandono e reabertura › cliente com oportunidade que some por mais que "Tempo de abandono" → perdido por abandono (opportunidade e conversa) 
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: test-results\e2e-settings-effect-P2-·-e-80506-o-opportunidade-e-conversa--api\error-context.md
+
+  4 failed
+    [api] › tests\e2e\analysis-outcomes.spec.ts:199:7 › B6 · reanálise respeita a correção humana › correção da intenção para "não é venda" sobrevive à reanálise e tira o valor em risco; corrigir intenção vazia funciona 
+    [api] › tests\e2e\nfse.spec.ts:47:5 › fatura paga vira NFS-e emitida, uma só; renovação gera outra com o número seguinte; reembolso cancela 
+    [api] › tests\e2e\settings-effect.spec.ts:56:7 › P2 · SLA de primeira resposta na nota › a mesma demora vale nota diferente conforme o SLA da empresa 
+    [api] › tests\e2e\settings-effect.spec.ts:91:7 › P2 · encerramento por inatividade, abandono e reabertura › cliente com oportunidade que some por mais que "Tempo de abandono" → perdido por abandono (opportunidade e conversa) 
+  14 skipped
+  7 did not run
+  1614 passed (31.4m)
+
