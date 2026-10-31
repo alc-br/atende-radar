@@ -31,7 +31,10 @@ Rascunhos fora do Git, no scratchpad da sessão
 2. **FEITO (13:20):** marcadores do QA-MESTRE preenchidos e `<<TESTES>>` do `$S/pr-body.md`. Era: preencher em `docs/crm/QA-MESTRE-RESULTADO.md` os marcadores `<<REGRESSAO-LINHA>>`, `<<REGRESSAO>>`,
    `<<REGRESSAO-SIT>>`, `<<ITEM2>>`, `<<ITEM12>>`; acrescentar a linha na doc 08 § 3 e no EXECUCAO. Falha = corrigir e
    rodar direcionada antes.
-3. **Commits por caminho**: script pronto `$S/commits.sh` (4 commits: código+migrações; testes+config+CI; docs; por
+3. **FEITO (13:30):** 4 commits (d52061a código, 035e1d5 testes, d6c35d3 docs, cf1aeb4 guia das telas), push da
+   branch e **PR [alc-br/atende-radar#3](https://github.com/alc-br/atende-radar/pull/3)** aberto para a `main`, vinculado
+   à sessão (Auto-fix ligado pelo app; merge automático desligado). Depois, um commit de docs com o commit e o PR no
+   QA-MESTRE. **Não fazer merge** sem o OK do dono (o merge na `main` faz deploy de produção). Era: **Commits por caminho**: script pronto `$S/commits.sh` (4 commits: código+migrações; testes+config+CI; docs; por
    último `tour-overlay.tsx` sozinho). Nunca `-A`; fora: `.env*`, `AGENTS.md`, `CLAUDE.md`, `prisma/dev.db*`,
    `migration_lock.toml`, `.claude/`, `.tmp*`. Depois `git fetch` + `git merge-base --is-ancestor origin/main HEAD`,
    push com a saída saneada, **PR para `main` sem merge automático** com `$S/pr-body.md` (preencher `<<SHA-TOUR>>` e

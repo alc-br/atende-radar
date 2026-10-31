@@ -21,8 +21,8 @@ empresa (D7) e nada foi publicado em produção.
 |---|---|
 | Branch | `crm/integracao` (fora da `main`; nada foi publicado em produção) |
 | Base | `eac8042` (`origin/main` em 30/10/2026 16:56) |
-| Commit homologado | <<COMMIT>> |
-| PR | <<PR>> |
+| Commit homologado | `cf1aeb4` na branch `crm/integracao` (o código de produto é o mesmo da completa nº 5 e da direcionada seguinte; depois dela só mudaram documentos) |
+| PR | [alc-br/atende-radar#3](https://github.com/alc-br/atende-radar/pull/3), para a `main`, sem merge automático |
 | Arquitetura | nativa, B (`ADR-001-arquitetura-crm.md`): mesmo app, mesmo deploy, mesmo SQLite. Open Mercato descartado pela POC (`02-poc-open-mercato.md`) |
 | Migrações | `20261031120000_crm_base` (16 tabelas `Crm*` e 45 índices, só `CREATE`) e `20261031140000_crm_indices_empresa` (2 índices, só `CREATE INDEX`). Nenhuma tabela existente muda |
 | Flag | `crm.enabled` desligada em toda empresa (D7); `CRM_DISABLED=1` desliga para todas |
