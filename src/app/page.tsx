@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { signOut, useSession } from 'next-auth/react'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { AppHeader } from '@/components/layout/app-header'
@@ -41,6 +42,22 @@ import { LockedShell } from '@/components/layout/locked-shell'
 import { onAppHost } from '@/lib/hosts'
 import { dl, once } from '@/lib/datalayer'
 
+// CRM comercial (docs/crm): telas em pacote separado, baixadas só por quem abre o grupo "Comercial" (empresa com o CRM
+// ligado). Quem usa só a auditoria não carrega nada disto.
+// O Next exige o objeto de opções escrito em cada dynamic() (não aceita uma constante).
+function CrmLoading() {
+  return <div className="cartao vazio" aria-busy="true">Carregando…</div>
+}
+const CrmOverviewView = dynamic(() => import('@/components/crm/overview-view'), { loading: CrmLoading })
+const CrmDealsView = dynamic(() => import('@/components/crm/deals-view'), { loading: CrmLoading })
+const CrmDealDetail = dynamic(() => import('@/components/crm/deal-detail'), { loading: CrmLoading })
+const CrmContactsView = dynamic(() => import('@/components/crm/contacts-view'), { loading: CrmLoading })
+const CrmContactDetail = dynamic(() => import('@/components/crm/contact-detail'), { loading: CrmLoading })
+const CrmCompaniesView = dynamic(() => import('@/components/crm/companies-view'), { loading: CrmLoading })
+const CrmCompanyDetail = dynamic(() => import('@/components/crm/company-detail'), { loading: CrmLoading })
+const CrmActivitiesView = dynamic(() => import('@/components/crm/activities-view'), { loading: CrmLoading })
+const CrmSettingsView = dynamic(() => import('@/components/crm/crm-settings-view'), { loading: CrmLoading })
+
 // Medição (docs/operacao/medicao.md): quem é interno ganha o cookie ar_internal (site e app; o <head> manda
 // traffic_type=internal ao dataLayer) e a 1ª conexão do WhatsApp vira o evento "activation", uma vez por navegador.
 function measure(d: { internal?: boolean; activation?: { eventId: string } | null }) {
@@ -57,10 +74,10 @@ function measure(d: { internal?: boolean; activation?: { eventId: string } | nul
 const NO_AUTO_TOUR = new Set(['dashboard', 'plans', 'checkout'])
 // Telas que abrem com a empresa bloqueada (sem plano) e telas que um link (#tela) pode abrir.
 const LOCK_OPEN_VIEWS = new Set<string>(['plans', 'checkout', 'profile', 'help'])
-const HASH_VIEWS = new Set<View>(['dashboard', 'alerts', 'conversations', 'recovery', 'team', 'reports', 'connections', 'settings', 'members', 'teams', 'plans', 'notifications', 'profile', 'help', 'system-tour', 'admin'])
+const HASH_VIEWS = new Set<View>(['dashboard', 'alerts', 'conversations', 'recovery', 'team', 'reports', 'connections', 'settings', 'members', 'teams', 'plans', 'notifications', 'profile', 'help', 'system-tour', 'admin', 'crm-overview', 'crm-deals', 'crm-contacts', 'crm-activities'])
 
 function MainContent() {
-  const { currentView, selectedConversationId, selectedAgentId, mobileNavOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
+  const { currentView, selectedConversationId, selectedAgentId, selectedCrmId, mobileNavOpen, showLogin, setShowLanding, setShowLogin } = useAppStore()
   const { status } = useSession()
   const seenTours = useAppStore((s) => s.seenTours)
   const toursLoaded = useAppStore((s) => s.toursLoaded)
@@ -118,7 +135,7 @@ function MainContent() {
         if (d) measure(d)
         return d
       })
-      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName, organizationLogoUrl: d.organizationLogoUrl ?? null, organizationDeletion: d.organizationDeletion ?? null, subscriptionLock: d.subscriptionLock ?? null } : null))
+      .then((d) => setMe(d ? { ...d.member, isPlatformOperator: d.isPlatformOperator, organizationName: d.organizationName, organizationLogoUrl: d.organizationLogoUrl ?? null, organizationDeletion: d.organizationDeletion ?? null, subscriptionLock: d.subscriptionLock ?? null, crm: d.crm } : null))
       .catch(() => setMe(null))
   }, [setMe])
   useEffect(() => {
@@ -194,6 +211,8 @@ function MainContent() {
     // Tela que o papel não pode abrir (ex.: link antigo / estado persistido) volta para a Visão Geral.
     const allowed = currentView === 'admin' ? !!me?.isPlatformOperator : !me || canOpenView(me.role, currentView)
     if (!allowed) return <DashboardView />
+    // CRM desligado na empresa (ou /api/me ainda carregando): as telas comerciais não abrem, nem por link
+    if (currentView.startsWith('crm-') && !me?.crm?.enabled) return <DashboardView />
     switch (currentView) {
       case 'dashboard':
         return <DashboardView />
@@ -235,6 +254,24 @@ function MainContent() {
         return <HelpView />
       case 'system-tour':
         return <SystemTourView />
+      case 'crm-overview':
+        return <CrmOverviewView />
+      case 'crm-deals':
+        return <CrmDealsView />
+      case 'crm-deal':
+        return selectedCrmId ? <CrmDealDetail key={selectedCrmId} /> : <CrmDealsView />
+      case 'crm-contacts':
+        return <CrmContactsView />
+      case 'crm-contact':
+        return selectedCrmId ? <CrmContactDetail key={selectedCrmId} /> : <CrmContactsView />
+      case 'crm-companies':
+        return <CrmCompaniesView />
+      case 'crm-company':
+        return selectedCrmId ? <CrmCompanyDetail key={selectedCrmId} /> : <CrmCompaniesView />
+      case 'crm-activities':
+        return <CrmActivitiesView />
+      case 'crm-settings':
+        return <CrmSettingsView />
       case 'landing':
         return <LandingPage />
       case 'login':

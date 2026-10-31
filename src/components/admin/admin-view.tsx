@@ -82,6 +82,7 @@ interface AdminOrganization {
   createdAt: string
   deletionRequestedAt?: string | null
   deletionScheduledFor?: string | null
+  crmEnabled?: boolean
 }
 
 interface AdminPendingDeletion {
@@ -128,6 +129,8 @@ interface AdminData {
     delinquentOrgs?: number
   }
   organizations: AdminOrganization[]
+  /** CRM_DISABLED=1 no servidor: o CRM fica desligado em todas as empresas, valha o que valer a flag. */
+  crmKillSwitch?: boolean
   plans: AdminPlan[]
   pendingDeletions?: AdminPendingDeletion[]
   users: AdminUser[]
@@ -277,6 +280,10 @@ export default function AdminView() {
   const [savingSub, setSavingSub] = useState(false)
   const [subWarning, setSubWarning] = useState<string | null>(null)
 
+  // CRM comercial da organização aberta (D1/D7: desligado por padrão, só o operador libera, uma empresa por vez)
+  const [confirmingCrm, setConfirmingCrm] = useState(false)
+  const [savingCrm, setSavingCrm] = useState(false)
+
   const fetchData = useCallback(async (silent = false, quiet = false): Promise<AdminData | null> => {
     if (!silent) setLoading(true)
     setError(null)
@@ -302,6 +309,31 @@ export default function AdminView() {
     setSubForm({ planId: org.subscription?.planId ?? '', status: org.subscription?.storedStatus ?? 'active', validUntil: '' })
     setConfirmingSub(false)
     setSubWarning(null)
+    setConfirmingCrm(false)
+  }
+
+  const saveCrm = async () => {
+    if (!selectedOrg) return
+    const enabled = !selectedOrg.crmEnabled
+    setSavingCrm(true)
+    try {
+      const res = await fetch(`/api/admin/organizations/${selectedOrg.id}/crm`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error || 'Não foi possível alterar o CRM comercial')
+      toast.success(enabled ? 'CRM comercial ligado nesta empresa.' : 'CRM comercial desligado nesta empresa. Os dados continuam guardados.')
+      setConfirmingCrm(false)
+      const fresh = await fetchData(true, true)
+      const updated = fresh?.organizations.find((o) => o.id === selectedOrg.id)
+      if (updated) setSelectedOrg(updated)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Não foi possível alterar o CRM comercial')
+    } finally {
+      setSavingCrm(false)
+    }
   }
 
   const saveSubscription = async () => {
@@ -913,6 +945,45 @@ export default function AdminView() {
                     <p role="status" data-testid="admin-assinatura-aviso" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-300">
                       {subWarning}
                     </p>
+                  )}
+                </section>
+                <Separator />
+                {/* CRM comercial (docs/crm/09-deploy-e-rollback.md § 3): o mesmo PATCH da API, com confirmação */}
+                <section aria-labelledby="t-crm" className="space-y-3 text-sm" data-testid="admin-crm">
+                  <div>
+                    <h3 id="t-crm" className="font-semibold">CRM comercial</h3>
+                    <p className="text-muted-foreground" data-testid="admin-crm-estado">
+                      {selectedOrg.crmEnabled ? 'Ligado nesta empresa.' : 'Desligado nesta empresa.'}
+                    </p>
+                    {data?.crmKillSwitch && (
+                      <p className="mt-1 text-amber-700 dark:text-amber-400">
+                        O CRM está desligado em todas as empresas pelo servidor (CRM_DISABLED). Mudar aqui só vale quando ele for religado.
+                      </p>
+                    )}
+                  </div>
+                  {!confirmingCrm ? (
+                    <Button type="button" variant="outline" className="w-full" onClick={() => setConfirmingCrm(true)}>
+                      {selectedOrg.crmEnabled ? 'Desligar o CRM comercial' : 'Ligar o CRM comercial'}
+                    </Button>
+                  ) : (
+                    <div role="alertdialog" aria-labelledby="t-confirma-crm" aria-describedby="d-confirma-crm" className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+                      <p id="t-confirma-crm" className="font-semibold">
+                        {selectedOrg.crmEnabled ? 'Desligar o CRM comercial?' : 'Ligar o CRM comercial?'}
+                      </p>
+                      <p id="d-confirma-crm">
+                        {selectedOrg.crmEnabled
+                          ? `${selectedOrg.name}: o menu Comercial some e a sincronização para. Nada é apagado; ao religar, os dados voltam como estavam.`
+                          : `${selectedOrg.name}: o menu Comercial aparece para a equipe e as oportunidades das conversas dos últimos 30 dias viram sugestões. Nenhuma mensagem é enviada.`}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" className="flex-1" disabled={savingCrm} onClick={() => setConfirmingCrm(false)}>
+                          Voltar
+                        </Button>
+                        <Button type="button" className="flex-1" disabled={savingCrm} onClick={() => void saveCrm()}>
+                          {savingCrm ? 'Salvando...' : 'Confirmar'}
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </section>
               </div>

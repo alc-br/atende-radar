@@ -9,6 +9,7 @@ import { track } from '@/lib/product-events'
 const SCREENS = new Set([
   'dashboard', 'alerts', 'conversations', 'conversation-detail', 'recovery', 'team', 'agent-profile', 'reports',
   'connections', 'settings', 'onboarding', 'members', 'teams', 'plans', 'checkout', 'notifications', 'admin', 'profile',
+  'crm-overview', 'crm-deals', 'crm-deal', 'crm-contacts', 'crm-contact', 'crm-companies', 'crm-company', 'crm-activities', 'crm-settings',
 ])
 
 export async function POST(request: Request) {

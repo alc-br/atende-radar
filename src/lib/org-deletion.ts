@@ -188,6 +188,22 @@ async function wipeOrganization(orgId: string): Promise<{ members: number; conne
       // webhook da empresa (endereço e segredo) e a fila de entregas (sem chave estrangeira: não saem em cascata)
       await tx.webhookDelivery.deleteMany({ where })
       await tx.webhookEndpoint.deleteMany({ where })
+      // CRM comercial (docs/crm): sem chave estrangeira para a empresa (R7), então sai à mão. Negócio antes de etapa e
+      // funil (RESTRICT); histórico do negócio e etapas saem em cascata; tarefas e pessoas só soltam o vínculo (SET NULL)
+      await tx.crmSuggestion.deleteMany({ where })
+      await tx.crmActivity.deleteMany({ where })
+      await tx.crmDeal.deleteMany({ where })
+      await tx.crmPipeline.deleteMany({ where })
+      await tx.crmPerson.deleteMany({ where })
+      await tx.crmCompany.deleteMany({ where })
+      await tx.crmIdentityLink.deleteMany({ where })
+      await tx.crmBusinessLink.deleteMany({ where })
+      await tx.crmOutboxEvent.deleteMany({ where })
+      await tx.crmSyncInbox.deleteMany({ where })
+      await tx.crmSyncCheckpoint.deleteMany({ where })
+      await tx.crmIdempotencyKey.deleteMany({ where })
+      await tx.crmFeatureState.deleteMany({ where })
+      await tx.crmTenantLink.deleteMany({ where })
       await tx.organization.delete({ where: { id: orgId } })
       // e-mails enviados a quem não tem mais conta em lugar nenhum
       const emails = [...new Set(members.map((m) => m.email.toLowerCase()))]

@@ -2,6 +2,7 @@
 import { create } from 'zustand'
 
 export type View = 'dashboard' | 'alerts' | 'conversations' | 'conversation-detail' | 'recovery' | 'team' | 'agent-profile' | 'reports' | 'connections' | 'settings' | 'onboarding' | 'members' | 'teams' | 'plans' | 'checkout' | 'notifications' | 'admin' | 'profile' | 'help' | 'system-tour' | 'landing' | 'login'
+  | 'crm-overview' | 'crm-deals' | 'crm-deal' | 'crm-contacts' | 'crm-contact' | 'crm-companies' | 'crm-company' | 'crm-activities' | 'crm-settings'
 
 interface CurrentOrganization {
   id: string
@@ -18,6 +19,8 @@ interface CurrentOrganization {
 }
 
 interface Me {
+  /** id do membro (OrganizationMember) de quem está logado. */
+  id?: string
   role: string
   name: string
   email: string
@@ -33,6 +36,13 @@ interface Me {
   organizationDeletion?: OrganizationDeletion | null
   /** Empresa sem plano (teste vencido ou assinatura encerrada): só Planos/Pagamento/Perfil abrem. */
   subscriptionLock?: { reason: 'trial_expired' | 'canceled' | 'payment_overdue'; since: string | null } | null
+  /** CRM comercial desta empresa (docs/crm): desligado por padrão; ligado, o menu ganha o grupo "Comercial". */
+  crm?: {
+    enabled: boolean
+    flags: { autoCreateDeals: boolean; suggestStage: boolean; notifications: boolean; exports: boolean }
+    /** Fuso da empresa (IANA): prazos das tarefas mostrados e digitados nele. */
+    timezone?: string
+  }
 }
 
 export interface OrganizationDeletion {
@@ -52,6 +62,8 @@ interface AppState {
   currentView: View
   selectedConversationId: string | null
   selectedAgentId: string | null
+  /** CRM: registro aberto na tela de detalhe (negócio, pessoa ou empresa). */
+  selectedCrmId: string | null
   sidebarOpen: boolean
   period: string
   refreshTrigger: number
@@ -89,6 +101,8 @@ interface AppState {
   startCheckout: (planId: string, cycle: 'monthly' | 'annual') => void
   selectConversation: (id: string | null) => void
   selectAgent: (id: string | null) => void
+  /** Abre o detalhe de um registro do CRM; sem id, volta para a lista. */
+  openCrm: (kind: 'deal' | 'contact' | 'company', id: string | null) => void
   setSidebarOpen: (open: boolean) => void
   setPeriod: (period: string) => void
   incrementRefresh: () => void
@@ -105,6 +119,7 @@ export const useAppStore = create<AppState>((set) => ({
   currentView: 'dashboard',
   selectedConversationId: null,
   selectedAgentId: null,
+  selectedCrmId: null,
   sidebarOpen: true,
   period: '7d',
   refreshTrigger: 0,
@@ -135,6 +150,8 @@ export const useAppStore = create<AppState>((set) => ({
   startCheckout: (planId, cycle) => set({ checkout: { planId, cycle }, currentView: 'checkout' }),
   selectConversation: (id) => set({ selectedConversationId: id, currentView: id ? 'conversation-detail' : 'conversations' }),
   selectAgent: (id) => set({ selectedAgentId: id, currentView: id ? 'agent-profile' : 'team' }),
+  openCrm: (kind, id) =>
+    set({ selectedCrmId: id, currentView: id ? (kind === 'deal' ? 'crm-deal' : kind === 'contact' ? 'crm-contact' : 'crm-company') : kind === 'deal' ? 'crm-deals' : kind === 'contact' ? 'crm-contacts' : 'crm-companies' }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setPeriod: (period) => set({ period }),
   incrementRefresh: () => set((s) => ({ refreshTrigger: s.refreshTrigger + 1 })),

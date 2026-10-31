@@ -50,6 +50,7 @@ import {
 import { useAppStore } from '@/lib/store'
 import { can } from '@/lib/permissions'
 import { Skeleton } from '@/components/ui/skeleton'
+import { RelatedDeals } from '@/components/crm/related-deals'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -685,6 +686,9 @@ export default function ConversationDetail() {
               </div>
             </div>
           </section>
+
+          {/* CRM comercial (só com o CRM ligado e permissão de ver negócios) */}
+          <RelatedDeals conversationId={conversation.id} />
 
           {/* Perguntas em aberto */}
           <section className="cartao bloco">

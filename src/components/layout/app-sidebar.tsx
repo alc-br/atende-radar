@@ -6,6 +6,7 @@ import {
   LayoutGrid, TriangleAlert, MessageSquare, RotateCcw, Users,
   FileChartColumn, Wifi, Settings, UserRound, Building2, CreditCard, ShieldCheck,
   ArrowRight, CircleHelp, Lightbulb, GraduationCap,
+  ChartNoAxesCombined, SquareKanban, Contact, Building, ListChecks, SlidersHorizontal,
 } from 'lucide-react'
 import type { View } from '@/lib/store'
 import { canOpenView } from '@/lib/permissions'
@@ -22,6 +23,16 @@ const mainNavItems: NavItem[] = [
   { view: 'team', icon: Users, label: 'Equipe' },
   { view: 'reports', icon: FileChartColumn, label: 'Relatórios' },
   { view: 'connections', icon: Wifi, label: 'Conexões' },
+]
+
+// CRM comercial (docs/crm): só aparece com o CRM ligado na empresa (me.crm.enabled) e, item a item, pelo papel
+const crmNavItems: NavItem[] = [
+  { view: 'crm-overview', icon: ChartNoAxesCombined, label: 'Visão comercial' },
+  { view: 'crm-deals', icon: SquareKanban, label: 'Negócios' },
+  { view: 'crm-contacts', icon: Contact, label: 'Contatos' },
+  { view: 'crm-companies', icon: Building, label: 'Empresas' },
+  { view: 'crm-activities', icon: ListChecks, label: 'Tarefas' },
+  { view: 'crm-settings', icon: SlidersHorizontal, label: 'Ajustes do CRM' },
 ]
 
 const adminNavItems: NavItem[] = [
@@ -61,7 +72,10 @@ export function AppSidebar() {
     currentView === view ||
     (view === 'conversations' && currentView === 'conversation-detail') ||
     (view === 'team' && currentView === 'agent-profile') ||
-    (view === 'plans' && currentView === 'checkout')
+    (view === 'plans' && currentView === 'checkout') ||
+    (view === 'crm-deals' && currentView === 'crm-deal') ||
+    (view === 'crm-contacts' && currentView === 'crm-contact') ||
+    (view === 'crm-companies' && currentView === 'crm-company')
 
   const go = (view: View) => {
     setView(view)
@@ -90,6 +104,7 @@ export function AppSidebar() {
   }
 
   const admin = adminNavItems.filter(visible)
+  const crm = me?.crm?.enabled ? crmNavItems.filter(visible) : []
   const canSeeReports = !!me && canOpenView(me.role, 'reports')
 
   return (
@@ -112,6 +127,13 @@ export function AppSidebar() {
         {/* Logo fixo em cima, atalhos (promo, treinamento, ajuda) fixos embaixo: só os itens do menu rolam */}
         <div className="lateral__rolagem">
         <nav className="nav-lateral" aria-label="Principal">{mainNavItems.filter(visible).map(renderNavItem)}</nav>
+
+        {crm.length > 0 && (
+          <>
+            <div className="lateral__secao">Comercial</div>
+            <nav className="nav-lateral" aria-label="Comercial" data-tour="nav-crm">{crm.map(renderNavItem)}</nav>
+          </>
+        )}
 
         {admin.length > 0 && (
           <>
